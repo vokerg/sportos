@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sportos
+      POSTGRES_PASSWORD: sportos
+      POSTGRES_DB: sportos
+    ports:
+      - "5432:5432"
+    volumes:
+      - sportos_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sportos -d sportos"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  flyway:
+    image: flyway/flyway:10-alpine
+    command: -connectRetries=60 migrate
+    volumes:
+      - ./flyway/sql:/flyway/sql:ro
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/sportos
+      FLYWAY_USER: sportos
+      FLYWAY_PASSWORD: sportos
+      FLYWAY_SCHEMAS: public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  sportos_pg:

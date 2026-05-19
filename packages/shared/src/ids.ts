@@ -1,0 +1,13 @@
+import { createHash } from 'node:crypto';
+
+export function stableJson(value: unknown): string {
+  return JSON.stringify(value, Object.keys(value as object).sort());
+}
+
+export function sha256(value: string | Buffer): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+export function rowHash(row: unknown): string {
+  return sha256(JSON.stringify(row));
+}

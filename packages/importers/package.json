@@ -1,0 +1,19 @@
+{
+  "name": "@sportos/importers",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@sportos/db": "workspace:*",
+    "@sportos/domain": "workspace:*",
+    "@sportos/shared": "workspace:*",
+    "xlsx": "^0.18.5"
+  }
+}

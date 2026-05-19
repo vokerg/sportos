@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@sportos/shared": ["packages/shared/src/index.ts"],
+      "@sportos/domain": ["packages/domain/src/index.ts"],
+      "@sportos/db": ["packages/db/src/index.ts"],
+      "@sportos/importers": ["packages/importers/src/index.ts"],
+      "@sportos/analytics": ["packages/analytics/src/index.ts"]
+    }
+  }
+}
