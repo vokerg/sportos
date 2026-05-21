@@ -1,4 +1,5 @@
-import { readFile, utils, type WorkBook } from 'xlsx';
+import XLSX from 'xlsx';
+import type { WorkBook } from 'xlsx';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { rowHash, sha256 } from '@sportos/shared';
@@ -21,12 +22,12 @@ export interface WorkbookExtract {
 
 export function readWorkbook(path: string): WorkbookExtract {
   const bytes = readFileSync(path);
-  const workbook = readFile(path, { cellDates: false, cellFormula: true, raw: true, WTF: false });
+  const workbook = XLSX.readFile(path, { cellDates: false, cellFormula: true, raw: true, WTF: false });
   const rows: WorkbookRow[] = [];
 
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
-    const matrix = utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: true, defval: null, blankrows: false });
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: true, defval: null, blankrows: false });
     for (let i = 0; i < matrix.length; i += 1) {
       const cells = matrix[i] ?? [];
       if (cells.every((cell) => cell === null || cell === undefined || cell === '')) continue;
@@ -46,7 +47,7 @@ export function readWorkbook(path: string): WorkbookExtract {
 export function sheetMatrix(workbook: WorkBook, sheetName: string): unknown[][] {
   const sheet = workbook.Sheets[sheetName];
   if (!sheet) return [];
-  return utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: true, defval: null, blankrows: false });
+  return XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: true, defval: null, blankrows: false });
 }
 
 export function normalizeHeader(value: unknown): string {

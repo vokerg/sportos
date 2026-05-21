@@ -7,7 +7,13 @@ export class DailyRepository {
 
   async upsertActivities(rows: NewActivity[]) {
     if (rows.length === 0) return [];
-    return this.db.insertInto('activities').values(rows).returningAll().execute();
+    const inserted = [];
+    const chunkSize = 500;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      inserted.push(...(await this.db.insertInto('activities').values(chunk).returningAll().execute()));
+    }
+    return inserted;
   }
 
   async upsertDailyMetric(facts: DailyMetricFacts, score: DailyScoreResult): Promise<void> {
@@ -63,6 +69,12 @@ export class DailyRepository {
   }
 
   async listDailySummary(limit = 90) {
-    return this.db.selectFrom('v_daily_summary').selectAll().orderBy('metric_date', 'desc').limit(limit).execute();
+    return this.db
+      .selectFrom('v_daily_summary')
+      .selectAll()
+      .where('metric_date', '<=', new Date())
+      .orderBy('metric_date', 'desc')
+      .limit(limit)
+      .execute();
   }
 }

@@ -1,10 +1,10 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Query } from '@nestjs/common';
 import { PerformanceRepository } from '@sportos/db';
 import { DbProvider } from '../db.provider.js';
 
 @Controller('performance')
 export class PerformanceController {
-  constructor(private readonly dbProvider: DbProvider) {}
+  constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
 
   @Get('best')
   async best(@Query('distanceM') distanceM = '5000', @Query('limit') limit = '25') {

@@ -27,7 +27,13 @@ export class ImportsRepository {
 
   async insertSourceRecords(records: NewSourceRecord[]): Promise<SourceRecord[]> {
     if (records.length === 0) return [];
-    return this.db.insertInto('source_records').values(records).returningAll().execute();
+    const inserted: SourceRecord[] = [];
+    const chunkSize = 500;
+    for (let i = 0; i < records.length; i += chunkSize) {
+      const chunk = records.slice(i, i + chunkSize);
+      inserted.push(...(await this.db.insertInto('source_records').values(chunk).returningAll().execute()));
+    }
+    return inserted;
   }
 
   async updateBatchCounts(batchId: string, counts: Partial<Pick<ImportBatch, 'row_count' | 'normalized_count' | 'error_count' | 'warning_count' | 'status'>>): Promise<void> {

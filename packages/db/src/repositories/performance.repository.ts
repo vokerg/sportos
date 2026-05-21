@@ -6,7 +6,13 @@ export class PerformanceRepository {
 
   async insertPerformanceEvents(rows: NewPerformanceEvent[]) {
     if (rows.length === 0) return [];
-    return this.db.insertInto('performance_events').values(rows).returningAll().execute();
+    const inserted = [];
+    const chunkSize = 500;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      inserted.push(...(await this.db.insertInto('performance_events').values(chunk).returningAll().execute()));
+    }
+    return inserted;
   }
 
   async listBestByDistance(distanceM: number, limit = 25) {
