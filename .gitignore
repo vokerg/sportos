@@ -1,9 +1,32 @@
-node_modules
-.dist
-dist
-coverage
+# Dependencies and package-manager state
+node_modules/
+.pnpm-store/
+
+# Build, test, and framework output
+dist/
+.dist/
+coverage/
+.angular/
+.cache/
+
+# Local environment files
 .env
-.DS_Store
+.env.*
+!.env.example
+
+# Logs and operating-system files
 *.log
+.DS_Store
+Thumbs.db
+
+# Editor state
+.idea/
+.vscode/
+
+# Local import data
 data/imports/*
 !data/imports/.gitkeep
+
+# This repository uses pnpm exclusively
+package-lock.json
+yarn.lock
