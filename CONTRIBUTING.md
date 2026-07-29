@@ -36,6 +36,19 @@ Use pnpm exclusively. Do not commit `package-lock.json`, `yarn.lock`, framework 
 
 Keep dependencies pointing toward shared, pure packages. Avoid importing application code into domain packages.
 
+### TypeScript workspace builds
+
+Node packages and applications are TypeScript composite projects connected through project references. Keep runtime imports on workspace package names such as `@sportos/db`; do not replace them with sibling relative imports.
+
+When adding or removing a workspace dependency:
+
+1. update the consumer's `package.json` dependency;
+2. update the consumer's `tsconfig.json` `references` list;
+3. keep the provider's public surface exported through `src/index.ts`;
+4. preserve `dist/index.js` and `dist/index.d.ts` as the package runtime/type entry points.
+
+Root `pnpm typecheck` builds the referenced Node project graph from a clean checkout before running the Angular typecheck. It may create ignored `dist` and `.tsbuildinfo` output; that output is validation state, not source, and must not be committed. Use `pnpm clean` to remove referenced-project output.
+
 ## Importer changes
 
 Workbook parsing is a high-risk boundary. An importer change should include:

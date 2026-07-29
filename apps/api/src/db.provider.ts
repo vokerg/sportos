@@ -1,6 +1,5 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { createDb, type Database } from '@sportos/db';
-import type { Kysely } from 'kysely';
+import { createDb, type Database, type Kysely } from '@sportos/db';
 
 @Injectable()
 export class DbProvider implements OnModuleDestroy {

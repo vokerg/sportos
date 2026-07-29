@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
     "outDir": "dist",
     "rootDir": "src",
     "module": "NodeNext",
@@ -8,5 +9,9 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true
   },
+  "references": [
+    { "path": "../../packages/db" },
+    { "path": "../../packages/importers" }
+  ],
   "include": ["src/**/*.ts"]
 }
