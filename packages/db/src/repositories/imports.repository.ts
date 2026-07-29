@@ -578,8 +578,8 @@ function jsonPositiveInteger(value: Json | undefined): number | null {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
 }
 
-function jsonb(value: Json) {
-  return sql<Json>`${JSON.stringify(value)}::jsonb`;
+function jsonb(value: Json | undefined) {
+  return sql<Json>`${JSON.stringify(value ?? null)}::jsonb`;
 }
 
 function clampInteger(value: number, minimum: number, maximum: number): number {
