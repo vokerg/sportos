@@ -118,7 +118,12 @@ export class ImportsRepository {
     const inserted: SourceRecord[] = [];
     const chunkSize = 500;
     for (let i = 0; i < records.length; i += chunkSize) {
-      const chunk = records.slice(i, i + chunkSize);
+      const chunk = records.slice(i, i + chunkSize).map((record) => ({
+        ...record,
+        raw_json: jsonb(record.raw_json),
+        errors: jsonb(record.errors),
+        warnings: jsonb(record.warnings),
+      }));
       inserted.push(
         ...(await this.db
           .insertInto('source_records')
@@ -215,13 +220,23 @@ export class ImportsRepository {
       if (diagnostic.severity === 'warning') {
         await this.db
           .updateTable('source_records')
-          .set({ warnings: [...jsonArray(record.warnings), diagnosticToJson({ ...diagnostic, sourceRecordId: record.id })] })
+          .set({
+            warnings: jsonb([
+              ...jsonArray(record.warnings),
+              diagnosticToJson({ ...diagnostic, sourceRecordId: record.id }),
+            ]),
+          })
           .where('id', '=', record.id)
           .execute();
       } else {
         await this.db
           .updateTable('source_records')
-          .set({ errors: [...jsonArray(record.errors), diagnosticToJson({ ...diagnostic, sourceRecordId: record.id })] })
+          .set({
+            errors: jsonb([
+              ...jsonArray(record.errors),
+              diagnosticToJson({ ...diagnostic, sourceRecordId: record.id }),
+            ]),
+          })
           .where('id', '=', record.id)
           .execute();
       }
@@ -561,6 +576,10 @@ function jsonString(value: Json | undefined): string | null {
 
 function jsonPositiveInteger(value: Json | undefined): number | null {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function jsonb(value: Json) {
+  return sql<Json>`${JSON.stringify(value)}::jsonb`;
 }
 
 function clampInteger(value: number, minimum: number, maximum: number): number {
