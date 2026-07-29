@@ -42,7 +42,7 @@ jobs:
       - name: Install Chromium evidence runner
         run: |
           pnpm add -Dw playwright@1.54.1
-          pnpm exec playwright install --with-deps chromium
+          pnpm exec playwright install chromium
 
       - name: Capture reconciliation screenshots
         run: |
