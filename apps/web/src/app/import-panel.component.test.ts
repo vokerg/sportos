@@ -1,7 +1,8 @@
 import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
+import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ApiService,
   ImportBatchDetail,
@@ -65,9 +66,14 @@ const importResult: ImportLocalFilesResponse = {
 };
 
 describe('ImportPanelComponent', () => {
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({});
+  });
+
   it('loads recent history on initialization', () => {
     const api = createApi();
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = createComponent(api);
 
     component.ngOnInit();
 
@@ -78,7 +84,7 @@ describe('ImportPanelComponent', () => {
 
   it('loads a selected batch with source-row diagnostics', () => {
     const api = createApi();
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = createComponent(api);
 
     component.selectBatch(batch);
 
@@ -90,7 +96,7 @@ describe('ImportPanelComponent', () => {
 
   it('clears local paths, refreshes history, and opens the recorded batch after import', () => {
     const api = createApi();
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = createComponent(api);
     component.mySportPath = '/private/person/my-sport.xlsx';
 
     component.import();
@@ -110,7 +116,7 @@ describe('ImportPanelComponent', () => {
         error: { message: 'ENOENT /private/person/my-sport.xlsx' },
       })),
     );
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = createComponent(api);
     component.mySportPath = '/private/person/my-sport.xlsx';
 
     component.import();
@@ -134,7 +140,7 @@ describe('ImportPanelComponent', () => {
     api.importBatchDetail
       .mockReturnValueOnce(of(firstPage))
       .mockReturnValueOnce(of({ ...detail, diagnostics: [secondDiagnostic], diagnosticTotal: 2, diagnosticOffset: 1 }));
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = createComponent(api);
 
     component.selectBatch(batch);
     component.loadMoreDiagnostics();
@@ -145,7 +151,7 @@ describe('ImportPanelComponent', () => {
   });
 
   it('emits an affected date for Daily Log reconciliation', () => {
-    const component = new ImportPanelComponent(createApi() as unknown as ApiService);
+    const component = createComponent(createApi());
     const listener = vi.fn();
     component.reconcileDate.subscribe(listener);
 
@@ -154,6 +160,10 @@ describe('ImportPanelComponent', () => {
     expect(listener).toHaveBeenCalledWith('2026-05-18');
   });
 });
+
+function createComponent(api: ReturnType<typeof createApi>): ImportPanelComponent {
+  return TestBed.runInInjectionContext(() => new ImportPanelComponent(api as unknown as ApiService));
+}
 
 function createApi() {
   return {
