@@ -28,6 +28,7 @@ The source tree contains the first vertical slice:
 - deterministic synthetic workbook fixtures;
 - transactional canonical import orchestration and cross-batch source identities;
 - deterministic TypeScript scoring helpers;
+- a persisted daily score-breakdown API contract;
 - a NestJS API;
 - an Angular review shell with Daily Log, Run Lab, and local import controls;
 - a local CLI importer.
@@ -138,11 +139,93 @@ Workbook assumptions and conservative mappings are documented in [docs/SPREADSHE
 ```text
 GET  /health
 GET  /daily/summary?limit=365
+GET  /daily/:date/score-breakdown
 GET  /performance/best?distanceM=5000&limit=50
 POST /imports/local-files
 ```
 
 `POST /imports/local-files` accepts local filesystem paths and is not an upload endpoint.
+
+### Daily score breakdown
+
+`GET /daily/:date/score-breakdown` reads persisted deterministic results; it does not recalculate a score. `date` must be a real ISO calendar date in `YYYY-MM-DD` format.
+
+The response includes daily facts, app and spreadsheet totals, delta, base/bonus totals, the ledger sum, ordered ledger entries, complete persisted rule configuration, related canonical activities, and source-record/import-batch references when available.
+
+Example, abbreviated for readability:
+
+```json
+{
+  "date": "2026-05-18",
+  "recomputedAt": "2026-05-18T12:00:00.000Z",
+  "facts": {
+    "steps": 12345,
+    "runM": 13000,
+    "bikeM": 35000,
+    "swimM": 1000,
+    "workoutPoints": 8,
+    "powerPoints": 7
+  },
+  "score": {
+    "appTotal": 2460,
+    "excelTotal": 2468,
+    "delta": -8,
+    "baseTotal": 2455,
+    "bonusTotal": 5,
+    "ledgerTotal": 2460
+  },
+  "sourceRecord": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "rowHash": "...",
+    "sheetName": "Sheet1",
+    "rowIndex": 2,
+    "batch": {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "source": "my_sport_xlsx",
+      "filename": "my_sport.xlsx",
+      "originalSha256": "...",
+      "status": "scored",
+      "startedAt": "2026-05-18T11:59:00.000Z",
+      "completedAt": "2026-05-18T12:00:00.000Z"
+    }
+  },
+  "ledger": [
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "points": 5,
+      "reason": "5 km under 25 minutes: +5",
+      "calculation": {
+        "metric": "duration_s",
+        "thresholdOperator": "lt",
+        "thresholdValue": 1500
+      },
+      "createdAt": "2026-05-18T12:00:00.000Z",
+      "rule": {
+        "id": "00000000-0000-4000-8000-000000000004",
+        "code": "run.5k.sub25.bonus",
+        "name": "5 km under 25 minutes",
+        "activityType": "run",
+        "ruleKind": "achievement",
+        "metric": "duration_s",
+        "coefficient": null,
+        "thresholdOperator": "lt",
+        "thresholdValue": 1500,
+        "thresholdUnit": "seconds",
+        "configuredPoints": 5,
+        "validFrom": "2026-01-01",
+        "validTo": null,
+        "priority": 100,
+        "enabled": true,
+        "description": null,
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      },
+      "activity": null
+    }
+  ]
+}
+```
+
+Invalid dates return HTTP `400` with code `INVALID_DATE`. Valid dates without a persisted daily score return HTTP `404` with code `DAILY_SCORE_NOT_FOUND`. Historical rows may have null source or rule references when they cannot be linked conservatively.
 
 ## Validation
 
@@ -191,7 +274,7 @@ The complete mapping belongs in [docs/SPREADSHEET_MAPPING.md](docs/SPREADSHEET_M
 
 The next cohesive product increment is score reconciliation:
 
-1. expose score-ledger detail for one date;
+1. consume the score-breakdown endpoint in the Daily Log;
 2. show app total versus imported spreadsheet total;
 3. explain every delta using source rows and scoring rules;
 4. add import-history and row-level diagnostics;
