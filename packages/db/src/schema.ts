@@ -11,10 +11,10 @@ export interface ImportBatchesTable {
   filename: string | null;
   original_sha256: string | null;
   status: 'started' | 'parsed' | 'normalized' | 'scored' | 'failed';
-  row_count: number;
-  normalized_count: number;
-  error_count: number;
-  warning_count: number;
+  row_count: Generated<number>;
+  normalized_count: Generated<number>;
+  error_count: Generated<number>;
+  warning_count: Generated<number>;
   started_at: Generated<Timestamp>;
   completed_at: Timestamp | null;
   metadata: Json;
