@@ -15,7 +15,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       CI: true
     steps:
@@ -36,11 +36,29 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Start test database
+        run: |
+          docker compose up -d postgres
+          docker compose exec -T postgres sh -c 'until pg_isready -U sportos -d sportos; do sleep 1; done'
+          docker compose exec -T postgres createdb -U sportos sportos_test
+          docker compose run --rm \
+            -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_test \
+            flyway migrate
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Test
         run: pnpm test
 
+      - name: Database import integration
+        env:
+          SPORTOS_TEST_DATABASE_URL: postgres://sportos:sportos@localhost:5432/sportos_test
+        run: pnpm --filter @sportos/importers test:integration
+
       - name: Build
         run: pnpm build
+
+      - name: Stop test services
+        if: always()
+        run: docker compose down -v
