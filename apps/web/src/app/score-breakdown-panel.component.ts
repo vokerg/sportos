@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import type {
   DailyScoreBreakdown,
   JsonValue,
@@ -17,37 +17,38 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
     <section
       class="breakdown-panel"
       aria-live="polite"
-      [attr.aria-busy]="state === 'loading'"
+      [attr.aria-busy]="state() === 'loading'"
       [attr.aria-labelledby]="headingId">
       <header class="panel-header">
         <div>
           <div class="eyebrow">Persisted score explanation</div>
-          <h3 [id]="headingId">{{ date ? 'Daily score · ' + date : 'Daily score breakdown' }}</h3>
+          <h3 [id]="headingId">{{ date() ? 'Daily score · ' + date() : 'Daily score breakdown' }}</h3>
         </div>
-        @if (date) {
+        @if (date()) {
           <button type="button" class="secondary-button" aria-label="Close score breakdown" (click)="closed.emit()">
             Close
           </button>
         }
       </header>
 
-      @if (state === 'idle') {
+      @let current = breakdown();
+      @if (state() === 'idle') {
         <div class="state-box">
           <strong>Select Explain on a daily row.</strong>
           <span>The persisted totals, ledger contributions, activities, and source references will appear here.</span>
         </div>
-      } @else if (state === 'loading') {
+      } @else if (state() === 'loading') {
         <div class="state-box" role="status">
           <strong>Loading score breakdown…</strong>
-          <span>Reading the saved ledger and provenance for {{ date }}.</span>
+          <span>Reading the saved ledger and provenance for {{ date() }}.</span>
         </div>
-      } @else if (state === 'error') {
+      } @else if (state() === 'error') {
         <div class="state-box error-box" role="alert">
           <strong>Score breakdown could not be loaded.</strong>
-          <span>{{ errorMessage || 'The API returned an unexpected error.' }}</span>
+          <span>{{ errorMessage() || 'The API returned an unexpected error.' }}</span>
           <button type="button" (click)="retry.emit()">Try again</button>
         </div>
-      } @else if (!breakdown) {
+      } @else if (!current) {
         <div class="state-box">
           <strong>No persisted score is available.</strong>
           <span>This date has no breakdown to display.</span>
@@ -56,45 +57,45 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
         <div class="summary-grid" aria-label="Score reconciliation totals">
           <div class="summary-item">
             <span>App total</span>
-            <strong>{{ formatNumber(breakdown.score.appTotal) }}</strong>
+            <strong>{{ formatNumber(current.score.appTotal) }}</strong>
           </div>
-          <div class="summary-item" [class.unavailable]="breakdown.score.excelTotal === null">
+          <div class="summary-item" [class.unavailable]="current.score.excelTotal === null">
             <span>Excel total</span>
-            <strong>{{ breakdown.score.excelTotal === null ? 'Not available' : formatNumber(breakdown.score.excelTotal) }}</strong>
+            <strong>{{ current.score.excelTotal === null ? 'Not available' : formatNumber(current.score.excelTotal) }}</strong>
           </div>
-          <div class="summary-item delta-card" [attr.data-delta]="deltaKind(breakdown.score.delta)">
+          <div class="summary-item delta-card" [attr.data-delta]="deltaKind(current.score.delta)">
             <span>Delta vs Excel</span>
-            <strong>{{ deltaValue(breakdown.score.delta) }}</strong>
-            <small>{{ deltaDescription(breakdown.score.delta) }}</small>
+            <strong>{{ deltaValue(current.score.delta) }}</strong>
+            <small>{{ deltaDescription(current.score.delta) }}</small>
           </div>
           <div class="summary-item">
             <span>Base</span>
-            <strong>{{ formatNumber(breakdown.score.baseTotal) }}</strong>
+            <strong>{{ formatNumber(current.score.baseTotal) }}</strong>
           </div>
           <div class="summary-item">
             <span>Bonus</span>
-            <strong>{{ formatSigned(breakdown.score.bonusTotal) }}</strong>
+            <strong>{{ formatSigned(current.score.bonusTotal) }}</strong>
           </div>
-          <div class="summary-item" [class.mismatch]="!ledgerMatchesAppTotal(breakdown)">
+          <div class="summary-item" [class.mismatch]="!ledgerMatchesAppTotal(current)">
             <span>Ledger sum</span>
-            <strong>{{ formatNumber(ledgerSum(breakdown)) }}</strong>
-            <small>{{ ledgerMatchesAppTotal(breakdown) ? 'Matches app total' : 'Does not match app total' }}</small>
+            <strong>{{ formatNumber(ledgerSum(current)) }}</strong>
+            <small>{{ ledgerMatchesAppTotal(current) ? 'Matches app total' : 'Does not match app total' }}</small>
           </div>
         </div>
 
         <div class="provenance-banner">
           <div>
             <strong>Daily source</strong>
-            <span>{{ sourceSummary(breakdown.sourceRecord) }}</span>
+            <span>{{ sourceSummary(current.sourceRecord) }}</span>
           </div>
-          @if (breakdown.sourceRecord) {
+          @if (current.sourceRecord) {
             <details>
               <summary>Source details</summary>
               <dl>
-                <dt>Batch</dt><dd>{{ breakdown.sourceRecord.batch.id }}</dd>
-                <dt>Workbook</dt><dd>{{ breakdown.sourceRecord.batch.filename || breakdown.sourceRecord.batch.source }}</dd>
-                <dt>File hash</dt><dd class="hash">{{ breakdown.sourceRecord.batch.originalSha256 || 'Unavailable' }}</dd>
-                <dt>Row hash</dt><dd class="hash">{{ breakdown.sourceRecord.rowHash }}</dd>
+                <dt>Batch</dt><dd>{{ current.sourceRecord.batch.id }}</dd>
+                <dt>Workbook</dt><dd>{{ current.sourceRecord.batch.filename || current.sourceRecord.batch.source }}</dd>
+                <dt>File hash</dt><dd class="hash">{{ current.sourceRecord.batch.originalSha256 || 'Unavailable' }}</dd>
+                <dt>Row hash</dt><dd class="hash">{{ current.sourceRecord.rowHash }}</dd>
               </dl>
             </details>
           }
@@ -103,15 +104,15 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
         <div class="ledger-heading">
           <div>
             <h4>Ledger contributions</h4>
-            <p>{{ breakdown.ledger.length }} persisted contribution{{ breakdown.ledger.length === 1 ? '' : 's' }}</p>
+            <p>{{ current.ledger.length }} persisted contribution{{ current.ledger.length === 1 ? '' : 's' }}</p>
           </div>
-          <span class="recomputed">Recomputed {{ breakdown.recomputedAt }}</span>
+          <span class="recomputed">Recomputed {{ current.recomputedAt }}</span>
         </div>
 
-        @if (breakdown.ledger.length === 0) {
+        @if (current.ledger.length === 0) {
           <div class="state-box">
             <strong>No ledger entries were persisted.</strong>
-            <span>The app total for this date is {{ formatNumber(breakdown.score.appTotal) }}.</span>
+            <span>The app total for this date is {{ formatNumber(current.score.appTotal) }}.</span>
           </div>
         } @else {
           <div class="ledger-scroll" tabindex="0" aria-label="Score ledger table; scroll horizontally for more columns">
@@ -126,7 +127,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
                 </tr>
               </thead>
               <tbody>
-                @for (entry of breakdown.ledger; track entry.id) {
+                @for (entry of current.ledger; track entry.id) {
                   <tr>
                     <td>
                       <strong>{{ entry.rule?.name || 'Rule unavailable' }}</strong>
@@ -295,12 +296,12 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
   `],
 })
 export class ScoreBreakdownPanelComponent {
-  @Input() state: ScoreBreakdownViewState = 'idle';
-  @Input() date: string | null = null;
-  @Input() breakdown: DailyScoreBreakdown | null = null;
-  @Input() errorMessage: string | null = null;
-  @Output() retry = new EventEmitter<void>();
-  @Output() closed = new EventEmitter<void>();
+  readonly state = input<ScoreBreakdownViewState>('idle');
+  readonly date = input<string | null>(null);
+  readonly breakdown = input<DailyScoreBreakdown | null>(null);
+  readonly errorMessage = input<string | null>(null);
+  readonly retry = output<void>();
+  readonly closed = output<void>();
 
   readonly headingId = 'daily-score-breakdown-heading';
   private readonly numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
