@@ -154,15 +154,26 @@ pnpm test
 pnpm build
 ```
 
-Database-backed import validation requires a migrated local Postgres instance:
+Database-backed import validation must use a disposable database whose name ends in `_test` or `-test`. The integration suite deletes import-domain rows between cases and refuses to run against the normal `sportos` database.
+
+Create and migrate a local test database once:
 
 ```bash
 pnpm db:up
-pnpm db:migrate
-pnpm --filter @sportos/importers test:integration
+docker compose exec postgres createdb -U sportos sportos_test
+docker compose run --rm \
+  -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_test \
+  flyway
 ```
 
-The integration suite generates synthetic XLSX files, imports each workbook repeatedly, verifies stable canonical row counts and IDs, injects failures at transaction phases, checks rollback behavior, and verifies retry convergence. A skipped or green unit-test run alone does not prove database import behavior.
+Run the integration suite:
+
+```bash
+SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
+  pnpm --filter @sportos/importers test:integration
+```
+
+The integration suite generates synthetic XLSX files, imports each workbook repeatedly, verifies stable canonical row counts and IDs, injects failures at every transaction phase, checks rollback behavior, and verifies retry convergence. A skipped or green unit-test run alone does not prove database import behavior.
 
 ## Current workbook assumptions
 
