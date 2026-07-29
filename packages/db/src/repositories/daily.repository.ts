@@ -1,6 +1,95 @@
 import { sql, type Kysely } from 'kysely';
-import type { DailyMetricFactsInput, DailyScoreInput } from '../repository-contracts.js';
-import type { Activity, Database, Json, NewActivity } from '../schema.js';
+import type {
+  DailyMetricFactsInput,
+  DailyScoreBreakdownReadModel,
+  DailyScoreInput,
+  ScoreBreakdownActivityReadModel,
+  ScoreBreakdownLedgerEntryReadModel,
+  ScoreBreakdownRuleReadModel,
+  SourceRecordReferenceReadModel,
+} from '../repository-contracts.js';
+import type { Activity, ActivitiesTable, Database, ImportBatchesTable, Json, NewActivity } from '../schema.js';
+
+export interface DailyScoreBreakdownHeaderRow {
+  date: string;
+  recomputedAt: Date | string;
+  steps: number;
+  runM: number;
+  bikeM: number;
+  swimM: number;
+  workoutPoints: number;
+  powerPoints: number;
+  baseTotal: number;
+  bonusTotal: number;
+  appTotal: number;
+  excelTotal: number | null;
+  sourceRecordId: string | null;
+  sourceRowHash: string | null;
+  sourceSheetName: string | null;
+  sourceRowIndex: number | null;
+  sourceBatchId: string | null;
+  sourceBatchSource: string | null;
+  sourceBatchFilename: string | null;
+  sourceBatchOriginalSha256: string | null;
+  sourceBatchStatus: ImportBatchesTable['status'] | null;
+  sourceBatchStartedAt: Date | string | null;
+  sourceBatchCompletedAt: Date | string | null;
+}
+
+export interface DailyScoreBreakdownLedgerRow {
+  ledgerId: string;
+  ledgerPoints: number;
+  ledgerReason: string;
+  ledgerCalculation: Json;
+  ledgerCreatedAt: Date | string;
+  ruleId: string | null;
+  ruleCode: string | null;
+  ruleName: string | null;
+  ruleActivityType: ActivitiesTable['activity_type'] | null;
+  ruleKind: 'coefficient' | 'achievement' | 'manual_points' | null;
+  ruleMetric: string | null;
+  ruleCoefficient: number | null;
+  ruleThresholdOperator: 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'exists' | null;
+  ruleThresholdValue: number | null;
+  ruleThresholdUnit: string | null;
+  ruleConfiguredPoints: number | null;
+  ruleValidFrom: string | null;
+  ruleValidTo: string | null;
+  rulePriority: number | null;
+  ruleEnabled: boolean | null;
+  ruleDescription: string | null;
+  ruleCreatedAt: Date | string | null;
+  activityId: string | null;
+  activitySource: ActivitiesTable['source'] | null;
+  activitySourceActivityId: string | null;
+  activityDate: string | null;
+  activityStartTime: Date | string | null;
+  activityType: ActivitiesTable['activity_type'] | null;
+  activitySubtype: ActivitiesTable['subtype'] | null;
+  activityDistanceM: number | null;
+  activityDurationS: number | null;
+  activityMovingTimeS: number | null;
+  activitySteps: number | null;
+  activityCalories: number | null;
+  activityAvgHr: number | null;
+  activityMaxHr: number | null;
+  activityElevationGainM: number | null;
+  activityAvgSpeedMps: number | null;
+  activityAvgPaceSPerKm: number | null;
+  activityEffortPoints: number | null;
+  activityNotes: string | null;
+  activitySourceRecordId: string | null;
+  activitySourceRowHash: string | null;
+  activitySourceSheetName: string | null;
+  activitySourceRowIndex: number | null;
+  activitySourceBatchId: string | null;
+  activitySourceBatchSource: string | null;
+  activitySourceBatchFilename: string | null;
+  activitySourceBatchOriginalSha256: string | null;
+  activitySourceBatchStatus: ImportBatchesTable['status'] | null;
+  activitySourceBatchStartedAt: Date | string | null;
+  activitySourceBatchCompletedAt: Date | string | null;
+}
 
 export class DailyRepository {
   constructor(private readonly db: Kysely<Database>) {}
@@ -120,4 +209,278 @@ export class DailyRepository {
       .limit(limit)
       .execute();
   }
+
+  async getDailyScoreBreakdown(metricDate: string): Promise<DailyScoreBreakdownReadModel | null> {
+    const header = await this.db
+      .selectFrom('daily_metrics as dm')
+      .leftJoin('source_records as dsr', 'dsr.id', 'dm.source_record_id')
+      .leftJoin('import_batches as dib', 'dib.id', 'dsr.import_batch_id')
+      .select([
+        'dm.metric_date as date',
+        'dm.recomputed_at as recomputedAt',
+        'dm.steps as steps',
+        'dm.run_m as runM',
+        'dm.bike_m as bikeM',
+        'dm.swim_m as swimM',
+        'dm.workout_points as workoutPoints',
+        'dm.power_points as powerPoints',
+        'dm.base_points as baseTotal',
+        'dm.bonus_points as bonusTotal',
+        'dm.total_points as appTotal',
+        'dm.excel_all_points as excelTotal',
+        'dsr.id as sourceRecordId',
+        'dsr.row_hash as sourceRowHash',
+        'dsr.sheet_name as sourceSheetName',
+        'dsr.row_index as sourceRowIndex',
+        'dib.id as sourceBatchId',
+        'dib.source as sourceBatchSource',
+        'dib.filename as sourceBatchFilename',
+        'dib.original_sha256 as sourceBatchOriginalSha256',
+        'dib.status as sourceBatchStatus',
+        'dib.started_at as sourceBatchStartedAt',
+        'dib.completed_at as sourceBatchCompletedAt',
+      ])
+      .where('dm.metric_date', '=', metricDate)
+      .executeTakeFirst() as DailyScoreBreakdownHeaderRow | undefined;
+
+    if (!header) return null;
+
+    const ledgerRows = await this.db
+      .selectFrom('score_ledger as sl')
+      .leftJoin('scoring_rules as sr', 'sr.id', 'sl.rule_id')
+      .leftJoin('activities as a', 'a.id', 'sl.activity_id')
+      .leftJoin('source_records as asr', 'asr.id', 'a.source_record_id')
+      .leftJoin('import_batches as aib', 'aib.id', 'asr.import_batch_id')
+      .select([
+        'sl.id as ledgerId',
+        'sl.points as ledgerPoints',
+        'sl.reason as ledgerReason',
+        'sl.calculation_json as ledgerCalculation',
+        'sl.created_at as ledgerCreatedAt',
+        'sr.id as ruleId',
+        'sr.code as ruleCode',
+        'sr.name as ruleName',
+        'sr.activity_type as ruleActivityType',
+        'sr.rule_kind as ruleKind',
+        'sr.metric as ruleMetric',
+        'sr.coefficient as ruleCoefficient',
+        'sr.threshold_operator as ruleThresholdOperator',
+        'sr.threshold_value as ruleThresholdValue',
+        'sr.threshold_unit as ruleThresholdUnit',
+        'sr.points as ruleConfiguredPoints',
+        'sr.valid_from as ruleValidFrom',
+        'sr.valid_to as ruleValidTo',
+        'sr.priority as rulePriority',
+        'sr.enabled as ruleEnabled',
+        'sr.description as ruleDescription',
+        'sr.created_at as ruleCreatedAt',
+        'a.id as activityId',
+        'a.source as activitySource',
+        'a.source_activity_id as activitySourceActivityId',
+        'a.activity_date as activityDate',
+        'a.start_time as activityStartTime',
+        'a.activity_type as activityType',
+        'a.subtype as activitySubtype',
+        'a.distance_m as activityDistanceM',
+        'a.duration_s as activityDurationS',
+        'a.moving_time_s as activityMovingTimeS',
+        'a.steps as activitySteps',
+        'a.calories as activityCalories',
+        'a.avg_hr as activityAvgHr',
+        'a.max_hr as activityMaxHr',
+        'a.elevation_gain_m as activityElevationGainM',
+        'a.avg_speed_mps as activityAvgSpeedMps',
+        'a.avg_pace_s_per_km as activityAvgPaceSPerKm',
+        'a.effort_points as activityEffortPoints',
+        'a.notes as activityNotes',
+        'asr.id as activitySourceRecordId',
+        'asr.row_hash as activitySourceRowHash',
+        'asr.sheet_name as activitySourceSheetName',
+        'asr.row_index as activitySourceRowIndex',
+        'aib.id as activitySourceBatchId',
+        'aib.source as activitySourceBatchSource',
+        'aib.filename as activitySourceBatchFilename',
+        'aib.original_sha256 as activitySourceBatchOriginalSha256',
+        'aib.status as activitySourceBatchStatus',
+        'aib.started_at as activitySourceBatchStartedAt',
+        'aib.completed_at as activitySourceBatchCompletedAt',
+      ])
+      .where('sl.metric_date', '=', metricDate)
+      .orderBy('sr.priority', 'asc')
+      .orderBy('sl.created_at', 'asc')
+      .orderBy('sl.id', 'asc')
+      .execute() as DailyScoreBreakdownLedgerRow[];
+
+    return assembleDailyScoreBreakdown(header, ledgerRows);
+  }
+}
+
+export function assembleDailyScoreBreakdown(
+  header: DailyScoreBreakdownHeaderRow,
+  ledgerRows: DailyScoreBreakdownLedgerRow[],
+): DailyScoreBreakdownReadModel {
+  const ledger = ledgerRows.map(mapLedgerEntry);
+  const ledgerTotal = ledger.reduce((sum, entry) => sum + entry.points, 0);
+  return {
+    date: header.date,
+    recomputedAt: toIsoTimestamp(header.recomputedAt),
+    facts: {
+      steps: header.steps,
+      runM: header.runM,
+      bikeM: header.bikeM,
+      swimM: header.swimM,
+      workoutPoints: header.workoutPoints,
+      powerPoints: header.powerPoints,
+    },
+    score: {
+      appTotal: header.appTotal,
+      excelTotal: header.excelTotal,
+      delta: header.excelTotal === null ? null : header.appTotal - header.excelTotal,
+      baseTotal: header.baseTotal,
+      bonusTotal: header.bonusTotal,
+      ledgerTotal,
+    },
+    sourceRecord: mapHeaderSourceRecord(header),
+    ledger,
+  };
+}
+
+function mapLedgerEntry(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownLedgerEntryReadModel {
+  return {
+    id: row.ledgerId,
+    points: row.ledgerPoints,
+    reason: row.ledgerReason,
+    calculation: row.ledgerCalculation,
+    createdAt: toIsoTimestamp(row.ledgerCreatedAt),
+    rule: mapRule(row),
+    activity: mapActivity(row),
+  };
+}
+
+function mapRule(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownRuleReadModel | null {
+  if (
+    row.ruleId === null ||
+    row.ruleCode === null ||
+    row.ruleName === null ||
+    row.ruleActivityType === null ||
+    row.ruleKind === null ||
+    row.ruleMetric === null ||
+    row.ruleValidFrom === null ||
+    row.rulePriority === null ||
+    row.ruleEnabled === null ||
+    row.ruleCreatedAt === null
+  ) {
+    return null;
+  }
+  return {
+    id: row.ruleId,
+    code: row.ruleCode,
+    name: row.ruleName,
+    activityType: row.ruleActivityType,
+    ruleKind: row.ruleKind,
+    metric: row.ruleMetric,
+    coefficient: row.ruleCoefficient,
+    thresholdOperator: row.ruleThresholdOperator,
+    thresholdValue: row.ruleThresholdValue,
+    thresholdUnit: row.ruleThresholdUnit,
+    configuredPoints: row.ruleConfiguredPoints,
+    validFrom: row.ruleValidFrom,
+    validTo: row.ruleValidTo,
+    priority: row.rulePriority,
+    enabled: row.ruleEnabled,
+    description: row.ruleDescription,
+    createdAt: toIsoTimestamp(row.ruleCreatedAt),
+  };
+}
+
+function mapActivity(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownActivityReadModel | null {
+  if (row.activityId === null || row.activitySource === null || row.activityDate === null || row.activityType === null) {
+    return null;
+  }
+  return {
+    id: row.activityId,
+    source: row.activitySource,
+    sourceActivityId: row.activitySourceActivityId,
+    activityDate: row.activityDate,
+    startTime: toNullableIsoTimestamp(row.activityStartTime),
+    activityType: row.activityType,
+    subtype: row.activitySubtype,
+    distanceM: row.activityDistanceM,
+    durationS: row.activityDurationS,
+    movingTimeS: row.activityMovingTimeS,
+    steps: row.activitySteps,
+    calories: row.activityCalories,
+    avgHr: row.activityAvgHr,
+    maxHr: row.activityMaxHr,
+    elevationGainM: row.activityElevationGainM,
+    avgSpeedMps: row.activityAvgSpeedMps,
+    avgPaceSPerKm: row.activityAvgPaceSPerKm,
+    effortPoints: row.activityEffortPoints,
+    notes: row.activityNotes,
+    sourceRecord: mapActivitySourceRecord(row),
+  };
+}
+
+function mapHeaderSourceRecord(row: DailyScoreBreakdownHeaderRow): SourceRecordReferenceReadModel | null {
+  if (
+    row.sourceRecordId === null ||
+    row.sourceRowHash === null ||
+    row.sourceBatchId === null ||
+    row.sourceBatchSource === null ||
+    row.sourceBatchStatus === null ||
+    row.sourceBatchStartedAt === null
+  ) {
+    return null;
+  }
+  return {
+    id: row.sourceRecordId,
+    rowHash: row.sourceRowHash,
+    sheetName: row.sourceSheetName,
+    rowIndex: row.sourceRowIndex,
+    batch: {
+      id: row.sourceBatchId,
+      source: row.sourceBatchSource,
+      filename: row.sourceBatchFilename,
+      originalSha256: row.sourceBatchOriginalSha256,
+      status: row.sourceBatchStatus,
+      startedAt: toIsoTimestamp(row.sourceBatchStartedAt),
+      completedAt: toNullableIsoTimestamp(row.sourceBatchCompletedAt),
+    },
+  };
+}
+
+function mapActivitySourceRecord(row: DailyScoreBreakdownLedgerRow): SourceRecordReferenceReadModel | null {
+  if (
+    row.activitySourceRecordId === null ||
+    row.activitySourceRowHash === null ||
+    row.activitySourceBatchId === null ||
+    row.activitySourceBatchSource === null ||
+    row.activitySourceBatchStatus === null ||
+    row.activitySourceBatchStartedAt === null
+  ) {
+    return null;
+  }
+  return {
+    id: row.activitySourceRecordId,
+    rowHash: row.activitySourceRowHash,
+    sheetName: row.activitySourceSheetName,
+    rowIndex: row.activitySourceRowIndex,
+    batch: {
+      id: row.activitySourceBatchId,
+      source: row.activitySourceBatchSource,
+      filename: row.activitySourceBatchFilename,
+      originalSha256: row.activitySourceBatchOriginalSha256,
+      status: row.activitySourceBatchStatus,
+      startedAt: toIsoTimestamp(row.activitySourceBatchStartedAt),
+      completedAt: toNullableIsoTimestamp(row.activitySourceBatchCompletedAt),
+    },
+  };
+}
+
+function toIsoTimestamp(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function toNullableIsoTimestamp(value: Date | string | null): string | null {
+  return value === null ? null : toIsoTimestamp(value);
 }
