@@ -91,6 +91,7 @@ export class ImportService {
         const dailyRepo = new DailyRepository(transaction);
         const scoringRepo = new ScoringRepository(transaction);
 
+        await this.injectFailure(phase, { batchId: batch.id, source: 'my_sport_xlsx' });
         const sourceRecords = await this.storeRawRows(importsRepo, batch.id, 'my_sport_xlsx', extract.rows);
         const recordsByLocation = sourceRecordsByLocation(sourceRecords);
         const recordsByHash = new Map(sourceRecords.map((record) => [record.row_hash, record]));
@@ -222,6 +223,7 @@ export class ImportService {
         const importsRepo = new ImportsRepository(transaction);
         const performanceRepo = new PerformanceRepository(transaction);
 
+        await this.injectFailure(phase, { batchId: batch.id, source: 'run_db_xlsx' });
         const sourceRecords = await this.storeRawRows(importsRepo, batch.id, 'run_db_xlsx', extract.rows);
         const recordsByLocation = sourceRecordsByLocation(sourceRecords);
         phase = 'raw-stored';
