@@ -1,4 +1,3 @@
-import type { Kysely } from 'kysely';
 import { scoreDay, type ActivityFact } from '@sportos/domain';
 import { rowHash } from '@sportos/shared';
 import {
@@ -7,6 +6,8 @@ import {
   PerformanceRepository,
   ScoringRepository,
   type Database,
+  type Json,
+  type Kysely,
   type NewActivity,
   type NewPerformanceEvent,
   type NewSourceRecord,
@@ -131,7 +132,7 @@ export class ImportService {
             avg_pace_s_per_km: activity.avgPaceSPerKm ?? null,
             effort_points: activity.effortPoints ?? null,
             notes: activity.notes ?? null,
-            raw_payload_json: activity.rawPayloadJson ?? {},
+            raw_payload_json: toJson(activity.rawPayloadJson ?? {}),
           };
         });
 
@@ -249,7 +250,7 @@ export class ImportService {
             source_rank: event.sourceRank ?? null,
             tags: event.tags,
             notes: event.notes ?? null,
-            raw_payload_json: event.rawPayloadJson ?? {},
+            raw_payload_json: toJson(event.rawPayloadJson ?? {}),
           };
         });
 
@@ -309,7 +310,7 @@ export class ImportService {
       row_index: row.rowIndex,
       source_record_key: sourceRecordLocationKey(row.sheetName, row.rowIndex),
       row_hash: row.hash,
-      raw_json: { cells: row.cells },
+      raw_json: toJson({ cells: row.cells }),
       status: 'raw',
       errors: [],
       warnings: [],
@@ -362,4 +363,10 @@ function toActivityFact(activity: Awaited<ReturnType<DailyRepository['listActivi
     avgSpeedMps: activity.avg_speed_mps ?? undefined,
     effortPoints: activity.effort_points ?? undefined,
   };
+}
+
+function toJson(value: unknown): Json {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) return null;
+  return JSON.parse(serialized) as Json;
 }
