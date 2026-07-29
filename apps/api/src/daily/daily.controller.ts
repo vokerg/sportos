@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
-import { IsoDateSchema } from '@sportos/shared';
+import { IsoDateSchema } from '@sportos/db';
 import { DailyService } from './daily.service.js';
 
 @Controller('daily')
