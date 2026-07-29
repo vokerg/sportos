@@ -98,22 +98,15 @@ describe('ScoreBreakdownPanelComponent', () => {
     expect(component.sourceSummary(null)).toBe('Source link unavailable');
   });
 
-  it('supports loading, error, empty, and loaded component states', () => {
+  it('defaults to the accessible idle and empty state and presents unavailable Excel data explicitly', () => {
     const component = new ScoreBreakdownPanelComponent();
+    const noExcel = { ...breakdown, score: { ...breakdown.score, excelTotal: null, delta: null } };
 
-    component.state = 'loading';
-    component.date = '2026-05-18';
-    expect(component.state).toBe('loading');
-
-    component.state = 'error';
-    component.errorMessage = 'API unavailable';
-    expect(component.errorMessage).toBe('API unavailable');
-
-    component.state = 'loaded';
-    component.breakdown = null;
-    expect(component.breakdown).toBeNull();
-
-    component.breakdown = { ...breakdown, score: { ...breakdown.score, excelTotal: null, delta: null } };
-    expect(component.deltaKind(component.breakdown.score.delta)).toBe('unavailable');
+    expect(component.state()).toBe('idle');
+    expect(component.date()).toBeNull();
+    expect(component.breakdown()).toBeNull();
+    expect(component.errorMessage()).toBeNull();
+    expect(component.deltaKind(noExcel.score.delta)).toBe('unavailable');
+    expect(component.deltaValue(noExcel.score.delta)).toBe('Not available');
   });
 });
