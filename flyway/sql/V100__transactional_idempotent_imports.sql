@@ -4,6 +4,8 @@
 -- are stable across batches, allowing a later import of the same workbook rows to
 -- update/reuse canonical facts rather than append duplicates.
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 ALTER TABLE daily_metrics
   ADD COLUMN IF NOT EXISTS source_record_id uuid;
 
@@ -42,6 +44,54 @@ WHERE dm.source_record_id IS NULL
       AND sr.row_hash = dm.excel_row_hash
   );
 
+-- Activities imported before this migration contain their sheet and row location in
+-- raw_payload_json. Match them to the temporally nearest source record at that
+-- location, then rewrite the old payload hash into the new canonical identity hash.
+UPDATE activities AS activity
+SET source_record_id = (
+  SELECT source_record.id
+  FROM source_records AS source_record
+  WHERE source_record.source = activity.source
+    AND source_record.sheet_name = activity.raw_payload_json ->> 'sheetName'
+    AND source_record.row_index = CASE
+      WHEN (activity.raw_payload_json ->> 'rowIndex') ~ '^[0-9]+$'
+        THEN (activity.raw_payload_json ->> 'rowIndex')::integer
+      ELSE NULL
+    END
+  ORDER BY
+    abs(extract(epoch FROM (source_record.created_at - activity.created_at))),
+    source_record.created_at,
+    source_record.id
+  LIMIT 1
+)
+WHERE activity.source_record_id IS NULL
+  AND activity.source = 'my_sport_xlsx'
+  AND EXISTS (
+    SELECT 1
+    FROM source_records AS source_record
+    WHERE source_record.source = activity.source
+      AND source_record.sheet_name = activity.raw_payload_json ->> 'sheetName'
+      AND source_record.row_index = CASE
+        WHEN (activity.raw_payload_json ->> 'rowIndex') ~ '^[0-9]+$'
+          THEN (activity.raw_payload_json ->> 'rowIndex')::integer
+        ELSE NULL
+      END
+  );
+
+UPDATE activities AS activity
+SET source_record_hash = encode(
+  digest(
+    '{"sourceRowHash":"' || source_record.row_hash
+      || '","entity":"activity","activityType":"' || activity.activity_type
+      || '","subtype":"' || coalesce(activity.subtype, 'unknown') || '"}',
+    'sha256'
+  ),
+  'hex'
+)
+FROM source_records AS source_record
+WHERE activity.source = 'my_sport_xlsx'
+  AND activity.source_record_id = source_record.id;
+
 -- Best-effort provenance backfill for performance rows imported before this
 -- migration. The raw performance payload carries the original sheet, row, and
 -- cells, which can be matched to source_records without interpreting semantics.
@@ -57,7 +107,10 @@ SET source_record_id = (
       ELSE NULL
     END
     AND sr.raw_json -> 'cells' = pe.raw_payload_json -> 'cells'
-  ORDER BY sr.created_at, sr.id
+  ORDER BY
+    abs(extract(epoch FROM (sr.created_at - pe.created_at))),
+    sr.created_at,
+    sr.id
   LIMIT 1
 )
 WHERE pe.source_record_id IS NULL
