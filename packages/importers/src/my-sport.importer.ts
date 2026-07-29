@@ -1,6 +1,36 @@
 import { excelSerialDateToIsoDate } from '@sportos/shared';
 import type { CanonicalActivityInput, DailyMetricInput } from '@sportos/shared';
-import { asNumber, rowObjectFromHeaders, sheetMatrix, type WorkbookExtract } from './xlsx-reader.js';
+import { asNumber, normalizeHeader, rowObjectFromHeaders, sheetMatrix, type WorkbookExtract } from './xlsx-reader.js';
+
+const MY_SPORT_KNOWN_HEADERS = new Set([
+  'date',
+  'steps',
+  'r_in',
+  'r_out',
+  'bike_in',
+  'sup',
+  'hiit',
+  'raw',
+  'bike_out',
+  'wototal',
+  'swim',
+  'pow',
+  'bike',
+  'run',
+  'run_to_s',
+  'bike_to_s',
+  'sup_to_s',
+  'raw_to_s',
+  'swim_to_s',
+  'all',
+  'a10',
+  'a20d',
+  '30all',
+  'a60d',
+  'a365',
+]);
+
+const MY_SPORT_AUXILIARY_SHEETS = new Set(['Sheet2', 'Sheet8']);
 
 export interface MySportImportResult {
   dailyMetrics: DailyMetricInput[];
@@ -9,17 +39,41 @@ export interface MySportImportResult {
 }
 
 export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Sheet1'): MySportImportResult {
-  const matrix = sheetMatrix(extract.workbook, sheetName);
-  const headers = matrix[0] ?? [];
   const dailyMetrics: DailyMetricInput[] = [];
   const activities: CanonicalActivityInput[] = [];
   const warnings: string[] = [];
 
+  if (!extract.sheetNames.includes(sheetName)) {
+    warnings.push(`Daily-ledger sheet '${sheetName}' was not found.`);
+    return { dailyMetrics, activities, warnings };
+  }
+
+  for (const otherSheetName of extract.sheetNames) {
+    if (otherSheetName === sheetName || MY_SPORT_AUXILIARY_SHEETS.has(otherSheetName)) continue;
+    warnings.push(`Ignored unknown daily-ledger sheet '${otherSheetName}'.`);
+  }
+
+  const matrix = sheetMatrix(extract.workbook, sheetName);
+  const headers = matrix[0] ?? [];
+  const warnedHeaders = new Set<string>();
+
+  headers.forEach((header) => {
+    const normalized = normalizeHeader(header);
+    if (!normalized || MY_SPORT_KNOWN_HEADERS.has(normalized) || warnedHeaders.has(normalized)) return;
+    warnedHeaders.add(normalized);
+    warnings.push(`Ignored unknown daily-ledger column '${String(header).trim()}' (normalized as '${normalized}').`);
+  });
+
   for (let i = 1; i < matrix.length; i += 1) {
     const cells = matrix[i] ?? [];
+    if (cells.every(isBlankCell)) continue;
+
     const row = rowObjectFromHeaders(headers, cells);
     const dateSerial = asNumber(row.date);
-    if (!dateSerial) continue;
+    if (dateSerial === undefined || dateSerial <= 0) {
+      warnings.push(`Skipped ${sheetName} row ${i + 1} because Date is missing or invalid.`);
+      continue;
+    }
 
     const activityDate = excelSerialDateToIsoDate(dateSerial);
     const steps = Math.round(asNumber(row.steps) ?? 0);
@@ -69,4 +123,8 @@ export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Shee
   }
 
   return { dailyMetrics, activities, warnings };
+}
+
+function isBlankCell(value: unknown): boolean {
+  return value === null || value === undefined || value === '';
 }

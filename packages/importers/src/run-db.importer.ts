@@ -35,9 +35,14 @@ export function parseRunDbWorkbook(extract: WorkbookExtract): RunDbImportResult 
     const matrix = sheetMatrix(extract.workbook, sheetName);
     for (let i = 0; i < matrix.length; i += 1) {
       const cells = matrix[i] ?? [];
+      if (cells.every(isBlankCell) || isHeaderRow(cells, i)) continue;
+
       const timeFraction = asNumber(cells[0]);
       const dateSerial = asNumber(cells[1]);
-      if (!timeFraction || !dateSerial) continue;
+      if (timeFraction === undefined || timeFraction <= 0 || dateSerial === undefined || dateSerial <= 0) {
+        warnings.push(`Skipped performance row '${sheetName}'!${i + 1} because time or date is missing or invalid.`);
+        continue;
+      }
 
       const durationS = excelTimeFractionToSeconds(timeFraction);
       const eventDate = excelSerialDateToIsoDate(dateSerial);
@@ -86,4 +91,15 @@ function inferSourceRank(values: unknown[]): number | undefined {
     .map(asNumber)
     .filter((value): value is number => value !== undefined && Number.isInteger(value) && value > 0 && value < 1000);
   return candidates.length === 0 ? undefined : candidates[candidates.length - 1];
+}
+
+function isBlankCell(value: unknown): boolean {
+  return value === null || value === undefined || value === '';
+}
+
+function isHeaderRow(cells: unknown[], rowIndex: number): boolean {
+  if (rowIndex !== 0) return false;
+  const first = asString(cells[0])?.toLowerCase();
+  const second = asString(cells[1])?.toLowerCase();
+  return first?.includes('time') === true || second?.includes('date') === true;
 }
