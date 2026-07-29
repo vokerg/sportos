@@ -66,6 +66,7 @@ export interface ActivitiesTable {
 
 export interface DailyMetricsTable {
   metric_date: DateString;
+  source_record_id: string | null;
   steps: number;
   run_m: number;
   bike_m: number;
@@ -115,6 +116,7 @@ export interface PerformanceEventsTable {
   id: Generated<string>;
   activity_id: string | null;
   source_record_id: string | null;
+  source_record_hash: string | null;
   source: 'manual' | 'run_db_xlsx' | 'strava' | 'garmin' | 'fit';
   event_date: DateString;
   distance_m: number;
