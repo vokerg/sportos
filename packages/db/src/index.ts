@@ -1,3 +1,5 @@
+export { sql } from 'kysely';
+export type { Kysely } from 'kysely';
 export * from './schema.js';
 export * from './pool.js';
 export * from './repositories/imports.repository.js';
