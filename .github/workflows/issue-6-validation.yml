@@ -1,0 +1,43 @@
+name: issue-6-validation
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck DB package
+        run: pnpm --filter @sportos/db typecheck
+
+      - name: Test DB package
+        run: pnpm --filter @sportos/db test
+
+      - name: Test API package
+        run: pnpm --filter @sportos/api test
+
+      - name: Build DB package
+        run: pnpm --filter @sportos/db build
