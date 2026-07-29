@@ -19,6 +19,7 @@ body {
 
 .grid {
   display: grid;
+  min-width: 0;
   gap: 16px;
 }
 
@@ -27,10 +28,34 @@ body {
 }
 
 .card {
+  min-width: 0;
   border-radius: 18px;
   padding: 18px;
   background: white;
   box-shadow: 0 12px 35px rgba(20, 33, 61, 0.08);
+}
+
+sportos-daily-log,
+sportos-score-breakdown-panel {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
+sportos-score-breakdown-panel {
+  overflow: hidden;
+}
+
+sportos-score-breakdown-panel .breakdown-panel,
+sportos-score-breakdown-panel .ledger-scroll {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+sportos-score-breakdown-panel .breakdown-panel {
+  overflow: hidden;
 }
 
 .kpi-row {
