@@ -33,6 +33,68 @@ export interface PerformanceRow {
   tags: string[];
 }
 
+export type ImportBatchStatus = 'started' | 'parsed' | 'normalized' | 'scored' | 'failed';
+
+export interface ImportBatchHistoryItem {
+  id: string;
+  source: string;
+  sourceKind: 'xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit' | 'manual';
+  filename: string | null;
+  status: ImportBatchStatus;
+  rowCount: number;
+  normalizedCount: number;
+  warningCount: number;
+  errorCount: number;
+  startedAt: string;
+  completedAt: string | null;
+  affectedDates: string[];
+  failure: {
+    phase: string;
+    name: string;
+    message: string;
+    recordedAt: string;
+  } | null;
+}
+
+export interface ImportBatchHistoryPage {
+  items: ImportBatchHistoryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ImportDiagnostic {
+  severity: 'warning' | 'error';
+  code: string;
+  message: string;
+  phase: string;
+  sheetName: string | null;
+  rowIndex: number | null;
+  sourceRecordId: string | null;
+  recordedAt: string | null;
+}
+
+export interface ImportBatchDetail {
+  batch: ImportBatchHistoryItem;
+  transitions: Array<{
+    status: ImportBatchStatus;
+    phase: string;
+    recordedAt: string;
+  }>;
+  diagnostics: ImportDiagnostic[];
+  diagnosticTotal: number;
+  diagnosticLimit: number;
+  diagnosticOffset: number;
+}
+
+export interface ImportLocalFilesResponse {
+  batches: Array<{ id: string; filename: string | null; source: string }>;
+  dailyRows: number;
+  activities: number;
+  performanceEvents: number;
+  warnings: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   readonly apiBase = signal('http://localhost:3000');
@@ -48,6 +110,16 @@ export class ApiService {
   }
 
   importLocalFiles(mySportPath?: string, runDbPath?: string) {
-    return this.http.post(`${this.apiBase()}/imports/local-files`, { mySportPath, runDbPath });
+    return this.http.post<ImportLocalFilesResponse>(`${this.apiBase()}/imports/local-files`, { mySportPath, runDbPath });
+  }
+
+  importHistory(limit = 20, offset = 0) {
+    return this.http.get<ImportBatchHistoryPage>(`${this.apiBase()}/imports?limit=${limit}&offset=${offset}`);
+  }
+
+  importBatchDetail(batchId: string, diagnosticLimit = 100, diagnosticOffset = 0) {
+    return this.http.get<ImportBatchDetail>(
+      `${this.apiBase()}/imports/${encodeURIComponent(batchId)}?diagnosticLimit=${diagnosticLimit}&diagnosticOffset=${diagnosticOffset}`,
+    );
   }
 }
