@@ -106,85 +106,87 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
           <p>{{ detailError() }}</p>
           <button type="button" (click)="retryDetail()">Retry</button>
         </div>
-      } @else if (detail(); as selected) {
-        <section class="batch-detail" aria-label="Selected import batch details">
-          <div class="detail-heading">
-            <div>
-              <h3>{{ selected.batch.filename || selected.batch.source }}</h3>
-              <p>{{ selected.batch.source }} · {{ selected.batch.sourceKind }}</p>
+      } @else {
+        @if (detail(); as selected) {
+          <section class="batch-detail" aria-label="Selected import batch details">
+            <div class="detail-heading">
+              <div>
+                <h3>{{ selected.batch.filename || selected.batch.source }}</h3>
+                <p>{{ selected.batch.source }} · {{ selected.batch.sourceKind }}</p>
+              </div>
+              <span [class]="'status status-' + selected.batch.status">{{ selected.batch.status }}</span>
             </div>
-            <span [class]="'status status-' + selected.batch.status">{{ selected.batch.status }}</span>
-          </div>
 
-          <dl class="detail-counts">
-            <div><dt>Rows</dt><dd>{{ selected.batch.rowCount }}</dd></div>
-            <div><dt>Normalized</dt><dd>{{ selected.batch.normalizedCount }}</dd></div>
-            <div><dt>Warnings</dt><dd>{{ selected.batch.warningCount }}</dd></div>
-            <div><dt>Errors</dt><dd>{{ selected.batch.errorCount }}</dd></div>
-          </dl>
+            <dl class="detail-counts">
+              <div><dt>Rows</dt><dd>{{ selected.batch.rowCount }}</dd></div>
+              <div><dt>Normalized</dt><dd>{{ selected.batch.normalizedCount }}</dd></div>
+              <div><dt>Warnings</dt><dd>{{ selected.batch.warningCount }}</dd></div>
+              <div><dt>Errors</dt><dd>{{ selected.batch.errorCount }}</dd></div>
+            </dl>
 
-          @if (selected.batch.failure) {
-            <div class="failure-guidance" role="alert">
-              <strong>Import failed during {{ selected.batch.failure.phase }}.</strong>
-              <p>{{ selected.batch.failure.message }}</p>
-              <p>Correct the workbook or local access problem, then run the import again. A retry creates a new inspectable batch.</p>
-            </div>
-          }
-
-          <div class="detail-section">
-            <h4>Affected dates</h4>
-            @if (selected.batch.affectedDates.length === 0) {
-              <p>No canonical dates were recorded for this batch.</p>
-            } @else {
-              <div class="date-links">
-                @for (date of selected.batch.affectedDates; track date) {
-                  <a href="#daily-log" class="date-link" (click)="openReconciliation(date)">{{ date }} · reconcile</a>
-                }
+            @if (selected.batch.failure) {
+              <div class="failure-guidance" role="alert">
+                <strong>Import failed during {{ selected.batch.failure.phase }}.</strong>
+                <p>{{ selected.batch.failure.message }}</p>
+                <p>Correct the workbook or local access problem, then run the import again. A retry creates a new inspectable batch.</p>
               </div>
             }
-          </div>
 
-          <div class="detail-section">
-            <h4>Status timeline</h4>
-            <ol class="timeline">
-              @for (transition of selected.transitions; track transition.recordedAt + transition.status) {
-                <li>
-                  <strong>{{ transition.status }}</strong>
-                  <span>{{ transition.phase }}</span>
-                  <time>{{ formatTimestamp(transition.recordedAt) }}</time>
-                </li>
+            <div class="detail-section">
+              <h4>Affected dates</h4>
+              @if (selected.batch.affectedDates.length === 0) {
+                <p>No canonical dates were recorded for this batch.</p>
+              } @else {
+                <div class="date-links">
+                  @for (date of selected.batch.affectedDates; track date) {
+                    <a href="#daily-log" class="date-link" (click)="openReconciliation(date)">{{ date }} · reconcile</a>
+                  }
+                </div>
               }
-            </ol>
-          </div>
-
-          <div class="detail-section">
-            <div class="diagnostic-heading">
-              <h4>Diagnostics</h4>
-              <span>{{ selected.diagnostics.length }} of {{ selected.diagnosticTotal }}</span>
             </div>
-            @if (selected.diagnostics.length === 0) {
-              <p>No warnings or errors were recorded.</p>
-            } @else {
-              <ul class="diagnostic-list">
-                @for (diagnostic of selected.diagnostics; track diagnosticKey(diagnostic)) {
-                  <li [class]="'diagnostic diagnostic-' + diagnostic.severity">
-                    <div class="diagnostic-title">
-                      <strong>{{ diagnostic.code }}</strong>
-                      <span>{{ diagnostic.severity }}</span>
-                    </div>
-                    <p>{{ diagnostic.message }}</p>
-                    <small>{{ diagnosticLocation(diagnostic) }} · {{ diagnostic.phase }}</small>
+
+            <div class="detail-section">
+              <h4>Status timeline</h4>
+              <ol class="timeline">
+                @for (transition of selected.transitions; track transition.recordedAt + transition.status) {
+                  <li>
+                    <strong>{{ transition.status }}</strong>
+                    <span>{{ transition.phase }}</span>
+                    <time>{{ formatTimestamp(transition.recordedAt) }}</time>
                   </li>
                 }
-              </ul>
-              @if (hasMoreDiagnostics()) {
-                <button type="button" class="secondary" (click)="loadMoreDiagnostics()" [disabled]="loadingMoreDiagnostics()">
-                  {{ loadingMoreDiagnostics() ? 'Loading…' : 'Load more diagnostics' }}
-                </button>
+              </ol>
+            </div>
+
+            <div class="detail-section">
+              <div class="diagnostic-heading">
+                <h4>Diagnostics</h4>
+                <span>{{ selected.diagnostics.length }} of {{ selected.diagnosticTotal }}</span>
+              </div>
+              @if (selected.diagnostics.length === 0) {
+                <p>No warnings or errors were recorded.</p>
+              } @else {
+                <ul class="diagnostic-list">
+                  @for (diagnostic of selected.diagnostics; track diagnosticKey(diagnostic)) {
+                    <li [class]="'diagnostic diagnostic-' + diagnostic.severity">
+                      <div class="diagnostic-title">
+                        <strong>{{ diagnostic.code }}</strong>
+                        <span>{{ diagnostic.severity }}</span>
+                      </div>
+                      <p>{{ diagnostic.message }}</p>
+                      <small>{{ diagnosticLocation(diagnostic) }} · {{ diagnostic.phase }}</small>
+                    </li>
+                  }
+                </ul>
+                @if (hasMoreDiagnostics()) {
+                  <button type="button" class="secondary" (click)="loadMoreDiagnostics()" [disabled]="loadingMoreDiagnostics()">
+                    {{ loadingMoreDiagnostics() ? 'Loading…' : 'Load more diagnostics' }}
+                  </button>
+                }
               }
-            }
-          </div>
-        </section>
+            </div>
+          </section>
+        }
       }
     </section>
   `,
