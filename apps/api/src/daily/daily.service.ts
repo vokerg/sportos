@@ -1,7 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
 import {
   DailyRepository,
-  DailyScoreBreakdownSchema,
+  ScoreBreakdownContractError,
+  parseDailyScoreBreakdown,
   type DailyScoreBreakdown,
   type DailyScoreBreakdownReadModel,
 } from '@sportos/db';
@@ -18,6 +19,19 @@ export class DailyService {
   async scoreBreakdown(metricDate: string): Promise<DailyScoreBreakdown | null> {
     const result: DailyScoreBreakdownReadModel | null = await new DailyRepository(this.dbProvider.db)
       .getDailyScoreBreakdown(metricDate);
-    return result === null ? null : DailyScoreBreakdownSchema.parse(result);
+    if (result === null) return null;
+
+    try {
+      return parseDailyScoreBreakdown(result);
+    } catch (error) {
+      if (error instanceof ScoreBreakdownContractError) {
+        throw new InternalServerErrorException({
+          code: 'SCORE_BREAKDOWN_INCONSISTENT',
+          message: 'The persisted score breakdown failed consistency checks.',
+          date: metricDate,
+        });
+      }
+      throw error;
+    }
   }
 }
