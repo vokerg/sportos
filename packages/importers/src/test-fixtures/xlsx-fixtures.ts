@@ -35,6 +35,18 @@ export const MY_SPORT_HEADERS: string[] = [
 const EXCEL_DATE_2026_05_18 = 46160;
 const EXCEL_DATE_2026_05_19 = 46161;
 
+export function writeCleanMySportFixture(path: string): void {
+  ensureParentDirectory(path);
+  const workbook = XLSX.utils.book_new();
+  const knownHeaders = MY_SPORT_HEADERS.slice(0, -1);
+  const sheet = XLSX.utils.aoa_to_sheet([
+    knownHeaders,
+    [EXCEL_DATE_2026_05_18, 10_000, 5],
+  ]);
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Sheet1');
+  XLSX.writeFile(workbook, path, { compression: true });
+}
+
 export function writeMySportFixture(path: string): void {
   ensureParentDirectory(path);
 
