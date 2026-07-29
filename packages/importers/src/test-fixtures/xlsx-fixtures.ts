@@ -1,8 +1,9 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import XLSX from 'xlsx';
+import type { WorkSheet } from 'xlsx';
 
-export const MY_SPORT_HEADERS = [
+export const MY_SPORT_HEADERS: string[] = [
   'Date',
   'Steps',
   'R IN',
@@ -29,7 +30,7 @@ export const MY_SPORT_HEADERS = [
   'A60d',
   'A365',
   'Mystery Metric',
-] as const;
+];
 
 const EXCEL_DATE_2026_05_18 = 46160;
 const EXCEL_DATE_2026_05_19 = 46161;
@@ -149,6 +150,6 @@ function ensureParentDirectory(path: string): void {
   mkdirSync(dirname(path), { recursive: true });
 }
 
-function setCachedFormula(sheet: XLSX.WorkSheet, address: string, formula: string, value: number): void {
+function setCachedFormula(sheet: WorkSheet, address: string, formula: string, value: number): void {
   sheet[address] = { t: 'n', f: formula, v: value };
 }
