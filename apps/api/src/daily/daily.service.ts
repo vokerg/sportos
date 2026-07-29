@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DailyRepository, type DailyScoreBreakdownReadModel } from '@sportos/db';
-import { DailyScoreBreakdownSchema, type DailyScoreBreakdown } from '@sportos/shared';
+import {
+  DailyRepository,
+  DailyScoreBreakdownSchema,
+  type DailyScoreBreakdown,
+  type DailyScoreBreakdownReadModel,
+} from '@sportos/db';
 import { DbProvider } from '../db.provider.js';
 
 @Injectable()
