@@ -1,14 +1,34 @@
-import { Controller, Get, Inject, Query } from '@nestjs/common';
-import { DailyRepository } from '@sportos/db';
-import { DbProvider } from '../db.provider.js';
+import { BadRequestException, Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
+import { isIsoDate } from '@sportos/db';
+import { DailyService } from './daily.service.js';
 
 @Controller('daily')
 export class DailyController {
-  constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
+  constructor(@Inject(DailyService) private readonly dailyService: DailyService) {}
 
   @Get('summary')
   async summary(@Query('limit') limit?: string) {
-    const repo = new DailyRepository(this.dbProvider.db);
-    return repo.listDailySummary(limit ? Number(limit) : 90);
+    return this.dailyService.summary(limit ? Number(limit) : 90);
+  }
+
+  @Get(':date/score-breakdown')
+  async scoreBreakdown(@Param('date') date: string) {
+    if (!isIsoDate(date)) {
+      throw new BadRequestException({
+        code: 'INVALID_DATE',
+        message: 'Date must be a real calendar date in YYYY-MM-DD format.',
+        date,
+      });
+    }
+
+    const result = await this.dailyService.scoreBreakdown(date);
+    if (result === null) {
+      throw new NotFoundException({
+        code: 'DAILY_SCORE_NOT_FOUND',
+        message: `No persisted daily score exists for ${date}.`,
+        date,
+      });
+    }
+    return result;
   }
 }
