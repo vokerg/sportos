@@ -39,8 +39,8 @@ jobs:
       - name: Start test database
         run: |
           docker compose up -d postgres
-          docker compose exec -T postgres sh -c 'until pg_isready -U sportos -d sportos; do sleep 1; done'
-          docker compose exec -T postgres createdb -U sportos sportos_test
+          docker compose exec -T postgres sh -c 'until pg_isready -h 127.0.0.1 -U sportos -d sportos; do sleep 1; done'
+          docker compose exec -T postgres createdb -h 127.0.0.1 -U sportos sportos_test
           docker compose run --rm \
             -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_test \
             flyway migrate
