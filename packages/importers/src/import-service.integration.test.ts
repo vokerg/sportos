@@ -38,12 +38,15 @@ databaseDescribe('ImportService database integration', () => {
 
     const first = await service.importLocalFiles({ mySportPath, runDbPath });
     const firstCounts = await importCounts(db);
+    const firstIds = await canonicalIds(db);
     const second = await service.importLocalFiles({ mySportPath, runDbPath });
     const secondCounts = await importCounts(db);
+    const secondIds = await canonicalIds(db);
 
     expect(first).toMatchObject({ dailyRows: 2, activities: 13, performanceEvents: 7 });
     expect(second).toMatchObject({ dailyRows: 2, activities: 13, performanceEvents: 7 });
     expect(canonicalCounts(secondCounts)).toEqual(canonicalCounts(firstCounts));
+    expect(secondIds).toEqual(firstIds);
     expect(secondCounts.importBatches).toBe(firstCounts.importBatches + 2);
     expect(secondCounts.sourceRecords).toBe(firstCounts.sourceRecords * 2);
 
@@ -68,6 +71,7 @@ databaseDescribe('ImportService database integration', () => {
     await resetImportTables(db);
     await new ImportService(db).importLocalFiles({ mySportPath });
     const baseline = await importCounts(db);
+    const baselineIds = await canonicalIds(db);
 
     const phases: ImportFailurePhase[] = ['raw-stored', 'canonical-written', 'daily-scored', 'batch-finalized'];
     for (const targetPhase of phases) {
@@ -82,6 +86,7 @@ databaseDescribe('ImportService database integration', () => {
       await expect(failingService.importLocalFiles({ mySportPath })).rejects.toThrow(`forced failure at ${targetPhase}`);
       const afterFailure = await importCounts(db);
       expect(canonicalCounts(afterFailure)).toEqual(canonicalCounts(baseline));
+      expect(await canonicalIds(db)).toEqual(baselineIds);
       expect(afterFailure.sourceRecords).toBe(baseline.sourceRecords);
 
       const failedBatch = await db
@@ -103,6 +108,7 @@ databaseDescribe('ImportService database integration', () => {
     await new ImportService(db).importLocalFiles({ mySportPath });
     const afterRetry = await importCounts(db);
     expect(canonicalCounts(afterRetry)).toEqual(canonicalCounts(baseline));
+    expect(await canonicalIds(db)).toEqual(baselineIds);
     expect(afterRetry.sourceRecords).toBe(baseline.sourceRecords * 2);
   });
 
@@ -110,6 +116,7 @@ databaseDescribe('ImportService database integration', () => {
     await resetImportTables(db);
     await new ImportService(db).importLocalFiles({ runDbPath });
     const baseline = await importCounts(db);
+    const baselineIds = await canonicalIds(db);
 
     const phases: ImportFailurePhase[] = ['raw-stored', 'canonical-written', 'batch-finalized'];
     for (const targetPhase of phases) {
@@ -124,12 +131,14 @@ databaseDescribe('ImportService database integration', () => {
       await expect(failingService.importLocalFiles({ runDbPath })).rejects.toThrow(`forced failure at ${targetPhase}`);
       const afterFailure = await importCounts(db);
       expect(canonicalCounts(afterFailure)).toEqual(canonicalCounts(baseline));
+      expect(await canonicalIds(db)).toEqual(baselineIds);
       expect(afterFailure.sourceRecords).toBe(baseline.sourceRecords);
     }
 
     await new ImportService(db).importLocalFiles({ runDbPath });
     const afterRetry = await importCounts(db);
     expect(canonicalCounts(afterRetry)).toEqual(canonicalCounts(baseline));
+    expect(await canonicalIds(db)).toEqual(baselineIds);
     expect(afterRetry.sourceRecords).toBe(baseline.sourceRecords * 2);
   });
 });
@@ -144,6 +153,12 @@ interface ImportCounts {
   activitiesWithoutSource: number;
   dailyMetricsWithoutSource: number;
   performanceEventsWithoutSource: number;
+}
+
+interface CanonicalIds {
+  activities: string[];
+  dailyMetrics: string[];
+  performanceEvents: string[];
 }
 
 async function importCounts(db: TestDatabase): Promise<ImportCounts> {
@@ -179,6 +194,20 @@ async function importCounts(db: TestDatabase): Promise<ImportCounts> {
     activitiesWithoutSource: Number(activitiesWithoutSource.count),
     dailyMetricsWithoutSource: Number(dailyMetricsWithoutSource.count),
     performanceEventsWithoutSource: Number(performanceEventsWithoutSource.count),
+  };
+}
+
+async function canonicalIds(db: TestDatabase): Promise<CanonicalIds> {
+  const [activities, dailyMetrics, performanceEvents] = await Promise.all([
+    db.selectFrom('activities').select('id').orderBy('source_record_hash', 'asc').orderBy('id', 'asc').execute(),
+    db.selectFrom('daily_metrics').select('metric_date').orderBy('metric_date', 'asc').execute(),
+    db.selectFrom('performance_events').select('id').orderBy('source_record_hash', 'asc').orderBy('id', 'asc').execute(),
+  ]);
+
+  return {
+    activities: activities.map((row) => row.id),
+    dailyMetrics: dailyMetrics.map((row) => row.metric_date),
+    performanceEvents: performanceEvents.map((row) => row.id),
   };
 }
 
