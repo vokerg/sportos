@@ -1,6 +1,7 @@
 export { sql } from 'kysely';
 export type { Kysely } from 'kysely';
 export * from './schema.js';
+export * from './repository-contracts.js';
 export * from './pool.js';
 export * from './repositories/imports.repository.js';
 export * from './repositories/daily.repository.js';
