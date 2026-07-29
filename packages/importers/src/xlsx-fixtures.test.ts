@@ -24,6 +24,7 @@ describe('sanitized XLSX fixture harness', () => {
       expect(first.workbook.Workbook?.Sheets?.find((sheet) => sheet.name === 'Sheet2')?.Hidden).toBe(1);
       expect(first.rows.find((row) => row.sheetName === 'Sheet1' && row.rowIndex === 2)?.cells[19]).toBe(2_468);
       expect(first.rows.some((row) => row.sheetName === 'Sheet2')).toBe(true);
+      expect(first.rows.some((row) => row.sheetName === 'Unexpected Notes')).toBe(true);
 
       expect(rowHashSnapshot(first)).toEqual(rowHashSnapshot(second));
       expect(first.rows.every((row) => /^[a-f0-9]{64}$/.test(row.hash))).toBe(true);
@@ -81,6 +82,24 @@ describe('sanitized XLSX fixture harness', () => {
         ]),
       );
 
+      expect(result.activities[0]?.rawPayloadJson).toMatchObject({
+        sheetName: 'Sheet1',
+        rowIndex: 2,
+        row: {
+          run_to_s: 13_000,
+          bike_to_s: 35_000,
+          sup_to_s: 2_500,
+          raw_to_s: 5,
+          swim_to_s: 1_000,
+          a10: 100,
+          a20d: 200,
+          '30all': 300,
+          a60d: 600,
+          a365: 3_650,
+          mystery_metric: 'must remain raw only',
+        },
+      });
+
       expect(result.warnings).toEqual([
         "Ignored unknown daily-ledger sheet 'Unexpected Notes'.",
         "Ignored unknown daily-ledger column 'Mystery Metric' (normalized as 'mystery_metric').",
@@ -99,6 +118,10 @@ describe('sanitized XLSX fixture harness', () => {
       writeRunDbFixture(path);
       const extract = readWorkbook(path);
       const result = parseRunDbWorkbook(extract);
+
+      expect(extract.rows.some((row) => row.sheetName === 'Лист12')).toBe(true);
+      expect(extract.rows.some((row) => row.sheetName === 'Helper')).toBe(true);
+      expect(extract.rows.some((row) => row.sheetName === 'Mystery Distance')).toBe(true);
 
       expect(result.events).toHaveLength(7);
       expect(result.events.map((event) => event.distanceM)).toEqual([5_000, 10_000, 12_000, 21_100, 42_195, 5_000, 10_000]);
