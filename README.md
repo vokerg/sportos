@@ -25,12 +25,14 @@ The source tree contains the first vertical slice:
 - raw import-batch and source-record provenance;
 - canonical activity, daily-metric, scoring, and performance tables;
 - XLSX importers for the known daily and running workbooks;
+- deterministic synthetic workbook fixtures;
+- transactional canonical import orchestration and cross-batch source identities;
 - deterministic TypeScript scoring helpers;
 - a NestJS API;
 - an Angular review shell with Daily Log, Run Lab, and local import controls;
 - a local CLI importer.
 
-Several pieces are still only scaffolded or unverified against representative workbooks. MVP-0 is complete only when the import and score-comparison workflow can be run repeatedly and differences from the spreadsheets are explainable. See [MVP-0 status](docs/FIRST_MILESTONE.md) and the [roadmap](docs/ROADMAP.md).
+Several pieces remain incomplete or not operationally proven. MVP-0 is complete only when the import and score-comparison workflow can be run repeatedly and differences from the spreadsheets are explainable. See [MVP-0 status](docs/FIRST_MILESTONE.md) and the [roadmap](docs/ROADMAP.md).
 
 ## Explicitly out of scope for MVP-0
 
@@ -144,7 +146,7 @@ POST /imports/local-files
 
 ## Validation
 
-Run the same checks used by CI:
+Run the same workspace checks used by CI:
 
 ```bash
 pnpm typecheck
@@ -152,7 +154,26 @@ pnpm test
 pnpm build
 ```
 
-Database-backed import behavior still needs representative workbook fixtures and integration tests. A green unit-test run alone does not prove import fidelity.
+Database-backed import validation must use a disposable database whose name ends in `_test` or `-test`. The integration suite deletes import-domain rows between cases and refuses to run against the normal `sportos` database.
+
+Create and migrate a local test database once:
+
+```bash
+pnpm db:up
+docker compose exec postgres createdb -U sportos sportos_test
+docker compose run --rm \
+  -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_test \
+  flyway
+```
+
+Run the integration suite:
+
+```bash
+SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
+  pnpm --filter @sportos/importers test:integration
+```
+
+The integration suite generates synthetic XLSX files, imports each workbook repeatedly, verifies stable canonical row counts and IDs, injects failures at every transaction phase, checks rollback behavior, and verifies retry convergence. A skipped or green unit-test run alone does not prove database import behavior.
 
 ## Current workbook assumptions
 
@@ -173,8 +194,8 @@ The next cohesive product increment is score reconciliation:
 1. expose score-ledger detail for one date;
 2. show app total versus imported spreadsheet total;
 3. explain every delta using source rows and scoring rules;
-4. add fixtures and tests for representative workbook structures;
-5. make re-imports deterministic and observable.
+4. add import-history and row-level diagnostics;
+5. verify scoring coefficients against fixture-backed spreadsheet totals.
 
 After that, the project can move to browser uploads, asynchronous import jobs, import history, and a Rules Studio. See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone exit criteria and proposed PR sequencing.
 

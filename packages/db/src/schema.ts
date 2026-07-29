@@ -1,4 +1,4 @@
-import type { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
+import type { ColumnType, Generated, Insertable, Selectable } from 'kysely';
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
@@ -11,10 +11,10 @@ export interface ImportBatchesTable {
   filename: string | null;
   original_sha256: string | null;
   status: 'started' | 'parsed' | 'normalized' | 'scored' | 'failed';
-  row_count: number;
-  normalized_count: number;
-  error_count: number;
-  warning_count: number;
+  row_count: Generated<number>;
+  normalized_count: Generated<number>;
+  error_count: Generated<number>;
+  warning_count: Generated<number>;
   started_at: Generated<Timestamp>;
   completed_at: Timestamp | null;
   metadata: Json;
@@ -66,6 +66,7 @@ export interface ActivitiesTable {
 
 export interface DailyMetricsTable {
   metric_date: DateString;
+  source_record_id: string | null;
   steps: number;
   run_m: number;
   bike_m: number;
@@ -115,6 +116,7 @@ export interface PerformanceEventsTable {
   id: Generated<string>;
   activity_id: string | null;
   source_record_id: string | null;
+  source_record_hash: string | null;
   source: 'manual' | 'run_db_xlsx' | 'strava' | 'garmin' | 'fit';
   event_date: DateString;
   distance_m: number;
@@ -138,8 +140,8 @@ export interface Database {
   scoring_rules: ScoringRulesTable;
   score_ledger: ScoreLedgerTable;
   performance_events: PerformanceEventsTable;
-  v_daily_summary: DailyMetricsTable & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
-  v_performance_events: PerformanceEventsTable & { all_time_rank: number; is_pr_by_time: boolean };
+  v_daily_summary: Omit<DailyMetricsTable, 'source_record_id'> & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
+  v_performance_events: Omit<PerformanceEventsTable, 'source_record_hash'> & { all_time_rank: number; is_pr_by_time: boolean };
 }
 
 export type ImportBatch = Selectable<ImportBatchesTable>;
