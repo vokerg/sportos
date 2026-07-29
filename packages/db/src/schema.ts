@@ -1,4 +1,4 @@
-import type { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
+import type { ColumnType, Generated, Insertable, Selectable } from 'kysely';
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
@@ -140,8 +140,8 @@ export interface Database {
   scoring_rules: ScoringRulesTable;
   score_ledger: ScoreLedgerTable;
   performance_events: PerformanceEventsTable;
-  v_daily_summary: DailyMetricsTable & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
-  v_performance_events: PerformanceEventsTable & { all_time_rank: number; is_pr_by_time: boolean };
+  v_daily_summary: Omit<DailyMetricsTable, 'source_record_id'> & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
+  v_performance_events: Omit<PerformanceEventsTable, 'source_record_hash'> & { all_time_rank: number; is_pr_by_time: boolean };
 }
 
 export type ImportBatch = Selectable<ImportBatchesTable>;
