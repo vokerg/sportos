@@ -36,13 +36,13 @@ The current import endpoint is not a browser upload service. It expects paths av
 
 These rules should remain true as the product grows:
 
-1. **Raw input is retained before normalization.** Every imported row should be recoverable with workbook, sheet, row, and batch provenance.
+1. **Raw input is retained before normalization.** Every successfully imported row should be recoverable with workbook, sheet, row, and batch provenance.
 2. **Canonical facts do not depend on a UI.** Importers and domain logic must be usable from the API, worker, and tests.
 3. **Official scores are deterministic.** An LLM may explain results but must not calculate or persist authoritative points.
 4. **Every score is explainable.** A score contribution should identify the rule, input metric, and calculation payload that produced it.
 5. **Unknown source semantics are not guessed.** Ambiguous sheets or columns are skipped with warnings until their meaning is confirmed.
 6. **Schema changes are versioned.** Flyway migrations own database evolution; application startup must not mutate the schema implicitly.
-7. **Re-imports must become idempotent.** Reprocessing the same source data should not create duplicate canonical facts.
+7. **Re-imports are idempotent.** Reprocessing the same source data creates a new auditable batch/raw snapshot but converges on the same canonical facts.
 
 ## Layers
 
@@ -53,7 +53,7 @@ Tables:
 - `import_batches`
 - `source_records`
 
-Every imported row is stored before normalization. This allows the system to inspect unusual cells, rerun normalization, compare parser versions, and retain a defensible audit trail.
+Every successful import stores raw rows before canonical normalization. Raw records are batch-scoped so repeated imports remain inspectable. A failed attempt retains a durable failed batch with the file hash and sanitized phase metadata, while the rolled-back raw/canonical transaction leaves no partial rows.
 
 ### Canonical facts
 
@@ -63,7 +63,7 @@ Tables:
 - `daily_metrics`
 - `performance_events`
 
-These tables are the application domain model. Spreadsheet layout, cell positions, and presentation conventions must not leak beyond the importer boundary.
+These tables are the application domain model. Spreadsheet layout, cell positions, and presentation conventions must not leak beyond the importer boundary. Canonical rows use deterministic source identities so identical rows from later batches update/reuse existing facts.
 
 ### Rules and explanations
 
@@ -104,16 +104,22 @@ Dependency direction should remain toward shared, pure packages. UI code must no
 
 ### Import flow
 
-1. Start an `import_batch`.
-2. Read workbook sheets and persist raw `source_records`.
-3. Parse known rows into canonical input types.
-4. Insert or reconcile canonical activities and performance events.
-5. Aggregate affected dates.
-6. apply active scoring rules;
-7. persist daily metrics and score-ledger entries;
-8. update batch counts, warnings, and final status.
+Each workbook is processed as one logical import:
 
-The current implementation establishes this shape but still needs stronger idempotency, transaction boundaries, fixtures, and integration tests.
+1. Create a durable `import_batch` failure envelope.
+2. Start a database transaction.
+3. Persist batch-scoped raw `source_records`.
+4. Parse known rows into canonical input types.
+5. Upsert activities or performance events by deterministic cross-batch source identity.
+6. Recompute only the daily dates affected by the workbook.
+7. Replace those dates' score-ledger entries deterministically.
+8. Link canonical rows and normalized source records.
+9. Update counts and the successful final batch status.
+10. Commit the transaction.
+
+Any exception rolls back steps 3–9. The batch envelope is then marked failed outside the rolled-back transaction with sanitized phase and attempted-count metadata. Separate workbooks in one request use separate batches and transactions.
+
+The identity, retry, backfill, and failure policy is recorded in [ADR 0001](adr/0001-import-transactions-and-identity.md).
 
 ### Query flow
 
@@ -133,7 +139,6 @@ The source workbooks combine raw facts, formulas, coefficients, achievements, an
 ## Current risks
 
 - Workbook assumptions are based on a small number of known files.
-- Import idempotency and partial-failure behavior need explicit tests.
 - Local-path imports are unsuitable for hosted or multi-user deployment.
 - Score coefficients have not yet been fully reconciled against historical spreadsheet totals.
 - API request validation and error contracts are minimal.
