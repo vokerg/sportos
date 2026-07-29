@@ -1,4 +1,10 @@
 import '@angular/compiler';
+import {
+  EnvironmentInjector,
+  Injector,
+  createEnvironmentInjector,
+  runInInjectionContext,
+} from '@angular/core';
 import { describe, expect, it } from 'vitest';
 import { ScoreBreakdownPanelComponent } from './score-breakdown-panel.component';
 import type { DailyScoreBreakdown, ScoreBreakdownActivity, SourceRecordReference } from './score-breakdown.models';
@@ -72,7 +78,7 @@ const breakdown: DailyScoreBreakdown = {
 
 describe('ScoreBreakdownPanelComponent', () => {
   it('distinguishes positive, negative, zero, and unavailable deltas', () => {
-    const component = new ScoreBreakdownPanelComponent();
+    const { component, injector } = createComponent();
 
     expect([1, -1, 0, null].map((delta) => component.deltaKind(delta))).toEqual([
       'positive',
@@ -85,10 +91,12 @@ describe('ScoreBreakdownPanelComponent', () => {
     expect(component.deltaValue(0)).toBe('0');
     expect(component.deltaValue(null)).toBe('Not available');
     expect(component.deltaDescription(null)).toContain('No spreadsheet total');
+
+    injector.destroy();
   });
 
   it('presents ledger inputs, activity values, and provenance without scoring', () => {
-    const component = new ScoreBreakdownPanelComponent();
+    const { component, injector } = createComponent();
 
     expect(component.ledgerSum(breakdown)).toBe(25);
     expect(component.ledgerMatchesAppTotal(breakdown)).toBe(true);
@@ -96,10 +104,12 @@ describe('ScoreBreakdownPanelComponent', () => {
     expect(component.activityLabel(activity)).toBe('run · outdoor · 5 km · 20:00');
     expect(component.sourceSummary(source)).toBe('my_sport.xlsx · Sheet1 row 2');
     expect(component.sourceSummary(null)).toBe('Source link unavailable');
+
+    injector.destroy();
   });
 
   it('defaults to the accessible idle and empty state and presents unavailable Excel data explicitly', () => {
-    const component = new ScoreBreakdownPanelComponent();
+    const { component, injector } = createComponent();
     const noExcel = { ...breakdown, score: { ...breakdown.score, excelTotal: null, delta: null } };
 
     expect(component.state()).toBe('idle');
@@ -108,5 +118,13 @@ describe('ScoreBreakdownPanelComponent', () => {
     expect(component.errorMessage()).toBeNull();
     expect(component.deltaKind(noExcel.score.delta)).toBe('unavailable');
     expect(component.deltaValue(noExcel.score.delta)).toBe('Not available');
+
+    injector.destroy();
   });
 });
+
+function createComponent(): { component: ScoreBreakdownPanelComponent; injector: EnvironmentInjector } {
+  const injector = createEnvironmentInjector([], Injector.NULL as unknown as EnvironmentInjector);
+  const component = runInInjectionContext(injector, () => new ScoreBreakdownPanelComponent());
+  return { component, injector };
+}
