@@ -19,6 +19,7 @@ body {
 
 .grid {
   display: grid;
+  min-width: 0;
   gap: 16px;
 }
 
@@ -27,6 +28,7 @@ body {
 }
 
 .card {
+  min-width: 0;
   border-radius: 18px;
   padding: 18px;
   background: white;
