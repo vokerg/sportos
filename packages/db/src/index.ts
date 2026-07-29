@@ -1,5 +1,7 @@
 export { sql } from 'kysely';
 export type { Kysely } from 'kysely';
+export { DailyScoreBreakdownSchema, IsoDateSchema } from '@sportos/shared';
+export type { DailyScoreBreakdown } from '@sportos/shared';
 export * from './schema.js';
 export * from './repository-contracts.js';
 export * from './pool.js';
