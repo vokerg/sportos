@@ -25,7 +25,7 @@ export class ImportsRepository {
     sourceKind: 'xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit' | 'manual';
     filename?: string;
     originalSha256?: string;
-    metadata?: Record<string, unknown>;
+    metadata?: Json;
   }): Promise<ImportBatch> {
     return this.db
       .insertInto('import_batches')
