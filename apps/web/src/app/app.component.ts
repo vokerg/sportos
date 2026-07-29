@@ -16,11 +16,13 @@ import { RunLabComponent } from './run-lab.component';
 
       <div class="grid two">
         <section class="grid">
-          <sportos-daily-log />
+          <div id="daily-log">
+            <sportos-daily-log #dailyLog />
+          </div>
           <sportos-run-lab />
         </section>
         <aside class="grid">
-          <sportos-import-panel />
+          <sportos-import-panel (reconcileDate)="dailyLog.openBreakdownForDate($event)" />
           <section class="card">
             <h2>Milestone scope</h2>
             <p>This first slice intentionally focuses on importing your existing files, storing raw provenance, computing daily scores, and showing the first review tables.</p>
