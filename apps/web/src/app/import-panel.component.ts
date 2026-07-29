@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, output, signal } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import {
@@ -15,6 +15,7 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
   selector: 'sportos-import-panel',
   standalone: true,
   imports: [FormsModule],
+  outputs: ['reconcileDate'],
   template: `
     <section class="card import-card">
       <div class="section-heading">
@@ -242,7 +243,7 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
   `],
 })
 export class ImportPanelComponent implements OnInit, OnDestroy {
-  readonly reconcileDate = output<string>();
+  readonly reconcileDate = new EventEmitter<string>();
 
   mySportPath = '';
   runDbPath = '';
