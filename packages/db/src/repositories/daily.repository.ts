@@ -12,7 +12,7 @@ import type { Activity, ActivitiesTable, Database, ImportBatchesTable, Json, New
 
 export interface DailyScoreBreakdownHeaderRow {
   date: string;
-  recomputedAt: Date | string;
+  recomputedAt: unknown;
   steps: number;
   runM: number;
   bikeM: number;
@@ -32,8 +32,8 @@ export interface DailyScoreBreakdownHeaderRow {
   sourceBatchFilename: string | null;
   sourceBatchOriginalSha256: string | null;
   sourceBatchStatus: ImportBatchesTable['status'] | null;
-  sourceBatchStartedAt: Date | string | null;
-  sourceBatchCompletedAt: Date | string | null;
+  sourceBatchStartedAt: unknown | null;
+  sourceBatchCompletedAt: unknown | null;
 }
 
 export interface DailyScoreBreakdownLedgerRow {
@@ -41,7 +41,7 @@ export interface DailyScoreBreakdownLedgerRow {
   ledgerPoints: number;
   ledgerReason: string;
   ledgerCalculation: Json;
-  ledgerCreatedAt: Date | string;
+  ledgerCreatedAt: unknown;
   ruleId: string | null;
   ruleCode: string | null;
   ruleName: string | null;
@@ -58,12 +58,12 @@ export interface DailyScoreBreakdownLedgerRow {
   rulePriority: number | null;
   ruleEnabled: boolean | null;
   ruleDescription: string | null;
-  ruleCreatedAt: Date | string | null;
+  ruleCreatedAt: unknown | null;
   activityId: string | null;
   activitySource: ActivitiesTable['source'] | null;
   activitySourceActivityId: string | null;
   activityDate: string | null;
-  activityStartTime: Date | string | null;
+  activityStartTime: unknown | null;
   activityType: ActivitiesTable['activity_type'] | null;
   activitySubtype: ActivitiesTable['subtype'] | null;
   activityDistanceM: number | null;
@@ -87,8 +87,8 @@ export interface DailyScoreBreakdownLedgerRow {
   activitySourceBatchFilename: string | null;
   activitySourceBatchOriginalSha256: string | null;
   activitySourceBatchStatus: ImportBatchesTable['status'] | null;
-  activitySourceBatchStartedAt: Date | string | null;
-  activitySourceBatchCompletedAt: Date | string | null;
+  activitySourceBatchStartedAt: unknown | null;
+  activitySourceBatchCompletedAt: unknown | null;
 }
 
 export class DailyRepository {
@@ -241,7 +241,7 @@ export class DailyRepository {
         'dib.completed_at as sourceBatchCompletedAt',
       ])
       .where('dm.metric_date', '=', metricDate)
-      .executeTakeFirst() as DailyScoreBreakdownHeaderRow | undefined;
+      .executeTakeFirst() as unknown as DailyScoreBreakdownHeaderRow | undefined;
 
     if (!header) return null;
 
@@ -309,7 +309,7 @@ export class DailyRepository {
       .orderBy('sr.priority', 'asc')
       .orderBy('sl.created_at', 'asc')
       .orderBy('sl.id', 'asc')
-      .execute() as DailyScoreBreakdownLedgerRow[];
+      .execute() as unknown as DailyScoreBreakdownLedgerRow[];
 
     return assembleDailyScoreBreakdown(header, ledgerRows);
   }
@@ -477,10 +477,12 @@ function mapActivitySourceRecord(row: DailyScoreBreakdownLedgerRow): SourceRecor
   };
 }
 
-function toIsoTimestamp(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+function toIsoTimestamp(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string' && Number.isFinite(Date.parse(value))) return new Date(value).toISOString();
+  throw new TypeError('Expected a database timestamp value.');
 }
 
-function toNullableIsoTimestamp(value: Date | string | null): string | null {
+function toNullableIsoTimestamp(value: unknown | null): string | null {
   return value === null ? null : toIsoTimestamp(value);
 }
