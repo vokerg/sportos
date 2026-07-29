@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, EventEmitter, OnDestroy, OnInit, Output, computed, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import {
@@ -242,7 +242,7 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
   `],
 })
 export class ImportPanelComponent implements OnInit, OnDestroy {
-  @Output() readonly reconcileDate = new EventEmitter<string>();
+  readonly reconcileDate = output<string>();
 
   mySportPath = '';
   runDbPath = '';
