@@ -139,7 +139,11 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   }
 
   openBreakdown(row: DailySummaryRow): void {
-    this.loadBreakdown(row.metric_date);
+    this.openBreakdownForDate(row.metric_date);
+  }
+
+  openBreakdownForDate(date: string): void {
+    this.loadBreakdown(date);
   }
 
   retryBreakdown(): void {

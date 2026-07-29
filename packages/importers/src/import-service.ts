@@ -6,6 +6,7 @@ import {
   PerformanceRepository,
   ScoringRepository,
   type Database,
+  type ImportDiagnosticInput,
   type Json,
   type Kysely,
   type NewActivity,
@@ -98,10 +99,18 @@ export class ImportService {
         const recordsByHash = new Map(sourceRecords.map((record) => [record.row_hash, record]));
         phase = 'raw-stored';
         await this.injectFailure(phase, { batchId: batch.id, source: 'my_sport_xlsx' });
-        await importsRepo.updateBatchCounts(batch.id, { row_count: extract.rows.length, status: 'parsed' });
+        await importsRepo.updateBatchCounts(
+          batch.id,
+          { row_count: extract.rows.length, status: 'parsed' },
+          'workbook-parsed',
+        );
 
         const parsed = parseMySportWorkbook(extract);
         warningCount = parsed.warnings.length;
+        const affectedDates = [...new Set(parsed.dailyMetrics.map((facts) => facts.metricDate))];
+        await importsRepo.setAffectedDates(batch.id, affectedDates);
+        await importsRepo.recordDiagnostics(batch.id, parserDiagnostics(parsed.warnings));
+
         const activityRows = parsed.activities.map((activity): NewActivity => {
           const sourceRecord = requireSourceRecord(recordsByLocation, activity.rawPayloadJson, 'activity');
           const identityHash = rowHash({
@@ -140,14 +149,17 @@ export class ImportService {
         normalizedCount = parsed.dailyMetrics.length + upsertedActivities.length;
         phase = 'canonical-written';
         await this.injectFailure(phase, { batchId: batch.id, source: 'my_sport_xlsx' });
-        await importsRepo.updateBatchCounts(batch.id, {
-          row_count: extract.rows.length,
-          normalized_count: normalizedCount,
-          warning_count: warningCount,
-          status: 'normalized',
-        });
+        await importsRepo.updateBatchCounts(
+          batch.id,
+          {
+            row_count: extract.rows.length,
+            normalized_count: normalizedCount,
+            warning_count: warningCount,
+            status: 'normalized',
+          },
+          'canonical-written',
+        );
 
-        const affectedDates = [...new Set(parsed.dailyMetrics.map((facts) => facts.metricDate))];
         const canonicalActivities = await dailyRepo.listActivitiesForDates(affectedDates);
         const rules = await scoringRepo.listEnabledRules();
         const normalizedLinks: Array<{ sourceRecordId: string; entityType: 'daily_metric'; entityId: string }> = [];
@@ -171,12 +183,16 @@ export class ImportService {
         phase = 'daily-scored';
         await this.injectFailure(phase, { batchId: batch.id, source: 'my_sport_xlsx' });
 
-        await importsRepo.updateBatchCounts(batch.id, {
-          row_count: extract.rows.length,
-          normalized_count: normalizedCount,
-          warning_count: warningCount,
-          status: 'scored',
-        });
+        await importsRepo.updateBatchCounts(
+          batch.id,
+          {
+            row_count: extract.rows.length,
+            normalized_count: normalizedCount,
+            warning_count: warningCount,
+            status: 'scored',
+          },
+          'daily-scored',
+        );
         phase = 'batch-finalized';
         await this.injectFailure(phase, { batchId: batch.id, source: 'my_sport_xlsx' });
 
@@ -229,10 +245,18 @@ export class ImportService {
         const recordsByLocation = sourceRecordsByLocation(sourceRecords);
         phase = 'raw-stored';
         await this.injectFailure(phase, { batchId: batch.id, source: 'run_db_xlsx' });
-        await importsRepo.updateBatchCounts(batch.id, { row_count: extract.rows.length, status: 'parsed' });
+        await importsRepo.updateBatchCounts(
+          batch.id,
+          { row_count: extract.rows.length, status: 'parsed' },
+          'workbook-parsed',
+        );
 
         const parsed = parseRunDbWorkbook(extract);
         warningCount = parsed.warnings.length;
+        const affectedDates = [...new Set(parsed.events.map((event) => event.eventDate))];
+        await importsRepo.setAffectedDates(batch.id, affectedDates);
+        await importsRepo.recordDiagnostics(batch.id, parserDiagnostics(parsed.warnings));
+
         const rows = parsed.events.map((event): NewPerformanceEvent => {
           const sourceRecord = requireSourceRecord(recordsByLocation, event.rawPayloadJson, 'performance event');
           return {
@@ -269,12 +293,16 @@ export class ImportService {
 
         phase = 'canonical-written';
         await this.injectFailure(phase, { batchId: batch.id, source: 'run_db_xlsx' });
-        await importsRepo.updateBatchCounts(batch.id, {
-          row_count: extract.rows.length,
-          normalized_count: normalizedCount,
-          warning_count: warningCount,
-          status: 'normalized',
-        });
+        await importsRepo.updateBatchCounts(
+          batch.id,
+          {
+            row_count: extract.rows.length,
+            normalized_count: normalizedCount,
+            warning_count: warningCount,
+            status: 'normalized',
+          },
+          'canonical-written',
+        );
         phase = 'batch-finalized';
         await this.injectFailure(phase, { batchId: batch.id, source: 'run_db_xlsx' });
 
@@ -321,6 +349,32 @@ export class ImportService {
   private async injectFailure(phase: ImportFailurePhase, context: ImportPhaseContext): Promise<void> {
     await this.options.failureInjector?.(phase, context);
   }
+}
+
+function parserDiagnostics(warnings: string[]): ImportDiagnosticInput[] {
+  return warnings.map((message) => {
+    const performanceRow = /^Skipped performance row '(.+)'!(\d+)\b/.exec(message);
+    const dailyRow = /^Skipped (.+) row (\d+)\b/.exec(message);
+    const quotedSheet = /sheet '([^']+)'/.exec(message);
+    const rowIndex = Number(performanceRow?.[2] ?? dailyRow?.[2]);
+
+    return {
+      severity: 'warning',
+      code: diagnosticCode(message),
+      message,
+      phase: 'parse',
+      sheetName: performanceRow?.[1] ?? dailyRow?.[1] ?? quotedSheet?.[1] ?? null,
+      rowIndex: Number.isInteger(rowIndex) && rowIndex > 0 ? rowIndex : null,
+    };
+  });
+}
+
+function diagnosticCode(message: string): string {
+  if (/^Skipped performance row\b/.test(message) || /^Skipped .+ row \d+\b/.test(message)) return 'ROW_SKIPPED';
+  if (/column\b/i.test(message)) return 'COLUMN_IGNORED';
+  if (/sheet\b/i.test(message)) return 'SHEET_IGNORED';
+  if (/^No daily metrics found\b/.test(message)) return 'NO_CANONICAL_ROWS';
+  return 'IMPORT_WARNING';
 }
 
 function sourceRecordsByLocation(records: SourceRecord[]): Map<string, SourceRecord> {

@@ -27,10 +27,11 @@ The source tree contains the first vertical slice:
 - XLSX importers for the known daily and running workbooks;
 - deterministic synthetic workbook fixtures;
 - transactional canonical import orchestration and cross-batch source identities;
+- durable import history, status transitions, affected dates, and structured diagnostics;
 - deterministic TypeScript scoring helpers;
 - a persisted daily score-breakdown API contract;
 - a NestJS API;
-- an Angular review shell with Daily Log, Run Lab, and local import controls;
+- an Angular review shell with Daily Log, Run Lab, import history, and local import controls;
 - a local CLI importer.
 
 Several pieces remain incomplete or not operationally proven. MVP-0 is complete only when the import and score-comparison workflow can be run repeatedly and differences from the spreadsheets are explainable. See [MVP-0 status](docs/FIRST_MILESTONE.md) and the [roadmap](docs/ROADMAP.md).
@@ -141,10 +142,30 @@ GET  /health
 GET  /daily/summary?limit=365
 GET  /daily/:date/score-breakdown
 GET  /performance/best?distanceM=5000&limit=50
+GET  /imports?limit=20&offset=0
+GET  /imports/:batchId?diagnosticLimit=100&diagnosticOffset=0
 POST /imports/local-files
 ```
 
 `POST /imports/local-files` accepts local filesystem paths and is not an upload endpoint.
+
+### Import history and diagnostics
+
+`GET /imports` returns recent import batches ordered newest first. `limit` is bounded to 1–100 and `offset` to 0–10,000. Each item contains status, timing, row/normalized/warning/error counts, affected dates, and a failure summary when applicable.
+
+`GET /imports/:batchId` returns one batch's status timeline and a bounded diagnostic page. `diagnosticLimit` is bounded to 1–250 and `diagnosticOffset` to 0–50,000. Diagnostics identify severity, code, import phase, workbook sheet, row number, and message when that context is available.
+
+History and detail responses deliberately omit original hashes, raw cell payloads, and directory paths. Filenames are reduced to a basename. The local web form obscures paths while entered, clears them after each request, and never renders backend exception text that could contain a path.
+
+Retention/display rules for local MVP-0:
+
+- raw source rows remain in `source_records` for provenance and deterministic reprocessing;
+- raw row payloads are not returned by import-history endpoints or displayed in the web history panel;
+- structured warnings/errors may be retained in batch metadata and source-record diagnostic arrays for the life of the local database;
+- no automatic pruning is performed until a future retention policy can preserve referential integrity and audit requirements;
+- deleting local database data is an explicit operator action, not a UI side effect.
+
+Malformed pagination or batch identifiers return HTTP `400` with stable error codes. A valid unknown batch identifier returns HTTP `404` with code `IMPORT_BATCH_NOT_FOUND`.
 
 ### Daily score breakdown
 
@@ -256,7 +277,7 @@ SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test
   pnpm --filter @sportos/importers test:integration
 ```
 
-The integration suite generates synthetic XLSX files, imports each workbook repeatedly, verifies stable canonical row counts and IDs, injects failures at every transaction phase, checks rollback behavior, and verifies retry convergence. A skipped or green unit-test run alone does not prove database import behavior.
+The integration suite generates synthetic XLSX files, imports workbooks repeatedly, verifies stable canonical row counts and IDs, injects failures at transaction phases, checks rollback and retry behavior, and validates clean, warning-bearing, and failed import-history read models. A skipped or green unit-test run alone does not prove database import behavior.
 
 ## Current workbook assumptions
 
@@ -272,15 +293,14 @@ The complete mapping belongs in [docs/SPREADSHEET_MAPPING.md](docs/SPREADSHEET_M
 
 ## Near-term plan
 
-The next cohesive product increment is score reconciliation:
+The next queue item is coefficient and rule-semantics reconciliation:
 
-1. consume the score-breakdown endpoint in the Daily Log;
-2. show app total versus imported spreadsheet total;
-3. explain every delta using source rows and scoring rules;
-4. add import-history and row-level diagnostics;
-5. verify scoring coefficients against fixture-backed spreadsheet totals.
+1. generate a fixture-backed delta report;
+2. verify units, rounding order, thresholds, bonuses, and effective dates;
+3. document confirmed formulas and unresolved spreadsheet ambiguity;
+4. state historical recomputation expectations.
 
-After that, the project can move to browser uploads, asynchronous import jobs, import history, and a Rules Studio. See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone exit criteria and proposed PR sequencing.
+After trustworthy MVP-0 scoring reconciliation, the project can move to browser uploads, asynchronous import jobs, Rules Studio, and broader cockpit workflows. See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone exit criteria and proposed PR sequencing.
 
 ## Contributing
 
