@@ -6,7 +6,8 @@ import { createDb } from '@sportos/db';
 import { ImportService, type ImportFailurePhase } from './import-service.js';
 import { writeMySportFixture, writeRunDbFixture } from './test-fixtures/xlsx-fixtures.js';
 
-const databaseDescribe = process.env.DATABASE_URL ? describe : describe.skip;
+const testDatabaseUrl = process.env.SPORTOS_TEST_DATABASE_URL;
+const databaseDescribe = testDatabaseUrl ? describe : describe.skip;
 type TestDatabase = ReturnType<typeof createDb>;
 
 databaseDescribe('ImportService database integration', () => {
@@ -16,7 +17,7 @@ databaseDescribe('ImportService database integration', () => {
   let runDbPath: string;
 
   beforeAll(async () => {
-    db = createDb();
+    db = createDb(requireTestDatabaseUrl());
     directory = mkdtempSync(join(tmpdir(), 'sportos-import-integration-'));
     mySportPath = join(directory, 'my-sport.xlsx');
     runDbPath = join(directory, 'running-performance.xlsx');
@@ -73,7 +74,7 @@ databaseDescribe('ImportService database integration', () => {
     const baseline = await importCounts(db);
     const baselineIds = await canonicalIds(db);
 
-    const phases: ImportFailurePhase[] = ['raw-stored', 'canonical-written', 'daily-scored', 'batch-finalized'];
+    const phases: ImportFailurePhase[] = ['transaction-started', 'raw-stored', 'canonical-written', 'daily-scored', 'batch-finalized'];
     for (const targetPhase of phases) {
       const failingService = new ImportService(db, {
         failureInjector: (phase, context) => {
@@ -118,7 +119,7 @@ databaseDescribe('ImportService database integration', () => {
     const baseline = await importCounts(db);
     const baselineIds = await canonicalIds(db);
 
-    const phases: ImportFailurePhase[] = ['raw-stored', 'canonical-written', 'batch-finalized'];
+    const phases: ImportFailurePhase[] = ['transaction-started', 'raw-stored', 'canonical-written', 'batch-finalized'];
     for (const targetPhase of phases) {
       const failingService = new ImportService(db, {
         failureInjector: (phase, context) => {
@@ -223,4 +224,13 @@ async function resetImportTables(db: TestDatabase): Promise<void> {
   await db.deleteFrom('activities').execute();
   await db.deleteFrom('source_records').execute();
   await db.deleteFrom('import_batches').execute();
+}
+
+function requireTestDatabaseUrl(): string {
+  if (!testDatabaseUrl) throw new Error('SPORTOS_TEST_DATABASE_URL is required for database integration tests.');
+  const databaseName = new URL(testDatabaseUrl).pathname.replace(/^\//, '');
+  if (databaseName !== 'test' && !/[_-]test$/i.test(databaseName)) {
+    throw new Error('SPORTOS_TEST_DATABASE_URL must target a database whose name ends in _test or -test.');
+  }
+  return testDatabaseUrl;
 }
