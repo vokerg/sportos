@@ -36,8 +36,8 @@ jobs:
       - name: Test DB package
         run: pnpm --filter @sportos/db test
 
-      - name: Test API package
-        run: pnpm --filter @sportos/api test
-
       - name: Build DB package
         run: pnpm --filter @sportos/db build
+
+      - name: Test API package
+        run: pnpm --filter @sportos/api test
