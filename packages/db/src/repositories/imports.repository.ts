@@ -237,7 +237,8 @@ export class ImportsRepository {
 
     const previousMetadata = jsonObject(batch?.metadata);
     const errorName = details.error instanceof Error ? details.error.name : 'ImportError';
-    const errorMessage = details.error instanceof Error ? details.error.message : String(details.error);
+    const rawErrorMessage = details.error instanceof Error ? details.error.message : String(details.error);
+    const errorMessage = redactSensitiveText(rawErrorMessage);
     const attemptedCounts = compactCounts(details.attemptedCounts);
     const recordedAt = new Date().toISOString();
     const failure: Json = {
@@ -390,8 +391,8 @@ function toHistoryItem(batch: ImportBatch): ImportBatchHistoryItemReadModel {
     normalizedCount: batch.normalized_count,
     warningCount: batch.warning_count,
     errorCount: batch.error_count,
-    startedAt: batch.started_at.toISOString(),
-    completedAt: batch.completed_at?.toISOString() ?? null,
+    startedAt: timestampToIso(batch.started_at),
+    completedAt: batch.completed_at === null ? null : timestampToIso(batch.completed_at),
     affectedDates: jsonStringArray(metadata.affectedDates).filter(isIsoDateString).sort(),
     failure: failureFromJson(metadata.failure),
   };
@@ -412,7 +413,7 @@ function normalizeDiagnostic(input: ImportDiagnosticInput): ImportDiagnosticRead
   return {
     severity: input.severity,
     code: input.code.trim().slice(0, 120) || 'IMPORT_DIAGNOSTIC',
-    message: input.message.trim().slice(0, 1000),
+    message: redactSensitiveText(input.message.trim()).slice(0, 1000),
     phase: input.phase.trim().slice(0, 120) || 'unknown',
     sheetName: input.sheetName?.trim().slice(0, 255) || null,
     rowIndex: Number.isInteger(input.rowIndex) && Number(input.rowIndex) > 0 ? Number(input.rowIndex) : null,
@@ -443,7 +444,7 @@ function diagnosticsFromJson(
       return [{
         severity: defaults.severity ?? 'warning',
         code: defaults.code ?? 'IMPORT_DIAGNOSTIC',
-        message: entry.slice(0, 1000),
+        message: redactSensitiveText(entry).slice(0, 1000),
         phase: defaults.phase ?? 'parse',
         sheetName: defaults.sheetName ?? null,
         rowIndex: defaults.rowIndex ?? null,
@@ -452,15 +453,15 @@ function diagnosticsFromJson(
       }];
     }
     const object = jsonObject(entry);
-    const message = jsonString(object.message);
-    if (!message) return [];
+    const rawMessage = jsonString(object.message);
+    if (!rawMessage) return [];
     const severity = object.severity === 'error' || object.severity === 'warning'
       ? object.severity
       : defaults.severity ?? 'warning';
     return [{
       severity,
       code: jsonString(object.code) ?? defaults.code ?? 'IMPORT_DIAGNOSTIC',
-      message,
+      message: redactSensitiveText(rawMessage).slice(0, 1000),
       phase: jsonString(object.phase) ?? defaults.phase ?? 'parse',
       sheetName: jsonString(object.sheetName) ?? defaults.sheetName ?? null,
       rowIndex: jsonPositiveInteger(object.rowIndex) ?? defaults.rowIndex ?? null,
@@ -485,9 +486,11 @@ function failureFromJson(value: Json | undefined): ImportBatchFailureReadModel |
   const object = jsonObject(value);
   const phase = jsonString(object.phase);
   const name = jsonString(object.name);
-  const message = jsonString(object.message);
+  const rawMessage = jsonString(object.message);
   const recordedAt = jsonString(object.recordedAt);
-  return phase && name && message && recordedAt ? { phase, name, message, recordedAt } : null;
+  return phase && name && rawMessage && recordedAt
+    ? { phase, name, message: redactSensitiveText(rawMessage).slice(0, 500), recordedAt }
+    : null;
 }
 
 function deduplicateDiagnostics(diagnostics: ImportDiagnosticReadModel[]): ImportDiagnosticReadModel[] {
@@ -511,6 +514,22 @@ function safeFilename(filename: string | null): string | null {
   if (!filename) return null;
   const basename = filename.replaceAll('\\', '/').split('/').filter(Boolean).at(-1)?.trim();
   return basename ? basename.slice(0, 255) : null;
+}
+
+function redactSensitiveText(value: string): string {
+  return value
+    .replace(/(["'`])(?:[A-Za-z]:[\\/]|\/)[^"'`\r\n]+\1/g, '$1[redacted local path]$1')
+    .replace(/\b[A-Za-z]:[\\/][^\s,;]+/g, '[redacted local path]')
+    .replace(/(^|\s)\/(?:[^/\s]+\/)*[^/\s,;]+/g, '$1[redacted local path]');
+}
+
+function timestampToIso(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.valueOf()) ? value : parsed.toISOString();
+  }
+  return String(value);
 }
 
 function isImportStatus(value: Json | undefined): value is ImportBatch['status'] {
