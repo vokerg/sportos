@@ -1,17 +1,17 @@
 import type { Kysely } from 'kysely';
-import type { ScoringRule } from '@sportos/domain';
+import type { EnabledScoringRule } from '../repository-contracts.js';
 import type { Database, ScoringRuleRow } from '../schema.js';
 
 export class ScoringRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
-  async listEnabledRules(): Promise<ScoringRule[]> {
+  async listEnabledRules(): Promise<EnabledScoringRule[]> {
     const rows = await this.db.selectFrom('scoring_rules').selectAll().where('enabled', '=', true).execute();
-    return rows.map(toDomainRule);
+    return rows.map(toEnabledRule);
   }
 }
 
-function toDomainRule(row: ScoringRuleRow): ScoringRule {
+function toEnabledRule(row: ScoringRuleRow): EnabledScoringRule {
   return {
     id: row.id,
     code: row.code,
