@@ -157,6 +157,17 @@ FROM activity_import_duplicates AS duplicates
 WHERE duplicates.duplicate_rank > 1
   AND ledger.activity_id = duplicates.id;
 
+-- Repointing duplicate activity IDs can make historical achievement entries
+-- identical. Keep one exact contribution so pre-migration totals do not double.
+DELETE FROM score_ledger AS duplicate
+USING score_ledger AS keep
+WHERE duplicate.id > keep.id
+  AND duplicate.metric_date = keep.metric_date
+  AND duplicate.activity_id IS NOT DISTINCT FROM keep.activity_id
+  AND duplicate.rule_id IS NOT DISTINCT FROM keep.rule_id
+  AND duplicate.points = keep.points
+  AND duplicate.reason = keep.reason;
+
 UPDATE performance_events AS event
 SET activity_id = duplicates.keep_id
 FROM activity_import_duplicates AS duplicates
