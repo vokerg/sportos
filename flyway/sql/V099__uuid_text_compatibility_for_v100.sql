@@ -1,9 +1,18 @@
--- Compatibility shim for the historical V100 duplicate-repair statements.
+-- Compatibility bridge for the historical V100 duplicate-repair statements.
 --
--- V100 compares UUID foreign keys with text-typed temporary values on a clean
--- Postgres 16 schema. Keep V100 unchanged so databases that already recorded its
--- Flyway checksum are not forced through a checksum repair. V101 removes every
--- object created here immediately after V100 succeeds.
+-- `normalized_entity_id` identifies multiple canonical entity kinds. Activities
+-- and performance events use UUIDs, while daily metrics use ISO dates, so the
+-- durable column must be text. V100 already writes text values but the original
+-- V001 definition left the column as UUID.
+--
+-- V100 also compares UUID references with text-typed temporary values. Keep V100
+-- unchanged so databases that recorded its Flyway checksum do not require repair.
+-- V101 removes only the temporary equality operators and confirms the durable text
+-- column type for databases that had already advanced beyond V099.
+
+ALTER TABLE source_records
+  ALTER COLUMN normalized_entity_id TYPE text
+  USING normalized_entity_id::text;
 
 CREATE FUNCTION public.sportos_uuid_equals_text(left_value uuid, right_value text)
 RETURNS boolean
