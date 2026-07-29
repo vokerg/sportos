@@ -2,15 +2,15 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { sql, type Kysely } from 'kysely';
-import { createDb, type Database } from '@sportos/db';
+import { createDb } from '@sportos/db';
 import { ImportService, type ImportFailurePhase } from './import-service.js';
 import { writeMySportFixture, writeRunDbFixture } from './test-fixtures/xlsx-fixtures.js';
 
 const databaseDescribe = process.env.DATABASE_URL ? describe : describe.skip;
+type TestDatabase = ReturnType<typeof createDb>;
 
 databaseDescribe('ImportService database integration', () => {
-  let db: Kysely<Database>;
+  let db: TestDatabase;
   let directory: string;
   let mySportPath: string;
   let runDbPath: string;
@@ -146,22 +146,40 @@ interface ImportCounts {
   performanceEventsWithoutSource: number;
 }
 
-async function importCounts(db: Kysely<Database>): Promise<ImportCounts> {
-  const result = await sql<ImportCounts>`
-    SELECT
-      (SELECT count(*)::integer FROM import_batches) AS "importBatches",
-      (SELECT count(*)::integer FROM source_records) AS "sourceRecords",
-      (SELECT count(*)::integer FROM activities) AS activities,
-      (SELECT count(*)::integer FROM daily_metrics) AS "dailyMetrics",
-      (SELECT count(*)::integer FROM performance_events) AS "performanceEvents",
-      (SELECT count(*)::integer FROM score_ledger) AS "scoreLedger",
-      (SELECT count(*)::integer FROM activities WHERE source_record_id IS NULL) AS "activitiesWithoutSource",
-      (SELECT count(*)::integer FROM daily_metrics WHERE source_record_id IS NULL) AS "dailyMetricsWithoutSource",
-      (SELECT count(*)::integer FROM performance_events WHERE source_record_id IS NULL) AS "performanceEventsWithoutSource"
-  `.execute(db);
-  const counts = result.rows[0];
-  if (!counts) throw new Error('Import count query returned no row.');
-  return counts;
+async function importCounts(db: TestDatabase): Promise<ImportCounts> {
+  const [
+    importBatches,
+    sourceRecords,
+    activities,
+    dailyMetrics,
+    performanceEvents,
+    scoreLedger,
+    activitiesWithoutSource,
+    dailyMetricsWithoutSource,
+    performanceEventsWithoutSource,
+  ] = await Promise.all([
+    db.selectFrom('import_batches').select((eb) => eb.fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+    db.selectFrom('source_records').select((eb) => eb.fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+    db.selectFrom('activities').select((eb) => eb.fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+    db.selectFrom('daily_metrics').select((eb) => eb.fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+    db.selectFrom('performance_events').select((eb) => eb.fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+    db.selectFrom('score_ledger').select((eb) => eb.fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+    db.selectFrom('activities').select((eb) => eb.fn.countAll<number>().as('count')).where('source_record_id', 'is', null).executeTakeFirstOrThrow(),
+    db.selectFrom('daily_metrics').select((eb) => eb.fn.countAll<number>().as('count')).where('source_record_id', 'is', null).executeTakeFirstOrThrow(),
+    db.selectFrom('performance_events').select((eb) => eb.fn.countAll<number>().as('count')).where('source_record_id', 'is', null).executeTakeFirstOrThrow(),
+  ]);
+
+  return {
+    importBatches: Number(importBatches.count),
+    sourceRecords: Number(sourceRecords.count),
+    activities: Number(activities.count),
+    dailyMetrics: Number(dailyMetrics.count),
+    performanceEvents: Number(performanceEvents.count),
+    scoreLedger: Number(scoreLedger.count),
+    activitiesWithoutSource: Number(activitiesWithoutSource.count),
+    dailyMetricsWithoutSource: Number(dailyMetricsWithoutSource.count),
+    performanceEventsWithoutSource: Number(performanceEventsWithoutSource.count),
+  };
 }
 
 function canonicalCounts(counts: ImportCounts): Omit<ImportCounts, 'importBatches' | 'sourceRecords'> {
@@ -169,15 +187,11 @@ function canonicalCounts(counts: ImportCounts): Omit<ImportCounts, 'importBatche
   return canonical;
 }
 
-async function resetImportTables(db: Kysely<Database>): Promise<void> {
-  await sql`
-    TRUNCATE TABLE
-      score_ledger,
-      daily_metrics,
-      performance_events,
-      activities,
-      source_records,
-      import_batches
-    CASCADE
-  `.execute(db);
+async function resetImportTables(db: TestDatabase): Promise<void> {
+  await db.deleteFrom('score_ledger').execute();
+  await db.deleteFrom('daily_metrics').execute();
+  await db.deleteFrom('performance_events').execute();
+  await db.deleteFrom('activities').execute();
+  await db.deleteFrom('source_records').execute();
+  await db.deleteFrom('import_batches').execute();
 }
