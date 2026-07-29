@@ -1,6 +1,6 @@
 import { sql, type Kysely } from 'kysely';
-import type { DailyMetricFacts, DailyScoreResult } from '@sportos/domain';
-import type { Activity, Database, NewActivity } from '../schema.js';
+import type { DailyMetricFactsInput, DailyScoreInput } from '../repository-contracts.js';
+import type { Activity, Database, Json, NewActivity } from '../schema.js';
 
 export class DailyRepository {
   constructor(private readonly db: Kysely<Database>) {}
@@ -57,7 +57,7 @@ export class DailyRepository {
       .execute();
   }
 
-  async upsertDailyMetric(facts: DailyMetricFacts, score: DailyScoreResult, sourceRecordId?: string): Promise<void> {
+  async upsertDailyMetric(facts: DailyMetricFactsInput, score: DailyScoreInput, sourceRecordId?: string): Promise<void> {
     await this.db
       .insertInto('daily_metrics')
       .values({
@@ -95,7 +95,7 @@ export class DailyRepository {
       .execute();
   }
 
-  async replaceScoreLedger(metricDate: string, entries: DailyScoreResult['ledger']): Promise<void> {
+  async replaceScoreLedger(metricDate: string, entries: DailyScoreInput['ledger']): Promise<void> {
     await this.db.deleteFrom('score_ledger').where('metric_date', '=', metricDate).execute();
     if (entries.length === 0) return;
     await this.db
@@ -106,7 +106,7 @@ export class DailyRepository {
         rule_id: entry.ruleId ?? null,
         points: entry.points,
         reason: entry.reason,
-        calculation_json: entry.calculationJson,
+        calculation_json: entry.calculationJson as Json,
       })))
       .execute();
   }
@@ -115,7 +115,7 @@ export class DailyRepository {
     return this.db
       .selectFrom('v_daily_summary')
       .selectAll()
-      .where('metric_date', '<=', new Date())
+      .where('metric_date', '<=', new Date().toISOString().slice(0, 10))
       .orderBy('metric_date', 'desc')
       .limit(limit)
       .execute();
