@@ -4,8 +4,26 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 export type DateString = ColumnType<string, string, string>;
 
+export interface UploadedFilesTable {
+  id: string;
+  workbook_kind: 'my_sport' | 'run_db';
+  storage_provider: 'local';
+  object_key: string;
+  original_filename: string;
+  sanitized_filename: string;
+  content_type: string;
+  byte_size: number;
+  sha256: string;
+  status: 'stored' | 'imported' | 'failed' | 'deleted';
+  last_error: string | null;
+  created_at: Generated<Timestamp>;
+  imported_at: Timestamp | null;
+  deleted_at: Timestamp | null;
+}
+
 export interface ImportBatchesTable {
   id: Generated<string>;
+  uploaded_file_id: string | null;
   source: string;
   source_kind: 'xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit' | 'manual';
   filename: string | null;
@@ -133,6 +151,7 @@ export interface PerformanceEventsTable {
 }
 
 export interface Database {
+  uploaded_files: UploadedFilesTable;
   import_batches: ImportBatchesTable;
   source_records: SourceRecordsTable;
   activities: ActivitiesTable;
@@ -144,6 +163,8 @@ export interface Database {
   v_performance_events: Omit<PerformanceEventsTable, 'source_record_hash'> & { all_time_rank: number; is_pr_by_time: boolean };
 }
 
+export type UploadedFile = Selectable<UploadedFilesTable>;
+export type NewUploadedFile = Insertable<UploadedFilesTable>;
 export type ImportBatch = Selectable<ImportBatchesTable>;
 export type NewImportBatch = Insertable<ImportBatchesTable>;
 export type SourceRecord = Selectable<SourceRecordsTable>;
