@@ -22,7 +22,7 @@ describe('sanitized XLSX fixture harness', () => {
 
       expect(first.sheetNames).toEqual(['Sheet1', 'Sheet8', 'Sheet2', 'Unexpected Notes']);
       expect(first.workbook.Workbook?.Sheets?.find((sheet) => sheet.name === 'Sheet2')?.Hidden).toBe(1);
-      expect(first.rows.find((row) => row.sheetName === 'Sheet1' && row.rowIndex === 2)?.cells[19]).toBe(2_468);
+      expect(first.rows.find((row) => row.sheetName === 'Sheet1' && row.rowIndex === 2)?.cells[19]).toBe(55_610);
       expect(first.rows.some((row) => row.sheetName === 'Sheet2')).toBe(true);
       expect(first.rows.some((row) => row.sheetName === 'Unexpected Notes')).toBe(true);
 
@@ -51,7 +51,7 @@ describe('sanitized XLSX fixture harness', () => {
         swimM: 1_000,
         workoutPoints: 8,
         powerPoints: 7,
-        excelAllPoints: 2_468,
+        excelAllPoints: 55_610,
       });
       expect(result.dailyMetrics[0]?.excelRowHash).toMatch(/^[a-f0-9]{64}$/);
       expect(result.dailyMetrics[1]).toMatchObject({
@@ -64,6 +64,29 @@ describe('sanitized XLSX fixture harness', () => {
         powerPoints: 0,
       });
       expect(result.dailyMetrics[1]?.excelAllPoints).toBeUndefined();
+
+      expect(result.scoreEvidence).toEqual([
+        {
+          metricDate: '2026-05-18',
+          excelAllPoints: 55_610,
+          sheetName: 'Sheet1',
+          rowIndex: 2,
+          components: [
+            { activityType: 'run', sourceColumn: 'run_to_s', importedPoints: 13_000 },
+            { activityType: 'bike', sourceColumn: 'bike_to_s', importedPoints: 22_750 },
+            { activityType: 'sup', sourceColumn: 'sup_to_s', importedPoints: 2_500 },
+            { activityType: 'rowing', sourceColumn: 'raw_to_s', importedPoints: 5 },
+            { activityType: 'swim', sourceColumn: 'swim_to_s', importedPoints: 7_500 },
+          ],
+        },
+        {
+          metricDate: '2026-05-19',
+          excelAllPoints: undefined,
+          sheetName: 'Sheet1',
+          rowIndex: 4,
+          components: [],
+        },
+      ]);
 
       expect(result.activities).toHaveLength(13);
       expect(result.activities).toEqual(
@@ -87,10 +110,10 @@ describe('sanitized XLSX fixture harness', () => {
         rowIndex: 2,
         row: {
           run_to_s: 13_000,
-          bike_to_s: 35_000,
+          bike_to_s: 22_750,
           sup_to_s: 2_500,
           raw_to_s: 5,
-          swim_to_s: 1_000,
+          swim_to_s: 7_500,
           a10: 100,
           a20d: 200,
           '30all': 300,
