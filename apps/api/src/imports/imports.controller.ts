@@ -8,8 +8,12 @@ import {
   Param,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ImportsService } from './imports.service.js';
+import { MAX_WORKBOOK_UPLOAD_BYTES, type MultipartWorkbookFile } from './workbook-upload.js';
 
 @Controller('imports')
 export class ImportsController {
@@ -21,6 +25,17 @@ export class ImportsController {
       parseBoundedInteger(limit, { name: 'limit', defaultValue: 20, minimum: 1, maximum: 100 }),
       parseBoundedInteger(offset, { name: 'offset', defaultValue: 0, minimum: 0, maximum: 10_000 }),
     );
+  }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { files: 1, fileSize: MAX_WORKBOOK_UPLOAD_BYTES },
+  }))
+  uploadWorkbook(
+    @UploadedFile() file: MultipartWorkbookFile | undefined,
+    @Body('workbookKind') workbookKind?: string,
+  ) {
+    return this.importsService.uploadWorkbook({ file, workbookKind });
   }
 
   @Get(':batchId')
