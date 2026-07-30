@@ -69,11 +69,11 @@ export function writeMySportFixture(path: string): void {
       35,
       13,
       13_000,
-      35_000,
+      22_750,
       2_500,
       5,
-      1_000,
-      2_468,
+      7_500,
+      55_610,
       100,
       200,
       300,
@@ -87,7 +87,10 @@ export function writeMySportFixture(path: string): void {
 
   setCachedFormula(sheet, 'M2', 'E2+I2', 35);
   setCachedFormula(sheet, 'N2', 'C2+D2', 13);
-  setCachedFormula(sheet, 'T2', 'SUM(B2:N2)', 2_468);
+  setCachedFormula(sheet, 'O2', 'N2*1000', 13_000);
+  setCachedFormula(sheet, 'P2', 'M2*650', 22_750);
+  setCachedFormula(sheet, 'S2', 'K2*7.5', 7_500);
+  setCachedFormula(sheet, 'T2', 'B2+O2+P2+S2+J2+L2', 55_610);
 
   XLSX.utils.book_append_sheet(workbook, sheet, 'Sheet1');
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([]), 'Sheet8');
