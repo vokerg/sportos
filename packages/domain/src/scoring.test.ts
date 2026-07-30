@@ -7,6 +7,7 @@ const rules: ScoringRule[] = [
   { code: 'run.km.default', name: 'Run', activityType: 'run', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1000, validFrom: '1900-01-01', priority: 20, enabled: true },
   { code: 'power.manual', name: 'Power', activityType: 'power_bonus', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 60, enabled: true },
   { code: 'run.5k.sub25.bonus', name: '5k under 25', activityType: 'run', ruleKind: 'achievement', metric: 'duration_s', thresholdOperator: 'lt', thresholdValue: 1500, thresholdUnit: 's', points: 1000, validFrom: '1900-01-01', priority: 70, enabled: true },
+  { code: 'run.10k.completed.bonus', name: '10k completed', activityType: 'run', ruleKind: 'achievement', metric: 'distance_m', thresholdOperator: 'gte', thresholdValue: 10000, thresholdUnit: 'm', points: 2000, validFrom: '1900-01-01', priority: 80, enabled: true },
 ];
 
 describe('scoreDay', () => {
@@ -35,6 +36,20 @@ describe('scoreDay', () => {
         { metric: 'distance_m', operator: 'within', expected: 5000, actual: 5000, passed: true },
       ],
     });
+  });
+
+  it('does not combine separate activities into an aggregate achievement', () => {
+    const result = scoreDay(
+      { metricDate: '2026-05-18', steps: 0, runM: 12_000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      [
+        { id: 'run1', activityDate: '2026-05-18', activityType: 'run', distanceM: 6000 },
+        { id: 'run2', activityDate: '2026-05-18', activityType: 'run', distanceM: 6000 },
+      ],
+      rules,
+    );
+
+    expect(result).toMatchObject({ basePoints: 12_000, bonusPoints: 0, totalPoints: 12_000 });
+    expect(result.ledger.map((entry) => entry.ruleCode)).toEqual(['run.km.default']);
   });
 
   it('uses rule code as a deterministic tie-breaker when priorities match', () => {
