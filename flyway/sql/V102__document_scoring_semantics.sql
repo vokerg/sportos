@@ -22,10 +22,10 @@ set
     when 'swim.m.default' then 'Base rule. Input unit: swim meters. Formula: meters * 7.5. Round once to the nearest integer per rule. Effective from 1900-01-01. This remains a configured assumption until permitted historical workbook evidence proves a different coefficient.'
     when 'workout.manual' then 'Base rule. Input unit: imported WOtotal points, rounded by the importer. Formula: points * 1, then nearest-integer rule rounding. Effective from 1900-01-01; HIIT and rowing source columns are not separately added.'
     when 'power.manual' then 'Bonus rule. Input unit: imported Pow points, rounded by the importer. Formula: points * 1, then nearest-integer rule rounding. Effective from 1900-01-01.'
-    when 'run.5k.sub25.bonus' then 'SportOS bonus. Award 1000 points when duration is strictly below 1500 seconds and distance is within 500 meters of 5000 meters. Effective from 1900-01-01.'
-    when 'run.10k.completed.bonus' then 'SportOS bonus. Award 2000 points when activity distance is at least 10000 meters. Effective from 1900-01-01.'
-    when 'swim.1k.sub20.bonus' then 'SportOS bonus. Award 1000 points when duration is strictly below 1200 seconds and distance is at least 1000 meters. Effective from 1900-01-01.'
-    when 'bike.10k.easy.bonus' then 'SportOS bonus. Award 1000 points when average speed is strictly below 20 km/h. The current engine does not add a separate minimum-distance condition. Effective from 1900-01-01.'
+    when 'run.5k.sub25.bonus' then 'SportOS bonus. Award 1000 points when one canonical activity has duration strictly below 1500 seconds and distance within 500 meters of 5000 meters. Effective from 1900-01-01.'
+    when 'run.10k.completed.bonus' then 'SportOS bonus. Award 2000 points when one canonical activity has distance at least 10000 meters. Effective from 1900-01-01.'
+    when 'swim.1k.sub20.bonus' then 'SportOS bonus. Award 1000 points when one canonical activity has duration strictly below 1200 seconds and distance at least 1000 meters. Effective from 1900-01-01.'
+    when 'bike.10k.easy.bonus' then 'SportOS bonus. Award 1000 points when one canonical activity has average speed strictly below 20 km/h. The current engine does not add a separate minimum-distance condition. Effective from 1900-01-01.'
     else description
   end
 where code in (
@@ -40,6 +40,32 @@ where code in (
   'swim.1k.sub20.bonus',
   'bike.10k.easy.bonus'
 );
+
+-- Prior application versions evaluated achievement rules against synthetic daily
+-- aggregate activities. Such ledger rows have no canonical activity_id and can
+-- combine multiple sessions into an invalid achievement. Remove only those rows
+-- and reduce persisted bonus/total values by the same amount.
+with invalid_achievement_points as (
+  select sl.metric_date, sum(sl.points)::integer as invalid_points
+  from score_ledger sl
+  join scoring_rules sr on sr.id = sl.rule_id
+  where sr.rule_kind = 'achievement'
+    and sl.activity_id is null
+  group by sl.metric_date
+)
+update daily_metrics dm
+set
+  bonus_points = dm.bonus_points - invalid.invalid_points,
+  total_points = dm.total_points - invalid.invalid_points,
+  recomputed_at = now()
+from invalid_achievement_points invalid
+where dm.metric_date = invalid.metric_date;
+
+delete from score_ledger sl
+using scoring_rules sr
+where sr.id = sl.rule_id
+  and sr.rule_kind = 'achievement'
+  and sl.activity_id is null;
 
 -- Prior application versions classified power.manual as base points because they
 -- inferred bonuses from a '.bonus' code suffix. Correct existing daily aggregates
