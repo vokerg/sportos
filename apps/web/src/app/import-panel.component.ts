@@ -1,4 +1,4 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { Component, EventEmitter, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -7,6 +7,7 @@ import {
   type ImportBatchDetail,
   type ImportBatchHistoryItem,
   type ImportDiagnostic,
+  type UploadWorkbookKind,
 } from './api.service';
 
 type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
@@ -21,43 +22,53 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
       <div class="section-heading">
         <div>
           <h2>Imports</h2>
-          <p class="help">Run the development-only local import, then inspect durable batches and row diagnostics without exposing raw cells or server paths.</p>
+          <p class="help">Upload a supported XLSX workbook, then inspect its durable batch, affected dates, and row diagnostics.</p>
         </div>
         <button type="button" class="secondary" (click)="loadHistory()" [disabled]="historyState() === 'loading'">
           Refresh
         </button>
       </div>
 
-      <details class="local-import">
-        <summary>Import server-local XLSX files</summary>
-        <p class="privacy-note">Paths are obscured while entered and are never shown in history or diagnostic responses.</p>
-        <div class="path-fields">
+      <section class="upload-panel" aria-labelledby="upload-heading">
+        <div>
+          <h3 id="upload-heading">Upload workbook</h3>
+          <p class="privacy-note">Maximum 20 MB. Files are retained in local source storage for provenance; server paths are never returned.</p>
+        </div>
+        <div class="upload-fields">
           <label>
-            Daily ledger path
-            <input
-              type="password"
-              [(ngModel)]="mySportPath"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="Server-local path">
+            Workbook type
+            <select [(ngModel)]="workbookKind" name="workbookKind" [disabled]="importState() === 'loading'">
+              <option value="my_sport">Daily ledger (my_sport)</option>
+              <option value="run_db">Running performance database</option>
+            </select>
           </label>
           <label>
-            Running database path
+            XLSX file
             <input
-              type="password"
-              [(ngModel)]="runDbPath"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="Server-local path">
+              #fileInput
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              (change)="onFileSelected($event)"
+              [disabled]="importState() === 'loading'">
           </label>
         </div>
-        <button type="button" (click)="import()" [disabled]="importState() === 'loading'">
-          {{ importState() === 'loading' ? 'Importing…' : 'Import files' }}
+        @if (selectedFilename()) {
+          <p class="selected-file">Selected: <strong>{{ selectedFilename() }}</strong></p>
+        }
+        <button type="button" (click)="import(fileInput)" [disabled]="importState() === 'loading' || !selectedFile">
+          {{ importState() === 'loading' ? 'Uploading and importing…' : 'Upload and import' }}
         </button>
+        @if (uploadProgress() !== null && importState() === 'loading') {
+          <div class="upload-progress" aria-live="polite">
+            <progress [value]="uploadProgress()" max="100"></progress>
+            <span>{{ uploadProgress() }}%</span>
+          </div>
+        }
         @if (importMessage()) {
           <p class="request-message" [class.error-message]="importState() === 'error'" aria-live="polite">{{ importMessage() }}</p>
         }
-      </details>
+        <p class="developer-note">The server-local path endpoint and CLI remain available for development, but are no longer the browser workflow.</p>
+      </section>
 
       <div class="history-heading">
         <h3>Recent batches</h3>
@@ -128,7 +139,7 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
               <div class="failure-guidance" role="alert">
                 <strong>Import failed during {{ selected.batch.failure.phase }}.</strong>
                 <p>{{ selected.batch.failure.message }}</p>
-                <p>Correct the workbook or local access problem, then run the import again. A retry creates a new inspectable batch.</p>
+                <p>Correct the workbook and upload it again. A retry creates a new inspectable batch.</p>
               </div>
             }
 
@@ -198,19 +209,20 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
       justify-content: space-between;
       gap: 12px;
     }
-    .section-heading h2, .history-heading h3, .detail-heading h3, .detail-section h4 { margin-bottom: 4px; }
-    .help, .privacy-note, .detail-heading p, .state-message, .batch-secondary, .batch-counts, .timeline span, .timeline time {
+    .section-heading h2, .history-heading h3, .detail-heading h3, .detail-section h4, .upload-panel h3 { margin-bottom: 4px; }
+    .help, .privacy-note, .developer-note, .detail-heading p, .state-message, .batch-secondary, .batch-counts, .timeline span, .timeline time {
       color: #667085;
       font-size: 13px;
     }
     .secondary { background: #e8eefc; color: #1d4ed8; }
-    button:disabled { cursor: not-allowed; opacity: .6; }
-    .local-import { border: 1px solid #dbe3f0; border-radius: 14px; padding: 12px; }
-    .local-import summary { cursor: pointer; font-weight: 700; }
-    .path-fields { display: grid; gap: 10px; margin: 12px 0; }
-    .path-fields label { display: grid; gap: 5px; font-size: 13px; font-weight: 650; }
-    .path-fields input { box-sizing: border-box; width: 100%; min-width: 0; }
-    .request-message { margin: 10px 0 0; }
+    button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity: .6; }
+    .upload-panel { display: grid; gap: 12px; border: 1px solid #dbe3f0; border-radius: 14px; padding: 14px; }
+    .upload-fields { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(220px, 1.4fr); gap: 12px; }
+    .upload-fields label { display: grid; gap: 5px; font-size: 13px; font-weight: 650; }
+    .upload-fields input, .upload-fields select { box-sizing: border-box; width: 100%; min-width: 0; }
+    .selected-file, .request-message, .developer-note { margin: 0; }
+    .upload-progress { display: flex; align-items: center; gap: 10px; }
+    .upload-progress progress { width: min(360px, 100%); }
     .error-message { color: #991b1b; }
     .state-message { padding: 14px; border-radius: 12px; background: #f8fafc; }
     .batch-list, .diagnostic-list, .timeline { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -241,15 +253,17 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
     @media (max-width: 620px) {
       .detail-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .section-heading { align-items: stretch; flex-direction: column; }
+      .upload-fields { grid-template-columns: 1fr; }
     }
   `],
 })
 export class ImportPanelComponent implements OnInit, OnDestroy {
   readonly reconcileDate = new EventEmitter<string>();
 
-  mySportPath = '';
-  runDbPath = '';
-
+  workbookKind: UploadWorkbookKind = 'my_sport';
+  selectedFile: File | null = null;
+  readonly selectedFilename = signal<string | null>(null);
+  readonly uploadProgress = signal<number | null>(null);
   readonly historyState = signal<RequestState>('idle');
   readonly history = signal<ImportBatchHistoryItem[]>([]);
   readonly historyTotal = signal(0);
@@ -282,38 +296,56 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
     this.importSubscription?.unsubscribe();
   }
 
-  import(): void {
-    if (!this.mySportPath.trim() && !this.runDbPath.trim()) {
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.item(0) ?? null;
+    this.selectedFile = file;
+    this.selectedFilename.set(file?.name ?? null);
+    this.importMessage.set(null);
+    this.importState.set('idle');
+    this.uploadProgress.set(null);
+  }
+
+  import(fileInput?: HTMLInputElement): void {
+    const file = this.selectedFile;
+    if (!file) {
       this.importState.set('error');
-      this.importMessage.set('Enter at least one server-local workbook path.');
+      this.importMessage.set('Choose an XLSX workbook before starting the import.');
       return;
     }
 
     this.importSubscription?.unsubscribe();
     this.importState.set('loading');
     this.importMessage.set(null);
-    this.importSubscription = this.api
-      .importLocalFiles(this.mySportPath.trim() || undefined, this.runDbPath.trim() || undefined)
-      .subscribe({
-        next: (result) => {
-          this.mySportPath = '';
-          this.runDbPath = '';
-          this.importState.set('loaded');
-          this.importMessage.set(
-            `Import recorded ${result.dailyRows} daily rows, ${result.activities} activities, ${result.performanceEvents} performance events, and ${result.warnings.length} warnings.`,
-          );
-          this.loadHistory();
-          const latestBatch = result.batches.at(-1);
-          if (latestBatch) this.loadDetail(latestBatch.id);
-        },
-        error: () => {
-          this.mySportPath = '';
-          this.runDbPath = '';
-          this.importState.set('error');
-          this.importMessage.set('The import failed. Review the newest failed batch for its phase and diagnostics.');
-          this.loadHistory();
-        },
-      });
+    this.uploadProgress.set(0);
+    this.importSubscription = this.api.uploadWorkbook(file, this.workbookKind).subscribe({
+      next: (event) => {
+        if (event.type === HttpEventType.UploadProgress) {
+          const total = event.total ?? file.size;
+          this.uploadProgress.set(total > 0 ? Math.min(100, Math.round((event.loaded / total) * 100)) : 0);
+          return;
+        }
+        if (event.type !== HttpEventType.Response || !event.body) return;
+
+        const result = event.body;
+        this.clearSelectedFile(fileInput);
+        this.uploadProgress.set(100);
+        this.importState.set('loaded');
+        this.importMessage.set(
+          `Uploaded ${result.upload.filename}. Import recorded ${result.dailyRows} daily rows, ${result.activities} activities, ${result.performanceEvents} performance events, and ${result.warnings.length} warnings.`,
+        );
+        this.loadHistory();
+        const latestBatch = result.batches.at(-1);
+        if (latestBatch) this.loadDetail(latestBatch.id);
+      },
+      error: (error: unknown) => {
+        this.clearSelectedFile(fileInput);
+        this.uploadProgress.set(null);
+        this.importState.set('error');
+        this.importMessage.set(this.describeUploadError(error));
+        this.loadHistory();
+      },
+    });
   }
 
   loadHistory(): void {
@@ -375,6 +407,12 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
     ].join('|');
   }
 
+  private clearSelectedFile(fileInput?: HTMLInputElement): void {
+    this.selectedFile = null;
+    this.selectedFilename.set(null);
+    if (fileInput) fileInput.value = '';
+  }
+
   private loadDetail(batchId: string, diagnosticOffset = 0, append = false): void {
     this.detailSubscription?.unsubscribe();
     this.selectedBatchId.set(batchId);
@@ -401,6 +439,40 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
         this.detailState.set('error');
       },
     });
+  }
+
+  private describeUploadError(error: unknown): string {
+    if (!(error instanceof HttpErrorResponse)) return 'The workbook upload failed. Try again or inspect the newest failed batch.';
+    if (error.status === 0) return 'The SportOS API is unavailable. Check that the local API is running.';
+    if (error.status === 413) return 'The workbook exceeds the 20 MB upload limit.';
+
+    const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {};
+    const code = typeof body.code === 'string' ? body.code : '';
+    if (code === 'DUPLICATE_UPLOAD') {
+      const duplicate = body.duplicate && typeof body.duplicate === 'object'
+        ? body.duplicate as Record<string, unknown>
+        : {};
+      const filename = typeof duplicate.filename === 'string' ? duplicate.filename : 'This workbook';
+      const status = typeof duplicate.batchStatus === 'string' ? ` Its batch is ${duplicate.batchStatus}.` : '';
+      return `${filename} was already uploaded.${status} Select the existing batch in history instead of importing it again.`;
+    }
+    if (code === 'UPLOAD_IMPORT_FAILED') {
+      return 'The workbook was stored, but its import failed. Review the newest failed batch for diagnostics.';
+    }
+    if (code === 'UPLOAD_STORAGE_FAILED') {
+      return 'The workbook could not be stored. No import was started.';
+    }
+    const actionableCodes = new Set([
+      'UPLOAD_FILE_REQUIRED',
+      'INVALID_WORKBOOK_KIND',
+      'UNSUPPORTED_FILE_EXTENSION',
+      'UNSUPPORTED_MEDIA_TYPE',
+      'EMPTY_UPLOAD',
+      'UPLOAD_TOO_LARGE',
+      'INVALID_XLSX',
+    ]);
+    if (actionableCodes.has(code) && typeof body.message === 'string') return body.message;
+    return `The workbook upload failed. The API returned HTTP ${error.status}.`;
   }
 
   private describeRequestError(error: unknown, fallback: string): string {
