@@ -15,7 +15,7 @@ import { UploadStorage } from './storage/upload-storage.js';
     DbProvider,
     ImportsService,
     DailyService,
-    { provide: UploadStorage, useClass: LocalUploadStorage },
+    { provide: UploadStorage, useFactory: () => new LocalUploadStorage() },
   ],
   exports: [DbProvider],
 })
