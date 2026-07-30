@@ -14,6 +14,7 @@ import {
   validateWorkbookUpload,
   WorkbookUploadError,
   type MultipartWorkbookFile,
+  type ValidatedWorkbookUpload,
 } from './workbook-upload.js';
 
 export interface UploadWorkbookInput {
@@ -44,7 +45,7 @@ export class ImportsService {
   }
 
   async uploadWorkbook(input: UploadWorkbookInput): Promise<UploadWorkbookResponse> {
-    let validated;
+    let validated: ValidatedWorkbookUpload;
     try {
       validated = validateWorkbookUpload(input.file, input.workbookKind);
     } catch (error) {
@@ -78,8 +79,8 @@ export class ImportsService {
       const stored = await this.uploadStorage.store({
         uploadId,
         sha256: validated.sha256,
-        bytes: validated.extract.workbook ? validated.fileBytes ?? input.file!.buffer : input.file!.buffer,
-      } as never);
+        bytes: validated.bytes,
+      });
       objectKey = stored.objectKey;
       await uploadsRepo.create({
         id: uploadId,
