@@ -72,7 +72,10 @@ databaseDescribe('ImportService database integration', () => {
       .select(['base_points', 'bonus_points', 'total_points', 'excel_all_points'])
       .where('metric_date', '=', '2026-05-18')
       .executeTakeFirstOrThrow();
-    expect(reconciledDay).toEqual({
+    expect({
+      ...reconciledDay,
+      excel_all_points: Number(reconciledDay.excel_all_points),
+    }).toEqual({
       base_points: 55_603,
       bonus_points: 7,
       total_points: 55_610,
