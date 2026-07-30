@@ -60,6 +60,14 @@ export class UploadsRepository {
     };
   }
 
+  async linkBatch(uploadId: string, batchId: string): Promise<void> {
+    await this.db
+      .updateTable('import_batches')
+      .set({ uploaded_file_id: uploadId })
+      .where('id', '=', batchId)
+      .execute();
+  }
+
   async markImported(uploadId: string): Promise<void> {
     await this.db
       .updateTable('uploaded_files')
