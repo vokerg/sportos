@@ -7,6 +7,7 @@ This document is the semantic contract for the enabled MVP-0 scoring rules. The 
 - Coefficient and manual-point rules calculate `rawPoints = metricValue × coefficient`.
 - SportOS rounds **once per rule** with JavaScript `Math.round`, producing an integer ledger contribution.
 - Daily base and bonus totals are sums of the already-rounded ledger contributions. SportOS does not sum fractional rule outputs and round only at the end.
+- Coefficient/manual rules evaluate synthetic daily aggregates; achievement rules evaluate one canonical activity only. Separate sessions are never combined to cross an achievement threshold.
 - Achievement rules award their configured integer points only after every threshold and auxiliary condition passes.
 - Rules are active when `validFrom <= metricDate <= validTo`; a missing `validTo` means no configured end date. Both boundaries are inclusive.
 - Rule evaluation order is deterministic: ascending `priority`, then ascending rule `code`.
@@ -25,10 +26,10 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | 40 | `swim.m.default` | Base | swim meters × 7.5; nearest integer per rule | none | Configured assumption. No permitted historical workbook evidence currently justifies changing it. |
 | 50 | `workout.manual` | Base | imported, importer-rounded `WOtotal` points × 1; nearest integer per rule | HIIT and rowing are not added separately | Confirmed application behavior. Whether every workbook's `WOtotal` embeds the same source components remains unresolved. |
 | 60 | `power.manual` | Bonus | imported, importer-rounded `Pow` points × 1; nearest integer per rule | none | Confirmed application behavior and activity classification. Migration V102 corrects older base/bonus aggregates without changing daily totals. |
-| 70 | `run.5k.sub25.bonus` | Bonus | +1,000 points | duration strictly `< 1,500 s`; distance within ±500 m of 5,000 m | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
-| 80 | `run.10k.completed.bonus` | Bonus | +2,000 points | distance `>= 10,000 m` | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
-| 90 | `swim.1k.sub20.bonus` | Bonus | +1,000 points | duration strictly `< 1,200 s`; distance `>= 1,000 m` | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
-| 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | average speed strictly `< 20 km/h`; no separate distance minimum is currently enforced | SportOS rule with an unresolved naming/condition mismatch: the name mentions 10 km, but the current engine has no minimum-distance condition. |
+| 70 | `run.5k.sub25.bonus` | Bonus | +1,000 points | one activity: duration strictly `< 1,500 s`; distance within ±500 m of 5,000 m | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
+| 80 | `run.10k.completed.bonus` | Bonus | +2,000 points | one activity: distance `>= 10,000 m` | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
+| 90 | `swim.1k.sub20.bonus` | Bonus | +1,000 points | one activity: duration strictly `< 1,200 s`; distance `>= 1,000 m` | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
+| 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | one activity: average speed strictly `< 20 km/h`; no separate distance minimum is currently enforced | SportOS rule with an unresolved naming/condition mismatch: the name mentions 10 km, but the current engine has no minimum-distance condition. |
 
 ## Spreadsheet component evidence
 
@@ -71,10 +72,11 @@ V102 does not alter any coefficient, threshold, configured points, or effective 
 
 1. assigns deterministic rule priorities;
 2. replaces placeholder descriptions with explicit semantic definitions;
-3. moves previously persisted `power.manual` points from `base_points` to `bonus_points` while preserving `total_points`;
-4. enriches legacy ledger JSON with classification, rule kind, activity type, effective dates, and priority.
+3. removes legacy achievement ledger entries with no `activity_id`, because those entries were calculated from synthetic daily aggregates rather than one canonical activity, and reduces persisted bonus/total values by the same amount;
+4. moves previously persisted `power.manual` points from `base_points` to `bonus_points` while preserving `total_points`;
+5. enriches remaining legacy ledger JSON with classification, rule kind, activity type, effective dates, and priority.
 
-Existing totals therefore do not require coefficient recomputation. Re-importing or explicitly recomputing a date with the current application is recommended when fully enriched raw/rounded calculation inputs are required for older ledger entries.
+No coefficient-wide historical recomputation is performed. V102 applies only corrections that can be identified conservatively from persisted rule/activity links. Re-importing or explicitly recomputing a date with the current application is recommended when fully enriched raw/rounded calculation inputs are required for older ledger entries.
 
 ## Unresolved behavior
 
