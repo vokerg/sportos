@@ -2,7 +2,7 @@
 
 SportOS is a personal sports-data cockpit that turns spreadsheet-based training records into an auditable application model.
 
-The repository is currently an **MVP-0 implementation scaffold**, not a production-ready product. Its immediate purpose is to prove a trustworthy pipeline from source workbooks to canonical data, deterministic scores, and review screens.
+The repository is currently a local-first implementation, not a production-ready hosted product. Its immediate purpose is to prove a trustworthy pipeline from source workbooks to canonical data, deterministic scores, and review screens.
 
 ## What is being built
 
@@ -11,7 +11,7 @@ SportOS is intended to provide one place to:
 1. import historical sports data without losing the original row or its provenance;
 2. normalize inconsistent spreadsheet structures into canonical activities, daily metrics, and performance events;
 3. calculate official scores from versioned, deterministic rules;
-4. explain how every score was produced;
+4. explain how every score was produced and why it differs from a spreadsheet total;
 5. review daily training and running performance in a web UI;
 6. add integrations and read-only AI analysis only after the underlying facts are reliable.
 
@@ -19,22 +19,24 @@ The important design constraint is that an LLM must never invent or silently alt
 
 ## Current status
 
-The source tree contains the first vertical slice:
+The source tree contains the trustworthy MVP-0 vertical slice:
 
-- Postgres schema and Flyway migrations;
+- Postgres schema and append-only Flyway migrations;
 - raw import-batch and source-record provenance;
 - canonical activity, daily-metric, scoring, and performance tables;
 - XLSX importers for the known daily and running workbooks;
 - deterministic synthetic workbook fixtures;
-- transactional canonical import orchestration and cross-batch source identities;
+- transactional, idempotent canonical import orchestration;
 - durable import history, status transitions, affected dates, and structured diagnostics;
-- deterministic TypeScript scoring helpers;
+- deterministic TypeScript scoring and reconciliation helpers;
+- explicit rule units, rounding, thresholds, effective dates, priorities, and base/bonus classification;
+- machine-readable exact, explained, unresolved, and non-comparable reconciliation evidence;
 - a persisted daily score-breakdown API contract;
 - a NestJS API;
 - an Angular review shell with Daily Log, Run Lab, import history, and local import controls;
 - a local CLI importer.
 
-Several pieces remain incomplete or not operationally proven. MVP-0 is complete only when the import and score-comparison workflow can be run repeatedly and differences from the spreadsheets are explainable. See [MVP-0 status](docs/FIRST_MILESTONE.md) and the [roadmap](docs/ROADMAP.md).
+Several pieces remain unsuitable for hosted or non-developer operation. See [MVP-0 status](docs/FIRST_MILESTONE.md), [scoring semantics](docs/SCORING_RULES.md), [workbook mapping](docs/SPREADSHEET_MAPPING.md), and the [roadmap](docs/ROADMAP.md).
 
 ## Explicitly out of scope for MVP-0
 
@@ -73,12 +75,12 @@ apps/
   worker/     local CLI importer
 packages/
   shared/     schemas, dates, and hash helpers
-  domain/     sport types, scoring, and performance logic
+  domain/     sport types, scoring, reconciliation, and performance logic
   db/         Kysely schema and repositories
   importers/  XLSX extraction and normalization
   analytics/  pure analytics helpers
 flyway/sql/   versioned database migrations
-docs/         architecture, workbook mapping, status, and roadmap
+docs/         architecture, workbook mapping, scoring, evidence, status, and roadmap
 ```
 
 More detail is available in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -133,7 +135,23 @@ pnpm --filter @sportos/worker import:local -- \
   --runDb=/absolute/path/to/running-performance.xlsx
 ```
 
-Workbook assumptions and conservative mappings are documented in [docs/SPREADSHEET_MAPPING.md](docs/SPREADSHEET_MAPPING.md). Unknown sheets or columns should produce warnings rather than guessed canonical facts.
+Workbook assumptions and conservative mappings are documented in [docs/SPREADSHEET_MAPPING.md](docs/SPREADSHEET_MAPPING.md). Unknown sheets or columns produce warnings rather than guessed canonical facts.
+
+## Scoring and reconciliation
+
+Enabled scoring rules are persisted in Postgres and evaluated in `packages/domain`. The current semantic contract is documented in [docs/SCORING_RULES.md](docs/SCORING_RULES.md).
+
+Key policies:
+
+- coefficient/manual rules round once per rule to the nearest integer;
+- achievement thresholds evaluate one canonical activity, never a synthetic daily aggregate;
+- rule effective-date boundaries are inclusive;
+- achievement rules and `power_bonus` rules are bonus contributions;
+- default spreadsheet reconciliation tolerance is zero;
+- a nonzero tolerance is permitted only when an explicit lossy source rounding unit is supplied;
+- unknown coefficient history and unmapped workbook components remain unresolved rather than tuned to fit totals.
+
+The sanitized fixture report at [docs/evidence/scoring-reconciliation.fixture.json](docs/evidence/scoring-reconciliation.fixture.json) is machine-readable and verified by the test suite. It groups dates by reconciliation status, delta magnitude, activity type, and evidence-backed likely rule.
 
 ## API surface
 
@@ -188,12 +206,12 @@ Example, abbreviated for readability:
     "powerPoints": 7
   },
   "score": {
-    "appTotal": 2460,
-    "excelTotal": 2468,
-    "delta": -8,
-    "baseTotal": 2455,
-    "bonusTotal": 5,
-    "ledgerTotal": 2460
+    "appTotal": 55610,
+    "excelTotal": 55610,
+    "delta": 0,
+    "baseTotal": 55603,
+    "bonusTotal": 7,
+    "ledgerTotal": 55610
   },
   "sourceRecord": {
     "id": "00000000-0000-4000-8000-000000000001",
@@ -213,32 +231,40 @@ Example, abbreviated for readability:
   "ledger": [
     {
       "id": "00000000-0000-4000-8000-000000000003",
-      "points": 5,
-      "reason": "5 km under 25 minutes: +5",
+      "points": 7,
+      "reason": "Power/extra-effort points: round(7 points × 1) = 7",
       "calculation": {
-        "metric": "duration_s",
-        "thresholdOperator": "lt",
-        "thresholdValue": 1500
+        "ruleKind": "manual_points",
+        "classification": "bonus",
+        "activityType": "power_bonus",
+        "metric": "effort_points",
+        "metricUnit": "points",
+        "metricValue": 7,
+        "multiplier": 1,
+        "rawPoints": 7,
+        "rounding": "nearest_integer_per_rule",
+        "roundedPoints": 7,
+        "validFrom": "1900-01-01",
+        "validTo": null,
+        "priority": 60
       },
       "createdAt": "2026-05-18T12:00:00.000Z",
       "rule": {
         "id": "00000000-0000-4000-8000-000000000004",
-        "code": "run.5k.sub25.bonus",
-        "name": "5 km under 25 minutes",
-        "activityType": "run",
-        "ruleKind": "achievement",
-        "metric": "duration_s",
-        "coefficient": null,
-        "thresholdOperator": "lt",
-        "thresholdValue": 1500,
-        "thresholdUnit": "seconds",
-        "configuredPoints": 5,
-        "validFrom": "2026-01-01",
+        "code": "power.manual",
+        "name": "Power/extra-effort points",
+        "activityType": "power_bonus",
+        "ruleKind": "manual_points",
+        "metric": "effort_points",
+        "coefficient": 1,
+        "thresholdOperator": null,
+        "thresholdValue": null,
+        "thresholdUnit": null,
+        "configuredPoints": null,
+        "validFrom": "1900-01-01",
         "validTo": null,
-        "priority": 100,
-        "enabled": true,
-        "description": null,
-        "createdAt": "2026-01-01T00:00:00.000Z"
+        "priority": 60,
+        "enabled": true
       },
       "activity": null
     }
@@ -257,51 +283,3 @@ pnpm typecheck
 pnpm test
 pnpm build
 ```
-
-Database-backed import validation must use a disposable database whose name ends in `_test` or `-test`. The integration suite deletes import-domain rows between cases and refuses to run against the normal `sportos` database.
-
-Create and migrate a local test database once:
-
-```bash
-pnpm db:up
-docker compose exec postgres createdb -U sportos sportos_test
-docker compose run --rm \
-  -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_test \
-  flyway
-```
-
-Run the integration suite:
-
-```bash
-SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
-  pnpm --filter @sportos/importers test:integration
-```
-
-The integration suite generates synthetic XLSX files, imports workbooks repeatedly, verifies stable canonical row counts and IDs, injects failures at transaction phases, checks rollback and retry behavior, and validates clean, warning-bearing, and failed import-history read models. A skipped or green unit-test run alone does not prove database import behavior.
-
-## Current workbook assumptions
-
-### Daily ledger
-
-The importer reads `Sheet1` from `my_sport.xlsx` and maps known columns such as `Date`, `Steps`, running, cycling, swimming, workout, and spreadsheet total fields. The imported spreadsheet `All` value is retained beside the app-computed total so coefficient differences remain visible.
-
-### Running performance workbook
-
-Known sheets are mapped conservatively to 5 km, 10 km, 12 km, half-marathon, and marathon distances. Column A is interpreted as an Excel time fraction and column B as the event date. Treadmill and starred markers are retained. Sheets with unclear semantics are skipped until confirmed.
-
-The complete mapping belongs in [docs/SPREADSHEET_MAPPING.md](docs/SPREADSHEET_MAPPING.md), not in importer folklore.
-
-## Near-term plan
-
-The next queue item is coefficient and rule-semantics reconciliation:
-
-1. generate a fixture-backed delta report;
-2. verify units, rounding order, thresholds, bonuses, and effective dates;
-3. document confirmed formulas and unresolved spreadsheet ambiguity;
-4. state historical recomputation expectations.
-
-After trustworthy MVP-0 scoring reconciliation, the project can move to browser uploads, asynchronous import jobs, Rules Studio, and broader cockpit workflows. See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone exit criteria and proposed PR sequencing.
-
-## Contributing
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing imports, scoring rules, migrations, or generated artifacts.
