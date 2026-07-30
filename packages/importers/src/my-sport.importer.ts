@@ -1,3 +1,4 @@
+import type { SpreadsheetScoreComponentEvidence } from '@sportos/domain';
 import { excelSerialDateToIsoDate } from '@sportos/shared';
 import type { CanonicalActivityInput, DailyMetricInput } from '@sportos/shared';
 import { asNumber, normalizeHeader, rowObjectFromHeaders, sheetMatrix, type WorkbookExtract } from './xlsx-reader.js';
@@ -32,20 +33,30 @@ const MY_SPORT_KNOWN_HEADERS = new Set([
 
 const MY_SPORT_AUXILIARY_SHEETS = new Set(['Sheet2', 'Sheet8']);
 
+export interface SpreadsheetScoreEvidence {
+  metricDate: string;
+  excelAllPoints?: number;
+  components: SpreadsheetScoreComponentEvidence[];
+  sheetName: string;
+  rowIndex: number;
+}
+
 export interface MySportImportResult {
   dailyMetrics: DailyMetricInput[];
   activities: CanonicalActivityInput[];
+  scoreEvidence: SpreadsheetScoreEvidence[];
   warnings: string[];
 }
 
 export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Sheet1'): MySportImportResult {
   const dailyMetrics: DailyMetricInput[] = [];
   const activities: CanonicalActivityInput[] = [];
+  const scoreEvidence: SpreadsheetScoreEvidence[] = [];
   const warnings: string[] = [];
 
   if (!extract.sheetNames.includes(sheetName)) {
     warnings.push(`Daily-ledger sheet '${sheetName}' was not found.`);
-    return { dailyMetrics, activities, warnings };
+    return { dailyMetrics, activities, scoreEvidence, warnings };
   }
 
   for (const otherSheetName of extract.sheetNames) {
@@ -102,7 +113,15 @@ export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Shee
       workoutPoints,
       powerPoints,
       excelAllPoints,
-      excelRowHash: extract.rows.find((r) => r.sheetName === sheetName && r.rowIndex === i + 1)?.hash,
+      excelRowHash: extract.rows.find((record) => record.sheetName === sheetName && record.rowIndex === i + 1)?.hash,
+    });
+
+    scoreEvidence.push({
+      metricDate: activityDate,
+      excelAllPoints,
+      components: scoreComponents(row),
+      sheetName,
+      rowIndex: i + 1,
     });
 
     if (steps > 0) activities.push({ source: 'my_sport_xlsx', activityDate, activityType: 'steps', subtype: 'manual', steps, rawPayloadJson: basePayload });
@@ -122,7 +141,27 @@ export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Shee
     warnings.push(`No daily metrics found in ${sheetName}. Check whether the workbook structure changed.`);
   }
 
-  return { dailyMetrics, activities, warnings };
+  return { dailyMetrics, activities, scoreEvidence, warnings };
+}
+
+function scoreComponents(row: Record<string, unknown>): SpreadsheetScoreComponentEvidence[] {
+  const candidates: Array<SpreadsheetScoreComponentEvidence | null> = [
+    scoreComponent('run', 'run_to_s', row.run_to_s),
+    scoreComponent('bike', 'bike_to_s', row.bike_to_s),
+    scoreComponent('sup', 'sup_to_s', row.sup_to_s),
+    scoreComponent('rowing', 'raw_to_s', row.raw_to_s),
+    scoreComponent('swim', 'swim_to_s', row.swim_to_s),
+  ];
+  return candidates.filter((component): component is SpreadsheetScoreComponentEvidence => component !== null);
+}
+
+function scoreComponent(
+  activityType: SpreadsheetScoreComponentEvidence['activityType'],
+  sourceColumn: string,
+  value: unknown,
+): SpreadsheetScoreComponentEvidence | null {
+  const importedPoints = asNumber(value);
+  return importedPoints === undefined ? null : { activityType, sourceColumn, importedPoints };
 }
 
 function isBlankCell(value: unknown): boolean {
