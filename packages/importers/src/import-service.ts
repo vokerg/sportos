@@ -5,6 +5,7 @@ import {
   ImportsRepository,
   PerformanceRepository,
   ScoringRepository,
+  UploadsRepository,
   type Database,
   type ImportDiagnosticInput,
   type Json,
@@ -16,11 +17,19 @@ import {
 } from '@sportos/db';
 import { parseMySportWorkbook } from './my-sport.importer.js';
 import { parseRunDbWorkbook } from './run-db.importer.js';
-import { readWorkbook, type WorkbookRow } from './xlsx-reader.js';
+import { readWorkbook, type WorkbookExtract, type WorkbookRow } from './xlsx-reader.js';
 
 export interface ImportLocalFilesInput {
   mySportPath?: string;
   runDbPath?: string;
+}
+
+export type ImportWorkbookKind = 'my_sport' | 'run_db';
+
+export interface ImportWorkbookInput {
+  workbookKind: ImportWorkbookKind;
+  extract: WorkbookExtract;
+  uploadId?: string;
 }
 
 export interface ImportLocalFilesResult {
@@ -49,38 +58,48 @@ export interface ImportServiceOptions {
 
 export class ImportService {
   private readonly importsRepo: ImportsRepository;
+  private readonly uploadsRepo: UploadsRepository;
 
   constructor(
     private readonly db: Kysely<Database>,
     private readonly options: ImportServiceOptions = {},
   ) {
     this.importsRepo = new ImportsRepository(db);
+    this.uploadsRepo = new UploadsRepository(db);
   }
 
   async importLocalFiles(input: ImportLocalFilesInput): Promise<ImportLocalFilesResult> {
-    const result: ImportLocalFilesResult = {
-      batches: [],
-      dailyRows: 0,
-      activities: 0,
-      performanceEvents: 0,
-      warnings: [],
-    };
+    const result = emptyResult();
 
-    if (input.mySportPath) await this.importMySportWorkbook(input.mySportPath, result);
-    if (input.runDbPath) await this.importRunDbWorkbook(input.runDbPath, result);
+    if (input.mySportPath) await this.importMySportWorkbook(readWorkbook(input.mySportPath), result);
+    if (input.runDbPath) await this.importRunDbWorkbook(readWorkbook(input.runDbPath), result);
 
     return result;
   }
 
-  private async importMySportWorkbook(path: string, result: ImportLocalFilesResult): Promise<void> {
-    const extract = readWorkbook(path);
+  async importWorkbook(input: ImportWorkbookInput): Promise<ImportLocalFilesResult> {
+    const result = emptyResult();
+    if (input.workbookKind === 'my_sport') {
+      await this.importMySportWorkbook(input.extract, result, input.uploadId);
+    } else {
+      await this.importRunDbWorkbook(input.extract, result, input.uploadId);
+    }
+    return result;
+  }
+
+  private async importMySportWorkbook(
+    extract: WorkbookExtract,
+    result: ImportLocalFilesResult,
+    uploadId?: string,
+  ): Promise<void> {
     const batch = await this.importsRepo.createBatch({
       source: 'my_sport_xlsx',
       sourceKind: 'xlsx',
       filename: extract.filename,
       originalSha256: extract.sha256,
-      metadata: { sheets: extract.sheetNames },
+      metadata: { sheets: extract.sheetNames, ...(uploadId ? { uploadId } : {}) },
     });
+    if (uploadId) await this.uploadsRepo.linkBatch(uploadId, batch.id);
     result.batches.push({ id: batch.id, filename: batch.filename, source: batch.source });
 
     let phase: ImportFailurePhase = 'transaction-started';
@@ -220,15 +239,19 @@ export class ImportService {
     }
   }
 
-  private async importRunDbWorkbook(path: string, result: ImportLocalFilesResult): Promise<void> {
-    const extract = readWorkbook(path);
+  private async importRunDbWorkbook(
+    extract: WorkbookExtract,
+    result: ImportLocalFilesResult,
+    uploadId?: string,
+  ): Promise<void> {
     const batch = await this.importsRepo.createBatch({
       source: 'run_db_xlsx',
       sourceKind: 'xlsx',
       filename: extract.filename,
       originalSha256: extract.sha256,
-      metadata: { sheets: extract.sheetNames },
+      metadata: { sheets: extract.sheetNames, ...(uploadId ? { uploadId } : {}) },
     });
+    if (uploadId) await this.uploadsRepo.linkBatch(uploadId, batch.id);
     result.batches.push({ id: batch.id, filename: batch.filename, source: batch.source });
 
     let phase: ImportFailurePhase = 'transaction-started';
@@ -349,6 +372,16 @@ export class ImportService {
   private async injectFailure(phase: ImportFailurePhase, context: ImportPhaseContext): Promise<void> {
     await this.options.failureInjector?.(phase, context);
   }
+}
+
+function emptyResult(): ImportLocalFilesResult {
+  return {
+    batches: [],
+    dailyRows: 0,
+    activities: 0,
+    performanceEvents: 0,
+    warnings: [],
+  };
 }
 
 function parserDiagnostics(warnings: string[]): ImportDiagnosticInput[] {
