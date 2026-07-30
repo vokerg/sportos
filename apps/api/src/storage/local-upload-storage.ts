@@ -27,7 +27,7 @@ export class LocalUploadStorage extends UploadStorage {
     return { provider: 'local', objectKey };
   }
 
-  read(objectKey: string): Promise<Buffer> {
+  async read(objectKey: string): Promise<Buffer> {
     return readFile(this.objectPath(objectKey));
   }
 
