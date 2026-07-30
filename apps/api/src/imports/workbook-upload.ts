@@ -22,6 +22,7 @@ export interface ValidatedWorkbookUpload {
   sanitizedFilename: string;
   contentType: string;
   byteSize: number;
+  bytes: Buffer;
   sha256: string;
   extract: WorkbookExtract;
 }
@@ -92,6 +93,7 @@ export function validateWorkbookUpload(
     sanitizedFilename,
     contentType,
     byteSize,
+    bytes: file.buffer,
     sha256: extract.sha256,
     extract,
   };
