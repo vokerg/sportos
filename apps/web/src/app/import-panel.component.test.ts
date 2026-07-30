@@ -1,12 +1,12 @@
 import '@angular/compiler';
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   ApiService,
   ImportBatchDetail,
   ImportBatchHistoryPage,
-  ImportLocalFilesResponse,
+  UploadWorkbookResponse,
 } from './api.service';
 import { ImportPanelComponent } from './import-panel.component';
 
@@ -56,13 +56,23 @@ const detail: ImportBatchDetail = {
   diagnosticOffset: 0,
 };
 
-const importResult: ImportLocalFilesResponse = {
+const uploadResult: UploadWorkbookResponse = {
+  upload: {
+    id: '33333333-3333-4333-8333-333333333333',
+    filename: 'my-sport.xlsx',
+    workbookKind: 'my_sport',
+    byteSize: 1024,
+    sha256: 'ab'.repeat(32),
+    status: 'imported',
+  },
   batches: [{ id: batch.id, filename: batch.filename, source: batch.source }],
   dailyRows: 2,
   activities: 13,
   performanceEvents: 0,
   warnings: ['one warning'],
 };
+
+const selectedFile = { name: 'my-sport.xlsx', size: 1024 } as File;
 
 describe('ImportPanelComponent', () => {
   it('loads recent history on initialization', () => {
@@ -88,37 +98,59 @@ describe('ImportPanelComponent', () => {
     expect(component.diagnosticLocation(detail.diagnostics[0]!)).toBe('Sheet1 row 3');
   });
 
-  it('clears local paths, refreshes history, and opens the recorded batch after import', () => {
+  it('reports upload progress, refreshes history, and opens the recorded batch', () => {
     const api = createApi();
+    api.uploadWorkbook.mockReturnValue(of(
+      { type: HttpEventType.UploadProgress, loaded: 512, total: 1024 },
+      new HttpResponse({ body: uploadResult }),
+    ));
     const component = new ImportPanelComponent(api as unknown as ApiService);
-    component.mySportPath = '/private/person/my-sport.xlsx';
+    component.selectedFile = selectedFile;
+    component.selectedFilename.set(selectedFile.name);
 
     component.import();
 
-    expect(api.importLocalFiles).toHaveBeenCalledWith('/private/person/my-sport.xlsx', undefined);
-    expect(component.mySportPath).toBe('');
+    expect(api.uploadWorkbook).toHaveBeenCalledWith(selectedFile, 'my_sport');
+    expect(component.selectedFile).toBeNull();
+    expect(component.uploadProgress()).toBe(100);
+    expect(component.importMessage()).toContain('Uploaded my-sport.xlsx');
     expect(component.importMessage()).toContain('2 daily rows');
-    expect(component.importMessage()).not.toContain('/private/person');
     expect(component.selectedBatchId()).toBe(batch.id);
   });
 
-  it('does not expose backend or path details when an import fails', () => {
+  it('requires a selected workbook before submitting', () => {
     const api = createApi();
-    api.importLocalFiles.mockReturnValue(
+    const component = new ImportPanelComponent(api as unknown as ApiService);
+
+    component.import();
+
+    expect(api.uploadWorkbook).not.toHaveBeenCalled();
+    expect(component.importState()).toBe('error');
+    expect(component.importMessage()).toContain('Choose an XLSX workbook');
+  });
+
+  it('shows duplicate guidance without exposing backend details', () => {
+    const api = createApi();
+    api.uploadWorkbook.mockReturnValue(
       throwError(() => new HttpErrorResponse({
-        status: 500,
-        error: { message: 'ENOENT /private/person/my-sport.xlsx' },
+        status: 409,
+        error: {
+          code: 'DUPLICATE_UPLOAD',
+          message: 'backend detail /private/source.xlsx',
+          duplicate: { filename: 'my-sport.xlsx', batchStatus: 'scored' },
+        },
       })),
     );
     const component = new ImportPanelComponent(api as unknown as ApiService);
-    component.mySportPath = '/private/person/my-sport.xlsx';
+    component.selectedFile = selectedFile;
 
     component.import();
 
     expect(component.importState()).toBe('error');
-    expect(component.importMessage()).toContain('newest failed batch');
-    expect(component.importMessage()).not.toContain('/private/person');
-    expect(component.mySportPath).toBe('');
+    expect(component.importMessage()).toContain('already uploaded');
+    expect(component.importMessage()).toContain('scored');
+    expect(component.importMessage()).not.toContain('/private');
+    expect(component.selectedFile).toBeNull();
   });
 
   it('appends bounded diagnostic pages', () => {
@@ -159,6 +191,6 @@ function createApi() {
   return {
     importHistory: vi.fn().mockReturnValue(of(historyPage)),
     importBatchDetail: vi.fn().mockReturnValue(of(detail)),
-    importLocalFiles: vi.fn().mockReturnValue(of(importResult)),
+    uploadWorkbook: vi.fn().mockReturnValue(of(new HttpResponse({ body: uploadResult }))),
   };
 }

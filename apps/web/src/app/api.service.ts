@@ -34,6 +34,7 @@ export interface PerformanceRow {
 }
 
 export type ImportBatchStatus = 'started' | 'parsed' | 'normalized' | 'scored' | 'failed';
+export type UploadWorkbookKind = 'my_sport' | 'run_db';
 
 export interface ImportBatchHistoryItem {
   id: string;
@@ -95,6 +96,17 @@ export interface ImportLocalFilesResponse {
   warnings: string[];
 }
 
+export interface UploadWorkbookResponse extends ImportLocalFilesResponse {
+  upload: {
+    id: string;
+    filename: string;
+    workbookKind: UploadWorkbookKind;
+    byteSize: number;
+    sha256: string;
+    status: 'imported';
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   readonly apiBase = signal('http://localhost:3000');
@@ -107,6 +119,16 @@ export class ApiService {
 
   bestPerformance(distanceM: number, limit = 50) {
     return this.http.get<PerformanceRow[]>(`${this.apiBase()}/performance/best?distanceM=${distanceM}&limit=${limit}`);
+  }
+
+  uploadWorkbook(file: File, workbookKind: UploadWorkbookKind) {
+    const body = new FormData();
+    body.append('file', file, file.name);
+    body.append('workbookKind', workbookKind);
+    return this.http.post<UploadWorkbookResponse>(`${this.apiBase()}/imports/upload`, body, {
+      observe: 'events',
+      reportProgress: true,
+    });
   }
 
   importLocalFiles(mySportPath?: string, runDbPath?: string) {

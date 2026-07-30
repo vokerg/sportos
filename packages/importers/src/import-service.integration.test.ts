@@ -2,9 +2,10 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createDb } from '@sportos/db';
+import { createDb, UploadsRepository } from '@sportos/db';
 import { ImportService, type ImportFailurePhase } from './import-service.js';
 import { writeMySportFixture, writeRunDbFixture } from './test-fixtures/xlsx-fixtures.js';
+import { readWorkbook } from './xlsx-reader.js';
 
 const testDatabaseUrl = process.env.SPORTOS_TEST_DATABASE_URL;
 const databaseDescribe = testDatabaseUrl ? describe : describe.skip;
@@ -106,6 +107,57 @@ databaseDescribe('ImportService database integration', () => {
       .where('sl.activity_id', 'is', null)
       .executeTakeFirstOrThrow();
     expect(Number(activitylessAchievements.count)).toBe(0);
+  });
+
+  it('links durable uploaded-file metadata to the transactional import batch', async () => {
+    await resetImportTables(db);
+    const uploadId = '33333333-3333-4333-8333-333333333333';
+    const extract = readWorkbook(mySportPath);
+    const uploadsRepo = new UploadsRepository(db);
+    await uploadsRepo.create({
+      id: uploadId,
+      workbook_kind: 'my_sport',
+      storage_provider: 'local',
+      object_key: `${extract.sha256.slice(0, 2)}/${uploadId}.xlsx`,
+      original_filename: 'my-sport.xlsx',
+      sanitized_filename: 'my-sport.xlsx',
+      content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      byte_size: 12_345,
+      sha256: extract.sha256,
+      status: 'stored',
+      last_error: null,
+      imported_at: null,
+      deleted_at: null,
+    });
+
+    const result = await new ImportService(db).importWorkbook({
+      workbookKind: 'my_sport',
+      extract,
+      uploadId,
+    });
+    const batchId = result.batches[0]?.id;
+    expect(batchId).toBeTruthy();
+
+    const batch = await db
+      .selectFrom('import_batches')
+      .select(['id', 'uploaded_file_id', 'status', 'original_sha256'])
+      .where('id', '=', batchId!)
+      .executeTakeFirstOrThrow();
+    expect(batch).toEqual({
+      id: batchId,
+      uploaded_file_id: uploadId,
+      status: 'scored',
+      original_sha256: extract.sha256,
+    });
+
+    await uploadsRepo.markImported(uploadId);
+    await expect(uploadsRepo.findDuplicate(extract.sha256, 'my_sport')).resolves.toMatchObject({
+      uploadId,
+      filename: 'my-sport.xlsx',
+      status: 'imported',
+      batchId,
+      batchStatus: 'scored',
+    });
   });
 
   it('rolls back every daily-import phase and records a failed batch', async () => {
@@ -264,6 +316,7 @@ async function resetImportTables(db: TestDatabase): Promise<void> {
   await db.deleteFrom('activities').execute();
   await db.deleteFrom('source_records').execute();
   await db.deleteFrom('import_batches').execute();
+  await db.deleteFrom('uploaded_files').execute();
 }
 
 function requireTestDatabaseUrl(): string {

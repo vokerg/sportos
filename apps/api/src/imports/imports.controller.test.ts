@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImportsController } from './imports.controller.js';
 import type { ImportsService } from './imports.service.js';
+import type { MultipartWorkbookFile } from './workbook-upload.js';
 
 const batchId = '11111111-1111-4111-8111-111111111111';
 const historyPage = { items: [], total: 0, limit: 20, offset: 0 };
@@ -28,11 +29,19 @@ const detailResponse = {
   diagnosticOffset: 0,
 };
 
+const uploadFile: MultipartWorkbookFile = {
+  originalname: 'my-sport.xlsx',
+  mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  size: 4,
+  buffer: Buffer.from('test'),
+};
+
 describe('ImportsController history and detail', () => {
   let service: {
     history: ReturnType<typeof vi.fn>;
     detail: ReturnType<typeof vi.fn>;
     importLocalFiles: ReturnType<typeof vi.fn>;
+    uploadWorkbook: ReturnType<typeof vi.fn>;
   };
   let controller: ImportsController;
 
@@ -41,6 +50,7 @@ describe('ImportsController history and detail', () => {
       history: vi.fn(),
       detail: vi.fn(),
       importLocalFiles: vi.fn(),
+      uploadWorkbook: vi.fn(),
     };
     controller = new ImportsController(service as unknown as ImportsService);
   });
@@ -73,6 +83,14 @@ describe('ImportsController history and detail', () => {
       }
     }
     expect(service.history).not.toHaveBeenCalled();
+  });
+
+  it('delegates one multipart workbook and its explicit type', async () => {
+    const response = { upload: { id: 'upload-id' }, batches: [] };
+    service.uploadWorkbook.mockResolvedValue(response);
+
+    await expect(controller.uploadWorkbook(uploadFile, 'my_sport')).resolves.toEqual(response);
+    expect(service.uploadWorkbook).toHaveBeenCalledWith({ file: uploadFile, workbookKind: 'my_sport' });
   });
 
   it('returns a batch detail response with bounded diagnostic pagination', async () => {

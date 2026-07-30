@@ -23,9 +23,11 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Local import data
+# Local import and upload data
 data/imports/*
 !data/imports/.gitkeep
+data/uploads/*
+!data/uploads/.gitkeep
 
 # This repository uses pnpm exclusively
 package-lock.json

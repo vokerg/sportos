@@ -21,8 +21,18 @@ export interface WorkbookExtract {
 }
 
 export function readWorkbook(path: string): WorkbookExtract {
-  const bytes = readFileSync(path);
-  const workbook = XLSX.readFile(path, { cellDates: false, cellFormula: true, raw: true, WTF: false });
+  return readWorkbookBuffer(readFileSync(path), basename(path));
+}
+
+export function readWorkbookBuffer(bytes: Uint8Array, filename: string): WorkbookExtract {
+  const buffer = Buffer.from(bytes);
+  const workbook = XLSX.read(buffer, {
+    type: 'buffer',
+    cellDates: false,
+    cellFormula: true,
+    raw: true,
+    WTF: false,
+  });
   const rows: WorkbookRow[] = [];
 
   for (const sheetName of workbook.SheetNames) {
@@ -36,8 +46,8 @@ export function readWorkbook(path: string): WorkbookExtract {
   }
 
   return {
-    filename: basename(path),
-    sha256: sha256(bytes),
+    filename: safeFilename(filename),
+    sha256: sha256(buffer),
     sheetNames: workbook.SheetNames,
     rows,
     workbook,
@@ -84,4 +94,10 @@ export function asString(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
   const text = String(value).trim();
   return text === '' ? undefined : text;
+}
+
+function safeFilename(filename: string): string {
+  const normalized = filename.replaceAll('\\', '/');
+  const value = normalized.split('/').filter(Boolean).at(-1)?.trim();
+  return (value || 'workbook.xlsx').slice(0, 255);
 }

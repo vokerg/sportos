@@ -1,11 +1,11 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseMySportWorkbook } from './my-sport.importer.js';
 import { parseRunDbWorkbook } from './run-db.importer.js';
 import { writeMySportFixture, writeRunDbFixture } from './test-fixtures/xlsx-fixtures.js';
-import { readWorkbook } from './xlsx-reader.js';
+import { readWorkbook, readWorkbookBuffer } from './xlsx-reader.js';
 
 describe('sanitized XLSX fixture harness', () => {
   it('extracts hidden/helper sheets, cached formulas, and stable row hashes', () => {
@@ -19,6 +19,7 @@ describe('sanitized XLSX fixture harness', () => {
 
       const first = readWorkbook(firstPath);
       const second = readWorkbook(secondPath);
+      const uploaded = readWorkbookBuffer(readFileSync(firstPath), 'private\\uploaded.xlsx');
 
       expect(first.sheetNames).toEqual(['Sheet1', 'Sheet8', 'Sheet2', 'Unexpected Notes']);
       expect(first.workbook.Workbook?.Sheets?.find((sheet) => sheet.name === 'Sheet2')?.Hidden).toBe(1);
@@ -27,6 +28,9 @@ describe('sanitized XLSX fixture harness', () => {
       expect(first.rows.some((row) => row.sheetName === 'Unexpected Notes')).toBe(true);
 
       expect(rowHashSnapshot(first)).toEqual(rowHashSnapshot(second));
+      expect(rowHashSnapshot(uploaded)).toEqual(rowHashSnapshot(first));
+      expect(uploaded.sha256).toBe(first.sha256);
+      expect(uploaded.filename).toBe('uploaded.xlsx');
       expect(first.rows.every((row) => /^[a-f0-9]{64}$/.test(row.hash))).toBe(true);
     } finally {
       rmSync(directory, { recursive: true, force: true });

@@ -6,10 +6,17 @@ import { DailyController } from './daily/daily.controller.js';
 import { DailyService } from './daily/daily.service.js';
 import { PerformanceController } from './performance/performance.controller.js';
 import { DbProvider } from './db.provider.js';
+import { LocalUploadStorage } from './storage/local-upload-storage.js';
+import { UploadStorage } from './storage/upload-storage.js';
 
 @Module({
   controllers: [HealthController, ImportsController, DailyController, PerformanceController],
-  providers: [DbProvider, ImportsService, DailyService],
+  providers: [
+    DbProvider,
+    ImportsService,
+    DailyService,
+    { provide: UploadStorage, useFactory: () => new LocalUploadStorage() },
+  ],
   exports: [DbProvider],
 })
 export class AppModule {}
