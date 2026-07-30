@@ -23,7 +23,7 @@ export interface UploadedFilesTable {
 
 export interface ImportBatchesTable {
   id: Generated<string>;
-  uploaded_file_id: string | null;
+  uploaded_file_id: Generated<string | null>;
   source: string;
   source_kind: 'xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit' | 'manual';
   filename: string | null;
