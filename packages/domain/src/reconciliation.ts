@@ -209,7 +209,10 @@ function reconcileComponents(
         return rule?.activityType === component.activityType;
       });
       const appBasePoints = entries.reduce((sum, entry) => sum + entry.points, 0);
-      const ruleCodes = [...new Set(entries.map((entry) => entry.ruleCode).filter((code): code is string => Boolean(code)))].sort();
+      const ruleCodes = [...new Set(entries
+        .map((entry) => entry.ruleCode)
+        .filter((code): code is string => typeof code === 'string'))]
+        .sort();
       const delta = appBasePoints - component.importedPoints;
       const tolerance = explicitTolerance(component.roundingUnit);
       const status: ComponentReconciliationStatus = ruleCodes.length === 0
@@ -256,7 +259,7 @@ function ledgerRuleCodes(
   return [...new Set(score.ledger
     .filter((entry) => entry.calculationJson.classification === classification)
     .map((entry) => entry.ruleCode)
-    .filter((code): code is string => Boolean(code) && knownCodes.has(code)))]
+    .filter((code): code is string => typeof code === 'string' && knownCodes.has(code)))]
     .sort();
 }
 
@@ -268,7 +271,7 @@ function roundedRuleCodes(score: DailyScoreResult): string[] {
       return typeof rawPoints === 'number' && typeof roundedPoints === 'number' && rawPoints !== roundedPoints;
     })
     .map((entry) => entry.ruleCode)
-    .filter((code): code is string => Boolean(code)))]
+    .filter((code): code is string => typeof code === 'string'))]
     .sort();
 }
 
