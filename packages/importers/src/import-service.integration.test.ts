@@ -66,6 +66,46 @@ databaseDescribe('ImportService database integration', () => {
       expect.objectContaining({ source: 'my_sport_xlsx', status: 'scored', normalized_count: 15 }),
       expect.objectContaining({ source: 'run_db_xlsx', status: 'normalized', normalized_count: 7 }),
     ]);
+
+    const reconciledDay = await db
+      .selectFrom('daily_metrics')
+      .select(['base_points', 'bonus_points', 'total_points', 'excel_all_points'])
+      .where('metric_date', '=', '2026-05-18')
+      .executeTakeFirstOrThrow();
+    expect({
+      ...reconciledDay,
+      excel_all_points: Number(reconciledDay.excel_all_points),
+    }).toEqual({
+      base_points: 55_603,
+      bonus_points: 7,
+      total_points: 55_610,
+      excel_all_points: 55_610,
+    });
+
+    const powerLedger = await db
+      .selectFrom('score_ledger as sl')
+      .innerJoin('scoring_rules as sr', 'sr.id', 'sl.rule_id')
+      .select(['sl.points', 'sl.calculation_json', 'sr.priority', 'sr.description'])
+      .where('sl.metric_date', '=', '2026-05-18')
+      .where('sr.code', '=', 'power.manual')
+      .executeTakeFirstOrThrow();
+    expect(powerLedger).toMatchObject({ points: 7, priority: 60 });
+    expect(powerLedger.description).toContain('Bonus rule');
+    expect(powerLedger.calculation_json).toMatchObject({
+      classification: 'bonus',
+      ruleKind: 'manual_points',
+      activityType: 'power_bonus',
+      rounding: 'nearest_integer_per_rule',
+    });
+
+    const activitylessAchievements = await db
+      .selectFrom('score_ledger as sl')
+      .innerJoin('scoring_rules as sr', 'sr.id', 'sl.rule_id')
+      .select((eb) => eb.fn.countAll<number>().as('count'))
+      .where('sr.rule_kind', '=', 'achievement')
+      .where('sl.activity_id', 'is', null)
+      .executeTakeFirstOrThrow();
+    expect(Number(activitylessAchievements.count)).toBe(0);
   });
 
   it('rolls back every daily-import phase and records a failed batch', async () => {
