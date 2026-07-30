@@ -45,11 +45,36 @@ Unknown headers are preserved in the extracted raw row but are not normalized. T
 | `Run` | daily aggregate run distance | kilometers converted to meters; falls back to `R IN + R Out` when absent |
 | `All` | imported spreadsheet total | numeric cached value when available; not recalculated by the XLSX parser |
 
-`Run to S`, `Bike to S`, `sup to s`, `raw to s`, `Swim to S`, `A10`, `A20d`, `30(All)`, `A60d`, and `A365` are recognized historical/formula columns but are not normalized into canonical facts. They remain available in the raw payload for later reconciliation work.
+`A10`, `A20d`, `30(All)`, `A60d`, and `A365` are recognized historical/formula columns but are not normalized into canonical facts. They remain available in the raw payload.
 
 Rows with data but without a positive numeric `Date` are retained by raw extraction, skipped by normalization, and reported with a deterministic row warning.
 
 Formula cells are read with formulas preserved in the workbook object and cached numeric values exposed to row normalization. The parser consumes the cached value for `Bike`, `Run`, and `All`; authoritative SportOS scoring remains deterministic application logic rather than spreadsheet formula execution.
+
+### Scoring evidence columns
+
+`Run to S`, `Bike to S`, `sup to s`, `raw to s`, and `Swim to S` are recognized as cached spreadsheet scoring evidence. For each valid dated row, the importer exposes available values with:
+
+- the normalized activity type;
+- the original normalized source-column name;
+- the imported numeric points;
+- the workbook sheet and row location.
+
+These values are not canonical facts and are not automatically persisted as new rules. They are inputs to the pure reconciliation report described in [SCORING_RULES.md](SCORING_RULES.md).
+
+Current mapping status:
+
+| Source column | Evidence activity type | Current handling |
+| --- | --- | --- |
+| `Run to S` | `run` | compared with enabled run base-rule points |
+| `Bike to S` | `bike` | compared with enabled bike base-rule points |
+| `Swim to S` | `swim` | compared with enabled swim base-rule points |
+| `sup to s` | `sup` | reported as unmapped; no direct SUP scoring rule is enabled |
+| `raw to s` | `rowing` | reported as unmapped; no direct rowing scoring rule is enabled |
+
+SportOS does not infer that unmapped SUP or rowing values should be added to `All`. They may already be represented by `WOtotal`, and adding them independently could double count. The relationship between `HIIT`, `raw`, `WOtotal`, and historical workbook formulas remains unresolved.
+
+The synthetic fixture uses coherent cached formulas for run, bike, swim, and `All` according to the current configured rules. That proves parser and reconciliation behavior, not that every historical workbook used the same bike or swim coefficients.
 
 ## Running-performance workbook
 
@@ -88,12 +113,13 @@ The synthetic harness covers:
 
 - every known daily-ledger header and every confirmed running sheet;
 - visible, empty, hidden/helper, unsupported, and ambiguous sheets;
-- formula cells with cached aggregate and imported-total values;
+- formula cells with cached aggregate, component-score, and imported-total values;
 - indoor/outdoor/treadmill distinctions;
 - PR markers, source ranks, dates, distances, durations, and pace;
 - comma-decimal numeric text;
 - missing-date and missing-time rows;
 - unknown columns and sheets;
-- stable raw-row hashes across independently generated fixtures.
+- stable raw-row hashes across independently generated fixtures;
+- exact, explained, unresolved, and non-comparable scoring reconciliation cases.
 
-The fixture harness demonstrates parser behavior only after the repository test suite passes. It does not establish import idempotency, transaction safety, or score reconciliation; those remain separate queue items.
+The fixture harness demonstrates parser, scoring, and reconciliation behavior only after the repository test suite passes. It does not establish that unresolved personal historical workbook coefficients match the configured assumptions.
