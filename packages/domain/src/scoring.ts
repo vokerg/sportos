@@ -19,14 +19,18 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
     { activityDate: facts.metricDate, activityType: 'power_bonus', effortPoints: facts.powerPoints },
   ];
 
+  // Daily aggregates drive coefficient/manual rules only. Achievement rules must
+  // evaluate one canonical activity so separate sessions are never combined into
+  // a synthetic threshold achievement.
   for (const activity of syntheticDailyActivities) {
-    for (const rule of activeRules.filter((candidate) => candidate.activityType === activity.activityType)) {
+    for (const rule of activeRules.filter(
+      (candidate) => candidate.activityType === activity.activityType && candidate.ruleKind !== 'achievement',
+    )) {
       const entry = scoreActivityWithRule(activity, rule, facts.metricDate);
       if (entry) ledger.push(entry);
     }
   }
 
-  // Achievement rules evaluate activity-level data, for example a 5k under 25 minutes.
   for (const activity of activities.filter((candidate) => candidate.activityDate === facts.metricDate)) {
     for (const rule of activeRules.filter(
       (candidate) => candidate.activityType === activity.activityType && candidate.ruleKind === 'achievement',
