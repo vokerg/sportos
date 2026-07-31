@@ -19,11 +19,11 @@ const storage = new LocalUploadStorage();
 
 try {
   await Promise.all(
-    Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(db, storage, {
+    Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(db, {
       workerId: `${processId}:${index + 1}`,
       leaseSeconds,
       pollIntervalMs,
-    }).run(controller.signal)),
+    }, storage).run(controller.signal)),
   );
 } finally {
   await db.destroy();
