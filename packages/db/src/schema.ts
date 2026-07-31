@@ -121,7 +121,7 @@ export interface DailyMetricsTable {
   total_points: number;
   excel_all_points: number | null;
   excel_row_hash: string | null;
-  recomputed_at: Generated<Timestamp>;
+  recomputed_at: GeneratedTimestamp;
 }
 
 export interface ScoringRulesTable {
