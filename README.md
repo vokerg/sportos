@@ -1,51 +1,35 @@
 # SportOS
 
-SportOS is a personal sports-data cockpit that turns spreadsheet-based training records into an auditable application model.
+SportOS is a local-first sports-data cockpit that turns spreadsheet training records into canonical, auditable facts and deterministic scores.
 
-The repository is a local-first single-user implementation, not a production-ready hosted product. Its immediate purpose is to prove a trustworthy workflow from source workbooks to canonical data, deterministic scores, and review screens.
+The current implementation is single-user and intended to prove trustworthy workflows before accounts, provider integrations, hosted operations, or AI analysis are added.
 
-## What is being built
+## Current capabilities
 
-SportOS is intended to provide one place to:
+SportOS now provides:
 
-1. import historical sports data without losing the original file, row, or provenance;
-2. normalize inconsistent spreadsheet structures into canonical activities, daily metrics, and performance events;
-3. calculate official scores from versioned, deterministic rules;
-4. explain how every score was produced and why it differs from a spreadsheet total;
-5. review daily training, imports, and running performance in a web UI;
-6. add accounts, integrations, and read-only AI analysis only after the underlying facts are reliable.
-
-The important design constraint is that an LLM must never invent or silently alter official points. Scoring remains deterministic application logic backed by persisted rules and a score ledger.
-
-## Current status
-
-The source tree contains:
-
-- Postgres schema and append-only Flyway migrations;
-- external source-file storage plus durable upload metadata;
 - bounded browser upload for supported XLSX workbooks;
-- durable asynchronous import jobs with leases, progress, retries, cancellation, and stale-job recovery;
+- replaceable external source-file storage and durable upload metadata;
+- Postgres-authoritative import jobs with leases, progress, retry, cancellation, and stale recovery;
 - an independent bounded-concurrency worker process;
-- raw import-batch and source-record provenance;
-- canonical activity, daily-metric, scoring, and performance tables;
-- transactional, idempotent import orchestration;
-- durable import history, status transitions, affected dates, and structured diagnostics;
-- deterministic scoring and reconciliation helpers;
-- explicit rule units, rounding, thresholds, effective dates, priorities, and base/bonus classification;
-- machine-readable exact, explained, unresolved, and non-comparable reconciliation evidence;
-- a persisted daily score-breakdown API;
-- an Angular local cockpit with Daily Log, Run Lab, job-aware upload, import history, and diagnostics;
-- a local CLI importer for development and operator use.
+- retained raw rows and source-to-canonical provenance;
+- transactional and idempotent normalization of activities, daily metrics, and performance events;
+- deterministic scoring with exact ledger/rule provenance;
+- spreadsheet/app reconciliation and daily score breakdowns;
+- import history and row-level diagnostics;
+- immutable scoring-rule versions with database-enforced effective-range rules;
+- read-only score-change previews with date-level and aggregate deltas;
+- audited asynchronous rule activation and atomic score recomputation;
+- an Angular cockpit with Daily Log, Run Lab, Imports, and Rules Studio.
 
-The remaining P1 work is Rules Studio and complete cockpit/export workflows. See [MVP-0 status](docs/FIRST_MILESTONE.md), [scoring semantics](docs/SCORING_RULES.md), [workbook mapping](docs/SPREADSHEET_MAPPING.md), and the [roadmap](docs/ROADMAP.md).
+The remaining P1 item is complete cockpit drill-down and canonical export work. See [MVP-0 status](docs/FIRST_MILESTONE.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), and the authoritative [work queue](https://github.com/vokerg/sportos/issues/3).
 
 ## Not yet implemented
 
-- authentication and multiple users;
+- authentication, multiple users, and owner isolation;
 - Strava, Garmin, Google Sheets, or FIT synchronization;
-- editable scoring-rule UI and audited recomputation;
-- complete dashboards and canonical export;
-- hosted storage lifecycle, backups, and user deletion workflows;
+- complete dashboards, cross-screen drill-downs, and canonical export;
+- hosted storage lifecycle, backup, and user-deletion workflows;
 - AI analysis.
 
 ## Architecture
@@ -57,13 +41,16 @@ browser XLSX / local CLI
 upload storage + uploaded_files
           |
           v
-import_jobs -> independent worker
-          |
-          v
-import_batches + source_records
-          |
-          v
-activities + daily_metrics + performance_events
+import_jobs --------------------+
+          |                      |
+          v                      |
+independent worker <--- scoring_rule_changes
+          |                      |
+          v                      |
+import_batches + source_records  |
+          |                      |
+          v                      |
+activities + daily_metrics ------+
           |
           v
 scoring_rules + score_ledger
@@ -72,7 +59,7 @@ scoring_rules + score_ledger
 read models -> NestJS API -> Angular UI
 ```
 
-Postgres is authoritative for job state and worker leases. The local worker scans due queued jobs with bounded polling; Redis is provisioned for future wake-up acceleration but is not required for job correctness.
+Postgres is authoritative for job state, leases, rule versions, audit history, canonical facts, and official scores. The worker uses bounded polling and `FOR UPDATE SKIP LOCKED`; Redis is not required for correctness.
 
 Repository layout:
 
@@ -80,18 +67,23 @@ Repository layout:
 apps/
   api/        NestJS HTTP API
   web/        Angular local cockpit
-  worker/     asynchronous job worker and local CLI
+  worker/     asynchronous jobs and local CLI
 packages/
-  shared/     schemas, dates, and hash helpers
-  domain/     sport types, scoring, reconciliation, and performance logic
-  db/         Kysely schema, job leases, and repositories
-  importers/  XLSX extraction, storage adapter, and normalization
-  analytics/  pure analytics helpers
-flyway/sql/   versioned database migrations
-docs/         architecture, ADRs, mappings, scoring, evidence, status, and roadmap
+  shared/     schemas, dates, and hashes
+  domain/     pure sport, scoring, preview, and reconciliation logic
+  db/         Kysely schema, leases, audits, and repositories
+  importers/  XLSX extraction, storage, and normalization
+  analytics/  pure analytical helpers
+flyway/sql/   append-only migrations
+docs/         architecture, ADRs, mappings, scoring, and evidence
 ```
 
-More detail is available in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Upload storage and retention are defined in [ADR 0002](docs/adr/0002-upload-storage-and-retention.md); job lifecycle semantics are defined in [ADR 0003](docs/adr/0003-import-job-lifecycle.md).
+Key decisions:
+
+- [ADR 0001](docs/adr/0001-import-transactions-and-identity.md) — import transactions and identity;
+- [ADR 0002](docs/adr/0002-upload-storage-and-retention.md) — uploaded-file storage and retention;
+- [ADR 0003](docs/adr/0003-import-job-lifecycle.md) — durable import jobs;
+- [ADR 0004](docs/adr/0004-rule-versioning-and-recomputation.md) — immutable rule versions, preview, audit, and recomputation.
 
 ## Prerequisites
 
@@ -99,7 +91,7 @@ More detail is available in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Upload
 - pnpm 9.12.0
 - Docker with Docker Compose
 
-Use pnpm for this repository. Do not create or commit npm or Yarn lockfiles.
+Use pnpm exclusively. Do not create npm or Yarn lockfiles.
 
 ## Local setup
 
@@ -110,9 +102,7 @@ pnpm db:up
 pnpm db:migrate
 ```
 
-`SPORTOS_UPLOAD_DIR` defaults to `./data/uploads`. Uploaded files are written beneath that directory with opaque object keys and are ignored by Git.
-
-Start the API, web application, and import worker in separate terminals:
+Start the API, web application, and worker in separate terminals:
 
 ```bash
 pnpm dev:api
@@ -124,55 +114,32 @@ Open `http://localhost:4200`.
 
 Worker defaults:
 
-- `IMPORT_WORKER_CONCURRENCY=1`, bounded to 1–4;
+- `IMPORT_WORKER_CONCURRENCY=1`, bounded to 1–4 import lanes;
+- one additional rule-change lane;
 - `IMPORT_JOB_LEASE_SECONDS=60`, bounded to 15–600;
 - `IMPORT_JOB_POLL_MS=1000`, bounded to 100–60,000.
 
-To stop the local services:
+`SPORTOS_UPLOAD_DIR` defaults to `./data/uploads`. Uploaded bytes are stored beneath that directory with opaque object keys and mode-`0600` files.
+
+Stop local services with:
 
 ```bash
 pnpm db:down
 ```
 
-## Uploading workbooks in the browser
+## Workbook imports
 
-Open the **Imports** panel, choose the workbook type, select an `.xlsx` file, and choose **Upload and queue**.
+Open **Imports**, choose `my_sport` or `run_db`, select one `.xlsx` file, and choose **Upload and queue**.
 
-The browser workflow:
+The API validates the extension, MIME signal, ZIP signature, workbook readability, filename, and 20 MB size limit. It stores the source bytes, inserts safe metadata, creates a durable job, and returns HTTP `202` without executing the importer in the request process.
 
-- accepts one workbook per request;
-- limits uploads to 20 MB;
-- validates extension, MIME signal, ZIP signature, and workbook readability;
-- sanitizes the display filename;
-- fingerprints the file with SHA-256 and returns `409 DUPLICATE_UPLOAD` for an identical non-deleted workbook of the same type;
-- stores workbook bytes outside Postgres;
-- creates a durable queued job and returns HTTP `202` without running the importer in the API process;
-- shows upload progress followed by worker phase/progress, attempts, retry, and cancellation controls;
-- polls only active jobs every 1.5 seconds, stops on a terminal state, and stops after 120 checks;
-- never returns the storage root, object path, or server-local filesystem path.
+The browser then displays worker phase/progress, attempts, cancellation, retry, and the linked import batch. Polling stops at a terminal state, component destruction, or 120 checks.
 
-The Postgres queue accepts at most 25 queued/running jobs by default. Queue saturation returns `503 IMPORT_QUEUE_FULL` instead of accepting unbounded work.
+The queue accepts 25 active import jobs by default. Duplicate workbooks return `409 DUPLICATE_UPLOAD`; saturation returns `503 IMPORT_QUEUE_FULL`.
 
-Supported workbook types are:
+Queued cancellation is immediate. Running cancellation is cooperative at importer transaction boundaries. Expired leases are requeued while attempts remain, cancelled when cancellation was requested, or failed after the final attempt.
 
-- `my_sport` — daily ledger workbook;
-- `run_db` — running performance workbook.
-
-Unknown sheets or columns produce warnings rather than guessed facts. Workbook assumptions are documented in [docs/SPREADSHEET_MAPPING.md](docs/SPREADSHEET_MAPPING.md).
-
-### Job lifecycle
-
-A worker claims due work with `FOR UPDATE SKIP LOCKED`, increments the attempt, and receives a time-limited lease. Phase updates extend the lease and persist monotonic progress. Terminal updates require the same lease owner, preventing a stale worker from completing work after recovery.
-
-- queued cancellation is immediate and creates no import batch;
-- running cancellation is cooperative at importer phase boundaries and rolls back the active import transaction;
-- failed jobs can be explicitly retried while attempts remain, reusing the same upload and job identity;
-- an expired running lease is requeued when attempts remain, marked cancelled when cancellation was requested, or failed when attempts are exhausted;
-- duplicate delivery cannot produce a second claim, and importer idempotency remains the second safety layer.
-
-### Development-only local path import
-
-The CLI and `POST /imports/local-files` remain available for local development and operator workflows:
+### Development-only local import
 
 ```bash
 pnpm import:local -- \
@@ -180,36 +147,55 @@ pnpm import:local -- \
   --runDb=/absolute/path/to/running-performance.xlsx
 ```
 
-The Angular application does not ask for or submit filesystem paths.
+Local paths are never part of the browser contract or public history responses.
 
-## Source-file retention and privacy
+## Rules Studio
 
-For the local single-user milestone, uploaded files and metadata are retained indefinitely by default so imports can be audited and retried. There is no automatic pruning or browser deletion action.
+Rules Studio lists active, pending, and historical rule UUIDs. A user may create a new rule family or supersede an enabled version.
 
-- uploaded bytes are stored under `SPORTOS_UPLOAD_DIR`, not in Postgres;
-- raw source rows remain in `source_records`;
-- job and history APIs omit storage object keys, server paths, raw cell payloads, and original hashes;
+The workflow is:
+
+1. Select or define a rule proposal.
+2. Configure activity type, rule kind, metric, coefficient or achievement threshold, priority, and inclusive effective dates.
+3. Request a server-side preview.
+4. Review current/proposed totals and deltas for each persisted date plus the aggregate change.
+5. Enter an audit reason and confirm the exact preview fingerprint.
+6. Monitor the durable rule-change job.
+7. Review the terminal audit record and immutable versions.
+
+Preview is read-only and bounded to 5,000 persisted dates. It never changes official totals or ledger rows.
+
+Activation inserts the proposed UUID disabled and queues one audited job. The worker then performs one transaction that closes the superseded range when required, enables the new UUID, recomputes affected daily totals, replaces ledger rows, and marks the audit successful. Any failure rolls that whole transaction back, leaving the prior rule and authoritative scores unchanged. Failed jobs can be retried with the same audit identity while attempts remain.
+
+Enabled ranges for one family cannot overlap, including shared inclusive boundary dates. The database enforces this policy in addition to API validation. Existing ledger entries continue to identify the exact rule UUID used for their score contribution.
+
+## Source retention and privacy
+
+For the local milestone, uploaded files, raw source records, job state, and audit history are retained indefinitely by default.
+
+- workbook bytes remain outside Postgres;
+- API responses omit storage keys, local paths, and raw source bytes;
 - filenames are reduced to safe basenames;
 - failures are redacted before persistence or display;
-- deleting source files is an explicit coordinated operator action, not a side effect of import failure, duplication, or history cleanup.
+- source deletion is an explicit coordinated operator action.
 
-Hosted use requires owner scoping, encrypted object storage, backups, lifecycle policy, and an audited deletion workflow before this retention policy changes.
+Hosted use requires authentication, owner scoping, encryption, backup, lifecycle policy, and audited deletion.
 
-## Scoring and reconciliation
+## Scoring semantics
 
-Enabled scoring rules are persisted in Postgres and evaluated in `packages/domain`. The semantic contract is documented in [docs/SCORING_RULES.md](docs/SCORING_RULES.md).
+Enabled rules are evaluated in `packages/domain`; Angular never calculates authoritative points.
 
 Key policies:
 
 - coefficient/manual rules round once per rule to the nearest integer;
-- achievement thresholds evaluate one canonical activity, never a synthetic daily aggregate;
-- rule effective-date boundaries are inclusive;
-- achievement rules and `power_bonus` rules are bonus contributions;
+- achievements evaluate one canonical activity, not a synthetic daily aggregate;
+- effective-date boundaries are inclusive;
+- achievement and `power_bonus` contributions are bonuses;
+- rule changes create new UUIDs instead of silently mutating historical meaning;
 - default spreadsheet reconciliation tolerance is zero;
-- a nonzero tolerance is permitted only when an explicit lossy source rounding unit is supplied;
-- unknown coefficient history and unmapped workbook components remain unresolved rather than tuned to fit totals.
+- unresolved source semantics remain unresolved rather than being tuned to fit totals.
 
-The sanitized fixture report at [docs/evidence/scoring-reconciliation.fixture.json](docs/evidence/scoring-reconciliation.fixture.json) is machine-readable and verified by the test suite.
+See [SCORING_RULES.md](docs/SCORING_RULES.md) and the verified [reconciliation fixture](docs/evidence/scoring-reconciliation.fixture.json).
 
 ## API surface
 
@@ -218,43 +204,29 @@ GET  /health
 GET  /daily/summary?limit=365
 GET  /daily/:date/score-breakdown
 GET  /performance/best?distanceM=5000&limit=50
+
 GET  /imports?limit=20&offset=0
 GET  /imports/:batchId?diagnosticLimit=100&diagnosticOffset=0
-POST /imports/upload                         returns 202 + job
+POST /imports/upload
 GET  /imports/jobs/:jobId
 POST /imports/jobs/:jobId/retry
 POST /imports/jobs/:jobId/cancel
-POST /imports/local-files                    development-only
+POST /imports/local-files                     development-only
+
+GET  /rules
+POST /rules/preview
+POST /rules/activate
+GET  /rules/changes?limit=50
+GET  /rules/changes/:changeId
+POST /rules/changes/:changeId/retry
+POST /rules/changes/:changeId/cancel
 ```
 
-### Workbook upload and jobs
-
-`POST /imports/upload` accepts `multipart/form-data` with:
-
-- `file`: one XLSX workbook;
-- `workbookKind`: `my_sport` or `run_db`.
-
-A successful response includes safe upload metadata and a durable queued job. It does not include normalized counts because import execution happens in the worker. `GET /imports/jobs/:jobId` returns persisted status, phase, progress, attempts, cancellation state, sanitized terminal error, result summary, and linked batch ID.
-
-Validation failures return HTTP `400` with stable codes such as `UNSUPPORTED_FILE_EXTENSION`, `UNSUPPORTED_MEDIA_TYPE`, `UPLOAD_TOO_LARGE`, or `INVALID_XLSX`. A known duplicate returns HTTP `409 DUPLICATE_UPLOAD`. Invalid job transitions return HTTP `409`; queue saturation returns HTTP `503`; unknown jobs return HTTP `404 IMPORT_JOB_NOT_FOUND`.
-
-### Import history and diagnostics
-
-`GET /imports` returns recent import batches ordered newest first. `limit` is bounded to 1–100 and `offset` to 0–10,000. Each item contains status, timing, row/normalized/warning/error counts, affected dates, and a failure summary when applicable.
-
-`GET /imports/:batchId` returns one batch's status timeline and a bounded diagnostic page. `diagnosticLimit` is bounded to 1–250 and `diagnosticOffset` to 0–50,000.
-
-Malformed pagination or identifiers return HTTP `400` with stable error codes. A valid unknown batch identifier returns HTTP `404 IMPORT_BATCH_NOT_FOUND`.
-
-### Daily score breakdown
-
-`GET /daily/:date/score-breakdown` reads persisted deterministic results; it does not recalculate a score. The response includes daily facts, app and spreadsheet totals, delta, base/bonus totals, ordered ledger entries, complete persisted rule configuration, related activities, and source provenance.
-
-Invalid dates return HTTP `400 INVALID_DATE`. Valid dates without a persisted score return HTTP `404 DAILY_SCORE_NOT_FOUND`.
+Rule proposal validation returns `400 INVALID_RULE_PROPOSAL` with field-level issues. Stale fingerprints, overlaps, active family changes, and invalid lifecycle transitions return stable `409` contracts. Unknown valid UUIDs return `404`.
 
 ## Validation
 
-Run the same workspace checks used by CI:
+Run the root gates used by CI:
 
 ```bash
 pnpm typecheck
@@ -262,7 +234,7 @@ pnpm test
 pnpm build
 ```
 
-Database-backed validation must use a disposable database whose name ends in `_test` or `-test`:
+Database-backed suites require a disposable database whose name ends in `_test` or `-test`:
 
 ```bash
 pnpm db:up
@@ -279,8 +251,8 @@ SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test
   pnpm --filter @sportos/importers test:integration
 ```
 
-The suites cover queue limits, single-claim delivery, monotonic progress, cancellation, retry identity, stale recovery, independent worker execution, real XLSX parsing, batch linkage, transactional idempotency, rollback, diagnostics, browser job monitoring, and persisted scoring.
+The suites cover import and rule-job claims, queue limits, monotonic progress, cancellation, retries, stale recovery, independent worker execution, transactional imports, overlap rejection, atomic rule activation/recomputation, exact ledger UUIDs, API contracts, browser polling, and production builds.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing uploads, jobs, imports, scoring rules, migrations, or generated evidence.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing imports, jobs, scoring rules, migrations, or generated evidence.

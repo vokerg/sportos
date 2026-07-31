@@ -1,12 +1,12 @@
 # Roadmap
 
-This roadmap is organized by product risk, not by UI surface area. SportOS first establishes trustworthy imported facts and deterministic scores, then makes the workflow convenient, then adds accounts/integrations, and only then introduces AI-assisted analysis.
+SportOS is sequenced by product risk: trustworthy facts and deterministic scores first, convenient workflows second, accounts/providers third, and AI analysis only after stable authorized read models exist.
 
 ## Status vocabulary
 
-- **Implemented**: source code exists for the capability.
-- **Validated**: representative automated tests or repeatable evidence exists.
-- **Operational**: the capability has observable failure handling and can be used repeatedly without repository-level intervention.
+- **Implemented**: source code exists.
+- **Validated**: representative automated or repeatable evidence exists.
+- **Operational**: observable failure handling supports repeated use without repository intervention.
 
 A feature is not delivered solely because a component or table exists.
 
@@ -14,124 +14,97 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository setup | Validated | routine dependency/platform maintenance |
-| Database schema | Validated for fresh migration | backup/recovery and hosted operations |
-| Raw provenance | Validated | ownership boundaries for multi-user use |
-| Daily ledger import | Validated and operational for local paths | browser upload and durable storage |
-| Running workbook import | Validated and operational for local paths | provider ingestion and broader variants |
-| Import diagnostics | Validated | user-friendly upload/job workflow |
-| Deterministic scoring | Validated | version-management UI and audited recomputation |
-| Score reconciliation | Validated on sanitized evidence | permitted historical workbook evidence for unresolved coefficients/formulas |
-| API | Validated local read/import contracts | authentication and hosted error/operational policy |
-| Web UI | Implemented local review workflow | complete non-developer cockpit and upload flow |
-| Hosted/multi-user operation | Not implemented | uploads, jobs, auth, isolation, deployment |
+| Repository and fresh schema | Validated | routine maintenance and hosted backup/recovery |
+| Raw provenance and imports | Validated and locally operational | ownership-scoped hosted operation |
+| Browser upload/storage | Validated and locally operational | hosted object lifecycle and deletion |
+| Durable import jobs | Validated and locally operational | wake-up acceleration and hosted observability |
+| Deterministic scoring | Validated | additional rule semantics only when evidence justifies them |
+| Rules Studio | Validated and locally operational | authentication-backed actor identity and hosted-scale recomputation |
+| Score reconciliation | Validated on sanitized evidence | permitted historical evidence for unresolved workbook semantics |
+| API | Validated local contracts | authentication and hosted authorization |
+| Web UI | Validated local import, review, and rule workflows | complete drill-downs and canonical export |
+| Hosted/multi-user operation | Not implemented | auth, isolation, deployment, backup, deletion |
 | Integrations | Not implemented | provider adapters, credentials, cursors, deduplication |
 | AI analysis | Intentionally not implemented | stable authorized read tools and evaluation |
 
 ## Milestone 0: trustworthy local ingestion
 
-### Goal
+Delivered:
 
-Turn the initial scaffold into a repeatable, explainable local data pipeline.
+- reproducible install, fresh migrations, tests, and builds;
+- sanitized XLSX fixtures;
+- source-row provenance and canonical links;
+- transactional/idempotent imports and rollback;
+- score breakdown and reconciliation;
+- import history and row diagnostics;
+- explicit scoring units, rounding, thresholds, priorities, effective dates, and base/bonus semantics;
+- machine-readable exact/explained/unresolved evidence.
 
-### Delivered scope
-
-- reproducible install, workspace validation, tests, and builds;
-- sanitized XLSX fixtures for supported workbook layouts;
-- raw-row provenance and canonical source links;
-- transactional/idempotent imports and failure rollback;
-- score-breakdown API and Daily Log reconciliation;
-- import history, row diagnostics, affected dates, and privacy controls;
-- explicit rule units, rounding, thresholds, effective dates, priorities, and bonus classification;
-- exact/explained/unresolved score reconciliation with zero default tolerance;
-- machine-readable fixture evidence and documented unresolved workbook semantics.
-
-### Exit criteria
-
-The checklist and evidence are maintained in [FIRST_MILESTONE.md](FIRST_MILESTONE.md). The decisive outcome is that a developer can trace a daily total to source rows and rule calculations, explain supported differences, and label unsupported differences without guessing.
+The detailed evidence is maintained in [FIRST_MILESTONE.md](FIRST_MILESTONE.md).
 
 ## Milestone 1: usable local cockpit
 
 ### Goal
 
-Replace developer-oriented local-path operations with a coherent single-user workflow.
+A non-developer can import supported files, understand failures, inspect calculations, manage versioned rules safely, and repeat the workflow without filesystem paths or a CLI.
 
-### Ordered work
+### Delivered
 
-1. browser file upload and a durable, replaceable storage boundary;
-2. asynchronous import jobs with progress, retries, cancellation, and idempotent execution;
-3. Rules Studio with version activation, preview, audited recomputation, and history;
-4. complete daily/performance/provenance drill-downs and canonical export.
+1. **Browser upload and durable storage** — bounded XLSX validation, external source bytes, durable metadata, duplicate detection, privacy-safe responses.
+2. **Asynchronous import jobs** — persisted state, bounded queue/concurrency, worker leases, progress, retry, cancellation, stale recovery, independent execution.
+3. **Rules Studio and audited recomputation** — immutable versions, inclusive non-overlap, domain validation, read-only date-level preview, confirmation fingerprints, durable audit jobs, atomic activation/recomputation, exact ledger UUIDs, retry/cancellation/recovery, and browser history.
+
+### Remaining
+
+4. Complete daily/performance/provenance drill-downs and canonical export.
 
 ### Exit criteria
 
-A non-developer can import supported files, understand failures, inspect score calculations, manage versioned rules safely, and repeat the workflow without filesystem paths or a CLI.
+Milestone 1 exits when the remaining drill-down/export issue is validated and the entire local workflow can be completed from the cockpit.
 
 ## Milestone 2: accounts and integrations
 
-### Goal
+Ordered work:
 
-Support durable personal use across devices and ingest external providers without weakening provenance.
-
-### Ordered work
-
-- authentication and user/account ownership boundaries;
-- deployment configuration and secret management;
-- ownership-scoped repository/API authorization;
+- authentication and user ownership;
+- deployment, secrets, authorization, and hosted operational policy;
 - provider-neutral ingestion interfaces;
 - encrypted credentials and refresh handling;
-- first Strava adapter, then additional providers where justified;
+- first Strava adapter;
 - provider cursors, rate limits, retries, and backfills;
 - cross-source identity and duplicate policy;
-- time-zone/locale policy, monitoring, backups, and recovery.
+- time-zone/locale policy, monitoring, backup, and recovery.
 
-### Exit criteria
+Exit: a user can safely connect a provider, backfill history, and trace ownership/provenance for every canonical fact.
 
-A user can safely connect a supported provider, backfill history, and understand the provenance and ownership of every canonical fact.
+## Milestone 3: read-only analysis
 
-## Milestone 3: read-only analysis and coaching tools
+Work begins only after stable authorization and provider operations:
 
-### Goal
-
-Add AI-assisted querying and explanation without allowing generated text to become authoritative data.
-
-### Work
-
-- narrow, read-only tools over stable views;
-- documented tool schemas and authorization boundaries;
-- answers that cite dates, activities, rules, and source provenance;
+- narrow read-only tools over stable views;
+- cited dates, activities, rules, and source provenance;
 - deterministic calculations outside the model;
-- evaluation cases for hallucination, missing data, conflicts, and imported-text prompt injection;
-- explicit separation between observations, uncertainty, suggestions, and official records.
+- evaluations for hallucination, missing/conflicting data, and imported-text prompt injection;
+- explicit separation of observations, uncertainty, suggestions, and official records.
 
-### Exit criteria
+Exit: generated analysis can explain canonical data without authoritative calculation or write access.
 
-AI features can summarize or explain canonical data while all authoritative calculations and writes remain deterministic, permission-checked, and auditable.
+## Near-term queue
 
-## Near-term PR queue
+Issue #3 is authoritative. The next sequence is:
 
-The authoritative order is maintained in GitHub issue #3. After MVP-0 coefficient reconciliation, the intended sequence is:
-
-1. browser upload and durable file storage;
-2. asynchronous import job lifecycle;
-3. Rules Studio and audited score recomputation;
-4. cockpit drill-downs and canonical export;
-5. authentication and ownership;
-6. provider ingestion;
-7. read-only AI analysis.
+1. cockpit drill-downs and canonical export;
+2. authentication and ownership;
+3. provider ingestion and first Strava adapter;
+4. read-only AI analysis.
 
 Each PR must identify the milestone exit criterion it advances and include repeatable evidence appropriate to the risk.
 
-## Decision log candidates
+## Accepted decisions
 
-Record these decisions before implementation spreads across packages:
+- [ADR 0001](adr/0001-import-transactions-and-identity.md) — import transactions and identity.
+- [ADR 0002](adr/0002-upload-storage-and-retention.md) — source-file storage and retention.
+- [ADR 0003](adr/0003-import-job-lifecycle.md) — durable import job lifecycle.
+- [ADR 0004](adr/0004-rule-versioning-and-recomputation.md) — immutable rule versions, preview, audit, and atomic recomputation.
 
-- durable file/object-storage ownership and retention;
-- import-job state machine, cancellation, and retry semantics;
-- rule-version activation, overlap, and historical recomputation;
-- canonical activity identity across providers;
-- date, time-zone, and locale handling;
-- ownership of facts derived from multiple sources;
-- authentication/session strategy;
-- hosted API error format and operational observability;
-- backup, restoration, and deletion policy.
+Future decisions still required include provider identity, time-zone/locale policy, authentication/session strategy, hosted observability, backup/restoration, and deletion.

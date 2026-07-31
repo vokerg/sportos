@@ -36,6 +36,10 @@ export interface PerformanceRow {
 export type ImportBatchStatus = 'started' | 'parsed' | 'normalized' | 'scored' | 'failed';
 export type UploadWorkbookKind = 'my_sport' | 'run_db';
 export type ImportJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'power_bonus';
+export type RuleKind = 'coefficient' | 'achievement' | 'manual_points';
+export type ThresholdOperator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'exists';
+export type RuleChangeStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
 export interface ImportBatchHistoryItem {
   id: string;
@@ -130,6 +134,84 @@ export interface UploadWorkbookResponse {
   job: ImportJob;
 }
 
+export interface RuleProposal {
+  replaceRuleId?: string;
+  code: string;
+  name: string;
+  activityType: ActivityType;
+  ruleKind: RuleKind;
+  metric: string;
+  coefficient?: number;
+  thresholdOperator?: ThresholdOperator;
+  thresholdValue?: number;
+  thresholdUnit?: string;
+  points?: number;
+  validFrom: string;
+  validTo?: string;
+  priority: number;
+  description?: string;
+}
+
+export interface RuleVersion extends Omit<RuleProposal, 'replaceRuleId'> {
+  id: string;
+  version: number;
+  supersedesRuleId: string | null;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface RulePreviewRow {
+  metricDate: string;
+  currentBasePoints: number;
+  proposedBasePoints: number;
+  currentBonusPoints: number;
+  proposedBonusPoints: number;
+  currentTotalPoints: number;
+  proposedTotalPoints: number;
+  delta: number;
+}
+
+export interface RulePreviewResponse {
+  proposal: RuleProposal;
+  preview: {
+    affectedFrom: string;
+    affectedTo: string;
+    totalDates: number;
+    changedDates: number;
+    aggregateDelta: number;
+    minimumDelta: number;
+    maximumDelta: number;
+    rows: RulePreviewRow[];
+  };
+  previewFingerprint: string;
+}
+
+export interface RuleChange {
+  id: string;
+  ruleCode: string;
+  previousRuleId: string | null;
+  proposedRuleId: string;
+  status: RuleChangeStatus;
+  phase: string;
+  progressPercent: number;
+  attemptCount: number;
+  maxAttempts: number;
+  cancellationRequested: boolean;
+  initiatedBy: string;
+  reason: string;
+  proposal: RuleProposal;
+  preview: RulePreviewResponse['preview'];
+  previewFingerprint: string;
+  affectedFrom: string;
+  affectedTo: string;
+  error: { code: string; message: string } | null;
+  result: unknown;
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   readonly apiBase = signal('http://localhost:3000');
@@ -178,5 +260,38 @@ export class ApiService {
     return this.http.get<ImportBatchDetail>(
       `${this.apiBase()}/imports/${encodeURIComponent(batchId)}?diagnosticLimit=${diagnosticLimit}&diagnosticOffset=${diagnosticOffset}`,
     );
+  }
+
+  ruleVersions() {
+    return this.http.get<RuleVersion[]>(`${this.apiBase()}/rules`);
+  }
+
+  previewRule(proposal: RuleProposal) {
+    return this.http.post<RulePreviewResponse>(`${this.apiBase()}/rules/preview`, proposal);
+  }
+
+  activateRule(proposal: RuleProposal, previewFingerprint: string, reason: string) {
+    return this.http.post<RuleChange>(`${this.apiBase()}/rules/activate`, {
+      proposal,
+      previewFingerprint,
+      reason,
+      initiatedBy: 'local-user',
+    });
+  }
+
+  ruleChanges(limit = 50) {
+    return this.http.get<RuleChange[]>(`${this.apiBase()}/rules/changes?limit=${limit}`);
+  }
+
+  ruleChange(changeId: string) {
+    return this.http.get<RuleChange>(`${this.apiBase()}/rules/changes/${encodeURIComponent(changeId)}`);
+  }
+
+  retryRuleChange(changeId: string) {
+    return this.http.post<RuleChange>(`${this.apiBase()}/rules/changes/${encodeURIComponent(changeId)}/retry`, {});
+  }
+
+  cancelRuleChange(changeId: string) {
+    return this.http.post<RuleChange>(`${this.apiBase()}/rules/changes/${encodeURIComponent(changeId)}/cancel`, {});
   }
 }

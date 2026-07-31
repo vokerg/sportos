@@ -121,12 +121,14 @@ export interface DailyMetricsTable {
   total_points: number;
   excel_all_points: number | null;
   excel_row_hash: string | null;
-  recomputed_at: Generated<Timestamp>;
+  recomputed_at: GeneratedTimestamp;
 }
 
 export interface ScoringRulesTable {
   id: Generated<string>;
   code: string;
+  version: number;
+  supersedes_rule_id: string | null;
   name: string;
   activity_type: ActivitiesTable['activity_type'];
   rule_kind: 'coefficient' | 'achievement' | 'manual_points';
@@ -142,6 +144,37 @@ export interface ScoringRulesTable {
   enabled: boolean;
   description: string | null;
   created_at: Generated<Timestamp>;
+}
+
+export interface ScoringRuleChangesTable {
+  id: Generated<string>;
+  rule_code: string;
+  previous_rule_id: string | null;
+  proposed_rule_id: string;
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  phase: string;
+  progress_percent: number;
+  attempt_count: number;
+  max_attempts: number;
+  lease_owner: string | null;
+  lease_expires_at: NullableTimestamp;
+  heartbeat_at: NullableTimestamp;
+  cancellation_requested_at: NullableTimestamp;
+  next_attempt_at: Timestamp;
+  initiated_by: string;
+  reason: string;
+  proposal_json: Json;
+  preview_json: Json;
+  preview_fingerprint: string;
+  affected_from: DateString;
+  affected_to: DateString;
+  error_code: string | null;
+  error_message: string | null;
+  result_json: Json;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+  started_at: NullableTimestamp;
+  completed_at: NullableTimestamp;
 }
 
 export interface ScoreLedgerTable {
@@ -183,6 +216,7 @@ export interface Database {
   activities: ActivitiesTable;
   daily_metrics: DailyMetricsTable;
   scoring_rules: ScoringRulesTable;
+  scoring_rule_changes: ScoringRuleChangesTable;
   score_ledger: ScoreLedgerTable;
   performance_events: PerformanceEventsTable;
   v_daily_summary: Omit<DailyMetricsTable, 'source_record_id'> & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
@@ -202,6 +236,8 @@ export type NewActivity = Insertable<ActivitiesTable>;
 export type DailyMetric = Selectable<DailyMetricsTable>;
 export type NewDailyMetric = Insertable<DailyMetricsTable>;
 export type ScoringRuleRow = Selectable<ScoringRulesTable>;
+export type NewScoringRule = Insertable<ScoringRulesTable>;
+export type ScoringRuleChange = Selectable<ScoringRuleChangesTable>;
 export type NewScoreLedger = Insertable<ScoreLedgerTable>;
 export type PerformanceEvent = Selectable<PerformanceEventsTable>;
 export type NewPerformanceEvent = Insertable<PerformanceEventsTable>;

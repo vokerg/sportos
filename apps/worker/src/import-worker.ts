@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { createDb } from '@sportos/db';
 import { LocalUploadStorage } from '@sportos/importers';
 import { ImportJobRunner } from './import-job-runner.js';
+import { RuleChangeRunner } from './rule-change-runner.js';
 
 const concurrency = clampInteger(Number(process.env.IMPORT_WORKER_CONCURRENCY ?? 1), 1, 4);
 const leaseSeconds = clampInteger(Number(process.env.IMPORT_JOB_LEASE_SECONDS ?? 60), 15, 600);
@@ -18,13 +19,18 @@ const db = createDb();
 const storage = new LocalUploadStorage();
 
 try {
-  await Promise.all(
-    Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(db, storage, {
-      workerId: `${processId}:${index + 1}`,
+  await Promise.all([
+    ...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(db, storage, {
+      workerId: `${processId}:import:${index + 1}`,
       leaseSeconds,
       pollIntervalMs,
     }).run(controller.signal)),
-  );
+    new RuleChangeRunner(db, {
+      workerId: `${processId}:rules`,
+      leaseSeconds,
+      pollIntervalMs,
+    }).run(controller.signal),
+  ]);
 } finally {
   await db.destroy();
 }
