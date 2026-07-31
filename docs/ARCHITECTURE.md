@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace spreadsheet formulas with a canonical, auditable sports-data system while preserving import compatibility and traceability back to source workbooks.
+Replace spreadsheet formulas with a canonical, auditable sports-data system while preserving source provenance and deterministic score explanations.
 
 ```text
 browser XLSX / local CLI / future integrations
@@ -11,25 +11,22 @@ browser XLSX / local CLI / future integrations
        upload storage + uploaded_files
                     |
                     v
-            import_jobs
-                    |
-                    v
-          independent worker
-                    |
-                    v
-       import_batches + source_records
-                    |
-                    v
- activities + daily_metrics + performance_events
+            import_jobs ------------------+
+                    |                      |
+                    v                      |
+          independent worker <--- scoring_rule_changes
+                    |                      |
+                    v                      |
+       import_batches + source_records     |
+                    |                      |
+                    v                      |
+ activities + daily_metrics <--------------+
                     |
                     v
        scoring_rules + score_ledger
                     |
                     v
-     read-model views and repository queries
-                    |
-                    v
-          NestJS API -> Angular UI
+     read models -> NestJS API -> Angular UI
                     |
                     v
         future read-only AI tooling
@@ -37,48 +34,56 @@ browser XLSX / local CLI / future integrations
 
 ## System boundary
 
-The current system is a local-first, single-user monorepo. Postgres is the canonical metadata, job, provenance, and fact store. Uploaded workbook bytes live outside Postgres behind a storage contract. The API validates and stores browser uploads, then returns after durable enqueue. An independent worker claims jobs and executes the transactional importer.
+SportOS is currently a local-first, single-user monorepo. Postgres is authoritative for metadata, job leases, audit history, provenance, canonical facts, rule versions, and official scores. Workbook bytes remain outside Postgres behind a replaceable storage contract.
 
-The worker uses bounded Postgres polling. Redis remains provisioned for possible future wake-up acceleration but is not required for queue correctness. Authentication, user isolation, and hosted lifecycle policy belong to later milestones.
+The API validates and durably enqueues work. An independent worker executes import and rule-recomputation jobs. Bounded Postgres polling is sufficient for local correctness; future wake-up delivery may reduce latency but cannot bypass persisted claim and lease rules.
 
 ## Architectural invariants
 
-1. **Raw input is retained before normalization.** Every successfully imported row should be recoverable with workbook, sheet, row, batch, and upload provenance.
-2. **Canonical facts do not depend on a UI or API process.** Importers and domain logic are usable from worker, CLI, and tests.
-3. **Official scores are deterministic.** An LLM may explain results but must not calculate or persist authoritative points.
-4. **Every score is explainable.** A contribution identifies the rule, input metric, and calculation payload.
-5. **Unknown source semantics are not guessed.** Ambiguous sheets or columns are skipped with warnings.
-6. **Schema changes are versioned.** Flyway owns database evolution.
-7. **Re-imports are idempotent.** Reprocessing creates a new auditable batch/raw snapshot but converges on the same canonical facts.
-8. **Binary source files are external to Postgres.** Storage paths and keys remain internal.
-9. **Untrusted filenames are presentation metadata only.** They never determine absolute storage paths.
-10. **Postgres is authoritative for job execution.** Polling or future wake-up delivery cannot bypass the durable claim and lease.
-11. **Only the current lease owner may progress or complete a job.** Stale workers cannot write terminal state after recovery.
-12. **Cancellation occurs only at safe boundaries.** Running cancellation cooperatively rolls back the active import transaction; committed work is not relabelled cancelled.
+1. Raw input is retained before normalization with workbook, sheet, row, batch, and upload provenance.
+2. Canonical facts and official scoring do not depend on Angular or the API process.
+3. Official points are deterministic domain output; generated text never calculates or persists them.
+4. Every score contribution identifies the exact rule UUID, inputs, reason, and calculation payload.
+5. Unknown source semantics are never guessed.
+6. Flyway owns append-only schema evolution.
+7. Re-imports converge on the same canonical facts without duplicates.
+8. Uploaded bytes stay outside Postgres; storage keys and local paths are private.
+9. Postgres is authoritative for job state and worker leases.
+10. Only the current lease owner may progress or complete running work.
+11. Cancellation occurs only at safe transactional boundaries.
+12. A rule UUID is one immutable semantic version; family codes may repeat only across non-overlapping enabled ranges.
+13. Preview is non-authoritative and cannot mutate rule rows, daily totals, or ledger entries.
+14. Rule activation and affected score replacement publish atomically or not at all.
 
 ## Layers
 
 ### Upload storage and metadata
 
-Table:
+Table: `uploaded_files`
 
-- `uploaded_files`
+The shared `UploadStorage` contract and local adapter live in `packages/importers`. Local objects use opaque keys and mode-`0600` writes beneath `SPORTOS_UPLOAD_DIR`. Public contracts omit object keys, roots, paths, and raw bytes. See [ADR 0002](adr/0002-upload-storage-and-retention.md).
 
-The `UploadStorage` contract and local adapter live in `packages/importers` so API and worker share the same byte boundary. The local adapter writes opaque, mode-`0600` objects beneath `SPORTOS_UPLOAD_DIR`. A future object-store adapter must provide the same store/read/delete semantics.
+### Durable import jobs
 
-`uploaded_files` records safe filenames, workbook kind, MIME signal, byte size, SHA-256, provider/object key, lifecycle status, and timestamps. Object keys are never exposed by upload, job, history, or diagnostic APIs. Retention and deletion behavior are defined in [ADR 0002](adr/0002-upload-storage-and-retention.md).
+Table: `import_jobs`
 
-### Durable job orchestration
+Import jobs persist upload/batch links, phase, monotonic progress, attempts, lease owner/expiry, heartbeat, cancellation, result, sanitized error, and lifecycle timestamps.
 
-Table:
+Workers claim with `FOR UPDATE SKIP LOCKED`. Advisory locking bounds enqueue/retry. Lease-owner predicates guard progress and terminal writes. Stale jobs are requeued, cancelled, or failed according to attempts and cancellation state. See [ADR 0003](adr/0003-import-job-lifecycle.md).
 
-- `import_jobs`
+### Rule versions and audited recomputation
 
-The job row records upload and batch links, state, phase, monotonic progress, attempt limits, lease owner/expiry, heartbeat, cancellation request, result summary, sanitized terminal error, and timestamps.
+Tables:
 
-Workers claim due jobs with `FOR UPDATE SKIP LOCKED`. Enqueue and retry use an advisory transaction lock to enforce the active queue limit. Lease-owner predicates guard progress, batch linking, and terminal writes. Expired running jobs are requeued, cancelled, or failed according to their persisted attempts and cancellation state.
+- `scoring_rules`
+- `scoring_rule_changes`
+- `score_ledger`
 
-The state machine and operational policy are defined in [ADR 0003](adr/0003-import-job-lifecycle.md).
+`scoring_rules.code` identifies a family; `(code, version)` identifies its monotonic display version, while the UUID remains the immutable database identity. A GiST exclusion constraint prevents overlapping enabled inclusive date ranges within a family.
+
+A proposed version is inserted disabled together with a durable `scoring_rule_changes` audit/job record. The audit stores actor, reason, previous/proposed UUIDs, complete proposal, preview, fingerprint, affected range, attempts, progress, result, and sanitized error.
+
+The worker publishes one change in one transaction: close the superseded range when needed, enable the proposed UUID, recompute affected daily totals with domain scoring, replace ledger rows, and mark the audit succeeded. Any exception rolls the whole publication transaction back. See [ADR 0004](adr/0004-rule-versioning-and-recomputation.md).
 
 ### Raw provenance
 
@@ -87,7 +92,7 @@ Tables:
 - `import_batches`
 - `source_records`
 
-Every import creates a durable batch failure envelope before its raw/canonical transaction. An uploaded batch links to `uploaded_files`; its job links to the current batch. Raw records are batch-scoped so repeated attempts remain inspectable. An exception rolls back raw/canonical writes while the batch envelope retains sanitized phase metadata.
+Every import creates a durable batch failure envelope before the raw/canonical transaction. Raw records are batch-scoped, and uploaded batches retain their upload/job links. Exceptions roll back raw/canonical writes while retaining sanitized batch failure evidence.
 
 ### Canonical facts
 
@@ -97,16 +102,7 @@ Tables:
 - `daily_metrics`
 - `performance_events`
 
-Spreadsheet layout and presentation conventions do not leak beyond the importer boundary. Canonical rows use deterministic source identities so retry or duplicate delivery converges on the same facts.
-
-### Rules and explanations
-
-Tables:
-
-- `scoring_rules`
-- `score_ledger`
-
-Rules are persisted and versionable. The ledger records the contribution of each applied rule so a daily total can be reconciled with imported spreadsheet evidence.
+Spreadsheet layout does not cross the importer boundary. Deterministic source identities make retry and duplicate delivery converge on the same canonical rows.
 
 ### Read models
 
@@ -116,90 +112,87 @@ Views:
 - `v_score_breakdown`
 - `v_performance_events`
 
-The API and future AI tools prefer stable read models over ad hoc raw access.
+The API and future read-only AI tools prefer stable read models and narrow repository contracts over ad hoc raw-table access.
 
 ## Package responsibilities
 
 | Package or app | Responsibility |
 |---|---|
-| `apps/api` | HTTP boundary, upload validation/storage orchestration, durable enqueue, and job control endpoints |
-| `apps/web` | Job-aware upload and review UI; no canonical business rules |
-| `apps/worker` | Long-running bounded-concurrency job execution plus development CLI |
+| `apps/api` | HTTP validation, upload orchestration, import/rule enqueue, status, retry, and cancellation |
+| `apps/web` | Review, import monitoring, server-computed rule preview, and audit UI; no authoritative calculations |
+| `apps/worker` | Long-running import and rule-change execution plus local CLI |
 | `packages/shared` | Serialization schemas and low-level date/hash utilities |
-| `packages/domain` | Pure sport, performance, aggregation, scoring, and reconciliation logic |
-| `packages/db` | Typed schema, durable queue/lease operations, and repositories |
-| `packages/importers` | Storage contract, XLSX extraction, normalization, warnings, and import orchestration |
-| `packages/analytics` | Pure analytical helpers that do not require a database |
-| `flyway/sql` | Append-only database migration history |
+| `packages/domain` | Pure aggregation, scoring, reconciliation, rule validation, and preview logic |
+| `packages/db` | Typed schema, leases, version/audit persistence, and repositories |
+| `packages/importers` | Storage, XLSX extraction, normalization, warnings, and import transactions |
+| `packages/analytics` | Pure analytics without database dependencies |
+| `flyway/sql` | Append-only migrations and database constraints |
 
-Dependency direction remains toward shared, pure packages. UI code must not become the only place where scoring or import semantics exist.
+Dependencies point toward shared and pure packages. Angular and NestJS do not own scoring semantics.
 
 ## Runtime flows
 
-### Browser upload and enqueue
+### Browser upload
 
-1. The browser posts one file plus an explicit workbook kind as multipart form data.
-2. The API enforces one-file and 20 MB limits.
-3. Validation checks `.xlsx`, MIME signal, ZIP signature, filename safety, and workbook readability.
-4. The API computes SHA-256 and rejects a known non-deleted duplicate of the same workbook kind.
-5. The shared storage adapter writes bytes under an opaque object key.
-6. The API inserts `uploaded_files` metadata without binary content.
-7. The API enqueues one durable `import_jobs` row, subject to one-active-job-per-upload and queue-depth constraints.
-8. The API returns HTTP `202` with privacy-safe upload metadata and job state.
+1. Validate one bounded XLSX upload and explicit workbook kind.
+2. Reject unsupported, unreadable, oversized, or known duplicate content.
+3. Store bytes under an opaque object key.
+4. Insert safe upload metadata and one durable import job.
+5. Return HTTP `202` with privacy-safe upload/job state.
+6. Poll only while active, with a finite client budget.
 
-If enqueue fails, the API removes the newly stored object and marks the upload metadata deleted so no orphaned work is presented as active.
+### Import worker
 
-### Worker job flow
-
-1. Recover expired running leases.
-2. Claim one due queued job with `FOR UPDATE SKIP LOCKED`.
-3. Assign a worker lease and increment the attempt.
-4. Read the uploaded object and parse XLSX bytes in memory.
-5. Invoke the existing transactional importer.
-6. At importer phase boundaries, link the batch, check cancellation, persist monotonic progress, and extend the lease.
-7. On success, mark the upload imported and the job succeeded with a result summary.
-8. On failure, persist sanitized upload/job failure metadata.
-9. On cooperative cancellation, roll back the active import transaction and mark the job cancelled.
+1. Recover stale leases and claim one queued job.
+2. Read the stored object and parse workbook bytes.
+3. Invoke the transactional importer.
+4. At safe phase boundaries, link the batch, check cancellation, persist progress, and extend the lease.
+5. Mark success with result counts, or persist sanitized failure/cancellation state.
 
 ### Import transaction
 
-Each workbook attempt is processed as one logical import:
+1. Create and link a durable batch envelope.
+2. Persist raw source records.
+3. Normalize known rows and preserve warnings for ambiguity.
+4. Upsert canonical facts by deterministic identity.
+5. Recompute affected daily dates and replace their score ledger.
+6. Commit batch counts/status and canonical links together.
 
-1. Create a durable `import_batch` failure envelope and link its upload.
-2. Start a database transaction.
-3. Persist batch-scoped raw `source_records`.
-4. Parse known rows into canonical input types.
-5. Upsert activities or performance events by deterministic cross-batch identity.
-6. Recompute only affected daily dates.
-7. Replace those dates' score-ledger entries deterministically.
-8. Link canonical rows and normalized source records.
-9. Update counts and final batch status.
-10. Commit.
+See [ADR 0001](adr/0001-import-transactions-and-identity.md).
 
-Any exception before commit rolls back raw/canonical writes. The batch envelope is marked failed outside the transaction with sanitized phase and attempted-count metadata. Identity, retry, backfill, and failure policy is recorded in [ADR 0001](adr/0001-import-transactions-and-identity.md).
+### Rules Studio preview
+
+1. Validate and normalize the proposal in `packages/domain`.
+2. Load enabled rule UUIDs, persisted daily facts, and canonical activities.
+3. Apply the proposed version in memory only.
+4. Score current and candidate sets with the same deterministic engine.
+5. Return bounded date-level and aggregate deltas plus a confirmation fingerprint.
+
+No authoritative row is written during preview.
+
+### Rule activation and recomputation
+
+1. Re-run preview and reject a stale fingerprint.
+2. Insert the proposed disabled UUID and queued audit/job atomically.
+3. The worker claims the change with a lease.
+4. One transaction closes the superseded range, enables the new UUID, recomputes the bounded date range, replaces ledger entries, and completes the audit.
+5. Failure rolls back all authoritative changes; retry reuses the same audit identity.
 
 ### Query flow
 
-1. The API validates route, query, and body parameters.
-2. A repository queries a stable table or view.
-3. Job APIs return persisted state without storage keys; history APIs return provenance without raw cells or paths.
-4. The Angular UI renders job progress, history, diagnostics, and canonical review views.
-
-## Why Flyway and Kysely
-
-Flyway owns ordered SQL migrations. Kysely supplies typed queries and transactional job claims. Keeping those roles separate makes schema history explicit and avoids runtime schema mutation.
-
-## Why not AI first
-
-The source workbooks combine raw facts, formulas, coefficients, achievements, and presentation. Adding an LLM before canonical data, deterministic scoring, provenance, and operational workflows are stable would make results harder to reproduce and trust.
+1. Validate route, query, body, file, and pagination inputs.
+2. Query stable tables, views, or audit repositories.
+3. Omit source-private storage details.
+4. Render canonical facts, provenance, job state, rule history, previews, and audit results.
 
 ## Current risks
 
-- Workbook assumptions are based on a small number of known files.
-- Local upload storage is single-host and has no automated backup or lifecycle policy.
-- Duplicate upload detection is advisory rather than a concurrent owner-scoped reservation.
-- Postgres polling is intentionally simple but adds periodic database load; future wake-up acceleration must preserve the same claim/lease semantics.
-- Authentication, ownership isolation, and hosted deletion workflows are not implemented.
-- The current UI is a local cockpit rather than a complete multi-user product.
+- Workbook assumptions are based on a small known sample.
+- Local source storage is single-host and lacks automated backup/lifecycle policy.
+- Duplicate upload detection is advisory rather than owner-scoped reservation.
+- Postgres polling adds periodic load; wake-up acceleration must preserve durable claims.
+- Rule recomputation is intentionally bounded to 5,000 persisted dates in one publication transaction; hosted-scale chunking needs a separate publication ADR.
+- Authentication, ownership isolation, and hosted deletion are not implemented.
+- The cockpit still lacks complete cross-screen drill-downs and canonical export.
 
-Milestone sequencing and exit criteria are tracked in [ROADMAP.md](ROADMAP.md).
+Milestone sequencing is tracked in [ROADMAP.md](ROADMAP.md).
