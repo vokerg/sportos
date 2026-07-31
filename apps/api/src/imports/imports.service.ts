@@ -4,10 +4,20 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { ImportsRepository, UploadsRepository } from '@sportos/db';
-import { ImportService, type ImportLocalFilesInput, type ImportLocalFilesResult } from '@sportos/importers';
+import {
+  ActiveImportJobError,
+  ImportJobsRepository,
+  ImportJobStateError,
+  ImportQueueFullError,
+  ImportsRepository,
+  UploadsRepository,
+  type ImportJobReadModel,
+} from '@sportos/db';
+import { ImportService, type ImportLocalFilesInput } from '@sportos/importers';
 import { DbProvider } from '../db.provider.js';
 import { UploadStorage } from '../storage/upload-storage.js';
 import {
@@ -22,15 +32,16 @@ export interface UploadWorkbookInput {
   workbookKind?: string;
 }
 
-export interface UploadWorkbookResponse extends ImportLocalFilesResult {
+export interface UploadWorkbookResponse {
   upload: {
     id: string;
     filename: string;
     workbookKind: 'my_sport' | 'run_db';
     byteSize: number;
     sha256: string;
-    status: 'imported';
+    status: 'stored';
   };
+  job: ImportJobReadModel;
 }
 
 @Injectable()
@@ -101,36 +112,86 @@ export class ImportsService {
       if (objectKey) await this.uploadStorage.delete(objectKey).catch(() => undefined);
       throw new InternalServerErrorException({
         code: 'UPLOAD_STORAGE_FAILED',
-        message: 'The workbook could not be stored. No import was started.',
+        message: 'The workbook could not be stored. No import job was created.',
       });
     }
 
+    let job: ImportJobReadModel;
     try {
-      const result = await new ImportService(this.dbProvider.db).importWorkbook({
-        workbookKind: validated.workbookKind,
-        extract: validated.extract,
-        uploadId,
-      });
-      await uploadsRepo.markImported(uploadId);
-      return {
-        ...result,
-        upload: {
-          id: uploadId,
-          filename: validated.sanitizedFilename,
-          workbookKind: validated.workbookKind,
-          byteSize: validated.byteSize,
-          sha256: validated.sha256,
-          status: 'imported',
-        },
-      };
+      job = await new ImportJobsRepository(this.dbProvider.db).enqueue(uploadId);
     } catch (error) {
-      await uploadsRepo.markFailed(uploadId, error);
+      if (objectKey) await this.uploadStorage.delete(objectKey).catch(() => undefined);
+      await uploadsRepo.markDeleted(uploadId).catch(() => undefined);
+      if (error instanceof ImportQueueFullError) {
+        throw new ServiceUnavailableException({
+          code: 'IMPORT_QUEUE_FULL',
+          message: `The import queue is full (${error.limit} active jobs). Try again after a job completes.`,
+        });
+      }
+      if (error instanceof ActiveImportJobError) {
+        throw new ConflictException({
+          code: 'ACTIVE_IMPORT_JOB_EXISTS',
+          message: 'This upload already has an active import job.',
+          jobId: error.jobId,
+        });
+      }
       throw new InternalServerErrorException({
-        code: 'UPLOAD_IMPORT_FAILED',
-        message: 'The workbook was stored, but its import failed. Review the newest failed batch for details.',
-        uploadId,
+        code: 'IMPORT_JOB_ENQUEUE_FAILED',
+        message: 'The workbook was not queued. No import was started.',
       });
     }
+
+    return {
+      upload: {
+        id: uploadId,
+        filename: validated.sanitizedFilename,
+        workbookKind: validated.workbookKind,
+        byteSize: validated.byteSize,
+        sha256: validated.sha256,
+        status: 'stored',
+      },
+      job,
+    };
+  }
+
+  async job(jobId: string): Promise<ImportJobReadModel> {
+    const job = await new ImportJobsRepository(this.dbProvider.db).getById(jobId);
+    if (!job) {
+      throw new NotFoundException({
+        code: 'IMPORT_JOB_NOT_FOUND',
+        message: `No import job exists with id ${jobId}.`,
+        jobId,
+      });
+    }
+    return job;
+  }
+
+  async retryJob(jobId: string): Promise<ImportJobReadModel> {
+    try {
+      const job = await new ImportJobsRepository(this.dbProvider.db).retry(jobId);
+      if (!job) throw new NotFoundException({ code: 'IMPORT_JOB_NOT_FOUND', message: `No import job exists with id ${jobId}.`, jobId });
+      return job;
+    } catch (error) {
+      if (error instanceof ImportQueueFullError) {
+        throw new ServiceUnavailableException({ code: 'IMPORT_QUEUE_FULL', message: 'The import queue is full. Try again later.' });
+      }
+      if (error instanceof ImportJobStateError) {
+        throw new ConflictException({ code: error.code, message: error.message, jobId });
+      }
+      throw error;
+    }
+  }
+
+  async cancelJob(jobId: string): Promise<ImportJobReadModel> {
+    const job = await new ImportJobsRepository(this.dbProvider.db).requestCancellation(jobId);
+    if (!job) {
+      throw new NotFoundException({
+        code: 'IMPORT_JOB_NOT_FOUND',
+        message: `No import job exists with id ${jobId}.`,
+        jobId,
+      });
+    }
+    return job;
   }
 
   history(limit: number, offset: number) {
