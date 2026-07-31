@@ -6,7 +6,7 @@ This file is the operational entry point for coding agents and maintainers worki
 
 SportOS is a local-first single-user application for importing sports workbooks, retaining source files and raw rows, normalizing canonical facts, calculating deterministic scores, and reviewing results through a NestJS API and Angular UI.
 
-Trustworthy MVP-0 is complete. The repository now has:
+Trustworthy MVP-0 is complete. The usable local cockpit now includes:
 
 - reproducible workspace and fresh-database validation;
 - sanitized XLSX fixtures;
@@ -14,185 +14,138 @@ Trustworthy MVP-0 is complete. The repository now has:
 - end-to-end source-to-canonical traceability;
 - explicit scoring semantics and reconciliation evidence;
 - import history and row-level diagnostics;
-- bounded browser upload backed by a replaceable storage contract and durable upload metadata.
+- bounded browser upload backed by external source-file storage;
+- durable asynchronous import jobs with leases, progress, retries, cancellation, stale recovery, and an independent worker.
 
-The next incomplete queue item is the asynchronous import job lifecycle. Do not describe a capability as delivered merely because source code exists. Use the status vocabulary in `docs/ROADMAP.md`: **Implemented**, **Validated**, and **Operational**.
+The next incomplete queue item is Rules Studio and audited score recomputation. Do not describe a capability as delivered merely because source exists. Use the status vocabulary in `docs/ROADMAP.md`: **Implemented**, **Validated**, and **Operational**.
 
 ## Start here
 
 1. Read `README.md`, `docs/ARCHITECTURE.md`, `docs/FIRST_MILESTONE.md`, and `docs/ROADMAP.md`.
-2. Open the authoritative [work queue](https://github.com/vokerg/sportos/issues/3).
-3. Check open pull requests for work already implementing a queue item.
-4. Select the first ready issue using the algorithm below.
+2. Open authoritative queue issue #3.
+3. Check open pull requests and issue claim comments.
+4. Select the first ready issue in queue order.
 
-## Selecting the next issue
+## Selecting work
 
-Issue #3 is the sole source of truth for implementation order.
-
-A ready issue is the first unchecked item, scanning P0 then P1 then P2, that satisfies all of these conditions:
-
-- the issue is open;
-- every issue listed under `Blocked by` is closed;
-- no open pull request is already implementing it;
-- no active claim comment indicates another agent is working on it.
+Issue #3 is the sole source of truth for implementation order. A ready issue is the first unchecked item, scanning P0 then P1 then P2, whose blockers are closed and which has no active claim or implementation PR.
 
 When taking an issue:
 
-1. comment `CLAIMED — branch: issue-<number>-<short-slug>` on the issue;
-2. create the branch from the current `main` branch;
-3. use the branch name `issue-<number>-<short-slug>`;
-4. keep one primary issue per pull request;
-5. open a draft pull request early and link the issue;
-6. update the issue when blocked or when scope materially changes.
+1. comment `CLAIMED — branch: issue-<number>-<short-slug>`;
+2. create the branch from current `main`;
+3. keep one primary issue per PR;
+4. open a draft PR early;
+5. record inspected files and material scope changes.
 
-If work becomes blocked, document the exact blocker and required decision. Leave the branch and pull request in a safe state, then select the next ready issue from issue #3.
-
-## Reprioritization
-
-Do not infer priority from issue numbers or title identifiers. The checklist order in issue #3 is authoritative.
-
-To reprioritize:
-
-1. move the item to the desired bucket and position in issue #3;
-2. comment on issue #3 with the reason, date, and dependency impact;
-3. update `Blocked by` and `Unblocks` sections on affected issues;
-4. notify any agent with an active claim on displaced work.
-
-Emergency dependency, data-integrity, or privacy work may move to the top of P0. Convenience features must not bypass unresolved provenance, idempotency, or deterministic-scoring defects without an explicit architecture decision.
+If blocked, document the exact blocker and required decision, leave the branch/PR safe, and select the next ready issue.
 
 ## Non-negotiable invariants
 
-Preserve these constraints across all changes:
-
-1. Raw input is retained before normalization, with workbook, sheet, row, hash, and batch provenance.
-2. Uploaded source bytes remain outside Postgres behind a replaceable storage contract; storage keys and local paths are not public API data.
-3. Unknown source semantics are never guessed. Persist the raw row and emit a warning.
-4. Canonical facts do not depend on the web UI and remain usable from API, worker, jobs, and tests.
-5. Official scoring is deterministic application logic. AI-generated text never calculates or persists authoritative points.
-6. Every persisted score contribution identifies its rule, inputs, points, and explanation payload.
-7. Re-importing identical source data must converge on the same canonical state without duplicates.
-8. Flyway owns schema evolution. Never mutate the database schema implicitly at application startup.
-9. Application and Kysely schema types must stay synchronized with migrations.
-10. Personal workbooks, tokens, secrets, storage keys, local paths, and unredacted exports must not be committed or exposed in API responses.
-11. Dependencies point toward shared/pure packages; UI and framework code must not leak into domain logic.
+1. Raw input is retained before normalization with upload, workbook, sheet, row, hash, and batch provenance.
+2. Uploaded bytes remain outside Postgres behind a replaceable storage contract. Storage roots, object keys, and local paths are not public API data.
+3. Postgres is authoritative for job state and leases. Polling or future wake-up delivery never bypasses a durable claim.
+4. Only the current lease owner may progress, link, or complete a running job.
+5. Running cancellation occurs only at safe importer phase boundaries; committed work is not relabelled cancelled.
+6. Unknown source semantics are never guessed. Persist raw input and emit warnings.
+7. Canonical facts remain usable from worker, CLI, API, and tests without the web UI.
+8. Official scoring is deterministic application logic. Generated text never calculates or persists authoritative points.
+9. Every score contribution identifies its rule, inputs, points, and explanation payload.
+10. Re-imports and retries converge on the same canonical state without duplicates.
+11. Flyway owns schema evolution; Kysely types remain synchronized.
+12. Personal workbooks, secrets, tokens, storage keys, paths, and unredacted exports are never committed or exposed.
+13. Dependencies point toward shared/pure packages; framework and UI code do not leak into domain logic.
 
 ## Repository map and entry points
 
 ### Root workflow
 
-- `package.json` — canonical commands, pinned package manager, workspace-wide validation.
-- `pnpm-workspace.yaml` — workspace boundaries under `apps/*` and `packages/*`.
-- `.env.example` — database, Redis, ports, local import path, and upload-storage root.
-- `docker-compose.yml` — Postgres 16, Redis 7, and Flyway services.
-- `.github/workflows/ci.yml` — required clean migration, typecheck, tests, database integration, and build.
-- `CONTRIBUTING.md` — package boundaries, importer/scoring/migration rules, and PR expectations.
+- `package.json` — canonical commands and workspace validation.
+- `pnpm-workspace.yaml` — workspace boundaries.
+- `.env.example` — database, ports, upload root, worker concurrency, lease, and polling settings.
+- `docker-compose.yml` — Postgres, Redis, and Flyway services. Redis is not required for current job correctness.
+- `.github/workflows/ci.yml` — clean migration, typecheck, unit/UI tests, job/worker/import integration, and build.
+- `CONTRIBUTING.md` — package and PR expectations.
 
 ### API: `apps/api`
 
-Start with:
+- `apps/api/src/main.ts` — NestJS bootstrap.
+- `apps/api/src/app.module.ts` — controllers, database provider, and storage registration.
+- `apps/api/src/imports/imports.controller.ts` — upload/enqueue, job status/retry/cancel, history, diagnostics, and development local import.
+- `apps/api/src/imports/imports.service.ts` — upload validation/storage, durable enqueue, and stable job errors.
+- `apps/api/src/imports/workbook-upload.ts` — bounded XLSX trust-boundary validation.
+- `apps/api/src/storage/*.ts` — compatibility re-exports of the shared storage boundary.
+- `apps/api/src/daily/` — daily summary and score breakdown.
+- `apps/api/src/performance/` — performance read endpoints.
 
-- `apps/api/src/main.ts` — NestJS bootstrap, CORS, and API port.
-- `apps/api/src/app.module.ts` — controllers, database provider, and storage adapter registration.
-- `apps/api/src/db.provider.ts` — database lifecycle boundary.
-- `apps/api/src/imports/imports.controller.ts` — browser upload, development local-path import, history, and diagnostics HTTP boundary.
-- `apps/api/src/imports/imports.service.ts` — upload validation/storage/import orchestration.
-- `apps/api/src/imports/workbook-upload.ts` — bounded XLSX trust-boundary validation and stable error codes.
-- `apps/api/src/storage/upload-storage.ts` — replaceable upload-storage contract.
-- `apps/api/src/storage/local-upload-storage.ts` — local filesystem adapter.
-- `apps/api/src/daily/daily.controller.ts` — daily summary and score-breakdown boundary.
-- `apps/api/src/performance/performance.controller.ts` — performance query boundary.
-
-API code should validate and bound user input, orchestrate package services, and return stable contracts. It must not reproduce importer or scoring rules.
+API code validates and bounds user input, orchestrates package services, and returns stable privacy-safe contracts. It does not execute browser-upload imports or reproduce importer/scoring rules.
 
 ### Web: `apps/web`
 
-Start with:
+- `apps/web/src/app/api.service.ts` — HTTP, multipart, and job contracts.
+- `apps/web/src/app/import-panel.component.ts` — upload progress, bounded job polling, retry/cancel, history, and diagnostics.
+- `apps/web/src/app/daily-log.component.ts` — daily reconciliation.
+- `apps/web/src/app/run-lab.component.ts` — performance review.
+- `apps/web/src/app/app.component.ts` — cockpit composition.
 
-- `apps/web/src/main.ts` — Angular bootstrap and chart providers.
-- `apps/web/src/app/app.component.ts` — local-cockpit composition.
-- `apps/web/src/app/api.service.ts` — HTTP contracts and multipart upload client.
-- `apps/web/src/app/daily-log.component.ts` — daily summaries and reconciliation entry point.
-- `apps/web/src/app/import-panel.component.ts` — browser upload, progress, duplicate/error guidance, history, and diagnostics.
-- `apps/web/src/app/run-lab.component.ts` — performance review entry point.
-
-The web app renders canonical data. Do not place authoritative scoring, deduplication, workbook interpretation, or job state transitions in Angular components.
+The web app renders canonical API state. Do not implement authoritative scoring, deduplication, workbook interpretation, or job transitions in Angular.
 
 ### Worker: `apps/worker`
 
-Start with:
+- `apps/worker/src/import-worker.ts` — long-running process, signal shutdown, and bounded concurrency.
+- `apps/worker/src/import-job-runner.ts` — stale recovery, claim, storage read, phase progress, cancellation, and terminal state.
+- `apps/worker/src/import-job-runner.integration.test.ts` — real stored XLSX through independent worker completion.
+- `apps/worker/src/import-local.ts` — development local-path CLI.
+- `apps/worker/src/dry-run.ts` — parser inspection.
 
-- `apps/worker/src/import-local.ts` — local CLI import entry point.
-- `apps/worker/src/dry-run.ts` — parser/import inspection path.
-- `apps/worker/package.json` — worker commands.
-
-Keep worker/job orchestration thin. Import semantics belong in `packages/importers`; asynchronous workers must call the same package services.
+Worker orchestration stays thin. Import semantics belong in `packages/importers`; durable state transitions belong in `packages/db`.
 
 ### Import boundary: `packages/importers`
 
-Start with:
-
-- `packages/importers/src/import-service.ts` — transactional import orchestration for local paths and validated workbook extracts.
-- `packages/importers/src/xlsx-reader.ts` — path/in-memory workbook extraction, sheet rows, hashes, and raw input boundary.
+- `packages/importers/src/import-service.ts` — transactional import orchestration and phase boundaries.
+- `packages/importers/src/upload-storage.ts` — framework-neutral storage contract and local adapter shared by API and worker.
+- `packages/importers/src/xlsx-reader.ts` — path/in-memory extraction, rows, and hashes.
 - `packages/importers/src/my-sport.importer.ts` — daily-ledger interpretation.
 - `packages/importers/src/run-db.importer.ts` — running-workbook interpretation.
-- `packages/importers/src/index.ts` — public package exports.
+- `packages/importers/src/test-fixtures/` — synthetic/anonymized workbook evidence.
 
-Every importer change needs a synthetic/anonymized fixture, successful normalization tests, malformed/ambiguous cases, expected warnings, duplicate-safety evidence, and an update to `docs/SPREADSHEET_MAPPING.md` when semantics change.
-
-### Domain logic: `packages/domain`
-
-Start with:
-
-- `packages/domain/src/scoring.ts` — deterministic scoring and ledger creation.
-- `packages/domain/src/reconciliation.ts` — pure spreadsheet/app score reconciliation.
-- `packages/domain/src/scoring.test.ts` and `reconciliation.test.ts` — scoring/reconciliation evidence.
-- `packages/domain/src/types.ts` — canonical domain contracts.
-- `packages/domain/src/daily.ts` — daily aggregation helpers.
-- `packages/domain/src/performance.ts` — performance calculations.
-- `packages/domain/src/units.ts` — explicit unit conversions.
-
-Keep this package pure: no database, HTTP, Angular, NestJS, filesystem, queue, provider SDK, or generated-text dependencies.
+Importer semantic changes require fixtures, malformed/ambiguous cases, expected warnings, duplicate-safety evidence, and mapping documentation updates.
 
 ### Persistence: `packages/db`
 
-Start with:
-
 - `packages/db/src/schema.ts` — Kysely table/view types.
-- `packages/db/src/pool.ts` — database connection creation.
-- `packages/db/src/repositories/uploads.repository.ts` — uploaded-file lifecycle, duplicate lookup, and batch linkage.
-- `packages/db/src/repositories/imports.repository.ts` — batch/source-record persistence and diagnostics.
-- `packages/db/src/repositories/daily.repository.ts` — activities, daily metrics, score ledger, and daily read model.
-- `packages/db/src/repositories/scoring.repository.ts` — active rule reads and runtime type normalization.
-- `packages/db/src/repositories/performance.repository.ts` — performance event writes/queries.
+- `packages/db/src/repositories/import-jobs.repository.ts` — queue limits, claims, leases, progress, cancellation, retry, and stale recovery.
+- `packages/db/src/repositories/import-jobs.repository.integration.test.ts` — concurrency/lifecycle evidence.
+- `packages/db/src/repositories/uploads.repository.ts` — uploaded-file lifecycle and batch linkage.
+- `packages/db/src/repositories/imports.repository.ts` — batch/raw persistence and diagnostics.
+- `packages/db/src/repositories/daily.repository.ts` — activities, daily metrics, ledger, and read models.
+- `packages/db/src/repositories/scoring.repository.ts` — active scoring rules and runtime normalization.
+- `packages/db/src/repositories/performance.repository.ts` — performance writes/queries.
 
-Repositories own typed queries, not business interpretation. Add a new ordered Flyway migration for schema changes; never rewrite a migration that may already have run.
+Repositories own typed persistence and concurrency invariants, not workbook or scoring interpretation.
 
-### Database migrations: `flyway/sql`
+### Domain logic: `packages/domain`
 
-Inspect all existing migrations before adding one. New migrations must be append-only, forward-compatible, explicit about backfills/indexes, and accompanied by synchronized `packages/db/src/schema.ts` changes.
+- `packages/domain/src/scoring.ts` — deterministic scoring and ledger creation.
+- `packages/domain/src/reconciliation.ts` — spreadsheet/app reconciliation.
+- `packages/domain/src/types.ts` — canonical contracts.
+- `packages/domain/src/daily.ts`, `performance.ts`, `units.ts` — pure domain helpers.
 
-### Shared and analytics
+Keep the domain package pure: no database, HTTP, Angular, NestJS, filesystem, queue, provider SDK, or generated-text dependencies.
 
-- `packages/shared` — serialization schemas plus low-level date/hash helpers.
-- `packages/analytics` — pure analytics that do not require a database.
+### Database migrations
 
-Prefer shared runtime schemas for API contracts when data crosses process or trust boundaries.
+Inspect all existing files in `flyway/sql` before adding one. Migrations are append-only, forward-compatible, explicit about constraints/indexes/backfills, and synchronized with `packages/db/src/schema.ts`.
 
-### Documentation
+Current operational decisions:
 
-- `docs/ARCHITECTURE.md` — system boundaries, package responsibilities, invariants, and runtime flows.
-- `docs/adr/0001-import-transactions-and-identity.md` — transaction/idempotency decision.
-- `docs/adr/0002-upload-storage-and-retention.md` — upload storage, privacy, retention, and deletion decision.
-- `docs/FIRST_MILESTONE.md` — MVP-0 objective and evidence.
-- `docs/ROADMAP.md` — risk-ordered milestones and status vocabulary.
-- `docs/SPREADSHEET_MAPPING.md` — confirmed workbook semantics and unresolved ambiguity.
-- `docs/SCORING_RULES.md` — scoring/reconciliation semantic contract.
-
-Update documentation in the same pull request when setup, architecture, uploads/storage, endpoints, milestone status, workbook mappings, scoring semantics, or operational assumptions change.
+- `docs/adr/0001-import-transactions-and-identity.md`
+- `docs/adr/0002-upload-storage-and-retention.md`
+- `docs/adr/0003-import-job-lifecycle.md`
+- `docs/SCORING_RULES.md`
+- `docs/SPREADSHEET_MAPPING.md`
 
 ## Common commands
-
-Run from the repository root:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -204,7 +157,7 @@ pnpm test
 pnpm build
 ```
 
-Development entry points:
+Development processes:
 
 ```bash
 pnpm dev:api
@@ -212,14 +165,18 @@ pnpm dev:web
 pnpm dev:worker
 ```
 
-Browser upload:
+Database integration:
 
-1. start API and web;
-2. open `http://localhost:4200`;
-3. choose workbook type and an XLSX file in Imports;
-4. upload and inspect the resulting batch.
+```bash
+SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
+  pnpm --filter @sportos/db test:integration
+SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
+  pnpm --filter @sportos/worker test:integration
+SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
+  pnpm --filter @sportos/importers test:integration
+```
 
-Development-only local workbook import:
+Development-only local import:
 
 ```bash
 pnpm import:local -- \
@@ -227,123 +184,100 @@ pnpm import:local -- \
   --runDb=/absolute/path/to/running-performance.xlsx
 ```
 
-Database lifecycle:
-
-```bash
-pnpm db:info
-pnpm db:down
-```
-
-Use pnpm exclusively. Do not create or commit npm/Yarn lockfiles, framework caches, build output, local environment files, uploaded source files, or personal workbook data.
+Use pnpm exclusively. Do not commit npm/Yarn lockfiles, framework caches, build output, local environment files, uploaded files, or personal workbook data.
 
 ## Investigation protocol
 
 Before editing:
 
-1. read the issue, its dependencies, and linked pull requests;
-2. inspect the closest entry points listed above;
-3. inspect existing tests and migrations for the affected behavior;
-4. identify which architecture invariant and roadmap exit criterion the change advances;
-5. list the files inspected in the issue or pull-request investigation note.
+1. read the issue, dependencies, linked PRs, and current queue;
+2. inspect the closest entry points and tests;
+3. inspect existing migrations for the affected model;
+4. identify the architecture invariant and roadmap criterion advanced;
+5. list inspected files in the issue or PR.
 
-Prefer evidence from current source code over assumptions in stale comments. When documentation and code disagree, call out the mismatch and update the appropriate source of truth.
+Prefer current source over stale comments. When code and docs disagree, call out and fix the source of truth.
 
 ## Change-specific requirements
 
-### Upload/storage changes
+### Upload/storage
 
-- Keep binary content outside Postgres unless an ADR justifies otherwise.
-- Validate size, extension, MIME signal, content readability, filename handling, and object-key traversal.
-- Never expose storage roots, object keys, local paths, or raw source bytes in public contracts.
-- Define duplicate, partial-storage, import-failure, retention, and deletion behavior.
-- Add storage contract tests and database linkage evidence.
+- Keep bytes outside Postgres unless an ADR explicitly changes that.
+- Validate size, extension, MIME signal, readability, filename handling, and object-key traversal.
+- Never expose storage roots, object keys, paths, or raw bytes.
+- Define duplicate, partial-storage, failure, retention, and deletion behavior.
+- Add contract and database-linkage evidence.
 
-### Importer or normalization changes
+### Jobs
+
+- Design for duplicate scans/delivery and retries.
+- Persist state before returning success to the caller.
+- Define queue limits, claims, leases, heartbeats, cancellation, attempts, stale recovery, and shutdown.
+- Guard progress/batch/terminal writes by lease owner.
+- Preserve upload and provenance context through execution.
+- Prove independent worker completion, retry identity, cancellation, stale recovery, and idempotent canonical behavior.
+
+### Importer/normalization
 
 - Add fixture coverage before changing semantics.
 - Persist raw rows before normalization.
-- Preserve row and batch traceability.
+- Preserve row/batch/upload traceability.
 - Test malformed and unknown structures.
-- Verify repeated imports do not duplicate facts.
+- Verify repeated imports and retries do not duplicate facts.
 - Update spreadsheet mapping documentation.
 
-### Scoring changes
+### Scoring
 
 - Add domain tests for normal and boundary cases.
-- State units, rounding order, thresholds, and effective dates.
-- State whether historical recomputation is required.
+- State units, rounding, thresholds, effective dates, and historical recomputation policy.
 - Ensure ledger output identifies the applied rule and inputs.
-- Provide reconciliation evidence against imported totals when relevant.
+- Provide reconciliation evidence when relevant.
 
-### Database changes
+### Database
 
 - Add an ordered Flyway migration.
-- Add indexes/constraints for new access paths or invariants.
+- Add constraints/indexes for new invariants and access paths.
 - Keep Kysely types synchronized.
-- Document backfill, recovery, and data-integrity impact.
+- Document backfill, recovery, and integrity impact.
 - Run migration and database-backed tests.
 
-### API changes
+### API and web
 
-- Validate route, query, body, file, and multipart inputs.
-- Bound sizes, limits, and pagination.
-- Return actionable errors without leaking filesystem, storage, or personal data.
-- Define/test response contracts and update README endpoint documentation.
-
-### Web changes
-
-- Treat API responses as the canonical source.
-- Cover loading, progress, empty, error, duplicate, and partial-provenance states.
+- Validate and bound all route/query/body/file inputs.
+- Return actionable errors without leaking personal or storage data.
+- Define/test response contracts and update endpoint docs.
+- Cover loading, progress, empty, error, duplicate, retry, cancellation, terminal, and partial-provenance states.
 - Keep primary workflows keyboard accessible.
-- Add service/component tests and include visual evidence in the PR when practical.
-
-### Jobs and integrations
-
-- Design for duplicate delivery and retries.
-- Preserve upload/source, owner, and provenance context through asynchronous execution.
-- Define state transitions, cancellation, stale-job recovery, leases/heartbeats, and rate-limit behavior.
-- Ensure at-most-one active execution per logical job while retaining idempotent import semantics.
-- Store raw provider/source records before normalization.
 
 ### AI features
 
-- Expose narrow read-only tools over stable views/contracts.
+- Expose narrow read-only tools over stable views.
 - Keep calculations deterministic outside the model.
 - Require record/date/rule provenance in factual answers.
-- Test missing, conflicting, malicious, and insufficient data.
 - Never grant generated text authoritative write access.
 
-## Branch, commit, and pull-request rules
+## Branch and pull-request rules
 
 - Always branch from current `main`.
 - Never commit directly to `main`.
-- Do not merge to `main` unless a maintainer explicitly asks.
-- When merging is explicitly requested, use a squash merge.
-- Keep commits and the PR focused on one primary issue.
-- Link the issue and state which milestone exit criterion advances.
-- Open a draft PR early for multi-step work.
-- Do not silently expand scope; create or link a follow-up issue.
+- Do not merge unless a maintainer explicitly asks.
+- When asked to merge, squash.
+- Keep one primary issue per PR and open a draft early.
+- Link the issue and state milestone impact.
+- Do not silently expand scope; create or link follow-up work.
 
-A pull request description should include:
-
-- current problem and intended outcome;
-- files and areas inspected;
-- implementation summary;
-- architecture/milestone impact;
-- validation performed and evidence;
-- migration, privacy, data-integrity, or recomputation implications;
-- known limitations and follow-up issues.
+A PR description should include the problem, inspected files, implementation, architecture impact, validation evidence, migration/privacy/integrity implications, and known limitations.
 
 ## Definition of done
 
 A queue item is done only when:
 
-- acceptance criteria in the issue are satisfied;
+- issue acceptance criteria are satisfied;
 - relevant unit, integration, contract, migration, and UI tests pass;
 - `pnpm typecheck`, `pnpm test`, and `pnpm build` pass;
-- documentation is updated with the change;
-- data-integrity and privacy implications are addressed;
-- the implementation PR is merged;
-- the linked issue is closed and its checkbox in issue #3 is updated.
+- documentation is current;
+- integrity and privacy implications are addressed;
+- the PR is merged;
+- the issue closes and queue issue #3 is updated.
 
-If full validation cannot be run, record exactly what was not run and why. Do not represent unverified behavior as validated or operational.
+Record exactly what was not run if validation is incomplete. Never present unverified behavior as validated or operational.
