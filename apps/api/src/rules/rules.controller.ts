@@ -10,12 +10,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { RuleProposalValidationError, type RuleProposal } from '@sportos/domain';
 import {
   ActiveRuleChangeError,
   RuleChangeStateError,
   RuleOverlapError,
+  RuleProposalValidationError,
   RuleReplacementError,
+  type RuleProposal,
 } from '@sportos/db';
 import {
   InvalidRuleChangeReasonError,
