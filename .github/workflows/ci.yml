@@ -51,6 +51,11 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Database import-job integration
+        env:
+          SPORTOS_TEST_DATABASE_URL: postgres://sportos:sportos@localhost:5432/sportos_test
+        run: pnpm --filter @sportos/db test:integration
+
       - name: Database import integration
         env:
           SPORTOS_TEST_DATABASE_URL: postgres://sportos:sportos@localhost:5432/sportos_test
