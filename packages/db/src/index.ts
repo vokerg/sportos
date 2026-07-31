@@ -1,5 +1,14 @@
 export { sql } from 'kysely';
 export type { Kysely } from 'kysely';
+export {
+  previewRuleChange,
+  validateRuleProposal,
+  RuleProposalValidationError,
+} from '@sportos/domain';
+export type {
+  RuleChangePreview,
+  RuleProposal,
+} from '@sportos/domain';
 export * from './schema.js';
 export * from './repository-contracts.js';
 export * from './score-breakdown-contract.js';
