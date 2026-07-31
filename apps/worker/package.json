@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/import-local.ts",
+    "dev": "tsx watch src/import-worker.ts",
+    "start": "node dist/import-worker.js",
+    "jobs": "tsx src/import-worker.ts",
     "import:local": "tsx src/import-local.ts",
     "import:dry-run": "tsx src/dry-run.ts",
     "build": "tsc -b tsconfig.json --pretty false",
