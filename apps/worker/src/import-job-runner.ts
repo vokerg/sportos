@@ -44,8 +44,8 @@ export class ImportJobRunner {
 
   constructor(
     private readonly db: Kysely<Database>,
-    private readonly storage: UploadStorage = new LocalUploadStorage(),
     options: ImportJobRunnerOptions,
+    private readonly storage: UploadStorage = new LocalUploadStorage(),
   ) {
     this.jobs = new ImportJobsRepository(db);
     this.uploads = new UploadsRepository(db);
@@ -85,7 +85,6 @@ export class ImportJobRunner {
         extract,
         uploadId: job.uploadId,
       });
-      await this.checkCancellation(job.id);
       await this.uploads.markImported(job.uploadId);
       await this.jobs.markSucceeded(job.id, this.workerId, toJson(result));
       return true;
