@@ -3,10 +3,12 @@ import { Injectable } from '@nestjs/common';
 import {
   previewRuleChange,
   validateRuleProposal,
+  RuleChangesRepository,
   type RuleChangePreview,
+  type RuleChangeReadModel,
   type RuleProposal,
-} from '@sportos/domain';
-import { RuleChangesRepository, type RuleChangeReadModel, type RuleVersionReadModel } from '@sportos/db';
+  type RuleVersionReadModel,
+} from '@sportos/db';
 import { DbProvider } from '../db.provider.js';
 
 export interface RulePreviewResponse {
