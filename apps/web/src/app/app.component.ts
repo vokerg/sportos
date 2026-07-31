@@ -1,12 +1,13 @@
 import { Component } from '@angular/core';
 import { DailyLogComponent } from './daily-log.component';
 import { ImportPanelComponent } from './import-panel.component';
+import { RulesStudioComponent } from './rules-studio.component';
 import { RunLabComponent } from './run-lab.component';
 
 @Component({
   selector: 'sportos-root',
   standalone: true,
-  imports: [DailyLogComponent, ImportPanelComponent, RunLabComponent],
+  imports: [DailyLogComponent, ImportPanelComponent, RulesStudioComponent, RunLabComponent],
   template: `
     <main class="shell">
       <header class="card" style="margin-bottom: 16px;">
@@ -20,12 +21,13 @@ import { RunLabComponent } from './run-lab.component';
             <sportos-daily-log #dailyLog />
           </div>
           <sportos-run-lab />
+          <sportos-rules-studio />
         </section>
         <aside class="grid">
           <sportos-import-panel (reconcileDate)="dailyLog.openBreakdownForDate($event)" />
           <section class="card">
             <h2>Milestone scope</h2>
-            <p>This first slice intentionally focuses on importing your existing files, storing raw provenance, computing daily scores, and showing the first review tables.</p>
+            <p>The local cockpit now preserves source provenance, executes imports in durable jobs, explains deterministic scores, and supports audited rule-version changes with previewed recomputation.</p>
           </section>
         </aside>
       </div>
