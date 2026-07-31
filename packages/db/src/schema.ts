@@ -38,6 +38,29 @@ export interface ImportBatchesTable {
   metadata: Json;
 }
 
+export interface ImportJobsTable {
+  id: Generated<string>;
+  uploaded_file_id: string;
+  import_batch_id: string | null;
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  phase: string;
+  progress_percent: number;
+  attempt_count: number;
+  max_attempts: number;
+  lease_owner: string | null;
+  lease_expires_at: Timestamp | null;
+  heartbeat_at: Timestamp | null;
+  cancellation_requested_at: Timestamp | null;
+  next_attempt_at: Timestamp;
+  error_code: string | null;
+  error_message: string | null;
+  result_json: Json;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+  started_at: Timestamp | null;
+  completed_at: Timestamp | null;
+}
+
 export interface SourceRecordsTable {
   id: Generated<string>;
   import_batch_id: string;
@@ -153,6 +176,7 @@ export interface PerformanceEventsTable {
 export interface Database {
   uploaded_files: UploadedFilesTable;
   import_batches: ImportBatchesTable;
+  import_jobs: ImportJobsTable;
   source_records: SourceRecordsTable;
   activities: ActivitiesTable;
   daily_metrics: DailyMetricsTable;
@@ -167,6 +191,8 @@ export type UploadedFile = Selectable<UploadedFilesTable>;
 export type NewUploadedFile = Insertable<UploadedFilesTable>;
 export type ImportBatch = Selectable<ImportBatchesTable>;
 export type NewImportBatch = Insertable<ImportBatchesTable>;
+export type ImportJob = Selectable<ImportJobsTable>;
+export type NewImportJob = Insertable<ImportJobsTable>;
 export type SourceRecord = Selectable<SourceRecordsTable>;
 export type NewSourceRecord = Insertable<SourceRecordsTable>;
 export type Activity = Selectable<ActivitiesTable>;
