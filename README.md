@@ -24,6 +24,8 @@ The source tree contains:
 - Postgres schema and append-only Flyway migrations;
 - external source-file storage plus durable upload metadata;
 - bounded browser upload for supported XLSX workbooks;
+- durable asynchronous import jobs with leases, progress, retries, cancellation, and stale-job recovery;
+- an independent bounded-concurrency worker process;
 - raw import-batch and source-record provenance;
 - canonical activity, daily-metric, scoring, and performance tables;
 - transactional, idempotent import orchestration;
@@ -32,15 +34,14 @@ The source tree contains:
 - explicit rule units, rounding, thresholds, effective dates, priorities, and base/bonus classification;
 - machine-readable exact, explained, unresolved, and non-comparable reconciliation evidence;
 - a persisted daily score-breakdown API;
-- an Angular local cockpit with Daily Log, Run Lab, browser upload, import history, and diagnostics;
+- an Angular local cockpit with Daily Log, Run Lab, job-aware upload, import history, and diagnostics;
 - a local CLI importer for development and operator use.
 
-The remaining P1 work is asynchronous import jobs, Rules Studio, and complete cockpit/export workflows. See [MVP-0 status](docs/FIRST_MILESTONE.md), [scoring semantics](docs/SCORING_RULES.md), [workbook mapping](docs/SPREADSHEET_MAPPING.md), and the [roadmap](docs/ROADMAP.md).
+The remaining P1 work is Rules Studio and complete cockpit/export workflows. See [MVP-0 status](docs/FIRST_MILESTONE.md), [scoring semantics](docs/SCORING_RULES.md), [workbook mapping](docs/SPREADSHEET_MAPPING.md), and the [roadmap](docs/ROADMAP.md).
 
 ## Not yet implemented
 
 - authentication and multiple users;
-- durable background import jobs and cancellation;
 - Strava, Garmin, Google Sheets, or FIT synchronization;
 - editable scoring-rule UI and audited recomputation;
 - complete dashboards and canonical export;
@@ -56,6 +57,9 @@ browser XLSX / local CLI
 upload storage + uploaded_files
           |
           v
+import_jobs -> independent worker
+          |
+          v
 import_batches + source_records
           |
           v
@@ -68,24 +72,26 @@ scoring_rules + score_ledger
 read models -> NestJS API -> Angular UI
 ```
 
+Postgres is authoritative for job state and worker leases. The local worker scans due queued jobs with bounded polling; Redis is provisioned for future wake-up acceleration but is not required for job correctness.
+
 Repository layout:
 
 ```text
 apps/
-  api/        NestJS HTTP API and local storage adapter
+  api/        NestJS HTTP API
   web/        Angular local cockpit
-  worker/     local CLI importer
+  worker/     asynchronous job worker and local CLI
 packages/
   shared/     schemas, dates, and hash helpers
   domain/     sport types, scoring, reconciliation, and performance logic
-  db/         Kysely schema and repositories
-  importers/  XLSX extraction and normalization
+  db/         Kysely schema, job leases, and repositories
+  importers/  XLSX extraction, storage adapter, and normalization
   analytics/  pure analytics helpers
 flyway/sql/   versioned database migrations
 docs/         architecture, ADRs, mappings, scoring, evidence, status, and roadmap
 ```
 
-More detail is available in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Upload storage and retention are defined in [ADR 0002](docs/adr/0002-upload-storage-and-retention.md).
+More detail is available in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Upload storage and retention are defined in [ADR 0002](docs/adr/0002-upload-storage-and-retention.md); job lifecycle semantics are defined in [ADR 0003](docs/adr/0003-import-job-lifecycle.md).
 
 ## Prerequisites
 
@@ -106,14 +112,21 @@ pnpm db:migrate
 
 `SPORTOS_UPLOAD_DIR` defaults to `./data/uploads`. Uploaded files are written beneath that directory with opaque object keys and are ignored by Git.
 
-Start the API and web application in separate terminals:
+Start the API, web application, and import worker in separate terminals:
 
 ```bash
 pnpm dev:api
 pnpm dev:web
+pnpm dev:worker
 ```
 
 Open `http://localhost:4200`.
+
+Worker defaults:
+
+- `IMPORT_WORKER_CONCURRENCY=1`, bounded to 1–4;
+- `IMPORT_JOB_LEASE_SECONDS=60`, bounded to 15–600;
+- `IMPORT_JOB_POLL_MS=1000`, bounded to 100–60,000.
 
 To stop the local services:
 
@@ -123,7 +136,7 @@ pnpm db:down
 
 ## Uploading workbooks in the browser
 
-Open the **Imports** panel, choose the workbook type, select an `.xlsx` file, and choose **Upload and import**.
+Open the **Imports** panel, choose the workbook type, select an `.xlsx` file, and choose **Upload and queue**.
 
 The browser workflow:
 
@@ -131,10 +144,14 @@ The browser workflow:
 - limits uploads to 20 MB;
 - validates extension, MIME signal, ZIP signature, and workbook readability;
 - sanitizes the display filename;
-- shows upload progress and actionable validation errors;
 - fingerprints the file with SHA-256 and returns `409 DUPLICATE_UPLOAD` for an identical non-deleted workbook of the same type;
-- stores workbook bytes outside Postgres and persists only metadata, provenance, raw rows, and canonical facts in Postgres;
+- stores workbook bytes outside Postgres;
+- creates a durable queued job and returns HTTP `202` without running the importer in the API process;
+- shows upload progress followed by worker phase/progress, attempts, retry, and cancellation controls;
+- polls only active jobs every 1.5 seconds, stops on a terminal state, and stops after 120 checks;
 - never returns the storage root, object path, or server-local filesystem path.
+
+The Postgres queue accepts at most 25 queued/running jobs by default. Queue saturation returns `503 IMPORT_QUEUE_FULL` instead of accepting unbounded work.
 
 Supported workbook types are:
 
@@ -142,6 +159,16 @@ Supported workbook types are:
 - `run_db` — running performance workbook.
 
 Unknown sheets or columns produce warnings rather than guessed facts. Workbook assumptions are documented in [docs/SPREADSHEET_MAPPING.md](docs/SPREADSHEET_MAPPING.md).
+
+### Job lifecycle
+
+A worker claims due work with `FOR UPDATE SKIP LOCKED`, increments the attempt, and receives a time-limited lease. Phase updates extend the lease and persist monotonic progress. Terminal updates require the same lease owner, preventing a stale worker from completing work after recovery.
+
+- queued cancellation is immediate and creates no import batch;
+- running cancellation is cooperative at importer phase boundaries and rolls back the active import transaction;
+- failed jobs can be explicitly retried while attempts remain, reusing the same upload and job identity;
+- an expired running lease is requeued when attempts remain, marked cancelled when cancellation was requested, or failed when attempts are exhausted;
+- duplicate delivery cannot produce a second claim, and importer idempotency remains the second safety layer.
 
 ### Development-only local path import
 
@@ -153,23 +180,15 @@ pnpm import:local -- \
   --runDb=/absolute/path/to/running-performance.xlsx
 ```
 
-Equivalent worker command:
-
-```bash
-pnpm --filter @sportos/worker import:local -- \
-  --mySport=/absolute/path/to/my_sport.xlsx \
-  --runDb=/absolute/path/to/running-performance.xlsx
-```
-
 The Angular application does not ask for or submit filesystem paths.
 
 ## Source-file retention and privacy
 
-For the local single-user milestone, uploaded files and metadata are retained indefinitely by default so imports can be audited and reprocessed. There is no automatic pruning or browser deletion action.
+For the local single-user milestone, uploaded files and metadata are retained indefinitely by default so imports can be audited and retried. There is no automatic pruning or browser deletion action.
 
 - uploaded bytes are stored under `SPORTOS_UPLOAD_DIR`, not in Postgres;
 - raw source rows remain in `source_records`;
-- API history/detail responses omit storage object keys, server paths, raw cell payloads, and original hashes;
+- job and history APIs omit storage object keys, server paths, raw cell payloads, and original hashes;
 - filenames are reduced to safe basenames;
 - failures are redacted before persistence or display;
 - deleting source files is an explicit coordinated operator action, not a side effect of import failure, duplication, or history cleanup.
@@ -201,20 +220,23 @@ GET  /daily/:date/score-breakdown
 GET  /performance/best?distanceM=5000&limit=50
 GET  /imports?limit=20&offset=0
 GET  /imports/:batchId?diagnosticLimit=100&diagnosticOffset=0
-POST /imports/upload
-POST /imports/local-files        development-only
+POST /imports/upload                         returns 202 + job
+GET  /imports/jobs/:jobId
+POST /imports/jobs/:jobId/retry
+POST /imports/jobs/:jobId/cancel
+POST /imports/local-files                    development-only
 ```
 
-### Workbook upload
+### Workbook upload and jobs
 
 `POST /imports/upload` accepts `multipart/form-data` with:
 
 - `file`: one XLSX workbook;
 - `workbookKind`: `my_sport` or `run_db`.
 
-Validation failures return HTTP `400` with stable codes such as `UNSUPPORTED_FILE_EXTENSION`, `UNSUPPORTED_MEDIA_TYPE`, `UPLOAD_TOO_LARGE`, or `INVALID_XLSX`. A known duplicate returns HTTP `409` with `DUPLICATE_UPLOAD` and a privacy-safe reference to the existing upload/batch. Storage and import failures return stable, path-free error contracts.
+A successful response includes safe upload metadata and a durable queued job. It does not include normalized counts because import execution happens in the worker. `GET /imports/jobs/:jobId` returns persisted status, phase, progress, attempts, cancellation state, sanitized terminal error, result summary, and linked batch ID.
 
-A successful response includes the safe upload metadata, import batches, normalized counts, and warnings. It never includes a storage object key or local path.
+Validation failures return HTTP `400` with stable codes such as `UNSUPPORTED_FILE_EXTENSION`, `UNSUPPORTED_MEDIA_TYPE`, `UPLOAD_TOO_LARGE`, or `INVALID_XLSX`. A known duplicate returns HTTP `409 DUPLICATE_UPLOAD`. Invalid job transitions return HTTP `409`; queue saturation returns HTTP `503`; unknown jobs return HTTP `404 IMPORT_JOB_NOT_FOUND`.
 
 ### Import history and diagnostics
 
@@ -222,13 +244,13 @@ A successful response includes the safe upload metadata, import batches, normali
 
 `GET /imports/:batchId` returns one batch's status timeline and a bounded diagnostic page. `diagnosticLimit` is bounded to 1–250 and `diagnosticOffset` to 0–50,000.
 
-Malformed pagination or batch identifiers return HTTP `400` with stable error codes. A valid unknown batch identifier returns HTTP `404` with `IMPORT_BATCH_NOT_FOUND`.
+Malformed pagination or identifiers return HTTP `400` with stable error codes. A valid unknown batch identifier returns HTTP `404 IMPORT_BATCH_NOT_FOUND`.
 
 ### Daily score breakdown
 
 `GET /daily/:date/score-breakdown` reads persisted deterministic results; it does not recalculate a score. The response includes daily facts, app and spreadsheet totals, delta, base/bonus totals, ordered ledger entries, complete persisted rule configuration, related activities, and source provenance.
 
-Invalid dates return HTTP `400` with `INVALID_DATE`. Valid dates without a persisted score return HTTP `404` with `DAILY_SCORE_NOT_FOUND`.
+Invalid dates return HTTP `400 INVALID_DATE`. Valid dates without a persisted score return HTTP `404 DAILY_SCORE_NOT_FOUND`.
 
 ## Validation
 
@@ -240,7 +262,7 @@ pnpm test
 pnpm build
 ```
 
-Database-backed import validation must use a disposable database whose name ends in `_test` or `-test`:
+Database-backed validation must use a disposable database whose name ends in `_test` or `-test`:
 
 ```bash
 pnpm db:up
@@ -250,11 +272,15 @@ docker compose run --rm \
   flyway
 
 SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
+  pnpm --filter @sportos/db test:integration
+SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
+  pnpm --filter @sportos/worker test:integration
+SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
   pnpm --filter @sportos/importers test:integration
 ```
 
-The test suite covers local storage contract behavior, traversal resistance, upload validation/error codes, real XLSX byte parsing, browser progress/duplicate guidance, transactional imports, upload-to-batch linkage, duplicate lookup, idempotency, rollback, diagnostics, and persisted scoring.
+The suites cover queue limits, single-claim delivery, monotonic progress, cancellation, retry identity, stale recovery, independent worker execution, real XLSX parsing, batch linkage, transactional idempotency, rollback, diagnostics, browser job monitoring, and persisted scoring.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing uploads, imports, scoring rules, migrations, or generated evidence.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing uploads, jobs, imports, scoring rules, migrations, or generated evidence.
