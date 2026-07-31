@@ -2,6 +2,8 @@ import type { ColumnType, Generated, Insertable, Selectable } from 'kysely';
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+export type NullableTimestamp = ColumnType<Date | null, Date | string | null, Date | string | null>;
+export type GeneratedTimestamp = ColumnType<Date, Date | string | undefined, Date | string>;
 export type DateString = ColumnType<string, string, string>;
 
 export interface UploadedFilesTable {
@@ -48,17 +50,17 @@ export interface ImportJobsTable {
   attempt_count: number;
   max_attempts: number;
   lease_owner: string | null;
-  lease_expires_at: Timestamp | null;
-  heartbeat_at: Timestamp | null;
-  cancellation_requested_at: Timestamp | null;
+  lease_expires_at: NullableTimestamp;
+  heartbeat_at: NullableTimestamp;
+  cancellation_requested_at: NullableTimestamp;
   next_attempt_at: Timestamp;
   error_code: string | null;
   error_message: string | null;
   result_json: Json;
-  created_at: Generated<Timestamp>;
-  updated_at: Generated<Timestamp>;
-  started_at: Timestamp | null;
-  completed_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+  started_at: NullableTimestamp;
+  completed_at: NullableTimestamp;
 }
 
 export interface SourceRecordsTable {
