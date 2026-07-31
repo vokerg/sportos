@@ -1,6 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { RuleProposalValidationError } from '@sportos/domain';
-import { of } from 'rxjs';
+import { RuleProposalValidationError } from '@sportos/db';
 import { describe, expect, it, vi } from 'vitest';
 import { RulesController } from './rules.controller.js';
 import { StaleRulePreviewError, type RulesService } from './rules.service.js';
