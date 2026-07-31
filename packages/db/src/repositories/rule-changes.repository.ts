@@ -1,6 +1,6 @@
 import { scoreDay, type ActivityFact, type RuleChangePreview, type RulePreviewDay, type RuleProposal, type ScoringRule } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
-import type { Database, Json, ScoringRuleChange, ScoringRuleRow } from '../schema.js';
+import type { Activity, Database, Json, ScoringRuleChange, ScoringRuleRow } from '../schema.js';
 
 export type RuleChangeStatus = ScoringRuleChange['status'];
 
@@ -745,7 +745,7 @@ function toRuleChange(row: ScoringRuleChange): RuleChangeReadModel {
   };
 }
 
-function toActivityFact(row: Database['activities']): ActivityFact {
+function toActivityFact(row: Activity): ActivityFact {
   return {
     id: row.id,
     activityDate: dateString(row.activity_date),
