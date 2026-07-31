@@ -19,6 +19,7 @@ import {
 } from '@sportos/db';
 import {
   InvalidRuleChangeReasonError,
+  RulePreviewLimitError,
   RulesService,
   StaleRulePreviewError,
   type ActivateRuleChangeRequest,
@@ -96,6 +97,9 @@ function mapRuleError(error: unknown): BadRequestException | ConflictException {
   }
   if (error instanceof InvalidRuleChangeReasonError) {
     return new BadRequestException({ code: 'INVALID_CHANGE_REASON', message: error.message });
+  }
+  if (error instanceof RulePreviewLimitError) {
+    return new BadRequestException({ code: 'RULE_PREVIEW_LIMIT', message: error.message, limit: error.limit });
   }
   if (error instanceof StaleRulePreviewError) {
     return new ConflictException({ code: 'STALE_RULE_PREVIEW', message: error.message });
