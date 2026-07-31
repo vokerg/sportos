@@ -1,12 +1,13 @@
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { Component, EventEmitter, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, switchMap, take, takeWhile, timer } from 'rxjs';
 import {
   ApiService,
   type ImportBatchDetail,
   type ImportBatchHistoryItem,
   type ImportDiagnostic,
+  type ImportJob,
   type UploadWorkbookKind,
 } from './api.service';
 
@@ -22,7 +23,7 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
       <div class="section-heading">
         <div>
           <h2>Imports</h2>
-          <p class="help">Upload a supported XLSX workbook, then inspect its durable batch, affected dates, and row diagnostics.</p>
+          <p class="help">Upload a supported XLSX workbook, then follow its durable worker job, batch, affected dates, and row diagnostics.</p>
         </div>
         <button type="button" class="secondary" (click)="loadHistory()" [disabled]="historyState() === 'loading'">
           Refresh
@@ -32,7 +33,7 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
       <section class="upload-panel" aria-labelledby="upload-heading">
         <div>
           <h3 id="upload-heading">Upload workbook</h3>
-          <p class="privacy-note">Maximum 20 MB. Files are retained in local source storage for provenance; server paths are never returned.</p>
+          <p class="privacy-note">Maximum 20 MB. Upload returns after queueing; a separate worker performs the import.</p>
         </div>
         <div class="upload-fields">
           <label>
@@ -56,7 +57,7 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
           <p class="selected-file">Selected: <strong>{{ selectedFilename() }}</strong></p>
         }
         <button type="button" (click)="import(fileInput)" [disabled]="importState() === 'loading' || !selectedFile">
-          {{ importState() === 'loading' ? 'Uploading and importing…' : 'Upload and import' }}
+          {{ importState() === 'loading' ? 'Upload or import in progress…' : 'Upload and queue' }}
         </button>
         @if (uploadProgress() !== null && importState() === 'loading') {
           <div class="upload-progress" aria-live="polite">
@@ -64,10 +65,36 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
             <span>{{ uploadProgress() }}%</span>
           </div>
         }
+        @if (activeJob(); as job) {
+          <section class="job-card" aria-label="Current import job">
+            <div class="job-heading">
+              <div>
+                <strong>{{ job.filename }}</strong>
+                <p>Attempt {{ job.attemptCount }} of {{ job.maxAttempts }} · {{ job.phase }}</p>
+              </div>
+              <span [class]="'status status-' + job.status">{{ job.status }}</span>
+            </div>
+            <div class="job-progress">
+              <progress [value]="job.progressPercent" max="100"></progress>
+              <span>{{ job.progressPercent }}%</span>
+            </div>
+            @if (job.cancellationRequested && job.status === 'running') {
+              <p class="privacy-note">Cancellation requested. The worker will roll back at the next safe phase boundary.</p>
+            }
+            <div class="job-actions">
+              @if ((job.status === 'queued' || job.status === 'running') && !job.cancellationRequested) {
+                <button type="button" class="secondary" (click)="cancelActiveJob()">Cancel job</button>
+              }
+              @if (job.status === 'failed' && job.attemptCount < job.maxAttempts) {
+                <button type="button" class="secondary" (click)="retryActiveJob()">Retry job</button>
+              }
+            </div>
+          </section>
+        }
         @if (importMessage()) {
           <p class="request-message" [class.error-message]="importState() === 'error'" aria-live="polite">{{ importMessage() }}</p>
         }
-        <p class="developer-note">The server-local path endpoint and CLI remain available for development, but are no longer the browser workflow.</p>
+        <p class="developer-note">Status polling stops on a terminal state or after 120 checks. The server-local CLI remains available for development.</p>
       </section>
 
       <div class="history-heading">
@@ -139,7 +166,7 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
               <div class="failure-guidance" role="alert">
                 <strong>Import failed during {{ selected.batch.failure.phase }}.</strong>
                 <p>{{ selected.batch.failure.message }}</p>
-                <p>Correct the workbook and upload it again. A retry creates a new inspectable batch.</p>
+                <p>Correct the workbook or retry its failed job. Every attempt remains inspectable.</p>
               </div>
             }
 
@@ -203,14 +230,14 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
   `,
   styles: [`
     .import-card { display: grid; gap: 16px; }
-    .section-heading, .history-heading, .detail-heading, .diagnostic-heading, .batch-primary {
+    .section-heading, .history-heading, .detail-heading, .diagnostic-heading, .batch-primary, .job-heading {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
     }
     .section-heading h2, .history-heading h3, .detail-heading h3, .detail-section h4, .upload-panel h3 { margin-bottom: 4px; }
-    .help, .privacy-note, .developer-note, .detail-heading p, .state-message, .batch-secondary, .batch-counts, .timeline span, .timeline time {
+    .help, .privacy-note, .developer-note, .detail-heading p, .state-message, .batch-secondary, .batch-counts, .timeline span, .timeline time, .job-heading p {
       color: #667085;
       font-size: 13px;
     }
@@ -220,9 +247,11 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
     .upload-fields { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(220px, 1.4fr); gap: 12px; }
     .upload-fields label { display: grid; gap: 5px; font-size: 13px; font-weight: 650; }
     .upload-fields input, .upload-fields select { box-sizing: border-box; width: 100%; min-width: 0; }
-    .selected-file, .request-message, .developer-note { margin: 0; }
-    .upload-progress { display: flex; align-items: center; gap: 10px; }
-    .upload-progress progress { width: min(360px, 100%); }
+    .selected-file, .request-message, .developer-note, .job-heading p { margin: 0; }
+    .upload-progress, .job-progress { display: flex; align-items: center; gap: 10px; }
+    .upload-progress progress, .job-progress progress { width: min(360px, 100%); }
+    .job-card { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: #f8fafc; }
+    .job-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .error-message { color: #991b1b; }
     .state-message { padding: 14px; border-radius: 12px; background: #f8fafc; }
     .batch-list, .diagnostic-list, .timeline { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -231,9 +260,9 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
     .batch-primary { align-items: center; }
     .batch-secondary, .batch-counts { display: block; margin-top: 4px; }
     .status { display: inline-flex; padding: 3px 8px; border-radius: 999px; background: #e5e7eb; color: #344054; font-size: 11px; font-weight: 750; text-transform: uppercase; }
-    .status-scored, .status-normalized { background: #dcfce7; color: #166534; }
-    .status-failed { background: #fee2e2; color: #991b1b; }
-    .status-started, .status-parsed { background: #fef3c7; color: #92400e; }
+    .status-scored, .status-normalized, .status-succeeded { background: #dcfce7; color: #166534; }
+    .status-failed, .status-cancelled { background: #fee2e2; color: #991b1b; }
+    .status-started, .status-parsed, .status-queued, .status-running { background: #fef3c7; color: #92400e; }
     .batch-detail { display: grid; gap: 16px; padding-top: 16px; border-top: 1px solid #e4e7ec; }
     .detail-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
     .detail-counts div { padding: 10px; border-radius: 12px; background: #f8fafc; }
@@ -264,6 +293,7 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
   selectedFile: File | null = null;
   readonly selectedFilename = signal<string | null>(null);
   readonly uploadProgress = signal<number | null>(null);
+  readonly activeJob = signal<ImportJob | null>(null);
   readonly historyState = signal<RequestState>('idle');
   readonly history = signal<ImportBatchHistoryItem[]>([]);
   readonly historyTotal = signal(0);
@@ -283,6 +313,7 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
   private historySubscription?: Subscription;
   private detailSubscription?: Subscription;
   private importSubscription?: Subscription;
+  private jobSubscription?: Subscription;
 
   constructor(private readonly api: ApiService) {}
 
@@ -294,6 +325,7 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
     this.historySubscription?.unsubscribe();
     this.detailSubscription?.unsubscribe();
     this.importSubscription?.unsubscribe();
+    this.jobSubscription?.unsubscribe();
   }
 
   onFileSelected(event: Event): void {
@@ -302,7 +334,7 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
     this.selectedFile = file;
     this.selectedFilename.set(file?.name ?? null);
     this.importMessage.set(null);
-    this.importState.set('idle');
+    if (!this.isActive(this.activeJob())) this.importState.set('idle');
     this.uploadProgress.set(null);
   }
 
@@ -315,6 +347,8 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
     }
 
     this.importSubscription?.unsubscribe();
+    this.jobSubscription?.unsubscribe();
+    this.activeJob.set(null);
     this.importState.set('loading');
     this.importMessage.set(null);
     this.uploadProgress.set(0);
@@ -327,16 +361,12 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
         }
         if (event.type !== HttpEventType.Response || !event.body) return;
 
-        const result = event.body;
+        const response = event.body;
         this.clearSelectedFile(fileInput);
-        this.uploadProgress.set(100);
-        this.importState.set('loaded');
-        this.importMessage.set(
-          `Uploaded ${result.upload.filename}. Import recorded ${result.dailyRows} daily rows, ${result.activities} activities, ${result.performanceEvents} performance events, and ${result.warnings.length} warnings.`,
-        );
-        this.loadHistory();
-        const latestBatch = result.batches.at(-1);
-        if (latestBatch) this.loadDetail(latestBatch.id);
+        this.activeJob.set(response.job);
+        this.uploadProgress.set(response.job.progressPercent);
+        this.importMessage.set(`Uploaded ${response.upload.filename}. Job queued for the import worker.`);
+        this.monitorJob(response.job.id);
       },
       error: (error: unknown) => {
         this.clearSelectedFile(fileInput);
@@ -344,6 +374,41 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
         this.importState.set('error');
         this.importMessage.set(this.describeUploadError(error));
         this.loadHistory();
+      },
+    });
+  }
+
+  cancelActiveJob(): void {
+    const job = this.activeJob();
+    if (!job || !this.isActive(job)) return;
+    this.api.cancelImportJob(job.id).subscribe({
+      next: (updated) => {
+        this.activeJob.set(updated);
+        if (this.isTerminal(updated)) this.handleTerminalJob(updated);
+        else this.importMessage.set('Cancellation requested. Waiting for the worker to reach a safe phase boundary.');
+      },
+      error: (error: unknown) => {
+        this.importState.set('error');
+        this.importMessage.set(this.describeRequestError(error, 'The import job could not be cancelled.'));
+      },
+    });
+  }
+
+  retryActiveJob(): void {
+    const job = this.activeJob();
+    if (!job || job.status !== 'failed') return;
+    this.jobSubscription?.unsubscribe();
+    this.importState.set('loading');
+    this.importMessage.set('Requeueing the failed import job…');
+    this.api.retryImportJob(job.id).subscribe({
+      next: (updated) => {
+        this.activeJob.set(updated);
+        this.uploadProgress.set(updated.progressPercent);
+        this.monitorJob(updated.id);
+      },
+      error: (error: unknown) => {
+        this.importState.set('error');
+        this.importMessage.set(this.describeRequestError(error, 'The import job could not be retried.'));
       },
     });
   }
@@ -407,6 +472,77 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
     ].join('|');
   }
 
+  private monitorJob(jobId: string): void {
+    this.jobSubscription?.unsubscribe();
+    let terminalSeen = false;
+    this.jobSubscription = timer(0, 1500).pipe(
+      take(120),
+      switchMap(() => this.api.importJob(jobId)),
+      takeWhile((job) => !this.isTerminal(job), true),
+    ).subscribe({
+      next: (job) => {
+        this.activeJob.set(job);
+        this.uploadProgress.set(job.progressPercent);
+        if (this.isTerminal(job)) {
+          terminalSeen = true;
+          this.handleTerminalJob(job);
+        } else {
+          this.importState.set('loading');
+          this.importMessage.set(`Import job is ${job.status}: ${job.phase}.`);
+        }
+      },
+      error: (error: unknown) => {
+        this.importState.set('error');
+        this.importMessage.set(this.describeRequestError(error, 'Import job status could not be loaded.'));
+      },
+      complete: () => {
+        if (!terminalSeen && this.isActive(this.activeJob())) {
+          this.importState.set('loaded');
+          this.importMessage.set('The job is still active. Automatic polling stopped after 120 checks; reload the page or review history later.');
+        }
+      },
+    });
+  }
+
+  private handleTerminalJob(job: ImportJob): void {
+    this.uploadProgress.set(job.progressPercent);
+    this.loadHistory();
+    if (job.status === 'succeeded') {
+      this.importState.set('loaded');
+      this.importMessage.set(this.successMessage(job));
+      if (job.batchId) this.loadDetail(job.batchId);
+      return;
+    }
+    if (job.status === 'cancelled') {
+      this.importState.set('loaded');
+      this.importMessage.set('The import job was cancelled. Any in-progress transaction was rolled back.');
+      if (job.batchId) this.loadDetail(job.batchId);
+      return;
+    }
+    this.importState.set('error');
+    this.importMessage.set(job.error?.message
+      ? `The import job failed during ${job.phase}. ${job.error.message}`
+      : `The import job failed during ${job.phase}. Review its batch diagnostics before retrying.`);
+    if (job.batchId) this.loadDetail(job.batchId);
+  }
+
+  private successMessage(job: ImportJob): string {
+    const result = job.result && typeof job.result === 'object' ? job.result as Record<string, unknown> : {};
+    const dailyRows = safeCount(result.dailyRows);
+    const activities = safeCount(result.activities);
+    const performanceEvents = safeCount(result.performanceEvents);
+    const warnings = Array.isArray(result.warnings) ? result.warnings.length : 0;
+    return `Import completed: ${dailyRows} daily rows, ${activities} activities, ${performanceEvents} performance events, and ${warnings} warnings.`;
+  }
+
+  private isActive(job: ImportJob | null): boolean {
+    return job?.status === 'queued' || job?.status === 'running';
+  }
+
+  private isTerminal(job: ImportJob): boolean {
+    return job.status === 'succeeded' || job.status === 'failed' || job.status === 'cancelled';
+  }
+
   private clearSelectedFile(fileInput?: HTMLInputElement): void {
     this.selectedFile = null;
     this.selectedFilename.set(null);
@@ -442,7 +578,7 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
   }
 
   private describeUploadError(error: unknown): string {
-    if (!(error instanceof HttpErrorResponse)) return 'The workbook upload failed. Try again or inspect the newest failed batch.';
+    if (!(error instanceof HttpErrorResponse)) return 'The workbook upload failed. Try again.';
     if (error.status === 0) return 'The SportOS API is unavailable. Check that the local API is running.';
     if (error.status === 413) return 'The workbook exceeds the 20 MB upload limit.';
 
@@ -456,12 +592,9 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
       const status = typeof duplicate.batchStatus === 'string' ? ` Its batch is ${duplicate.batchStatus}.` : '';
       return `${filename} was already uploaded.${status} Select the existing batch in history instead of importing it again.`;
     }
-    if (code === 'UPLOAD_IMPORT_FAILED') {
-      return 'The workbook was stored, but its import failed. Review the newest failed batch for diagnostics.';
-    }
-    if (code === 'UPLOAD_STORAGE_FAILED') {
-      return 'The workbook could not be stored. No import was started.';
-    }
+    if (code === 'IMPORT_QUEUE_FULL') return 'The import queue is full. Wait for an active job to finish, then upload again.';
+    if (code === 'UPLOAD_STORAGE_FAILED') return 'The workbook could not be stored. No import job was created.';
+    if (code === 'IMPORT_JOB_ENQUEUE_FAILED') return 'The workbook was not queued. No import was started.';
     const actionableCodes = new Set([
       'UPLOAD_FILE_REQUIRED',
       'INVALID_WORKBOOK_KIND',
@@ -477,8 +610,13 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
 
   private describeRequestError(error: unknown, fallback: string): string {
     if (!(error instanceof HttpErrorResponse)) return fallback;
-    if (error.status === 0) return 'The SportOS API is unavailable. Check that the local API is running.';
-    if (error.status === 404) return 'The selected import batch no longer exists.';
-    return `${fallback} The API returned HTTP ${error.status}.`;
+    if (error.status === 0) return 'The SportOS API is unavailable. Check that the local API and worker are running.';
+    if (error.status === 404) return 'The selected import job or batch no longer exists.';
+    const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {};
+    return typeof body.message === 'string' ? body.message : `${fallback} The API returned HTTP ${error.status}.`;
   }
+}
+
+function safeCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }

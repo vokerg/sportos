@@ -3,6 +3,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Inject,
   NotFoundException,
   Param,
@@ -28,6 +30,7 @@ export class ImportsController {
   }
 
   @Post('upload')
+  @HttpCode(HttpStatus.ACCEPTED)
   @UseInterceptors(FileInterceptor('file', {
     limits: { files: 1, fileSize: MAX_WORKBOOK_UPLOAD_BYTES },
   }))
@@ -38,19 +41,31 @@ export class ImportsController {
     return this.importsService.uploadWorkbook({ file, workbookKind });
   }
 
+  @Get('jobs/:jobId')
+  job(@Param('jobId') jobId: string) {
+    requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.', 'jobId');
+    return this.importsService.job(jobId);
+  }
+
+  @Post('jobs/:jobId/retry')
+  retryJob(@Param('jobId') jobId: string) {
+    requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.', 'jobId');
+    return this.importsService.retryJob(jobId);
+  }
+
+  @Post('jobs/:jobId/cancel')
+  cancelJob(@Param('jobId') jobId: string) {
+    requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.', 'jobId');
+    return this.importsService.cancelJob(jobId);
+  }
+
   @Get(':batchId')
   async detail(
     @Param('batchId') batchId: string,
     @Query('diagnosticLimit') diagnosticLimit?: string,
     @Query('diagnosticOffset') diagnosticOffset?: string,
   ) {
-    if (!isUuid(batchId)) {
-      throw new BadRequestException({
-        code: 'INVALID_IMPORT_BATCH_ID',
-        message: 'Import batch id must be a UUID.',
-        batchId,
-      });
-    }
+    requireUuid(batchId, 'INVALID_IMPORT_BATCH_ID', 'Import batch id must be a UUID.', 'batchId');
 
     const detail = await this.importsService.detail(
       batchId,
@@ -107,6 +122,11 @@ function invalidPagination(options: BoundedIntegerOptions, value: string): BadRe
     field: options.name,
     value,
   });
+}
+
+function requireUuid(value: string, code: string, message: string, field: 'jobId' | 'batchId'): void {
+  if (isUuid(value)) return;
+  throw new BadRequestException({ code, message, [field]: value });
 }
 
 function isUuid(value: string): boolean {

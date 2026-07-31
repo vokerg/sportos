@@ -1,11 +1,12 @@
 import '@angular/compiler';
 import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   ApiService,
   ImportBatchDetail,
   ImportBatchHistoryPage,
+  ImportJob,
   UploadWorkbookResponse,
 } from './api.service';
 import { ImportPanelComponent } from './import-panel.component';
@@ -56,23 +57,57 @@ const detail: ImportBatchDetail = {
   diagnosticOffset: 0,
 };
 
+const queuedJob: ImportJob = {
+  id: '44444444-4444-4444-8444-444444444444',
+  uploadId: '33333333-3333-4333-8333-333333333333',
+  batchId: null,
+  filename: 'my-sport.xlsx',
+  workbookKind: 'my_sport',
+  uploadStatus: 'stored',
+  status: 'queued',
+  phase: 'queued',
+  progressPercent: 0,
+  attemptCount: 0,
+  maxAttempts: 3,
+  cancellationRequested: false,
+  error: null,
+  result: {},
+  createdAt: '2026-07-29T10:00:00.000Z',
+  updatedAt: '2026-07-29T10:00:00.000Z',
+  startedAt: null,
+  completedAt: null,
+};
+
+const succeededJob: ImportJob = {
+  ...queuedJob,
+  batchId: batch.id,
+  uploadStatus: 'imported',
+  status: 'succeeded',
+  phase: 'completed',
+  progressPercent: 100,
+  attemptCount: 1,
+  result: { dailyRows: 2, activities: 13, performanceEvents: 0, warnings: ['one warning'] },
+  startedAt: '2026-07-29T10:00:00.100Z',
+  completedAt: '2026-07-29T10:00:01.000Z',
+};
+
 const uploadResult: UploadWorkbookResponse = {
   upload: {
-    id: '33333333-3333-4333-8333-333333333333',
+    id: queuedJob.uploadId,
     filename: 'my-sport.xlsx',
     workbookKind: 'my_sport',
     byteSize: 1024,
     sha256: 'ab'.repeat(32),
-    status: 'imported',
+    status: 'stored',
   },
-  batches: [{ id: batch.id, filename: batch.filename, source: batch.source }],
-  dailyRows: 2,
-  activities: 13,
-  performanceEvents: 0,
-  warnings: ['one warning'],
+  job: queuedJob,
 };
 
 const selectedFile = { name: 'my-sport.xlsx', size: 1024 } as File;
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('ImportPanelComponent', () => {
   it('loads recent history on initialization', () => {
@@ -98,23 +133,27 @@ describe('ImportPanelComponent', () => {
     expect(component.diagnosticLocation(detail.diagnostics[0]!)).toBe('Sheet1 row 3');
   });
 
-  it('reports upload progress, refreshes history, and opens the recorded batch', () => {
+  it('reports upload progress, monitors the job, and opens its completed batch', async () => {
+    vi.useFakeTimers();
     const api = createApi();
     api.uploadWorkbook.mockReturnValue(of(
       { type: HttpEventType.UploadProgress, loaded: 512, total: 1024 },
       new HttpResponse({ body: uploadResult }),
     ));
+    api.importJob.mockReturnValue(of(succeededJob));
     const component = new ImportPanelComponent(api as unknown as ApiService);
     component.selectedFile = selectedFile;
     component.selectedFilename.set(selectedFile.name);
 
     component.import();
+    await vi.runAllTimersAsync();
 
     expect(api.uploadWorkbook).toHaveBeenCalledWith(selectedFile, 'my_sport');
+    expect(api.importJob).toHaveBeenCalledWith(queuedJob.id);
     expect(component.selectedFile).toBeNull();
     expect(component.uploadProgress()).toBe(100);
-    expect(component.importMessage()).toContain('Uploaded my-sport.xlsx');
     expect(component.importMessage()).toContain('2 daily rows');
+    expect(component.activeJob()?.status).toBe('succeeded');
     expect(component.selectedBatchId()).toBe(batch.id);
   });
 
@@ -127,6 +166,44 @@ describe('ImportPanelComponent', () => {
     expect(api.uploadWorkbook).not.toHaveBeenCalled();
     expect(component.importState()).toBe('error');
     expect(component.importMessage()).toContain('Choose an XLSX workbook');
+  });
+
+  it('requests cooperative cancellation for a running job', () => {
+    const api = createApi();
+    const running = { ...queuedJob, status: 'running' as const, phase: 'raw-stored', progressPercent: 45, attemptCount: 1 };
+    const cancelling = { ...running, phase: 'cancelling', cancellationRequested: true };
+    api.cancelImportJob.mockReturnValue(of(cancelling));
+    const component = new ImportPanelComponent(api as unknown as ApiService);
+    component.activeJob.set(running);
+
+    component.cancelActiveJob();
+
+    expect(api.cancelImportJob).toHaveBeenCalledWith(running.id);
+    expect(component.activeJob()?.cancellationRequested).toBe(true);
+    expect(component.importMessage()).toContain('safe phase boundary');
+  });
+
+  it('requeues a failed job and resumes bounded polling', async () => {
+    vi.useFakeTimers();
+    const api = createApi();
+    const failed = {
+      ...queuedJob,
+      status: 'failed' as const,
+      phase: 'failed',
+      attemptCount: 1,
+      error: { code: 'ERROR', message: 'sanitized failure' },
+    };
+    const retried = { ...queuedJob, attemptCount: 1 };
+    api.retryImportJob.mockReturnValue(of(retried));
+    api.importJob.mockReturnValue(of(succeededJob));
+    const component = new ImportPanelComponent(api as unknown as ApiService);
+    component.activeJob.set(failed);
+
+    component.retryActiveJob();
+    await vi.runAllTimersAsync();
+
+    expect(api.retryImportJob).toHaveBeenCalledWith(failed.id);
+    expect(component.activeJob()?.status).toBe('succeeded');
   });
 
   it('shows duplicate guidance without exposing backend details', () => {
@@ -192,5 +269,8 @@ function createApi() {
     importHistory: vi.fn().mockReturnValue(of(historyPage)),
     importBatchDetail: vi.fn().mockReturnValue(of(detail)),
     uploadWorkbook: vi.fn().mockReturnValue(of(new HttpResponse({ body: uploadResult }))),
+    importJob: vi.fn().mockReturnValue(of(succeededJob)),
+    retryImportJob: vi.fn().mockReturnValue(of(queuedJob)),
+    cancelImportJob: vi.fn().mockReturnValue(of({ ...queuedJob, status: 'cancelled' as const, phase: 'cancelled' })),
   };
 }

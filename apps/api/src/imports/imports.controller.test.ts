@@ -5,6 +5,7 @@ import type { ImportsService } from './imports.service.js';
 import type { MultipartWorkbookFile } from './workbook-upload.js';
 
 const batchId = '11111111-1111-4111-8111-111111111111';
+const jobId = '44444444-4444-4444-8444-444444444444';
 const historyPage = { items: [], total: 0, limit: 20, offset: 0 };
 const detailResponse = {
   batch: {
@@ -29,6 +30,27 @@ const detailResponse = {
   diagnosticOffset: 0,
 };
 
+const jobResponse = {
+  id: jobId,
+  uploadId: '33333333-3333-4333-8333-333333333333',
+  batchId: null,
+  filename: 'my-sport.xlsx',
+  workbookKind: 'my_sport',
+  uploadStatus: 'stored',
+  status: 'queued',
+  phase: 'queued',
+  progressPercent: 0,
+  attemptCount: 0,
+  maxAttempts: 3,
+  cancellationRequested: false,
+  error: null,
+  result: {},
+  createdAt: '2026-07-29T10:00:00.000Z',
+  updatedAt: '2026-07-29T10:00:00.000Z',
+  startedAt: null,
+  completedAt: null,
+};
+
 const uploadFile: MultipartWorkbookFile = {
   originalname: 'my-sport.xlsx',
   mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -36,12 +58,15 @@ const uploadFile: MultipartWorkbookFile = {
   buffer: Buffer.from('test'),
 };
 
-describe('ImportsController history and detail', () => {
+describe('ImportsController history, jobs, and detail', () => {
   let service: {
     history: ReturnType<typeof vi.fn>;
     detail: ReturnType<typeof vi.fn>;
     importLocalFiles: ReturnType<typeof vi.fn>;
     uploadWorkbook: ReturnType<typeof vi.fn>;
+    job: ReturnType<typeof vi.fn>;
+    retryJob: ReturnType<typeof vi.fn>;
+    cancelJob: ReturnType<typeof vi.fn>;
   };
   let controller: ImportsController;
 
@@ -51,6 +76,9 @@ describe('ImportsController history and detail', () => {
       detail: vi.fn(),
       importLocalFiles: vi.fn(),
       uploadWorkbook: vi.fn(),
+      job: vi.fn(),
+      retryJob: vi.fn(),
+      cancelJob: vi.fn(),
     };
     controller = new ImportsController(service as unknown as ImportsService);
   });
@@ -77,20 +105,54 @@ describe('ImportsController history and detail', () => {
         throw new Error('Expected invalid pagination to throw.');
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
-        expect((error as BadRequestException).getResponse()).toMatchObject({
-          code: 'INVALID_IMPORT_PAGINATION',
-        });
+        expect((error as BadRequestException).getResponse()).toMatchObject({ code: 'INVALID_IMPORT_PAGINATION' });
       }
     }
     expect(service.history).not.toHaveBeenCalled();
   });
 
-  it('delegates one multipart workbook and its explicit type', async () => {
-    const response = { upload: { id: 'upload-id' }, batches: [] };
+  it('delegates one multipart workbook and returns its queued job', async () => {
+    const response = { upload: { id: jobResponse.uploadId, status: 'stored' }, job: jobResponse };
     service.uploadWorkbook.mockResolvedValue(response);
 
     await expect(controller.uploadWorkbook(uploadFile, 'my_sport')).resolves.toEqual(response);
     expect(service.uploadWorkbook).toHaveBeenCalledWith({ file: uploadFile, workbookKind: 'my_sport' });
+  });
+
+  it('delegates job status, retry, and cancellation operations', async () => {
+    service.job.mockResolvedValue(jobResponse);
+    service.retryJob.mockResolvedValue(jobResponse);
+    service.cancelJob.mockResolvedValue({ ...jobResponse, status: 'cancelled' });
+
+    await expect(controller.job(jobId)).resolves.toEqual(jobResponse);
+    await expect(controller.retryJob(jobId)).resolves.toEqual(jobResponse);
+    await expect(controller.cancelJob(jobId)).resolves.toMatchObject({ status: 'cancelled' });
+    expect(service.job).toHaveBeenCalledWith(jobId);
+    expect(service.retryJob).toHaveBeenCalledWith(jobId);
+    expect(service.cancelJob).toHaveBeenCalledWith(jobId);
+  });
+
+  it('rejects malformed job ids before calling the service', async () => {
+    for (const operation of [
+      () => controller.job('not-a-uuid'),
+      () => controller.retryJob('not-a-uuid'),
+      () => controller.cancelJob('not-a-uuid'),
+    ]) {
+      try {
+        await operation();
+        throw new Error('Expected malformed job id to throw.');
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect((error as BadRequestException).getResponse()).toEqual({
+          code: 'INVALID_IMPORT_JOB_ID',
+          message: 'Import job id must be a UUID.',
+          jobId: 'not-a-uuid',
+        });
+      }
+    }
+    expect(service.job).not.toHaveBeenCalled();
+    expect(service.retryJob).not.toHaveBeenCalled();
+    expect(service.cancelJob).not.toHaveBeenCalled();
   });
 
   it('returns a batch detail response with bounded diagnostic pagination', async () => {

@@ -2,6 +2,8 @@ import type { ColumnType, Generated, Insertable, Selectable } from 'kysely';
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+export type NullableTimestamp = ColumnType<Date | null, Date | string | null, Date | string | null>;
+export type GeneratedTimestamp = ColumnType<Date, Date | string | undefined, Date | string>;
 export type DateString = ColumnType<string, string, string>;
 
 export interface UploadedFilesTable {
@@ -36,6 +38,29 @@ export interface ImportBatchesTable {
   started_at: Generated<Timestamp>;
   completed_at: Timestamp | null;
   metadata: Json;
+}
+
+export interface ImportJobsTable {
+  id: Generated<string>;
+  uploaded_file_id: string;
+  import_batch_id: string | null;
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  phase: string;
+  progress_percent: number;
+  attempt_count: number;
+  max_attempts: number;
+  lease_owner: string | null;
+  lease_expires_at: NullableTimestamp;
+  heartbeat_at: NullableTimestamp;
+  cancellation_requested_at: NullableTimestamp;
+  next_attempt_at: Timestamp;
+  error_code: string | null;
+  error_message: string | null;
+  result_json: Json;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+  started_at: NullableTimestamp;
+  completed_at: NullableTimestamp;
 }
 
 export interface SourceRecordsTable {
@@ -153,6 +178,7 @@ export interface PerformanceEventsTable {
 export interface Database {
   uploaded_files: UploadedFilesTable;
   import_batches: ImportBatchesTable;
+  import_jobs: ImportJobsTable;
   source_records: SourceRecordsTable;
   activities: ActivitiesTable;
   daily_metrics: DailyMetricsTable;
@@ -167,6 +193,8 @@ export type UploadedFile = Selectable<UploadedFilesTable>;
 export type NewUploadedFile = Insertable<UploadedFilesTable>;
 export type ImportBatch = Selectable<ImportBatchesTable>;
 export type NewImportBatch = Insertable<ImportBatchesTable>;
+export type ImportJob = Selectable<ImportJobsTable>;
+export type NewImportJob = Insertable<ImportJobsTable>;
 export type SourceRecord = Selectable<SourceRecordsTable>;
 export type NewSourceRecord = Insertable<SourceRecordsTable>;
 export type Activity = Selectable<ActivitiesTable>;
