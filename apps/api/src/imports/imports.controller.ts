@@ -43,19 +43,19 @@ export class ImportsController {
 
   @Get('jobs/:jobId')
   job(@Param('jobId') jobId: string) {
-    requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.');
+    requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.', 'jobId');
     return this.importsService.job(jobId);
   }
 
   @Post('jobs/:jobId/retry')
   retryJob(@Param('jobId') jobId: string) {
-    requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.');
+    requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.', 'jobId');
     return this.importsService.retryJob(jobId);
   }
 
   @Post('jobs/:jobId/cancel')
   cancelJob(@Param('jobId') jobId: string) {
-    requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.');
+    requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.', 'jobId');
     return this.importsService.cancelJob(jobId);
   }
 
@@ -65,7 +65,7 @@ export class ImportsController {
     @Query('diagnosticLimit') diagnosticLimit?: string,
     @Query('diagnosticOffset') diagnosticOffset?: string,
   ) {
-    requireUuid(batchId, 'INVALID_IMPORT_BATCH_ID', 'Import batch id must be a UUID.');
+    requireUuid(batchId, 'INVALID_IMPORT_BATCH_ID', 'Import batch id must be a UUID.', 'batchId');
 
     const detail = await this.importsService.detail(
       batchId,
@@ -124,9 +124,9 @@ function invalidPagination(options: BoundedIntegerOptions, value: string): BadRe
   });
 }
 
-function requireUuid(value: string, code: string, message: string): void {
+function requireUuid(value: string, code: string, message: string, field: 'jobId' | 'batchId'): void {
   if (isUuid(value)) return;
-  throw new BadRequestException({ code, message, id: value });
+  throw new BadRequestException({ code, message, [field]: value });
 }
 
 function isUuid(value: string): boolean {
