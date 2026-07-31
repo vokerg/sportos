@@ -44,8 +44,8 @@ export class ImportJobRunner {
 
   constructor(
     private readonly db: Kysely<Database>,
-    options: ImportJobRunnerOptions,
     private readonly storage: UploadStorage = new LocalUploadStorage(),
+    options: ImportJobRunnerOptions = { workerId: 'sportos-worker' },
   ) {
     this.jobs = new ImportJobsRepository(db);
     this.uploads = new UploadsRepository(db);
