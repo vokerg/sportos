@@ -29,9 +29,17 @@ export class StaleRulePreviewError extends Error {
   }
 }
 
+export class RulePreviewLimitError extends Error {
+  constructor(readonly limit: number) {
+    super(`Rule preview is limited to ${limit} persisted dates.`);
+    this.name = 'RulePreviewLimitError';
+  }
+}
+
 @Injectable()
 export class RulesService {
   private readonly rules: RuleChangesRepository;
+  private readonly previewDateLimit = 5000;
 
   constructor(private readonly database: DbProvider) {
     this.rules = new RuleChangesRepository(database.db);
@@ -62,6 +70,7 @@ export class RulesService {
       this.rules.listPreviewDays(proposal.validFrom, affectedTo),
       this.rules.listEnabledRules(),
     ]);
+    if (days.length > this.previewDateLimit) throw new RulePreviewLimitError(this.previewDateLimit);
     const preview = {
       ...previewRuleChange(days, currentRules, proposal),
       affectedFrom: proposal.validFrom,
