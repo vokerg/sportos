@@ -35,6 +35,7 @@ export interface PerformanceRow {
 
 export type ImportBatchStatus = 'started' | 'parsed' | 'normalized' | 'scored' | 'failed';
 export type UploadWorkbookKind = 'my_sport' | 'run_db';
+export type ImportJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
 export interface ImportBatchHistoryItem {
   id: string;
@@ -96,15 +97,37 @@ export interface ImportLocalFilesResponse {
   warnings: string[];
 }
 
-export interface UploadWorkbookResponse extends ImportLocalFilesResponse {
+export interface ImportJob {
+  id: string;
+  uploadId: string;
+  batchId: string | null;
+  filename: string;
+  workbookKind: UploadWorkbookKind;
+  uploadStatus: 'stored' | 'imported' | 'failed' | 'deleted';
+  status: ImportJobStatus;
+  phase: string;
+  progressPercent: number;
+  attemptCount: number;
+  maxAttempts: number;
+  cancellationRequested: boolean;
+  error: { code: string; message: string } | null;
+  result: unknown;
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface UploadWorkbookResponse {
   upload: {
     id: string;
     filename: string;
     workbookKind: UploadWorkbookKind;
     byteSize: number;
     sha256: string;
-    status: 'imported';
+    status: 'stored';
   };
+  job: ImportJob;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -129,6 +152,18 @@ export class ApiService {
       observe: 'events',
       reportProgress: true,
     });
+  }
+
+  importJob(jobId: string) {
+    return this.http.get<ImportJob>(`${this.apiBase()}/imports/jobs/${encodeURIComponent(jobId)}`);
+  }
+
+  retryImportJob(jobId: string) {
+    return this.http.post<ImportJob>(`${this.apiBase()}/imports/jobs/${encodeURIComponent(jobId)}/retry`, {});
+  }
+
+  cancelImportJob(jobId: string) {
+    return this.http.post<ImportJob>(`${this.apiBase()}/imports/jobs/${encodeURIComponent(jobId)}/cancel`, {});
   }
 
   importLocalFiles(mySportPath?: string, runDbPath?: string) {
