@@ -38,31 +38,34 @@ describe('Rules Studio domain contract', () => {
     });
   });
 
-  it('rejects invalid metrics, dates, coefficients, and ranges together', () => {
-    expect(() => validateRuleProposal({
-      ...proposal,
-      metric: 'steps',
-      coefficient: 0,
-      validFrom: '2026-02-30',
-      validTo: '2026-01-01',
-    })).toThrow(RuleProposalValidationError);
-
+  it('rejects invalid metrics, malformed dates, coefficients, and reversed ranges precisely', () => {
     try {
       validateRuleProposal({
         ...proposal,
         metric: 'steps',
         coefficient: 0,
         validFrom: '2026-02-30',
-        validTo: '2026-01-01',
       });
+      throw new Error('Expected proposal validation to fail.');
     } catch (error) {
       const issues = (error as RuleProposalValidationError).issues;
       expect(issues.map((issue) => issue.code)).toEqual(expect.arrayContaining([
         'INVALID_RULE_METRIC',
         'INVALID_COEFFICIENT',
         'INVALID_VALID_FROM',
-        'INVALID_EFFECTIVE_RANGE',
       ]));
+      expect(issues.map((issue) => issue.code)).not.toContain('INVALID_EFFECTIVE_RANGE');
+    }
+
+    try {
+      validateRuleProposal({
+        ...proposal,
+        validFrom: '2026-02-01',
+        validTo: '2026-01-31',
+      });
+      throw new Error('Expected reversed range validation to fail.');
+    } catch (error) {
+      expect((error as RuleProposalValidationError).issues.map((issue) => issue.code)).toContain('INVALID_EFFECTIVE_RANGE');
     }
   });
 
