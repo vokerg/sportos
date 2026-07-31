@@ -1,157 +1,131 @@
 # ADR 0004: Versioned scoring rules and audited recomputation
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-31
 - Issue: #12
 
 ## Context
 
-SportOS currently stores one row per scoring-rule code. `scoring_rules.code` is globally unique, and the importer reads all enabled rows whose inclusive effective dates cover a daily metric. Score-ledger rows reference the applied rule UUID and persist calculation inputs, so historical explanations remain stable only while referenced rule rows are never mutated or deleted.
+SportOS originally stored one row per scoring-rule code. `scoring_rules.code` was globally unique, so changing a coefficient or threshold would either mutate a row referenced by historical ledger entries or require inventing a new family code. Neither option provides trustworthy version history.
 
-Rules Studio must allow safe changes without rewriting historical meaning, preview the impact before activation, recompute selected history through the durable worker lifecycle, and retain an audit trail explaining the proposal, activation, execution, and result.
+Rules Studio must preserve exact rule UUIDs, preview score effects without writes, reject invalid or overlapping definitions, activate a confirmed proposal through the durable worker lifecycle, and retain an audit trail for success, failure, retry, cancellation, and stale recovery.
 
-## Proposed decision
+## Decision
 
-### Immutable rule versions
+### Rule identity and versions
 
-A rule UUID identifies one immutable version. User-visible `code` identifies the rule family and may repeat across non-overlapping versions.
+A rule UUID identifies one semantic version. The stable `code` identifies a rule family and may repeat across versions.
 
-Existing rule rows remain queryable and are never updated in place after activation except for narrowly defined operational metadata that does not affect scoring semantics. A semantic change inserts a new row with a new UUID.
+Each row stores a positive monotonic `version`, optional `supersedes_rule_id`, complete scoring configuration, inclusive effective dates, enabled state, and creation timestamp. Formula fields are never edited after the row is created. A superseding cutover may atomically shorten the prior version's effective end date to the day before the new version starts; this is the only scoring-semantic update permitted to an existing version and is recorded by the change audit.
 
-Each version stores or derives:
+`score_ledger.rule_id` continues to reference the exact UUID that produced each contribution. Historical versions remain queryable after cutover.
 
-- rule family code;
-- monotonic version number within the family;
-- name and description;
-- activity type and rule kind;
-- metric and unit contract;
-- coefficient or configured points;
-- threshold operator, value, and unit;
-- priority and enabled state;
-- inclusive `valid_from` and `valid_to` dates;
-- creation timestamp and initiating actor/context.
+### Effective ranges
 
-`score_ledger.rule_id` continues to reference the exact immutable version that produced each contribution.
+Effective dates are inclusive. Enabled versions in one family may not overlap, including a shared boundary date. Open-ended `valid_to` is treated as infinity.
 
-### Effective ranges and overlap
+Postgres enforces this with a GiST exclusion constraint over `(code, daterange(..., '[]'))`. The API also rejects overlaps early so users receive a stable conflict response.
 
-Effective dates are inclusive. Within one rule family, active semantic versions may not overlap.
+A replacement must start after the selected prior version starts. During successful worker execution, an overlapping prior open-ended range is closed on the previous calendar day before the proposed row is enabled.
 
-For two ranges `[a, b]` and `[c, d]`, overlap is rejected when both versions are enabled and the ranges intersect, including shared boundary dates. Open-ended `valid_to` is treated as infinity.
+### Validation
 
-A new version may:
+`packages/domain/src/rules-studio.ts` is the authoritative proposal contract used by preview and activation.
 
-1. begin after the prior version ends; or
-2. atomically close the prior open-ended version on the day before the new version begins and insert the new version.
+It validates:
 
-Backdating is allowed only through an explicit preview-and-activate workflow. Silent retroactive insertion is rejected.
+- stable lowercase family codes and bounded names/descriptions;
+- supported activity types, rule kinds, metrics, and threshold operators;
+- metric compatibility with activity type;
+- finite positive coefficients for coefficient/manual rules;
+- threshold value, exact metric unit, and positive integer points for achievement rules;
+- real ISO calendar dates and ordered inclusive ranges;
+- bounded integer priority;
+- UUID shape for an optional replacement version.
 
-Database constraints, not only API validation, must prevent overlapping enabled ranges for a family.
+Angular performs convenience input handling only. Official scoring remains in `packages/domain`.
 
-### Validation contract
+### Preview
 
-Validation belongs in shared domain/application code and is reused by preview and activation.
+`POST /rules/preview` is read-only. It does not insert a rule, audit row, job, daily total, or ledger entry.
 
-- `activity_type`, `rule_kind`, metric, threshold operator, and units must be from explicit supported sets;
-- coefficients and threshold values must be finite and within documented bounds;
-- coefficient rules require a coefficient and reject configured points;
-- achievement rules require a threshold and non-zero configured points;
-- manual rules require a supported metric and multiplier semantics;
-- threshold unit must match the metric contract;
-- `valid_from` and `valid_to` must be real ISO dates, with `valid_from <= valid_to`;
-- priority must be a bounded integer;
-- rule-family codes are stable identifiers and cannot be repurposed across incompatible activity/rule kinds without an explicit migration policy.
+The API:
 
-The browser performs convenience validation only. The API/domain layer remains authoritative.
+1. validates and normalizes the proposal;
+2. loads enabled rule UUIDs plus persisted daily facts and canonical activities;
+3. replaces the selected prior version in memory with the proposal;
+4. invokes deterministic domain scoring for each available date in the requested effective range;
+5. returns current/proposed base, bonus, total, and delta per date plus aggregate/minimum/maximum deltas;
+6. computes a SHA-256 confirmation fingerprint over the normalized proposal, preview rows, current rule identities/effective ranges, and daily recomputation versions.
 
-### Change request and audit model
+Preview is bounded to 5,000 persisted dates. Open-ended proposals preview through the latest persisted daily date. The fingerprint becomes stale when relevant rules or daily facts change.
 
-A rule change is represented by an immutable change request before it becomes authoritative.
+### Activation and audit
 
-The audit record stores:
+`POST /rules/activate` requires the normalized proposal, an exact current preview fingerprint, and a non-empty audit reason.
 
-- request ID and status;
-- initiating actor/context (`local-user` until authentication exists);
-- request timestamp;
-- rule family and previous version ID when applicable;
-- complete proposed version payload;
-- requested affected date range;
-- preview fingerprint and summary;
-- activation timestamp and created version ID;
-- recomputation job ID;
-- terminal recomputation result or sanitized failure;
-- cancellation/rollback metadata when applicable.
+One enqueue transaction:
 
-Proposed, activated, recomputing, completed, failed, and cancelled states remain queryable.
+1. locks the rule family and active-change boundary;
+2. revalidates replacement identity and overlap;
+3. inserts the new rule UUID disabled with the next family version;
+4. inserts one `scoring_rule_changes` audit/job row containing actor, reason, proposal, preview, fingerprint, affected range, attempts, and lifecycle state.
 
-### Preview semantics
+If any insert or validation fails, neither row is committed.
 
-Preview is read-only and does not insert a rule version, mutate daily totals, or replace ledger rows.
+The proposed version is deliberately non-authoritative while the audit job is queued or running.
 
-The server:
+### Worker recomputation
 
-1. validates the proposal and effective range;
-2. constructs the candidate rule set by applying the proposal in memory;
-3. loads persisted daily facts and canonical activities for the requested range;
-4. scores each date with the current rule set and candidate rule set using `packages/domain`;
-5. returns per-date current total, proposed total, delta, affected rule contributions, aggregate delta, affected-date count, and unchanged-date count;
-6. persists a bounded preview summary and deterministic fingerprint on the change request so activation can prove which proposal/range was confirmed.
+`scoring_rule_changes` uses the same durable lifecycle invariants as import jobs: queued/running/succeeded/failed/cancelled states, bounded attempts, `FOR UPDATE SKIP LOCKED` claims, lease owner, lease expiry, heartbeat, monotonic progress, explicit retry, queued cancellation, and stale recovery.
 
-Preview results are not authoritative scores and are labelled accordingly.
+A separate typed table is used rather than weakening V104's required upload foreign key. Import-job IDs and API behavior remain unchanged while both job kinds share the same state-machine policy and run in the independent worker process.
 
-### Activation and recomputation
+For a claimed change, one Postgres transaction:
 
-Activation requires the exact preview fingerprint and proposal revision that the user confirmed.
+1. locks the audit row and proposed/prior rule rows;
+2. aborts before activation when cancellation was already requested;
+3. closes the selected prior range when necessary;
+4. enables the proposed UUID;
+5. reads the resulting enabled rule set;
+6. recomputes each affected persisted date with domain scoring;
+7. replaces that date's daily totals and score ledger entries;
+8. records a succeeded audit result and terminal timestamps.
 
-From the user's perspective, activation and recomputation form one audited operation, but long-running score replacement executes through the durable worker lifecycle:
+Any exception rolls the whole activation/recomputation transaction back. The prior rule, proposed disabled row, daily totals, and ledger remain in their pre-attempt state. The outer runner then records a sanitized failed terminal state, which can be retried with the same audit identity while attempts remain.
 
-1. an activation transaction revalidates overlap and preview freshness;
-2. it inserts the immutable new rule version, closes the prior version when requested, records the audit transition, and enqueues a recomputation job;
-3. if enqueue fails, the activation transaction rolls back;
-4. the worker recomputes the requested dates in bounded transactions using the now-authoritative effective rule set;
-5. each date's `daily_metrics` totals and `score_ledger` entries are replaced atomically;
-6. progress, cancellation, retry, stale recovery, and terminal state reuse the lease invariants from ADR 0003;
-7. the audit record stores the terminal counts, aggregate delta, date range, and job reference.
+Queued cancellation is immediate. Running cancellation is cooperative before the activation transaction. Once the atomic transaction commits, a late cancellation cannot relabel the successful result.
 
-A failed or cancelled recomputation does not delete the activated rule version. The audit view clearly reports partial/failed operational state and permits an idempotent retry for the same range. This avoids pretending an already-authoritative rule activation never occurred. The implementation must define bounded transaction granularity and expose which dates completed.
+### Audit queries
 
-### Job lifecycle generalization
+Rules Studio exposes:
 
-The V104 table and repository are upload/import-specific because `uploaded_file_id` is required and API routes are named import jobs. Rules recomputation needs the same durable state machine without a source upload.
+- all rule versions, active and historical, ordered by family/version;
+- recent change records with proposal, preview, actor, reason, range, status, attempts, progress, result, and sanitized error;
+- one durable change status for bounded browser polling;
+- retry and cancellation transitions.
 
-The implementation should generalize the persistence and runner abstraction to support at least:
-
-- `workbook_import` payloads linked to `uploaded_files`;
-- `score_recompute` payloads linked to rule-change audit records and date ranges.
-
-The generalized job record must preserve existing import-job IDs and API behavior. Job-kind-specific payloads are validated before enqueue and are never interpreted in the browser.
-
-### Historical query semantics
-
-Rules Studio lists all versions, including disabled/expired rows, ordered by family and effective range. Daily score breakdown continues to join the exact ledger rule UUID.
-
-No bulk historical score is changed merely by creating or viewing a proposal. Only an activated change with an audited recomputation job replaces authoritative daily totals and ledger entries.
+No storage path, workbook cell payload, or other source-private data is included.
 
 ## Consequences
 
-- Existing rule IDs and ledger explanations remain stable.
-- The global unique constraint on `scoring_rules.code` must be replaced by family/version and non-overlap constraints.
-- Rule rows become immutable semantic records rather than editable configuration rows.
-- Preview can be computationally expensive and must use bounded date ranges and response limits.
-- The durable job subsystem becomes reusable beyond workbook imports.
-- Activation is transactionally coupled to job creation, while recomputation remains asynchronous and recoverable.
-- Failed recomputation is visible and retryable rather than silently rolling back an already published rule version.
+- Historical ledger explanations remain tied to immutable rule UUIDs.
+- Family codes are reusable across non-overlapping versions.
+- Preview can become stale and must be reconfirmed.
+- Activation is not visible until recomputation succeeds atomically.
+- A failed worker attempt leaves the new row disabled and authoritative scores unchanged.
+- The local implementation uses one transaction for at most 5,000 persisted dates; larger hosted workloads require a new ADR for chunking and publication semantics.
+- Authentication will replace the temporary `local-user` actor in issue #14 without changing audit identity.
 
-## Required evidence
+## Evidence
 
-The implementation must demonstrate:
+The implementation is accepted only with repeatable evidence for:
 
-- multiple non-overlapping versions of one rule family remain queryable;
-- inclusive boundary overlap is rejected by API and database constraints;
-- metric/unit/kind validation rejects invalid combinations;
-- preview produces deterministic per-date and aggregate deltas without persistence;
-- activation validates the confirmed preview fingerprint and atomically inserts the version plus recomputation job;
-- worker recomputation replaces daily totals and ledger entries with the exact new rule UUID;
-- failure, cancellation, retry, and stale recovery preserve audit state and canonical consistency;
-- the Rules Studio UI covers list, edit proposal, preview, confirmation, progress, failure, and audit history;
-- root validation and database-backed integration suites pass.
+- invalid proposal and inclusive-boundary validation;
+- deterministic read-only preview deltas;
+- database overlap rejection;
+- single claims, stale recovery, cancellation, and retry identity;
+- independent worker execution;
+- atomic prior-range cutover, new-version activation, daily recomputation, and exact ledger UUID linkage;
+- Rules Studio list/edit/preview/confirm/progress/failure/audit behavior;
+- clean migration, typecheck, tests, integration suites, and production build.
