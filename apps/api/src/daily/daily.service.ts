@@ -1,10 +1,12 @@
 import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
 import {
+  CockpitRepository,
   DailyRepository,
   ScoreBreakdownContractError,
   parseDailyScoreBreakdown,
   type DailyScoreBreakdown,
   type DailyScoreBreakdownReadModel,
+  type DailySummaryQuery,
 } from '@sportos/db';
 import { DbProvider } from '../db.provider.js';
 
@@ -12,8 +14,8 @@ import { DbProvider } from '../db.provider.js';
 export class DailyService {
   constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
 
-  async summary(limit: number) {
-    return new DailyRepository(this.dbProvider.db).listDailySummary(limit);
+  async summary(input: DailySummaryQuery) {
+    return new CockpitRepository(this.dbProvider.db).listDailySummary(input);
   }
 
   async scoreBreakdown(metricDate: string): Promise<DailyScoreBreakdown | null> {
