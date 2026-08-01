@@ -15,24 +15,25 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => controller.abort());
 }
 
-const db = createDb(process.env.SPORTOS_WORKER_DATABASE_URL ?? process.env.DATABASE_URL);
+const dispatchDb = createDb(process.env.SPORTOS_WORKER_DATABASE_URL ?? process.env.DATABASE_URL);
+const dataDb = createDb(process.env.SPORTOS_WORKER_DATA_DATABASE_URL);
 const storage = new LocalUploadStorage();
 
 try {
   await Promise.all([
-    ...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(db, storage, {
+    ...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(dispatchDb, dataDb, storage, {
       workerId: `${processId}:import:${index + 1}`,
       leaseSeconds,
       pollIntervalMs,
     }).run(controller.signal)),
-    new RuleChangeRunner(db, {
+    new RuleChangeRunner(dispatchDb, dataDb, {
       workerId: `${processId}:rules`,
       leaseSeconds,
       pollIntervalMs,
     }).run(controller.signal),
   ]);
 } finally {
-  await db.destroy();
+  await Promise.all([dispatchDb.destroy(), dataDb.destroy()]);
 }
 
 function clampInteger(value: number, minimum: number, maximum: number): number {
