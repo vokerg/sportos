@@ -61,6 +61,7 @@ The API validates and durably enqueues work, validates bounded read/export input
 16. Canonical exports are versioned, range-bounded, deterministically ordered, count-checked, and validated after database assembly.
 17. Missing provenance is explicit; the system never invents source/batch identifiers.
 18. Raw cells, formulas, raw payload JSON, upload hashes, object keys, paths, and source bytes are excluded from canonical export.
+19. One canonical export is assembled from one repeatable-read database snapshot.
 
 ## Layers
 
@@ -124,7 +125,7 @@ Repositories provide narrow read boundaries:
 - `DailyRepository` assembles a persisted daily score explanation with ledger, exact rule UUIDs, activities, source records, and import batches;
 - `CockpitRepository` applies bounded daily ranges and normalizes database dates;
 - `PerformanceRepository` filters events and resolves event-level provenance;
-- `CanonicalExportRepository` joins canonical rows to provenance, maps database dates/timestamps/numbers, excludes private/raw fields, and validates `sportos.canonical-export.v1` before returning.
+- `CanonicalExportRepository` opens a repeatable-read transaction, joins canonical rows to provenance from one snapshot, maps database dates/timestamps/numbers, excludes private/raw fields, and validates `sportos.canonical-export.v1` before returning.
 
 The API and future authorized tools use these stable reads rather than querying raw tables or interpreting spreadsheets.
 
@@ -203,7 +204,7 @@ No authoritative row is written during preview.
 ### Canonical export flow
 
 1. Require `from` and `to`; reject invalid, reversed, or ranges larger than 3,660 days.
-2. Query daily summaries, activities, and performance events concurrently in deterministic ascending order.
+2. Open one repeatable-read transaction and read daily summaries, activities, and performance events from the same snapshot in deterministic ascending order.
 3. Join source-record and import-batch identifiers where available.
 4. Map reconciliation and provenance status explicitly.
 5. Validate real dates, range containment, strict fields, stable order, and exact row counts with the shared v1 schema.
