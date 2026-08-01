@@ -8,53 +8,51 @@ import {
 } from '@sportos/db';
 import { RuleChangeRunner } from './rule-change-runner.js';
 
-const testDatabaseUrl = process.env.SPORTOS_TEST_DATABASE_URL;
-const databaseDescribe = testDatabaseUrl ? describe : describe.skip;
+const dispatchDatabaseUrl = process.env.SPORTOS_TEST_DATABASE_URL;
+const dataDatabaseUrl = process.env.SPORTOS_WORKER_DATA_DATABASE_URL;
+const databaseDescribe = dispatchDatabaseUrl && dataDatabaseUrl ? describe : describe.skip;
 type TestDatabase = ReturnType<typeof createDb>;
 
 const metricDate = '2026-05-18';
 const ruleCode = 'run.km.default';
 
 databaseDescribe('RuleChangeRunner database integration', () => {
-  let db: TestDatabase;
+  let dispatchDb: TestDatabase;
+  let dataDb: TestDatabase;
 
   beforeAll(() => {
-    db = createDb(requireTestDatabaseUrl());
+    dispatchDb = createDb(requireDatabaseUrl(dispatchDatabaseUrl, 'SPORTOS_TEST_DATABASE_URL'));
+    dataDb = createDb(requireDatabaseUrl(dataDatabaseUrl, 'SPORTOS_WORKER_DATA_DATABASE_URL'));
   });
 
   beforeEach(async () => {
-    await reset(db);
-    await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
-      await ownerDb
-        .insertInto('daily_metrics')
-        .values({
-          metric_date: metricDate,
-          source_record_id: null,
-          steps: 0,
-          run_m: 2500,
-          bike_m: 0,
-          swim_m: 0,
-          workout_points: 0,
-          power_points: 0,
-          base_points: 2500,
-          bonus_points: 0,
-          total_points: 2500,
-          excel_all_points: null,
-          excel_row_hash: null,
-        })
-        .execute();
+    await reset(dataDb);
+    await withAccountContext(dataDb, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      await ownerDb.insertInto('daily_metrics').values({
+        metric_date: metricDate,
+        source_record_id: null,
+        steps: 0,
+        run_m: 2500,
+        bike_m: 0,
+        swim_m: 0,
+        workout_points: 0,
+        power_points: 0,
+        base_points: 2500,
+        bonus_points: 0,
+        total_points: 2500,
+        excel_all_points: null,
+        excel_row_hash: null,
+      }).execute();
     });
   });
 
   afterAll(async () => {
-    if (db) {
-      await reset(db);
-      await db.destroy();
-    }
+    if (dataDb) await reset(dataDb);
+    await Promise.all([dispatchDb?.destroy(), dataDb?.destroy()]);
   });
 
-  it('claims and completes a queued audited recomputation without the API process', async () => {
-    const queued = await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+  it('dispatches globally but recomputes only inside the claimed owner context', async () => {
+    const queued = await withAccountContext(dataDb, LEGACY_ACCOUNT_ID, async (ownerDb) => {
       const previous = await ownerDb
         .selectFrom('scoring_rules')
         .select('id')
@@ -70,32 +68,48 @@ databaseDescribe('RuleChangeRunner database integration', () => {
       });
     });
 
-    const changes = new RuleChangesRepository(db);
-    const runner = new RuleChangeRunner(db, { workerId: 'rule-worker-test', leaseSeconds: 60, pollIntervalMs: 100 });
+    const runner = new RuleChangeRunner(dispatchDb, dataDb, {
+      workerId: 'rule-worker-test',
+      leaseSeconds: 60,
+      pollIntervalMs: 100,
+    });
     await expect(runner.processNext()).resolves.toBe(true);
     await expect(runner.processNext()).resolves.toBe(false);
 
-    expect(await changes.getById(queued.id)).toMatchObject({
+    const evidence = await withAccountContext(dataDb, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      const change = await new RuleChangesRepository(ownerDb).getById(queued.id);
+      const daily = await ownerDb
+        .selectFrom('daily_metrics')
+        .select(['total_points', 'owner_id'])
+        .where('metric_date', '=', metricDate)
+        .executeTakeFirstOrThrow();
+      const ledger = await ownerDb
+        .selectFrom('score_ledger')
+        .select(['rule_id', 'points', 'owner_id'])
+        .where('metric_date', '=', metricDate)
+        .where('rule_id', '=', queued.proposedRuleId)
+        .executeTakeFirstOrThrow();
+      return { change, daily, ledger };
+    });
+
+    expect(evidence.change).toMatchObject({
       status: 'succeeded',
       phase: 'completed',
       progressPercent: 100,
       attemptCount: 1,
       result: { datesRecomputed: 1, proposedRuleId: queued.proposedRuleId },
     });
-    const daily = await db
-      .selectFrom('daily_metrics')
-      .select(['total_points', 'owner_id'])
-      .where('metric_date', '=', metricDate)
-      .executeTakeFirstOrThrow();
-    expect(Number(daily.total_points)).toBe(2750);
-    expect(daily.owner_id).toBe(LEGACY_ACCOUNT_ID);
-    const ledger = await db
-      .selectFrom('score_ledger')
-      .select(['rule_id', 'points', 'owner_id'])
-      .where('metric_date', '=', metricDate)
-      .where('rule_id', '=', queued.proposedRuleId)
-      .executeTakeFirstOrThrow();
-    expect(ledger).toMatchObject({ rule_id: queued.proposedRuleId, points: 2750, owner_id: LEGACY_ACCOUNT_ID });
+    expect(Number(evidence.daily.total_points)).toBe(2750);
+    expect(evidence.daily.owner_id).toBe(LEGACY_ACCOUNT_ID);
+    expect(evidence.ledger).toMatchObject({
+      rule_id: queued.proposedRuleId,
+      points: 2750,
+      owner_id: LEGACY_ACCOUNT_ID,
+    });
+
+    expect(await dispatchDb.selectFrom('scoring_rules').select('id').execute()).toEqual([]);
+    expect(await dispatchDb.selectFrom('daily_metrics').select('metric_date').execute()).toEqual([]);
+    expect(await dispatchDb.selectFrom('score_ledger').select('id').execute()).toEqual([]);
   });
 });
 
@@ -137,23 +151,24 @@ function preview(): RuleChangePreview {
 }
 
 async function reset(db: TestDatabase): Promise<void> {
-  await db.deleteFrom('scoring_rule_changes').where('rule_code', '=', ruleCode).execute();
-  await db.deleteFrom('score_ledger').where('metric_date', '=', metricDate).execute();
-  await db.deleteFrom('daily_metrics').where('metric_date', '=', metricDate).execute();
-  await db.deleteFrom('scoring_rules').where('code', '=', ruleCode).where('version', '>', 1).execute();
-  await db
-    .updateTable('scoring_rules')
-    .set({ valid_to: null, enabled: true, supersedes_rule_id: null })
-    .where('code', '=', ruleCode)
-    .where('version', '=', 1)
-    .execute();
+  await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+    await ownerDb.deleteFrom('scoring_rule_changes').where('rule_code', '=', ruleCode).execute();
+    await ownerDb.deleteFrom('score_ledger').where('metric_date', '=', metricDate).execute();
+    await ownerDb.deleteFrom('daily_metrics').where('metric_date', '=', metricDate).execute();
+    await ownerDb.deleteFrom('scoring_rules').where('code', '=', ruleCode).where('version', '>', 1).execute();
+    await ownerDb.updateTable('scoring_rules')
+      .set({ valid_to: null, enabled: true, supersedes_rule_id: null })
+      .where('code', '=', ruleCode)
+      .where('version', '=', 1)
+      .execute();
+  });
 }
 
-function requireTestDatabaseUrl(): string {
-  if (!testDatabaseUrl) throw new Error('SPORTOS_TEST_DATABASE_URL is required for database integration tests.');
-  const databaseName = new URL(testDatabaseUrl).pathname.replace(/^\//, '');
+function requireDatabaseUrl(value: string | undefined, name: string): string {
+  if (!value) throw new Error(`${name} is required for database integration tests.`);
+  const databaseName = new URL(value).pathname.replace(/^\//, '');
   if (databaseName !== 'test' && !/[_-]test$/i.test(databaseName)) {
-    throw new Error('SPORTOS_TEST_DATABASE_URL must target a database whose name ends in _test or -test.');
+    throw new Error(`${name} must target a database whose name ends in _test or -test.`);
   }
-  return testDatabaseUrl;
+  return value;
 }
