@@ -102,11 +102,17 @@ describe('canonical export v1 contract', () => {
 
   it('rejects available provenance without traceable identifiers', () => {
     const candidate = bundle();
-    candidate.dailySummaries[0]!.provenance = {
-      ...availableProvenance,
-      sourceRecordId: null,
-    } as never;
+    candidate.dailySummaries[0]!.provenance = { ...availableProvenance, sourceRecordId: null } as never;
     expect(() => CanonicalExportBundleSchema.parse(candidate)).toThrow(/source record id/i);
+  });
+
+  it('rejects missing provenance that claims traceable identifiers', () => {
+    const candidate = bundle();
+    candidate.performanceEvents[0]!.provenance = {
+      ...candidate.performanceEvents[0]!.provenance,
+      sourceRecordId: availableProvenance.sourceRecordId,
+    } as never;
+    expect(() => CanonicalExportBundleSchema.parse(candidate)).toThrow(/cannot claim traceable/i);
   });
 
   it('rejects mismatched declared row counts', () => {
@@ -121,9 +127,28 @@ describe('canonical export v1 contract', () => {
     expect(() => CanonicalExportBundleSchema.parse(candidate)).toThrow(/unrecognized key/i);
   });
 
-  it('rejects reversed export date ranges', () => {
-    const candidate = bundle();
-    candidate.dateRange = { from: '2026-05-19', to: '2026-05-18' };
-    expect(() => CanonicalExportBundleSchema.parse(candidate)).toThrow(/date range/i);
+  it('rejects impossible and reversed export date ranges', () => {
+    const impossible = bundle();
+    impossible.dateRange = { from: '2026-02-30', to: '2026-05-18' };
+    expect(() => CanonicalExportBundleSchema.parse(impossible)).toThrow(/real calendar date/i);
+
+    const reversed = bundle();
+    reversed.dateRange = { from: '2026-05-19', to: '2026-05-18' };
+    expect(() => CanonicalExportBundleSchema.parse(reversed)).toThrow(/date range/i);
+  });
+
+  it('rejects rows outside the range and unstable ordering', () => {
+    const outside = bundle();
+    outside.dailySummaries[0]!.metricDate = '2026-05-17';
+    expect(() => CanonicalExportBundleSchema.parse(outside)).toThrow(/outside the declared date range/i);
+
+    const unordered = bundle();
+    unordered.dateRange.to = '2026-05-19';
+    unordered.activities = [
+      { ...unordered.activities[0]!, id: '99999999-9999-4999-8999-999999999999', activityDate: '2026-05-19' },
+      { ...unordered.activities[0]!, id: '11111111-1111-4111-8111-111111111111', activityDate: '2026-05-18' },
+    ];
+    unordered.rowCounts.activities = 2;
+    expect(() => CanonicalExportBundleSchema.parse(unordered)).toThrow(/stable ascending order/i);
   });
 });
