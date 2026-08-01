@@ -20,23 +20,26 @@ browser XLSX / local CLI / future integrations
        import_batches + source_records     |
                     |                      |
                     v                      |
- activities + daily_metrics <--------------+
+ activities + daily_metrics + performance_events
+                    |                      |
+                    v                      |
+       scoring_rules + score_ledger <------+ 
                     |
                     v
-       scoring_rules + score_ledger
+ stable reads + canonical export repository
                     |
                     v
-     read models -> NestJS API -> Angular UI
+          NestJS API -> Angular cockpit
                     |
                     v
-        future read-only AI tooling
+        future authorized read-only tools
 ```
 
 ## System boundary
 
 SportOS is currently a local-first, single-user monorepo. Postgres is authoritative for metadata, job leases, audit history, provenance, canonical facts, rule versions, and official scores. Workbook bytes remain outside Postgres behind a replaceable storage contract.
 
-The API validates and durably enqueues work. An independent worker executes import and rule-recomputation jobs. Bounded Postgres polling is sufficient for local correctness; future wake-up delivery may reduce latency but cannot bypass persisted claim and lease rules.
+The API validates and durably enqueues work, validates bounded read/export inputs, and returns privacy-safe canonical responses. An independent worker executes import and rule-recomputation jobs. Bounded Postgres polling is sufficient for local correctness; future wake-up delivery may reduce latency but cannot bypass persisted claim and lease rules.
 
 ## Architectural invariants
 
@@ -54,6 +57,10 @@ The API validates and durably enqueues work. An independent worker executes impo
 12. A rule UUID is one immutable semantic version; family codes may repeat only across non-overlapping enabled ranges.
 13. Preview is non-authoritative and cannot mutate rule rows, daily totals, or ledger entries.
 14. Rule activation and affected score replacement publish atomically or not at all.
+15. Public dates are real `YYYY-MM-DD` calendar values normalized at repository boundaries.
+16. Canonical exports are versioned, range-bounded, deterministically ordered, count-checked, and validated after database assembly.
+17. Missing provenance is explicit; the system never invents source/batch identifiers.
+18. Raw cells, formulas, raw payload JSON, upload hashes, object keys, paths, and source bytes are excluded from canonical export.
 
 ## Layers
 
@@ -104,7 +111,7 @@ Tables:
 
 Spreadsheet layout does not cross the importer boundary. Deterministic source identities make retry and duplicate delivery converge on the same canonical rows.
 
-### Read models
+### Read models and canonical export
 
 Views:
 
@@ -112,23 +119,30 @@ Views:
 - `v_score_breakdown`
 - `v_performance_events`
 
-The API and future read-only AI tools prefer stable read models and narrow repository contracts over ad hoc raw-table access.
+Repositories provide narrow read boundaries:
+
+- `DailyRepository` assembles a persisted daily score explanation with ledger, exact rule UUIDs, activities, source records, and import batches;
+- `CockpitRepository` applies bounded daily ranges and normalizes database dates;
+- `PerformanceRepository` filters events and resolves event-level provenance;
+- `CanonicalExportRepository` joins canonical rows to provenance, maps database dates/timestamps/numbers, excludes private/raw fields, and validates `sportos.canonical-export.v1` before returning.
+
+The API and future authorized tools use these stable reads rather than querying raw tables or interpreting spreadsheets.
 
 ## Package responsibilities
 
 | Package or app | Responsibility |
 |---|---|
-| `apps/api` | HTTP validation, upload orchestration, import/rule enqueue, status, retry, and cancellation |
-| `apps/web` | Review, import monitoring, server-computed rule preview, and audit UI; no authoritative calculations |
+| `apps/api` | HTTP validation, upload/rule orchestration, bounded canonical reads, and export delivery |
+| `apps/web` | Accessible local review, drill-down, monitoring, rule preview/audit, and download UI; no authoritative calculations |
 | `apps/worker` | Long-running import and rule-change execution plus local CLI |
-| `packages/shared` | Serialization schemas and low-level date/hash utilities |
+| `packages/shared` | Serialization schemas, real-date utilities, and canonical export contract |
 | `packages/domain` | Pure aggregation, scoring, reconciliation, rule validation, and preview logic |
-| `packages/db` | Typed schema, leases, version/audit persistence, and repositories |
+| `packages/db` | Typed schema, leases, audits, canonical reads, provenance joins, and export assembly |
 | `packages/importers` | Storage, XLSX extraction, normalization, warnings, and import transactions |
 | `packages/analytics` | Pure analytics without database dependencies |
 | `flyway/sql` | Append-only migrations and database constraints |
 
-Dependencies point toward shared and pure packages. Angular and NestJS do not own scoring semantics.
+Dependencies point toward shared and pure packages. Angular and NestJS do not own scoring, provenance, or export semantics.
 
 ## Runtime flows
 
@@ -178,12 +192,24 @@ No authoritative row is written during preview.
 4. One transaction closes the superseded range, enables the new UUID, recomputes the bounded date range, replaces ledger entries, and completes the audit.
 5. Failure rolls back all authoritative changes; retry reuses the same audit identity.
 
-### Query flow
+### Cockpit query flow
 
-1. Validate route, query, body, file, and pagination inputs.
-2. Query stable tables, views, or audit repositories.
-3. Omit source-private storage details.
-4. Render canonical facts, provenance, job state, rule history, previews, and audit results.
+1. Validate real dates, ordered inclusive ranges, maximum spans, positive distances, bounded limits, and UUIDs before querying.
+2. Query stable views/tables through a narrow repository.
+3. Normalize PostgreSQL date values to canonical strings.
+4. Return canonical facts and explicit `available`, `missing`, or `unsupported` provenance without storage internals.
+5. Angular renders loading, empty, error, retry, trend, table, and detail states without recalculating official data.
+
+### Canonical export flow
+
+1. Require `from` and `to`; reject invalid, reversed, or ranges larger than 3,660 days.
+2. Query daily summaries, activities, and performance events concurrently in deterministic ascending order.
+3. Join source-record and import-batch identifiers where available.
+4. Map reconciliation and provenance status explicitly.
+5. Validate real dates, range containment, strict fields, stable order, and exact row counts with the shared v1 schema.
+6. Return a `no-store` JSON attachment; the browser names and downloads the validated document.
+
+The export intentionally does not serialize raw records, formula payloads, uploaded-file metadata, object storage identity, or server paths. See [CANONICAL_EXPORT.md](CANONICAL_EXPORT.md).
 
 ## Current risks
 
@@ -192,7 +218,8 @@ No authoritative row is written during preview.
 - Duplicate upload detection is advisory rather than owner-scoped reservation.
 - Postgres polling adds periodic load; wake-up acceleration must preserve durable claims.
 - Rule recomputation is intentionally bounded to 5,000 persisted dates in one publication transaction; hosted-scale chunking needs a separate publication ADR.
+- Canonical export is intentionally assembled in memory and bounded to 3,660 days; larger authenticated exports may require streaming or durable delivery.
 - Authentication, ownership isolation, and hosted deletion are not implemented.
-- The cockpit still lacks complete cross-screen drill-downs and canonical export.
+- Provenance for manual records is structurally unsupported rather than fabricated.
 
 Milestone sequencing is tracked in [ROADMAP.md](ROADMAP.md).
