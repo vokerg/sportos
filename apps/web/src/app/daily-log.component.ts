@@ -59,7 +59,7 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
           <div class="kpi"><div class="label">Excel delta</div><div class="value">{{ latest()?.points_delta_vs_excel ?? '—' }}</div></div>
         </div>
 
-        <div echarts [options]="chartOptions()" style="height: 320px;" aria-label="Daily total and 30 day average trend"></div>
+        <div echarts [options]="chartOptions()" style="height: 320px;" role="img" aria-label="Daily total and 30 day average trend"></div>
 
         <ag-grid-angular
           class="ag-theme-quartz"
@@ -149,6 +149,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   }
 
   applyFilters(): void {
+    this.closeBreakdown();
     if (this.from() && this.to() && this.from() > this.to()) {
       this.summaryError.set('From date must be on or before the to date.');
       this.summaryState.set('error');
@@ -164,6 +165,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   }
 
   loadRows(): void {
+    this.closeBreakdown();
     this.summarySubscription?.unsubscribe();
     this.summaryState.set('loading');
     this.summaryError.set(null);
