@@ -14,6 +14,9 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { LEGACY_ACCOUNT_ID } from '@sportos/db';
+import { CurrentAccount } from '../auth/current-account.decorator.js';
+import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { ImportsService } from './imports.service.js';
 import { MAX_WORKBOOK_UPLOAD_BYTES, type MultipartWorkbookFile } from './workbook-upload.js';
 
@@ -22,41 +25,45 @@ export class ImportsController {
   constructor(@Inject(ImportsService) private readonly importsService: ImportsService) {}
 
   @Get()
-  history(@Query('limit') limit?: string, @Query('offset') offset?: string) {
+  history(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @CurrentAccount() account?: AuthenticatedAccount,
+  ) {
     return this.importsService.history(
       parseBoundedInteger(limit, { name: 'limit', defaultValue: 20, minimum: 1, maximum: 100 }),
       parseBoundedInteger(offset, { name: 'offset', defaultValue: 0, minimum: 0, maximum: 10_000 }),
+      account?.id ?? LEGACY_ACCOUNT_ID,
     );
   }
 
   @Post('upload')
   @HttpCode(HttpStatus.ACCEPTED)
-  @UseInterceptors(FileInterceptor('file', {
-    limits: { files: 1, fileSize: MAX_WORKBOOK_UPLOAD_BYTES },
-  }))
+  @UseInterceptors(FileInterceptor('file', { limits: { files: 1, fileSize: MAX_WORKBOOK_UPLOAD_BYTES } }))
   uploadWorkbook(
     @UploadedFile() file: MultipartWorkbookFile | undefined,
     @Body('workbookKind') workbookKind?: string,
+    @CurrentAccount() account?: AuthenticatedAccount,
   ) {
-    return this.importsService.uploadWorkbook({ file, workbookKind });
+    return this.importsService.uploadWorkbook({ file, workbookKind }, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 
   @Get('jobs/:jobId')
-  job(@Param('jobId') jobId: string) {
+  job(@Param('jobId') jobId: string, @CurrentAccount() account?: AuthenticatedAccount) {
     requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.', 'jobId');
-    return this.importsService.job(jobId);
+    return this.importsService.job(jobId, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 
   @Post('jobs/:jobId/retry')
-  retryJob(@Param('jobId') jobId: string) {
+  retryJob(@Param('jobId') jobId: string, @CurrentAccount() account?: AuthenticatedAccount) {
     requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.', 'jobId');
-    return this.importsService.retryJob(jobId);
+    return this.importsService.retryJob(jobId, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 
   @Post('jobs/:jobId/cancel')
-  cancelJob(@Param('jobId') jobId: string) {
+  cancelJob(@Param('jobId') jobId: string, @CurrentAccount() account?: AuthenticatedAccount) {
     requireUuid(jobId, 'INVALID_IMPORT_JOB_ID', 'Import job id must be a UUID.', 'jobId');
-    return this.importsService.cancelJob(jobId);
+    return this.importsService.cancelJob(jobId, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 
   @Get(':batchId')
@@ -64,37 +71,25 @@ export class ImportsController {
     @Param('batchId') batchId: string,
     @Query('diagnosticLimit') diagnosticLimit?: string,
     @Query('diagnosticOffset') diagnosticOffset?: string,
+    @CurrentAccount() account?: AuthenticatedAccount,
   ) {
     requireUuid(batchId, 'INVALID_IMPORT_BATCH_ID', 'Import batch id must be a UUID.', 'batchId');
-
     const detail = await this.importsService.detail(
       batchId,
-      parseBoundedInteger(diagnosticLimit, {
-        name: 'diagnosticLimit',
-        defaultValue: 100,
-        minimum: 1,
-        maximum: 250,
-      }),
-      parseBoundedInteger(diagnosticOffset, {
-        name: 'diagnosticOffset',
-        defaultValue: 0,
-        minimum: 0,
-        maximum: 50_000,
-      }),
+      parseBoundedInteger(diagnosticLimit, { name: 'diagnosticLimit', defaultValue: 100, minimum: 1, maximum: 250 }),
+      parseBoundedInteger(diagnosticOffset, { name: 'diagnosticOffset', defaultValue: 0, minimum: 0, maximum: 50_000 }),
+      account?.id ?? LEGACY_ACCOUNT_ID,
     );
-    if (!detail) {
-      throw new NotFoundException({
-        code: 'IMPORT_BATCH_NOT_FOUND',
-        message: `No import batch exists with id ${batchId}.`,
-        batchId,
-      });
-    }
+    if (!detail) throw new NotFoundException({ code: 'IMPORT_BATCH_NOT_FOUND', message: 'Import batch was not found.' });
     return detail;
   }
 
   @Post('local-files')
-  importLocalFiles(@Body() body: { mySportPath?: string; runDbPath?: string }) {
-    return this.importsService.importLocalFiles(body);
+  importLocalFiles(
+    @Body() body: { mySportPath?: string; runDbPath?: string },
+    @CurrentAccount() account?: AuthenticatedAccount,
+  ) {
+    return this.importsService.importLocalFiles(body, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 }
 
@@ -109,9 +104,7 @@ export function parseBoundedInteger(value: string | undefined, options: BoundedI
   if (value === undefined || value.trim() === '') return options.defaultValue;
   if (!/^\d+$/.test(value)) throw invalidPagination(options, value);
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < options.minimum || parsed > options.maximum) {
-    throw invalidPagination(options, value);
-  }
+  if (!Number.isSafeInteger(parsed) || parsed < options.minimum || parsed > options.maximum) throw invalidPagination(options, value);
   return parsed;
 }
 
