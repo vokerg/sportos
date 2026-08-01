@@ -14,7 +14,7 @@ SportOS is a local-first sports-data cockpit that turns spreadsheet training rec
 - strict versioned canonical JSON export;
 - OIDC Authorization Code + PKCE sign-in with opaque server-side sessions;
 - per-account uniqueness, same-owner foreign keys, forced row-level security, and non-enumerating API responses;
-- account-aware import and recomputation workers;
+- split queue-dispatch and owner-scoped worker execution;
 - responsive keyboard-accessible Angular session and cockpit states.
 
 The next authoritative queue item after account ownership is provider ingestion and the first Strava adapter. See [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), [authentication and ownership](docs/AUTHENTICATION.md), [canonical export](docs/CANONICAL_EXPORT.md), and [issue #3](https://github.com/vokerg/sportos/issues/3).
@@ -30,7 +30,7 @@ The next authoritative queue item after account ownership is provider ingestion 
 ## Architecture
 
 ```text
-OIDC provider -> opaque API session -> account-scoped transaction
+OIDC provider -> opaque API session -> account-bound database connection
                                       |
 browser XLSX / local CLI              v
           |                 forced RLS + same-owner constraints
@@ -38,10 +38,10 @@ browser XLSX / local CLI              v
 upload storage + uploaded_files       |
           |                            |
           v                            |
-import_jobs ---------------------------+
-          |
-          v
-independent worker (global claim, persisted owner context)
+import_jobs -> narrow dispatcher ------+
+          |                claimed owner
+          v                            |
+owner-scoped worker-data executor <----+
           |
           v
 import_batches + source_records
@@ -67,7 +67,7 @@ Key decisions:
 - [ADR 0002](docs/adr/0002-upload-storage-and-retention.md) — uploaded-file storage and retention;
 - [ADR 0003](docs/adr/0003-import-job-lifecycle.md) — durable import jobs;
 - [ADR 0004](docs/adr/0004-rule-versioning-and-recomputation.md) — immutable rule versions and audited recomputation;
-- [ADR 0005](docs/adr/0005-authentication-and-data-ownership.md) — OIDC, sessions, ownership, RLS, worker context, and migration;
+- [ADR 0005](docs/adr/0005-authentication-and-data-ownership.md) — OIDC, sessions, ownership, RLS, worker authorization, and migration;
 - [Canonical export v1](docs/CANONICAL_EXPORT.md) — stable datasets, ordering, provenance, reconciliation, and privacy exclusions.
 
 ## Prerequisites
@@ -88,7 +88,7 @@ pnpm db:up
 pnpm db:migrate
 ```
 
-The Docker init script creates development-only non-superuser runtime roles. Flyway continues to use the schema-owner credentials; the API, worker, and local CLI must use their dedicated URLs from `.env.example`. Existing database volumes should follow the role provisioning notes in [AUTHENTICATION.md](docs/AUTHENTICATION.md).
+The Docker init script creates development-only non-superuser runtime roles. Flyway continues to use the schema-owner credentials; the API, queue dispatcher, owner-scoped worker-data executor, and local CLI use separate URLs from `.env.example`. Existing database volumes should follow the role provisioning notes in [AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
 Configure OIDC:
 
@@ -100,6 +100,8 @@ SPORTOS_API_ORIGIN=http://localhost:3000
 SPORTOS_WEB_ORIGIN=http://localhost:4200
 SPORTOS_COOKIE_SECURE=false
 ```
+
+To let one OIDC identity claim data migrated from the former single-user installation, configure both `SPORTOS_LEGACY_OIDC_ISSUER` and `SPORTOS_LEGACY_OIDC_SUBJECT` before that identity's first login. Keep the mapping stable until the claim is verified.
 
 Start the API, web application, and worker in separate terminals:
 
@@ -121,9 +123,9 @@ pnpm db:down
 
 SportOS does not store passwords. It maps the OIDC provider's immutable `(issuer, subject)` to an internal account UUID. A random opaque session is stored only as a digest and delivered in an HttpOnly cookie. Unsafe requests require a session-bound CSRF cookie/header pair. Credentialed CORS accepts only `SPORTOS_WEB_ORIGIN`.
 
-Every user-visible row has an owner. API repository work runs inside a transaction-local account context and forced PostgreSQL RLS. Date, upload, rule-family, job, and audit identities are account scoped; cross-table links use same-owner constraints. A valid foreign UUID returns the same generic 404 as a nonexistent UUID.
+Every user-visible row has an owner. API and worker-data operations reserve an account-bound pooled connection, set the account context, run repository-owned transactions on that same connection, and clear the context before release. Forced PostgreSQL RLS filters reads and writes; date, upload, rule-family, job, and audit identities are account scoped; cross-table links use same-owner constraints. A valid foreign UUID returns the same generic 404 as a nonexistent UUID.
 
-The worker uses a separate trusted non-superuser role to claim globally, then processes each import or rule change under its persisted owner. See [AUTHENTICATION.md](docs/AUTHENTICATION.md) for deployment, secrets, migration, CSRF, and role details.
+The worker uses two non-superuser roles. A narrow dispatcher can inspect and lease queue rows across owners but cannot read source, canonical, scoring, ledger, or authentication tables. A separate worker-data connection executes the claimed import or recomputation under the persisted owner. See [AUTHENTICATION.md](docs/AUTHENTICATION.md) for deployment, migration, CSRF, and role details.
 
 ## Workbook imports and review
 
@@ -141,7 +143,7 @@ pnpm import:local -- \
 
 ## Canonical export
 
-The canonical export endpoint downloads `sportos.canonical-export.v1` JSON for a required inclusive range of at most 3,660 days. One repeatable-read transaction assembles account-owned daily summaries, activities, performance events, reconciliation, and explicit provenance. Raw cells, formulas, payload JSON, upload hashes, object keys, paths, and source bytes are excluded.
+The canonical export endpoint downloads `sportos.canonical-export.v1` JSON for a required inclusive range of at most 3,660 days. One repeatable-read transaction assembles account-owned daily summaries, activities, performance events, reconciliation, and explicit provenance. Raw cells, formulas, payload JSON, upload hashes, object keys, paths, account IDs, authentication data, and source bytes are excluded.
 
 ## API surface
 
@@ -209,12 +211,13 @@ SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:543
 SPORTOS_OWNER_TEST_DATABASE_URL=postgres://sportos_app:sportos_app@localhost:5432/sportos_test \
   pnpm --filter @sportos/db test:integration
 SPORTOS_TEST_DATABASE_URL=postgres://sportos_worker:sportos_worker@localhost:5432/sportos_test \
+SPORTOS_WORKER_DATA_DATABASE_URL=postgres://sportos_worker_data:sportos_worker_data@localhost:5432/sportos_test \
   pnpm --filter @sportos/worker test:integration
 SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:5432/sportos_test \
   pnpm --filter @sportos/importers test:integration
 ```
 
-The suites cover migrations, owner isolation, cross-user negative cases, import and rule-job claims, worker owner propagation, transactional imports, exact ledger UUIDs, canonical export privacy/provenance, API session/CSRF validation, cockpit states, and production builds.
+The suites cover migrations through V108, owner isolation, immutable ownership, cross-user negative cases, legacy identity claim, import and rule-job dispatch, denied dispatcher access to canonical data, owner-scoped worker execution, transactional imports, exact ledger UUIDs, canonical export privacy/provenance, API session/CSRF validation, cockpit states, and production builds.
 
 ## Contributing
 
