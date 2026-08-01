@@ -9,6 +9,28 @@ const eventId = '11111111-1111-4111-8111-111111111111';
 describe('PerformanceController', () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it('uses a validated default for the legacy best-performance route', async () => {
+    const best = vi.spyOn(PerformanceRepository.prototype, 'listBestByDistance').mockResolvedValue([]);
+    const controller = createController();
+
+    await expect(controller.best(undefined, undefined)).resolves.toEqual([]);
+    expect(best).toHaveBeenCalledWith(5000, 25);
+  });
+
+  it('rejects an explicitly empty required distance with a stable code', async () => {
+    const best = vi.spyOn(PerformanceRepository.prototype, 'listBestByDistance').mockResolvedValue([]);
+    const controller = createController();
+
+    try {
+      await controller.best('', '25');
+      throw new Error('Expected an empty distance to be rejected.');
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({ code: 'INVALID_DISTANCE_M' });
+    }
+    expect(best).not.toHaveBeenCalled();
+  });
+
   it('passes validated distance, date, and limit filters', async () => {
     const list = vi.spyOn(PerformanceRepository.prototype, 'listEvents').mockResolvedValue([]);
     const controller = createController();
@@ -22,6 +44,7 @@ describe('PerformanceController', () => {
     const controller = createController();
 
     await expect(controller.events('-1', undefined, undefined, '100')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.events('', undefined, undefined, '100')).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.events('5000', '2026-02-30', '2026-03-01', '100')).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.events('5000', undefined, undefined, '501')).rejects.toBeInstanceOf(BadRequestException);
     expect(list).not.toHaveBeenCalled();
