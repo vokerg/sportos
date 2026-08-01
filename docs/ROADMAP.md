@@ -15,18 +15,19 @@ A feature is not delivered solely because a component or table exists.
 | Area | Current state | Main remaining gap |
 |---|---|---|
 | Repository and fresh schema | Validated | routine maintenance and hosted backup/recovery |
-| Raw provenance and imports | Validated and locally operational | ownership-scoped hosted operation |
-| Browser upload/storage | Validated and locally operational | hosted object lifecycle and deletion |
-| Durable import jobs | Validated and locally operational | wake-up acceleration and hosted observability |
-| Deterministic scoring | Validated | additional rule semantics only when evidence justifies them |
-| Rules Studio | Validated and locally operational | authentication-backed actor identity and hosted-scale recomputation |
+| Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
+| Browser upload/storage | Validated and account scoped | hosted storage backup and erasure |
+| Durable import jobs | Validated and account aware | wake-up acceleration and hosted observability |
+| Deterministic scoring | Validated and account scoped | additional semantics only when evidence justifies them |
+| Rules Studio | Validated with authenticated actor identity | hosted-scale recomputation |
 | Score reconciliation | Validated on sanitized evidence | permitted historical evidence for unresolved workbook semantics |
-| Cockpit review and export | Validated and locally operational | account-scoped authorization and larger export delivery |
-| API | Validated local contracts | authentication and hosted authorization |
-| Web UI | Validated local import, review, rule, drill-down, and export workflows | authenticated multi-user information architecture |
-| Hosted/multi-user operation | Not implemented | auth, isolation, deployment, backup, deletion |
+| Cockpit review and export | Validated and account scoped | larger export delivery |
+| Authentication and ownership | Implemented with non-superuser RLS evidence | production OIDC/secret operations and account deletion policy |
+| API | Authenticated, CSRF-protected, and account scoped | hosted monitoring and rate limiting |
+| Web UI | Authenticated import, review, rule, drill-down, and export workflows | provider connection information architecture |
+| Hosted operation | Partially implemented | deployment, backup, restoration, deletion, and observability |
 | Integrations | Not implemented | provider adapters, credentials, cursors, deduplication |
-| AI analysis | Intentionally not implemented | stable authorized read tools and evaluation |
+| AI analysis | Intentionally not implemented | provider operations and authorized read-tool evaluation |
 
 ## Milestone 0: trustworthy local ingestion
 
@@ -45,41 +46,47 @@ The detailed evidence is maintained in [FIRST_MILESTONE.md](FIRST_MILESTONE.md).
 
 ## Milestone 1: usable local cockpit
 
-### Goal
+Delivered:
 
-A non-developer can import supported files, understand failures, inspect calculations, manage versioned rules safely, review performance and provenance, and repeat or export the workflow without filesystem paths or a CLI.
+1. bounded browser upload and durable external source-file storage;
+2. durable asynchronous import jobs and independent worker execution;
+3. immutable rule versions, read-only previews, audited jobs, and atomic recomputation;
+4. Daily Log and Run Lab drill-downs plus strict canonical export.
 
-### Delivered
-
-1. **Browser upload and durable storage** — bounded XLSX validation, external source bytes, durable metadata, duplicate detection, privacy-safe responses.
-2. **Asynchronous import jobs** — persisted state, bounded queue/concurrency, worker leases, progress, retry, cancellation, stale recovery, independent execution.
-3. **Rules Studio and audited recomputation** — immutable versions, inclusive non-overlap, domain validation, read-only date-level preview, confirmation fingerprints, durable audit jobs, atomic activation/recomputation, exact ledger UUIDs, retry/cancellation/recovery, and browser history.
-4. **Cockpit drill-downs and canonical export** — validated inclusive ranges, Daily Log ledger/activity/source/batch drill-downs, Run Lab trends and event provenance, consistent loading/empty/error states, keyboard-visible navigation, and strict `sportos.canonical-export.v1` JSON.
-
-### Exit criteria
-
-Milestone 1 is complete when issue #13 is merged with clean contract, database provenance, API, component, integration, and production-build evidence.
+Milestone 1 was completed through issue #13.
 
 ## Milestone 2: accounts and integrations
 
-Ordered work:
+### Delivered account foundation
 
-- authentication and user ownership;
-- deployment, secrets, authorization, and hosted operational policy;
-- provider-neutral ingestion interfaces;
-- encrypted credentials and refresh handling;
-- first Strava adapter;
-- provider cursors, rate limits, retries, and backfills;
-- cross-source identity and duplicate policy;
-- time-zone/locale policy, monitoring, backup, and recovery.
+- OIDC Authorization Code + PKCE without SportOS password storage;
+- immutable internal account UUIDs and external `(issuer, subject)` identities;
+- opaque server-side sessions with idle/absolute expiry and revocation;
+- HttpOnly cookies, session-bound CSRF validation, and exact-origin credentialed CORS;
+- explicit legacy-account backfill preserving all existing provenance/canonical UUIDs;
+- non-null owner keys, account-scoped business constraints, and same-owner foreign keys;
+- forced PostgreSQL row-level security exercised through non-superuser API/legacy roles;
+- global worker claim with persisted owner propagation for imports and recomputation;
+- authenticated Angular bootstrap, expiry handling, and safe sign-out;
+- cross-user negative database and API evidence.
+
+See [ADR 0005](adr/0005-authentication-and-data-ownership.md) and [AUTHENTICATION.md](AUTHENTICATION.md).
+
+### Remaining ordered work
+
+1. provider-neutral ingestion interfaces and first Strava adapter;
+2. encrypted provider credentials and refresh handling;
+3. provider cursors, rate limits, retries, and backfills;
+4. cross-source identity and duplicate policy;
+5. time-zone/locale policy, monitoring, backup, restoration, and audited deletion.
 
 Exit: a user can safely connect a provider, backfill history, and trace ownership/provenance for every canonical fact.
 
 ## Milestone 3: read-only analysis
 
-Work begins only after stable authorization and provider operations:
+Work begins only after stable provider operations:
 
-- narrow read-only tools over stable views;
+- narrow read-only tools over stable authorized views;
 - cited dates, activities, rules, and source provenance;
 - deterministic calculations outside the model;
 - evaluations for hallucination, missing/conflicting data, and imported-text prompt injection;
@@ -89,11 +96,10 @@ Exit: generated analysis can explain canonical data without authoritative calcul
 
 ## Near-term queue
 
-Issue #3 is authoritative. After the local cockpit milestone, the sequence is:
+Issue #3 is authoritative. The sequence is:
 
-1. authentication and per-user ownership;
-2. provider ingestion and first Strava adapter;
-3. read-only AI analysis.
+1. provider ingestion and first Strava adapter;
+2. read-only AI analysis.
 
 Each PR must identify the milestone exit criterion it advances and include repeatable evidence appropriate to the risk.
 
@@ -103,6 +109,7 @@ Each PR must identify the milestone exit criterion it advances and include repea
 - [ADR 0002](adr/0002-upload-storage-and-retention.md) — source-file storage and retention.
 - [ADR 0003](adr/0003-import-job-lifecycle.md) — durable import job lifecycle.
 - [ADR 0004](adr/0004-rule-versioning-and-recomputation.md) — immutable rule versions, preview, audit, and atomic recomputation.
+- [ADR 0005](adr/0005-authentication-and-data-ownership.md) — identity, sessions, database ownership, and worker context.
 - [Canonical export v1](CANONICAL_EXPORT.md) — versioned canonical datasets, stable ordering, reconciliation, provenance states, and privacy exclusions.
 
-Future decisions still required include provider identity, time-zone/locale policy, authentication/session strategy, hosted observability, backup/restoration, and deletion.
+Future decisions still required include provider identity/cursor policy, time-zone/locale policy, hosted observability, backup/restoration, deletion, and provider credential encryption.
