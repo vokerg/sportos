@@ -15,7 +15,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => controller.abort());
 }
 
-const db = createDb();
+const db = createDb(process.env.SPORTOS_WORKER_DATABASE_URL ?? process.env.DATABASE_URL);
 const storage = new LocalUploadStorage();
 
 try {
