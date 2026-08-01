@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb } from '../pool.js';
 import { withAccountContext } from '../ownership-context.js';
+import { AuthRepository, ExternalIdentityClaimError } from './auth.repository.js';
 import { ImportJobsRepository } from './import-jobs.repository.js';
 import { UploadsRepository } from './uploads.repository.js';
 
@@ -24,7 +25,7 @@ databaseDescribe('account ownership database integration', () => {
     await db.destroy();
   });
 
-  it('isolates reads, permits same business identities, and rejects foreign links', async () => {
+  it('isolates reads, permits same business identities, rejects foreign links, and prevents owner reassignment', async () => {
     const accountA = await createAccount(db, 'Owner A');
     const accountB = await createAccount(db, 'Owner B');
     accountIds.push(accountA, accountB);
@@ -47,6 +48,12 @@ databaseDescribe('account ownership database integration', () => {
 
     const noContextRows = await db.selectFrom('daily_metrics').selectAll().execute();
     expect(noContextRows).toEqual([]);
+
+    await expect(withAccountContext(db, accountA, (ownerDb) => ownerDb
+      .updateTable('daily_metrics')
+      .set({ owner_id: accountB })
+      .where('metric_date', '=', metricDate)
+      .execute())).rejects.toThrow(/owner_id is immutable/);
 
     const uploadId = randomUUID();
     const job = await withAccountContext(db, accountA, async (ownerDb) => {
@@ -92,6 +99,39 @@ databaseDescribe('account ownership database integration', () => {
       started_at: null,
       completed_at: null,
     }).execute())).rejects.toThrow();
+  });
+
+  it('atomically claims one configured account for an external identity and seeds its rule template', async () => {
+    const accountId = await createAccount(db, 'Migrated owner');
+    accountIds.push(accountId);
+    const auth = new AuthRepository(db);
+    const issuer = `https://issuer-${randomUUID()}.example`;
+    const subject = `subject-${randomUUID()}`;
+
+    const claimed = await auth.provisionExternalIdentity({
+      issuer,
+      subject,
+      email: 'owner@example.test',
+      displayName: 'Migrated athlete',
+      preferredAccountId: accountId,
+    });
+    expect(claimed).toMatchObject({ id: accountId, display_name: 'Migrated athlete', email: 'owner@example.test' });
+
+    const repeated = await auth.provisionExternalIdentity({ issuer, subject, displayName: 'Updated athlete' });
+    expect(repeated).toMatchObject({ id: accountId, display_name: 'Updated athlete' });
+
+    await expect(auth.provisionExternalIdentity({
+      issuer,
+      subject: `other-${randomUUID()}`,
+      preferredAccountId: accountId,
+    })).rejects.toBeInstanceOf(ExternalIdentityClaimError);
+
+    const rules = await withAccountContext(db, accountId, (ownerDb) => ownerDb
+      .selectFrom('scoring_rules')
+      .select(['code', 'version'])
+      .orderBy('code')
+      .execute());
+    expect(rules.length).toBeGreaterThan(0);
   });
 });
 
