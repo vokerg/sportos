@@ -79,7 +79,17 @@ export class PerformanceRepository {
   async listBestByDistance(distanceM: number, limit = 25) {
     const rows = await this.db
       .selectFrom('v_performance_events')
-      .selectAll()
+      .select([
+        'event_date',
+        'distance_m',
+        'duration_s',
+        'pace_s_per_km',
+        'is_treadmill',
+        'is_pr_marker',
+        'source_rank',
+        'all_time_rank',
+        'tags',
+      ])
       .where('distance_m', '=', distanceM)
       .orderBy('duration_s', 'asc')
       .limit(limit)
