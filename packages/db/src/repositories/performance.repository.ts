@@ -77,13 +77,14 @@ export class PerformanceRepository {
   }
 
   async listBestByDistance(distanceM: number, limit = 25) {
-    return this.db
+    const rows = await this.db
       .selectFrom('v_performance_events')
       .selectAll()
       .where('distance_m', '=', distanceM)
       .orderBy('duration_s', 'asc')
       .limit(limit)
       .execute();
+    return rows.map((row) => ({ ...row, event_date: toIsoDate(row.event_date) }));
   }
 
   async listEvents(input: PerformanceEventQuery = {}): Promise<PerformanceEventListItem[]> {
@@ -118,7 +119,7 @@ export class PerformanceRepository {
     return rows.map((row) => ({
       id: row.id,
       activityId: row.activity_id,
-      eventDate: row.event_date,
+      eventDate: toIsoDate(row.event_date),
       source: row.source,
       distanceM: Number(row.distance_m),
       durationS: Number(row.duration_s),
@@ -171,7 +172,7 @@ export class PerformanceRepository {
     return {
       id: row.id,
       activityId: row.activityId,
-      eventDate: row.eventDate,
+      eventDate: toIsoDate(row.eventDate),
       source: row.source,
       distanceM: Number(row.distanceM),
       durationS: Number(row.durationS),
@@ -196,4 +197,10 @@ export class PerformanceRepository {
       },
     };
   }
+}
+
+function toIsoDate(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  throw new TypeError('Expected a database date value.');
 }
