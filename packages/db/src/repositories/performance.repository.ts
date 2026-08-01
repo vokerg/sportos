@@ -94,7 +94,17 @@ export class PerformanceRepository {
       .orderBy('duration_s', 'asc')
       .limit(limit)
       .execute();
-    return rows.map((row) => ({ ...row, event_date: toIsoDate(row.event_date) }));
+    return rows.map((row) => ({
+      event_date: toIsoDate(row.event_date),
+      distance_m: Number(row.distance_m),
+      duration_s: Number(row.duration_s),
+      pace_s_per_km: Number(row.pace_s_per_km),
+      is_treadmill: row.is_treadmill,
+      is_pr_marker: row.is_pr_marker,
+      source_rank: row.source_rank === null ? null : Number(row.source_rank),
+      all_time_rank: Number(row.all_time_rank),
+      tags: row.tags,
+    }));
   }
 
   async listEvents(input: PerformanceEventQuery = {}): Promise<PerformanceEventListItem[]> {
