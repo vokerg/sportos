@@ -1,4 +1,10 @@
-import { RuleChangeCancelledError, RuleChangesRepository, type Database, type Kysely } from '@sportos/db';
+import {
+  RuleChangeCancelledError,
+  RuleChangesRepository,
+  withAccountContext,
+  type Database,
+  type Kysely,
+} from '@sportos/db';
 
 export interface RuleChangeRunnerOptions {
   workerId: string;
@@ -7,7 +13,6 @@ export interface RuleChangeRunnerOptions {
 }
 
 export class RuleChangeRunner {
-  private readonly changes: RuleChangesRepository;
   private readonly workerId: string;
   private readonly leaseSeconds: number;
   private readonly pollIntervalMs: number;
@@ -16,33 +21,42 @@ export class RuleChangeRunner {
     private readonly db: Kysely<Database>,
     options: RuleChangeRunnerOptions = { workerId: 'sportos-rule-worker' },
   ) {
-    this.changes = new RuleChangesRepository(db);
     this.workerId = options.workerId.slice(0, 200);
     this.leaseSeconds = clampInteger(options.leaseSeconds ?? 60, 15, 600);
     this.pollIntervalMs = clampInteger(options.pollIntervalMs ?? 1000, 100, 60_000);
   }
 
   async processNext(): Promise<boolean> {
-    await this.changes.recoverStale();
-    const change = await this.changes.claimNext(this.workerId, this.leaseSeconds);
+    const systemChanges = new RuleChangesRepository(this.db);
+    await systemChanges.recoverStale();
+    const change = await systemChanges.claimNext(this.workerId, this.leaseSeconds);
     if (!change) return false;
 
-    try {
-      if (await this.changes.cancellationRequested(change.id, this.workerId)) throw new RuleChangeCancelledError();
-      await this.changes.heartbeat(change.id, this.workerId, 'activating-rule-version', 25, this.leaseSeconds);
-      await this.changes.heartbeat(change.id, this.workerId, 'recomputing-scores', 50, this.leaseSeconds);
-      await this.changes.activateAndRecompute(change.id, this.workerId);
-      return true;
-    } catch (error) {
-      const cancelled = error instanceof RuleChangeCancelledError
-        || await this.changes.cancellationRequested(change.id, this.workerId).catch(() => false);
-      if (cancelled) {
-        await this.changes.markCancelled(change.id, this.workerId);
+    const owner = await this.db
+      .selectFrom('scoring_rule_changes')
+      .select('owner_id')
+      .where('id', '=', change.id)
+      .executeTakeFirstOrThrow();
+
+    return withAccountContext(this.db, owner.owner_id, async (scopedDb) => {
+      const changes = new RuleChangesRepository(scopedDb);
+      try {
+        if (await changes.cancellationRequested(change.id, this.workerId)) throw new RuleChangeCancelledError();
+        await changes.heartbeat(change.id, this.workerId, 'activating-rule-version', 25, this.leaseSeconds);
+        await changes.heartbeat(change.id, this.workerId, 'recomputing-scores', 50, this.leaseSeconds);
+        await changes.activateAndRecompute(change.id, this.workerId);
+        return true;
+      } catch (error) {
+        const cancelled = error instanceof RuleChangeCancelledError
+          || await changes.cancellationRequested(change.id, this.workerId).catch(() => false);
+        if (cancelled) {
+          await changes.markCancelled(change.id, this.workerId);
+          return true;
+        }
+        await changes.markFailed(change.id, this.workerId, failureCode(error), error);
         return true;
       }
-      await this.changes.markFailed(change.id, this.workerId, failureCode(error), error);
-      return true;
-    }
+    });
   }
 
   async run(signal: AbortSignal): Promise<void> {
