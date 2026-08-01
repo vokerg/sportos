@@ -1,17 +1,18 @@
 import { BadRequestException } from '@nestjs/common';
+import { LEGACY_ACCOUNT_ID } from '@sportos/db';
 import { describe, expect, it, vi } from 'vitest';
 import { ExportsController } from './exports.controller.js';
 import type { ExportsService } from './exports.service.js';
 
 describe('ExportsController', () => {
-  it('requires and forwards an inclusive bounded range', async () => {
+  it('requires and forwards an inclusive bounded range with owner context', async () => {
     const service = { canonical: vi.fn().mockResolvedValue({ schemaVersion: 'sportos.canonical-export.v1' }) };
     const controller = new ExportsController(service as unknown as ExportsService);
 
     await expect(controller.canonical('2026-01-01', '2026-12-31')).resolves.toMatchObject({
       schemaVersion: 'sportos.canonical-export.v1',
     });
-    expect(service.canonical).toHaveBeenCalledWith('2026-01-01', '2026-12-31');
+    expect(service.canonical).toHaveBeenCalledWith('2026-01-01', '2026-12-31', LEGACY_ACCOUNT_ID);
   });
 
   it('rejects missing, impossible, reversed, and excessive ranges', async () => {
