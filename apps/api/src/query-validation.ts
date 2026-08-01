@@ -49,23 +49,28 @@ export function parseBoundedInteger(
   const parsed = value === undefined ? options.defaultValue : Number(value);
   if (!Number.isInteger(parsed) || parsed < options.min || parsed > options.max) {
     throw new BadRequestException({
-      code: `INVALID_${options.name.toUpperCase()}`,
+      code: `INVALID_${errorCodeName(options.name)}`,
       message: `${options.name} must be an integer from ${options.min} through ${options.max}.`,
     });
   }
   return parsed;
 }
 
-export function parseOptionalPositiveNumber(value: string | undefined, name: string): number | undefined {
-  if (value === undefined || value === '') return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new BadRequestException({
-      code: `INVALID_${name.toUpperCase()}`,
-      message: `${name} must be a positive number.`,
-    });
+export function parsePositiveNumber(
+  value: string | undefined,
+  options: { name: string; defaultValue?: number },
+): number {
+  const raw = value === undefined ? options.defaultValue : value;
+  const parsed = typeof raw === 'number' ? raw : Number(raw);
+  if (raw === undefined || raw === '' || !Number.isFinite(parsed) || parsed <= 0) {
+    throw invalidPositiveNumber(options.name);
   }
   return parsed;
+}
+
+export function parseOptionalPositiveNumber(value: string | undefined, name: string): number | undefined {
+  if (value === undefined) return undefined;
+  return parsePositiveNumber(value, { name });
 }
 
 export function assertUuid(value: string, code: string): void {
@@ -81,6 +86,20 @@ function invalidDate(field: string, value: string): never {
     field,
     value,
   });
+}
+
+function invalidPositiveNumber(name: string): BadRequestException {
+  return new BadRequestException({
+    code: `INVALID_${errorCodeName(name)}`,
+    message: `${name} must be a positive number.`,
+  });
+}
+
+function errorCodeName(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .toUpperCase();
 }
 
 function inclusiveSpan(from: string, to: string): number {
