@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { RuleChangePreview, RuleProposal } from '@sportos/domain';
-import { createDb, RuleChangesRepository } from '@sportos/db';
+import {
+  createDb,
+  LEGACY_ACCOUNT_ID,
+  RuleChangesRepository,
+  withAccountContext,
+} from '@sportos/db';
 import { RuleChangeRunner } from './rule-change-runner.js';
 
 const testDatabaseUrl = process.env.SPORTOS_TEST_DATABASE_URL;
@@ -19,24 +24,26 @@ databaseDescribe('RuleChangeRunner database integration', () => {
 
   beforeEach(async () => {
     await reset(db);
-    await db
-      .insertInto('daily_metrics')
-      .values({
-        metric_date: metricDate,
-        source_record_id: null,
-        steps: 0,
-        run_m: 2500,
-        bike_m: 0,
-        swim_m: 0,
-        workout_points: 0,
-        power_points: 0,
-        base_points: 2500,
-        bonus_points: 0,
-        total_points: 2500,
-        excel_all_points: null,
-        excel_row_hash: null,
-      })
-      .execute();
+    await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      await ownerDb
+        .insertInto('daily_metrics')
+        .values({
+          metric_date: metricDate,
+          source_record_id: null,
+          steps: 0,
+          run_m: 2500,
+          bike_m: 0,
+          swim_m: 0,
+          workout_points: 0,
+          power_points: 0,
+          base_points: 2500,
+          bonus_points: 0,
+          total_points: 2500,
+          excel_all_points: null,
+          excel_row_hash: null,
+        })
+        .execute();
+    });
   });
 
   afterAll(async () => {
@@ -47,21 +54,23 @@ databaseDescribe('RuleChangeRunner database integration', () => {
   });
 
   it('claims and completes a queued audited recomputation without the API process', async () => {
-    const previous = await db
-      .selectFrom('scoring_rules')
-      .select('id')
-      .where('code', '=', ruleCode)
-      .where('version', '=', 1)
-      .executeTakeFirstOrThrow();
-    const changes = new RuleChangesRepository(db);
-    const queued = await changes.enqueueChange({
-      proposal: proposal(previous.id),
-      preview: preview(),
-      previewFingerprint: 'd'.repeat(64),
-      initiatedBy: 'worker-integration',
-      reason: 'Verify independent worker execution.',
+    const queued = await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      const previous = await ownerDb
+        .selectFrom('scoring_rules')
+        .select('id')
+        .where('code', '=', ruleCode)
+        .where('version', '=', 1)
+        .executeTakeFirstOrThrow();
+      return new RuleChangesRepository(ownerDb).enqueueChange({
+        proposal: proposal(previous.id),
+        preview: preview(),
+        previewFingerprint: 'd'.repeat(64),
+        initiatedBy: LEGACY_ACCOUNT_ID,
+        reason: 'Verify independent worker execution.',
+      });
     });
 
+    const changes = new RuleChangesRepository(db);
     const runner = new RuleChangeRunner(db, { workerId: 'rule-worker-test', leaseSeconds: 60, pollIntervalMs: 100 });
     await expect(runner.processNext()).resolves.toBe(true);
     await expect(runner.processNext()).resolves.toBe(false);
@@ -75,17 +84,18 @@ databaseDescribe('RuleChangeRunner database integration', () => {
     });
     const daily = await db
       .selectFrom('daily_metrics')
-      .select('total_points')
+      .select(['total_points', 'owner_id'])
       .where('metric_date', '=', metricDate)
       .executeTakeFirstOrThrow();
     expect(Number(daily.total_points)).toBe(2750);
+    expect(daily.owner_id).toBe(LEGACY_ACCOUNT_ID);
     const ledger = await db
       .selectFrom('score_ledger')
-      .select(['rule_id', 'points'])
+      .select(['rule_id', 'points', 'owner_id'])
       .where('metric_date', '=', metricDate)
       .where('rule_id', '=', queued.proposedRuleId)
       .executeTakeFirstOrThrow();
-    expect(ledger).toMatchObject({ rule_id: queued.proposedRuleId, points: 2750 });
+    expect(ledger).toMatchObject({ rule_id: queued.proposedRuleId, points: 2750, owner_id: LEGACY_ACCOUNT_ID });
   });
 });
 
