@@ -1,5 +1,6 @@
 import { BadRequestException, Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
 import { isIsoDate } from '@sportos/db';
+import { parseBoundedInteger, parseDateRange } from '../query-validation.js';
 import { DailyService } from './daily.service.js';
 
 @Controller('daily')
@@ -7,8 +8,16 @@ export class DailyController {
   constructor(@Inject(DailyService) private readonly dailyService: DailyService) {}
 
   @Get('summary')
-  async summary(@Query('limit') limit?: string) {
-    return this.dailyService.summary(limit ? Number(limit) : 90);
+  async summary(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const range = parseDateRange(from, to, { maxDays: 3660 });
+    return this.dailyService.summary({
+      ...range,
+      limit: parseBoundedInteger(limit, { name: 'limit', defaultValue: 365, min: 1, max: 2000 }),
+    });
   }
 
   @Get(':date/score-breakdown')
