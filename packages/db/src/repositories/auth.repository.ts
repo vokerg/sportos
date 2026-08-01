@@ -25,7 +25,17 @@ export interface ExternalIdentityInput {
   subject: string;
   email?: string | null;
   displayName?: string | null;
+  preferredAccountId?: string | null;
 }
+
+export class ExternalIdentityClaimError extends Error {
+  constructor() {
+    super('The configured account is unavailable or has already been claimed.');
+    this.name = 'ExternalIdentityClaimError';
+  }
+}
+
+const IDENTITY_PROVISION_LOCK = 834_110_214;
 
 export class AuthRepository {
   constructor(private readonly db: Kysely<Database>) {}
@@ -61,6 +71,7 @@ export class AuthRepository {
 
   async provisionExternalIdentity(input: ExternalIdentityInput): Promise<Account> {
     return this.db.transaction().execute(async (transaction) => {
+      await sql`select pg_advisory_xact_lock(${IDENTITY_PROVISION_LOCK})`.execute(transaction);
       const existing = await transaction
         .selectFrom('external_identities as identity')
         .innerJoin('accounts as account', 'account.id', 'identity.account_id')
@@ -84,11 +95,33 @@ export class AuthRepository {
         return { ...existing, display_name: displayName, email: normalizeEmail(input.email) ?? existing.email };
       }
 
-      const account = await transaction.insertInto('accounts').values({
-        display_name: normalizeDisplayName(input.displayName, input.email, 'SportOS athlete'),
-        email: normalizeEmail(input.email),
-        status: 'active',
-      }).returningAll().executeTakeFirstOrThrow();
+      let account: Account;
+      if (input.preferredAccountId) {
+        const claimed = await transaction
+          .selectFrom('external_identities')
+          .select('id')
+          .where('account_id', '=', input.preferredAccountId)
+          .executeTakeFirst();
+        const preferred = await transaction
+          .selectFrom('accounts')
+          .selectAll()
+          .where('id', '=', input.preferredAccountId)
+          .where('status', '=', 'active')
+          .executeTakeFirst();
+        if (claimed || !preferred) throw new ExternalIdentityClaimError();
+
+        account = await transaction.updateTable('accounts').set({
+          display_name: normalizeDisplayName(input.displayName, input.email, preferred.display_name),
+          email: normalizeEmail(input.email) ?? preferred.email,
+          updated_at: new Date(),
+        }).where('id', '=', preferred.id).returningAll().executeTakeFirstOrThrow();
+      } else {
+        account = await transaction.insertInto('accounts').values({
+          display_name: normalizeDisplayName(input.displayName, input.email, 'SportOS athlete'),
+          email: normalizeEmail(input.email),
+          status: 'active',
+        }).returningAll().executeTakeFirstOrThrow();
+      }
 
       await transaction.insertInto('external_identities').values({
         account_id: account.id,
