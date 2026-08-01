@@ -1,116 +1,50 @@
-# ADR 0005: OIDC authentication and per-account data ownership
+# ADR 0005: Authentication and per-account data ownership
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-08-01
 - Issue: #14
 
 ## Context
 
-SportOS currently assumes one trusted local user. Every upload, job, import batch, source record, canonical fact, scoring rule, score ledger row, rule-change audit, and export query is globally visible. Repository methods accept bare identifiers, worker claims carry no account context, and several important identities are globally unique:
+SportOS was originally a trusted single-user local application. Uploads, jobs, import batches, raw rows, canonical facts, scores, rule versions, audits, performance records, and exports had no account owner. Several business identities were global: one daily row per date, one upload duplicate identity, one active import per upload, one rule family/version sequence, one enabled effective range per rule family, and one active rule change per code.
 
-- `daily_metrics.metric_date` is one global row per date;
-- duplicate uploads are detected globally by workbook hash and kind;
-- scoring-rule `(code, version)` and enabled effective ranges are global;
-- active import and rule-change constraints are global;
-- API CORS currently accepts any origin and no authenticated session exists.
-
-Adding an API guard alone would be insufficient. Ownership must be represented in persistent identities, foreign keys, uniqueness constraints, repository contracts, job claims, worker writes, exports, and browser session behavior.
-
-SportOS must also migrate existing local data without changing canonical UUIDs or orphaning provenance.
+Adding only an HTTP authentication guard would not make that model multi-user. A repository bug, valid foreign UUID, worker query, or cross-table link could still expose or connect another account's data. Existing local data also needed a repeatable migration that preserved every current UUID and provenance chain.
 
 ## Decision
 
-### Identity provider strategy
+### Identity and sign-in
 
-SportOS will use standards-based OpenID Connect Authorization Code flow with PKCE. SportOS will not store user passwords, password-reset tokens, or long-lived identity-provider access tokens unless a later provider-specific ADR requires them.
+SportOS does not store passwords. Interactive sign-in uses OpenID Connect Authorization Code flow with PKCE.
 
-An external identity is keyed by the immutable pair `(issuer, subject)`. Email, display name, and avatar are profile snapshots only and never determine ownership or authorization.
+An external identity is the immutable pair `(issuer, subject)`. It maps to one internal `accounts.id` UUID. The internal UUID is the ownership key and audit actor; email and display name are profile attributes only.
 
-The internal authorization principal is an immutable SportOS account UUID. All owned rows reference this UUID through `owner_id`.
+The API discovers provider endpoints, stores a one-time hashed state and PKCE verifier, exchanges the callback code, fetches provider `userinfo` with the returned access token, and requires a bounded non-empty `sub`. Provider access tokens are not persisted.
 
-Local development will use a standards-compliant local OIDC provider or a configured development issuer. There is no application-level authentication bypass and no trusted user identity supplied by an arbitrary request header.
+New identities receive a new account and account-owned default rule versions. Existing identities update profile metadata while retaining the same account UUID.
 
-### Account and identity tables
+### Migrated legacy account
 
-The ownership migration creates:
+Migration V106 creates fixed legacy account `00000000-0000-4000-8000-000000000001` and backfills all pre-account rows without changing existing upload, job, batch, source-record, activity, performance-event, rule, audit, daily, or ledger UUIDs.
 
-#### `accounts`
+A deployment may map exactly one configured OIDC `(issuer, subject)` to that legacy account using `SPORTOS_LEGACY_OIDC_ISSUER` and `SPORTOS_LEGACY_OIDC_SUBJECT`. The first matching login claims the account atomically. A second identity cannot claim it. Other identities receive new empty accounts.
 
-- `id uuid primary key`;
-- display/profile fields that may be updated from verified OIDC claims;
-- account status (`active`, `disabled`);
-- creation/update timestamps;
-- optional `claimed_at` for the migrated local account.
+The local CLI and optional development bootstrap use the legacy account. The bootstrap route is disabled unless an explicit local-only bearer value is configured and must not be exposed in hosted deployments.
 
-#### `account_identities`
+### Opaque sessions and CSRF
 
-- `id uuid primary key`;
-- `account_id` foreign key;
-- normalized OIDC `issuer` and `subject`;
-- last verified profile claims and verification timestamp;
-- unique `(issuer, subject)`;
-- one external identity may belong to only one account.
+SportOS issues a random opaque session token. Only its SHA-256 digest is stored in `auth_sessions`; the plaintext token is delivered in an `HttpOnly`, `SameSite=Lax` cookie. Production cookies are `Secure`.
 
-#### `auth_sessions`
+Sessions have bounded idle and absolute expiry, last-seen tracking, and server-side revocation. Disabled accounts cannot authenticate through a stored session. Sign-out revokes the session and expires both browser cookies.
 
-- `id uuid primary key`;
-- `account_id` foreign key;
-- SHA-256 hash of a cryptographically random opaque session token;
-- SHA-256 hash of a separate CSRF token;
-- created, last-seen, idle-expiry, absolute-expiry, and revoked timestamps;
-- optional sanitized user-agent metadata;
-- unique token hash.
+A separate readable cookie contains a random CSRF token. Unsafe authenticated requests must echo it in `X-SportOS-CSRF`; the API verifies cookie/header equality and the digest bound to the active session. Credentialed CORS accepts only the configured web origin. Login return paths must be local paths.
 
-The raw session and CSRF tokens are never stored in Postgres or logs.
+Health, OIDC login/callback, and the explicitly configured development bootstrap are public. All other application routes require an active session; unsafe methods also require CSRF validation.
 
-### OIDC login flow
+Angular checks `/auth/session` before creating protected cockpit components. A global 401 returns the browser to the anonymous state and stops protected polling.
 
-1. `GET /auth/login` creates a short-lived authorization transaction containing state, nonce, PKCE verifier/challenge, and safe post-login return path.
-2. The browser is redirected to the configured issuer.
-3. `GET /auth/callback` verifies state, nonce, issuer, audience, signature, expiry, and PKCE before trusting claims.
-4. `(issuer, subject)` resolves or provisions an internal account.
-5. The API creates an opaque server-side session and sets cookies.
-6. `GET /auth/session` returns only the current internal account UUID and safe profile fields.
-7. `POST /auth/logout` revokes the session and clears cookies.
+### Ownership schema
 
-Authorization transaction records are short lived and single use. Callback and session errors do not reveal whether another account exists.
-
-### Session and cookie policy
-
-The session cookie is:
-
-- `HttpOnly`;
-- `Secure` outside explicit loopback development;
-- `SameSite=Lax`;
-- scoped to `/`;
-- opaque and random;
-- rotated after successful login and privilege-sensitive changes;
-- bounded by idle and absolute expiry.
-
-The browser never stores session or identity-provider tokens in `localStorage` or `sessionStorage`.
-
-Unsafe authenticated methods require both:
-
-- a valid same-site session cookie; and
-- a matching CSRF token sent in a custom request header.
-
-The API additionally validates the exact configured web origin on unsafe requests. CORS uses an explicit allowlist with credentials; `origin: true` is removed.
-
-### Bootstrap and existing-data migration
-
-The migration creates one fixed legacy account UUID for all pre-authentication local data. The UUID is constant in migration SQL so a fresh database and an upgraded database produce the same bootstrap owner identity.
-
-All existing owned rows are backfilled to that account without changing their existing row UUIDs or source/provenance links.
-
-A deployment may configure one bootstrap OIDC `(issuer, subject)` pair. The first successful login for that exact identity atomically claims the unclaimed legacy account. No other identity can claim it. If no bootstrap identity is configured, the legacy account remains disabled/unclaimed until an explicit operator action is added.
-
-Other valid OIDC identities provision new empty accounts. New accounts receive account-scoped default scoring-rule versions in one transaction. Existing migrated scoring-rule UUIDs remain unchanged for the legacy account.
-
-Email matching is never used to claim or merge accounts.
-
-### Owned tables
-
-The following tables gain `owner_id uuid not null references accounts(id) on delete restrict`:
+The following user-visible tables have non-null `owner_id`:
 
 - `uploaded_files`;
 - `import_batches`;
@@ -123,166 +57,102 @@ The following tables gain `owner_id uuid not null references accounts(id) on del
 - `score_ledger`;
 - `performance_events`.
 
-Every owned table also has a unique `(owner_id, id)` key when needed as the target of an ownership-preserving composite foreign key.
+Authentication control-plane tables are `accounts`, `external_identities`, `auth_sessions`, and `auth_transactions`. They are available only to the API role and schema owner and are excluded from user-facing reads and canonical export.
 
-### Ownership-preserving references
+Global business identities become account scoped, including daily dates, upload duplicate lookup, source/canonical identities, active import jobs, rule family/version uniqueness, enabled rule ranges, and active rule changes.
 
-Foreign keys are converted or supplemented so parent and child owners must match in Postgres:
+Cross-table links use composite same-owner foreign keys. Every `owner_id` is immutable after insertion; database triggers reject reassignment.
 
-- import batch -> uploaded file;
-- import job -> uploaded file and import batch;
-- source record -> import batch;
-- activity -> source record;
-- daily metric -> source record;
-- performance event -> activity and source record;
-- score ledger -> activity and scoring rule;
-- rule change -> previous and proposed scoring-rule versions.
+### RLS and database identities
 
-An application bug therefore cannot connect one account's child row to another account's parent row.
+Flyway runs as the schema owner. Runtime processes use non-superuser, non-owner roles:
 
-Nullable provenance references stay nullable, but when present they must match the same owner.
+- `sportos_app`: authentication control plane and account-scoped application data;
+- `sportos_legacy`: account-scoped local CLI/test access fixed to the legacy owner;
+- `sportos_worker`: narrow cross-owner queue dispatcher;
+- `sportos_worker_data`: account-scoped import and recomputation execution;
+- `sportos_data`: shared no-login privilege role excluding authentication tables.
 
-### Account-scoped identities and constraints
+Account-owned tables enable and force RLS. API, legacy, and worker-data roles may access only rows matching `sportos_current_account_id()`.
 
-Global business identities become account scoped:
+An account operation reserves one pooled connection, sets `sportos.account_id` for that connection, runs repository-owned transactions on the same connection, and clears the setting before release. This supports transactional repositories without leaking account context between requests.
 
-- daily metric primary key: `(owner_id, metric_date)`;
-- duplicate upload lookup: `(owner_id, sha256, workbook_kind, created_at desc)` for non-deleted uploads;
-- scoring-rule version uniqueness: `(owner_id, code, version)`;
-- enabled rule exclusion: `(owner_id, code, inclusive daterange)`;
-- active rule-change uniqueness: `(owner_id, rule_code)`;
-- active import uniqueness: account-scoped upload identity;
-- deterministic canonical identities and import upserts include `owner_id`.
+Without account context, scoped runtime roles see no owned rows. A valid foreign UUID therefore resolves through the same API contract as a nonexistent UUID.
 
-Queue limits are enforced per account so one account cannot exhaust another account's allowance. A separate global worker safety cap may remain as an operational limit but cannot replace the per-account boundary.
+### Split worker authorization
 
-### Repository contract
+The dispatcher can only:
 
-Every user-facing repository read or write requires an `ownerId` argument or an owner-bound repository instance. Bare identifiers are not sufficient.
+- select upload metadata needed to dispatch imports;
+- select/update import-job lifecycle rows;
+- select/update rule-change lifecycle rows.
 
-Queries use both `owner_id` and the supplied identifier. A syntactically valid identifier belonging to another account returns the same not-found result as a nonexistent identifier. APIs do not expose an authorization distinction that permits identifier enumeration.
+It has no policy on source records, canonical facts, scoring rules, score ledgers, performance data, or authentication tables.
 
-Insert and upsert paths explicitly write `owner_id`; no table relies on an ambient database default for ownership.
+A claim returns the persisted immutable owner. The runner then opens a separate `sportos_worker_data` connection, establishes that owner context, and performs parsing, provenance writes, canonical writes, scoring, audit transitions, and terminal updates within that account.
 
-Shared-system repositories such as health checks and migration metadata remain unowned and cannot expose user data.
+Both worker connections are mandatory. The worker fails closed rather than falling back to API or schema-owner credentials.
 
-### API authentication and authorization
+### Views, export, and enumeration
 
-All application routes require an authenticated session except:
+Owner-aware views execute with invoker security over RLS-filtered tables. Window calculations partition by owner before owner columns are omitted from public shapes.
 
-- `GET /health`;
-- OIDC login/callback endpoints;
-- any narrowly required issuer metadata/probe route.
+Canonical export runs in one owner-scoped repeatable-read snapshot and excludes account IDs, authentication data, raw cells, formulas, raw payloads, upload hashes, storage keys, paths, and source bytes.
 
-A NestJS guard resolves the session and attaches an immutable authenticated principal. Controllers pass only `principal.accountId` into service/repository operations; request bodies and query strings can never select an owner.
+Controllers validate dates, ranges, limits, numbers, and UUID shapes before repository execution. Foreign and nonexistent identifiers return the same generic not-found response. Errors and logs omit foreign account metadata and source data.
 
-Upload, import-job, history, diagnostics, daily, performance, rule, rule-change, and export endpoints are all account scoped. Cross-account valid UUIDs return the existing not-found contracts without foreign metadata.
+## Migration sequence
 
-Errors and logs omit foreign filenames, hashes, source rows, job phases, account profiles, and existence information.
+- V105.1 creates upgrade-safe `NOLOGIN` runtime-role placeholders.
+- V106 creates identity/session tables, creates and backfills the legacy account, adds ownership, converts constraints and links, enables RLS, and recreates owner-aware views.
+- V107 removes owner/private identity fields from the public performance view.
+- V108 separates dispatcher and worker-data authorization, restricts authentication tables, removes broad future default grants, and makes ownership immutable.
 
-### Worker ownership
+Local Docker initialization creates development login roles. Production deployments provision equivalent identities and deployment-managed credentials separately.
 
-A claimed import job or rule-change job includes its `ownerId`.
+## Threat and ownership matrix
 
-Worker operations preserve that owner through:
-
-- upload object reads and upload status changes;
-- import batch creation and linking;
-- raw source-record writes;
-- canonical activity, daily, performance, and ledger writes;
-- rule activation and score recomputation;
-- job heartbeat, cancellation, retry, result, and terminal updates.
-
-Every worker mutation uses both the row identifier and expected owner in addition to lease-owner predicates. A job cannot write a batch, fact, rule, or ledger row owned by another account.
-
-Storage object keys remain opaque random values and are not derived from account identifiers, emails, or subjects.
-
-### Browser session behavior
-
-Angular obtains session state from `GET /auth/session` using credentialed requests.
-
-When unauthenticated, the cockpit renders a sign-in surface and does not issue protected data requests. On sign-out or session expiry, it:
-
-- clears in-memory rows, details, previews, upload/job state, and downloadable export references;
-- stops polling and cancels active HTTP subscriptions;
-- navigates to the signed-out surface;
-- does not retain account data in browser storage.
-
-Unsafe requests include the CSRF header through one HTTP interceptor. Session expiry produces one consistent re-authentication path rather than retry loops.
-
-### Threat and ownership matrix
-
-| Asset or operation | Owner key | Enforcement | Cross-account response |
-|---|---|---|---|
-| uploaded bytes/object metadata | `uploaded_files.owner_id` | account-scoped upload row; opaque key; worker uses claimed owner | not found; no filename/key disclosure |
-| duplicate workbook lookup | upload owner | owner included in hash/kind lookup | another account's hash is not a duplicate |
-| import job, retry, cancel | `import_jobs.owner_id` | owner + job UUID; worker owner + lease | not found |
-| import batch/history/diagnostics | `import_batches.owner_id` | owner-scoped list/detail and composite provenance FKs | not found/omitted from list |
-| raw source record | `source_records.owner_id` | owner-scoped batch FK; never public raw payload | not found |
-| activity/daily/performance facts | row `owner_id` | account-scoped deterministic identity and reads | not found/omitted |
-| scoring rule/version | `scoring_rules.owner_id` | owner-scoped family uniqueness/range exclusion | not found/omitted |
-| rule-change audit/job | `scoring_rule_changes.owner_id` | owner-scoped enqueue/read/retry/cancel and worker lease | not found |
-| score ledger | `score_ledger.owner_id` | same-owner rule/activity FKs and daily queries | omitted |
-| canonical export | authenticated account | repository receives only session account UUID | contains only caller's rows |
-| session token | `auth_sessions.account_id` | opaque cookie; hashed at rest; expiry/revocation | generic unauthenticated response |
-| logs and errors | none | structured redaction and anti-enumeration | no foreign existence/data |
-
-### Shared-system exceptions
-
-The following are intentionally not user-owned:
-
-- Flyway migration history;
-- health status;
-- static application configuration;
-- worker process identity and global operational safety limits;
-- OIDC issuer configuration;
-- immutable default-rule templates used only to provision account-owned rule rows.
-
-No shared exception may contain user workbook data, provenance, canonical facts, official scores, or account-specific rule configuration.
-
-### Migration strategy
-
-The ownership migration is append only and is expected to be V106.
-
-The migration will:
-
-1. create account, identity, authorization-transaction, and session tables;
-2. insert the fixed legacy account;
-3. add nullable `owner_id` columns;
-4. backfill every existing row to the legacy account in dependency order;
-5. replace global primary/unique/exclusion constraints with account-scoped variants;
-6. add ownership-preserving composite unique keys and foreign keys;
-7. validate cross-table owner consistency;
-8. make every owned `owner_id` non-null;
-9. recreate owner-aware views and indexes;
-10. seed/provision account-scoped default rule templates without changing migrated rule UUIDs.
-
-Upgrade evidence must start with a populated V105 database and prove that existing UUIDs, totals, job/audit histories, and source chains survive unchanged apart from the new owner columns.
-
-Rollback is restore-from-backup or a forward corrective migration. Destructive ownership downgrade is not supported.
+| Threat or object | Enforcement |
+|---|---|
+| Foreign UUID enumeration | RLS-filtered reads and generic not-found responses |
+| Cross-owner insert or link | RLS `WITH CHECK`, non-null ownership, composite same-owner FKs |
+| Owner reassignment | immutable-owner triggers |
+| Duplicate dates/rules/uploads across accounts | account-scoped keys and indexes |
+| Worker mixes canonical data | dispatcher cannot read canonical tables; worker-data connection is account scoped |
+| Worker changes job owner | immutable-owner trigger |
+| Runtime bypasses RLS | separate non-superuser/non-owner roles; CI uses runtime roles |
+| Session theft from JavaScript | HttpOnly opaque cookie; only digest stored |
+| Cross-site mutation | SameSite cookie, exact credentialed CORS origin, session-bound CSRF |
+| Open redirect | local-path-only return target |
+| Legacy data orphaned | fixed owner backfill preserving UUIDs and provenance links |
+| Second identity claims migrated data | serialized provisioning and one-account claim check |
+| Auth data exposed to worker/shared role | authentication-table grants restricted to app role |
+| Export leaks private internals | strict schema and privacy regression tests |
 
 ## Consequences
 
-- Every user-visible record has an explicit owner or documented shared-system exception.
-- Repository and worker signatures become more verbose because owner context is mandatory.
-- Existing globally keyed dates/rule families become safely reusable by different accounts.
-- Cross-account identifiers are non-enumerable through public contracts.
-- Sessions can be revoked centrally without exposing identity-provider tokens to Angular.
-- Local development requires an OIDC provider/configuration instead of an implicit trusted user.
-- Account deletion and full data erasure need a separate lifecycle design because current provenance uses restrictive foreign keys.
-- Team sharing, delegated access, and role-based administration remain out of scope.
+- Account identity remains stable across profile changes.
+- Existing local data remains intact and can be claimed by one configured OIDC identity.
+- Business identities that were global are reusable independently per account.
+- RLS and same-owner constraints provide a mandatory backstop beneath repository code.
+- Account context reserves one pooled connection for the operation; pool sizing must account for concurrent requests and workers.
+- Queue dispatch and data execution require two worker database identities.
+- The dispatcher remains trusted for lifecycle rows and upload object metadata but cannot inspect canonical or authentication data.
+- Sign-out is not account deletion. A future audited erasure workflow must coordinate sessions, source objects, provenance, canonical data, rules, jobs, and backups.
+- Provider credential encryption, cursors, rate limits, and cross-source identity remain issue #15 work.
 
-## Evidence required before acceptance
+## Required evidence
 
-The ADR becomes accepted only when repeatable evidence proves:
+Acceptance requires repeatable evidence for:
 
-- fresh migration and populated V105 upgrade through the ownership migration;
-- complete ownership backfill with unchanged existing UUID/provenance chains;
-- same-account reads/writes and denied cross-account reads/writes for uploads, jobs, imports, facts, rules, rule changes, ledger, and export;
-- valid foreign UUIDs return the same not-found response as nonexistent UUIDs;
-- worker claims carry owner context and cannot mutate another account's rows;
-- duplicate detection, daily identities, rule versions, rule overlap, and queue limits are account scoped;
-- session creation, expiry, revocation, CSRF, exact-origin CORS, and safe sign-out;
-- logs/errors do not disclose foreign account data;
-- Angular signed-in/signed-out/session-expired workflows;
-- root typecheck, unit/component tests, database integration, worker integration, importer integration, and production build.
+- fresh migration and existing-data backfill through V108;
+- same business identities coexisting for two accounts;
+- ownerless runtime queries returning no account rows;
+- valid foreign identifiers returning no data;
+- cross-owner links and owner reassignment failing in Postgres;
+- one configured identity claiming a migrated account and a second identity being denied;
+- session authentication, expiry/revocation, CSRF, public-route, and sign-out behavior;
+- account-scoped exports and rule changes;
+- dispatcher queue access with denied canonical/source/rule/ledger/auth access;
+- import and recomputation workers preserving the claimed owner;
+- root typecheck, tests, database integration, worker integration, importer integration, and production build.
