@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createDb, ImportJobsRepository } from '@sportos/db';
+import { createDb, ImportJobsRepository, LEGACY_ACCOUNT_ID, withAccountContext } from '@sportos/db';
 import { LocalUploadStorage, writeMySportFixture } from '@sportos/importers';
 import { ImportJobRunner } from './import-job-runner.js';
 
@@ -38,24 +38,26 @@ databaseDescribe('ImportJobRunner database integration', () => {
     const storage = new LocalUploadStorage(directory);
     const stored = await storage.store({ uploadId, sha256, bytes });
 
-    await db.insertInto('uploaded_files').values({
-      id: uploadId,
-      workbook_kind: 'my_sport',
-      storage_provider: 'local',
-      object_key: stored.objectKey,
-      original_filename: 'worker-fixture.xlsx',
-      sanitized_filename: 'worker-fixture.xlsx',
-      content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      byte_size: bytes.length,
-      sha256,
-      status: 'stored',
-      last_error: null,
-      imported_at: null,
-      deleted_at: null,
-    }).execute();
+    const queued = await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      await ownerDb.insertInto('uploaded_files').values({
+        id: uploadId,
+        workbook_kind: 'my_sport',
+        storage_provider: 'local',
+        object_key: stored.objectKey,
+        original_filename: 'worker-fixture.xlsx',
+        sanitized_filename: 'worker-fixture.xlsx',
+        content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        byte_size: bytes.length,
+        sha256,
+        status: 'stored',
+        last_error: null,
+        imported_at: null,
+        deleted_at: null,
+      }).execute();
+      return new ImportJobsRepository(ownerDb).enqueue(uploadId);
+    });
 
     const jobs = new ImportJobsRepository(db);
-    const queued = await jobs.enqueue(uploadId);
     const runner = new ImportJobRunner(db, storage, { workerId: 'integration-worker', leaseSeconds: 60 });
 
     await expect(runner.processNext()).resolves.toBe(true);
@@ -73,20 +75,21 @@ databaseDescribe('ImportJobRunner database integration', () => {
     expect(completed?.result).toMatchObject({ dailyRows: 2, activities: 13, performanceEvents: 0 });
 
     const batch = await db.selectFrom('import_batches')
-      .select(['id', 'uploaded_file_id', 'status'])
+      .select(['id', 'uploaded_file_id', 'status', 'owner_id'])
       .where('id', '=', completed!.batchId!)
       .executeTakeFirstOrThrow();
-    expect(batch).toMatchObject({ uploaded_file_id: uploadId, status: 'scored' });
+    expect(batch).toMatchObject({ uploaded_file_id: uploadId, status: 'scored', owner_id: LEGACY_ACCOUNT_ID });
 
     const daily = await db.selectFrom('daily_metrics')
-      .select(['metric_date', 'steps', 'run_m'])
+      .select(['metric_date', 'steps', 'run_m', 'owner_id'])
       .where('metric_date', '=', '2026-05-18')
       .executeTakeFirstOrThrow();
     expect({
       metricDate: toIsoDate(daily.metric_date),
       steps: daily.steps,
       runM: Number(daily.run_m),
-    }).toEqual({ metricDate: '2026-05-18', steps: 12_345, runM: 13_000 });
+      ownerId: daily.owner_id,
+    }).toEqual({ metricDate: '2026-05-18', steps: 12_345, runM: 13_000, ownerId: LEGACY_ACCOUNT_ID });
   });
 });
 
