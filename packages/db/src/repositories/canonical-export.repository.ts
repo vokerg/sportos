@@ -22,7 +22,7 @@ interface ProvenanceColumns {
 }
 
 interface DailyExportDbRow extends ProvenanceColumns {
-  metricDate: string;
+  metricDate: unknown;
   steps: number;
   runM: number;
   bikeM: number;
@@ -44,7 +44,7 @@ interface DailyExportDbRow extends ProvenanceColumns {
 
 interface ActivityExportDbRow extends ProvenanceColumns {
   id: string;
-  activityDate: string;
+  activityDate: unknown;
   startTime: unknown | null;
   activityType: ActivitiesTable['activity_type'];
   subtype: ActivitiesTable['subtype'];
@@ -67,7 +67,7 @@ interface ActivityExportDbRow extends ProvenanceColumns {
 interface PerformanceExportDbRow extends ProvenanceColumns {
   id: string;
   activityId: string | null;
-  eventDate: string;
+  eventDate: unknown;
   source: PerformanceEventsTable['source'];
   distanceM: number;
   durationS: number;
@@ -227,7 +227,7 @@ export class CanonicalExportRepository {
 
 function mapDailyRow(row: DailyExportDbRow): CanonicalDailyExportRow {
   return {
-    metricDate: row.metricDate,
+    metricDate: toIsoDate(row.metricDate),
     steps: Number(row.steps),
     runM: Number(row.runM),
     bikeM: Number(row.bikeM),
@@ -253,7 +253,7 @@ function mapDailyRow(row: DailyExportDbRow): CanonicalDailyExportRow {
 function mapActivityRow(row: ActivityExportDbRow): CanonicalActivityExportRow {
   return {
     id: row.id,
-    activityDate: row.activityDate,
+    activityDate: toIsoDate(row.activityDate),
     startTime: toNullableIsoTimestamp(row.startTime),
     activityType: row.activityType,
     subtype: row.subtype,
@@ -279,7 +279,7 @@ function mapPerformanceRow(row: PerformanceExportDbRow): CanonicalPerformanceExp
   return {
     id: row.id,
     activityId: row.activityId,
-    eventDate: row.eventDate,
+    eventDate: toIsoDate(row.eventDate),
     source: row.source,
     distanceM: Number(row.distanceM),
     durationS: Number(row.durationS),
@@ -327,6 +327,12 @@ function reconciliationStatus(excelTotal: number | null, delta: number | null): 
 
 function nullableNumber(value: number | null): number | null {
   return value === null ? null : Number(value);
+}
+
+function toIsoDate(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  throw new TypeError('Expected a database date value.');
 }
 
 function toIsoTimestamp(value: unknown): string {
