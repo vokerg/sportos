@@ -2,11 +2,11 @@
 
 SportOS is a local-first sports-data cockpit that turns spreadsheet training records into canonical, auditable facts and deterministic scores.
 
-The current implementation is single-user and intended to prove trustworthy workflows before accounts, provider integrations, hosted operations, or AI analysis are added.
+The current implementation is single-user and proves trustworthy local workflows before accounts, provider integrations, hosted operations, or AI analysis are added.
 
 ## Current capabilities
 
-SportOS now provides:
+SportOS provides:
 
 - bounded browser upload for supported XLSX workbooks;
 - replaceable external source-file storage and durable upload metadata;
@@ -17,19 +17,23 @@ SportOS now provides:
 - deterministic scoring with exact ledger/rule provenance;
 - spreadsheet/app reconciliation and daily score breakdowns;
 - import history and row-level diagnostics;
-- immutable scoring-rule versions with database-enforced effective-range rules;
+- immutable scoring-rule versions with database-enforced effective ranges;
 - read-only score-change previews with date-level and aggregate deltas;
 - audited asynchronous rule activation and atomic score recomputation;
-- an Angular cockpit with Daily Log, Run Lab, Imports, and Rules Studio.
+- validated inclusive daily and performance date filters;
+- Daily Log drill-down through canonical facts, ledger entries, activities, source records, and import batches;
+- Run Lab trends, race/treadmill/PR markers, event details, and provenance;
+- strict versioned canonical JSON export with explicit reconciliation and provenance status;
+- responsive keyboard-accessible Angular navigation with loading, empty, error, retry, and terminal states.
 
-The remaining P1 item is complete cockpit drill-down and canonical export work. See [MVP-0 status](docs/FIRST_MILESTONE.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), and the authoritative [work queue](https://github.com/vokerg/sportos/issues/3).
+The usable local cockpit milestone is complete once issue #13 is merged. The next queue item is authentication and per-user data ownership. See [MVP-0 status](docs/FIRST_MILESTONE.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), [canonical export](docs/CANONICAL_EXPORT.md), and the authoritative [work queue](https://github.com/vokerg/sportos/issues/3).
 
 ## Not yet implemented
 
 - authentication, multiple users, and owner isolation;
 - Strava, Garmin, Google Sheets, or FIT synchronization;
-- complete dashboards, cross-screen drill-downs, and canonical export;
-- hosted storage lifecycle, backup, and user-deletion workflows;
+- hosted storage lifecycle, backup, monitoring, and user-deletion workflows;
+- streaming or chunked export for hosted-scale datasets;
 - AI analysis.
 
 ## Architecture
@@ -50,16 +54,19 @@ independent worker <--- scoring_rule_changes
 import_batches + source_records  |
           |                      |
           v                      |
-activities + daily_metrics ------+
+activities + daily_metrics + performance_events
+          |                      |
+          v                      |
+scoring_rules + score_ledger ----+
           |
           v
-scoring_rules + score_ledger
+stable reads + canonical export repository
           |
           v
-read models -> NestJS API -> Angular UI
+NestJS API -> Angular cockpit
 ```
 
-Postgres is authoritative for job state, leases, rule versions, audit history, canonical facts, and official scores. The worker uses bounded polling and `FOR UPDATE SKIP LOCKED`; Redis is not required for correctness.
+Postgres is authoritative for job state, leases, rule versions, audit history, canonical facts, provenance, and official scores. The worker uses bounded polling and `FOR UPDATE SKIP LOCKED`; Redis is not required for correctness.
 
 Repository layout:
 
@@ -69,13 +76,13 @@ apps/
   web/        Angular local cockpit
   worker/     asynchronous jobs and local CLI
 packages/
-  shared/     schemas, dates, and hashes
+  shared/     schemas, dates, export contracts, and hashes
   domain/     pure sport, scoring, preview, and reconciliation logic
-  db/         Kysely schema, leases, audits, and repositories
+  db/         Kysely schema, leases, audits, reads, and export assembly
   importers/  XLSX extraction, storage, and normalization
   analytics/  pure analytical helpers
 flyway/sql/   append-only migrations
-docs/         architecture, ADRs, mappings, scoring, and evidence
+docs/         architecture, ADRs, mappings, scoring, export, and evidence
 ```
 
 Key decisions:
@@ -83,7 +90,8 @@ Key decisions:
 - [ADR 0001](docs/adr/0001-import-transactions-and-identity.md) — import transactions and identity;
 - [ADR 0002](docs/adr/0002-upload-storage-and-retention.md) — uploaded-file storage and retention;
 - [ADR 0003](docs/adr/0003-import-job-lifecycle.md) — durable import jobs;
-- [ADR 0004](docs/adr/0004-rule-versioning-and-recomputation.md) — immutable rule versions, preview, audit, and recomputation.
+- [ADR 0004](docs/adr/0004-rule-versioning-and-recomputation.md) — immutable rule versions, preview, audit, and recomputation;
+- [Canonical export v1](docs/CANONICAL_EXPORT.md) — stable datasets, ordering, provenance, reconciliation, and privacy exclusions.
 
 ## Prerequisites
 
@@ -131,9 +139,9 @@ pnpm db:down
 
 Open **Imports**, choose `my_sport` or `run_db`, select one `.xlsx` file, and choose **Upload and queue**.
 
-The API validates the extension, MIME signal, ZIP signature, workbook readability, filename, and 20 MB size limit. It stores the source bytes, inserts safe metadata, creates a durable job, and returns HTTP `202` without executing the importer in the request process.
+The API validates extension, MIME signal, ZIP signature, workbook readability, filename, and the 20 MB size limit. It stores source bytes, inserts safe metadata, creates a durable job, and returns HTTP `202` without executing the importer in the request process.
 
-The browser then displays worker phase/progress, attempts, cancellation, retry, and the linked import batch. Polling stops at a terminal state, component destruction, or 120 checks.
+The browser displays worker phase/progress, attempts, cancellation, retry, and linked import batch. Polling stops at a terminal state, component destruction, or 120 checks.
 
 The queue accepts 25 active import jobs by default. Duplicate workbooks return `409 DUPLICATE_UPLOAD`; saturation returns `503 IMPORT_QUEUE_FULL`.
 
@@ -149,6 +157,38 @@ pnpm import:local -- \
 
 Local paths are never part of the browser contract or public history responses.
 
+## Cockpit review
+
+The header navigation links to Daily Log, Run Lab, Rules Studio, Imports, and Canonical export. A skip link, visible keyboard focus, semantic tables, labeled controls, and responsive single-column breakpoints support common desktop, tablet, and narrow layouts.
+
+### Daily Log
+
+Daily Log accepts optional inclusive `from` and `to` dates and a bounded result limit. It renders explicit loading, empty, error, and retry states. **Explain** opens the existing persisted breakdown for a date, including:
+
+- canonical daily facts and totals;
+- base/bonus ledger contributions and exact rule UUIDs;
+- linked canonical activities;
+- source-record hash, workbook sheet/row, import batch, and safe filename when available;
+- explicit absence where source provenance is missing.
+
+### Run Lab
+
+Run Lab supports 5 km, 10 km, half-marathon, and marathon distances plus optional inclusive dates. It shows a chronological duration trend, ranks, race/treadmill/PR markers, event notes, and an event detail panel with source-record and import-batch provenance. Invalid filters are rejected before database access.
+
+## Canonical export
+
+The **Canonical export** panel downloads `sportos.canonical-export.v1` JSON for a required inclusive date range of at most 3,660 days.
+
+The bundle contains deterministic ascending arrays for:
+
+- canonical daily summaries and reconciliation fields;
+- canonical activities;
+- canonical performance events;
+- explicit `available`, `missing`, or `unsupported` provenance;
+- exact dataset row counts and generation metadata.
+
+The repository validates the complete bundle before the API returns it. It excludes raw workbook cells, formulas, raw payload JSON, uploaded-file hashes, object keys, server paths, and source bytes. Full fields and compatibility rules are documented in [CANONICAL_EXPORT.md](docs/CANONICAL_EXPORT.md).
+
 ## Rules Studio
 
 Rules Studio lists active, pending, and historical rule UUIDs. A user may create a new rule family or supersede an enabled version.
@@ -158,25 +198,22 @@ The workflow is:
 1. Select or define a rule proposal.
 2. Configure activity type, rule kind, metric, coefficient or achievement threshold, priority, and inclusive effective dates.
 3. Request a server-side preview.
-4. Review current/proposed totals and deltas for each persisted date plus the aggregate change.
+4. Review current/proposed totals and deltas per persisted date plus the aggregate change.
 5. Enter an audit reason and confirm the exact preview fingerprint.
 6. Monitor the durable rule-change job.
 7. Review the terminal audit record and immutable versions.
 
-Preview is read-only and bounded to 5,000 persisted dates. It never changes official totals or ledger rows.
-
-Activation inserts the proposed UUID disabled and queues one audited job. The worker then performs one transaction that closes the superseded range when required, enables the new UUID, recomputes affected daily totals, replaces ledger rows, and marks the audit successful. Any failure rolls that whole transaction back, leaving the prior rule and authoritative scores unchanged. Failed jobs can be retried with the same audit identity while attempts remain.
-
-Enabled ranges for one family cannot overlap, including shared inclusive boundary dates. The database enforces this policy in addition to API validation. Existing ledger entries continue to identify the exact rule UUID used for their score contribution.
+Preview is read-only and bounded to 5,000 persisted dates. Activation inserts the proposed UUID disabled and queues an audited job. The worker atomically closes a superseded range when required, enables the new UUID, recomputes affected totals, replaces ledger rows, and marks the audit successful. Failure rolls the transaction back.
 
 ## Source retention and privacy
 
 For the local milestone, uploaded files, raw source records, job state, and audit history are retained indefinitely by default.
 
 - workbook bytes remain outside Postgres;
-- API responses omit storage keys, local paths, and raw source bytes;
+- APIs omit storage keys, local paths, and raw source bytes;
 - filenames are reduced to safe basenames;
 - failures are redacted before persistence or display;
+- canonical export deliberately omits raw cells, formulas, raw payload JSON, upload hashes, and storage metadata;
 - source deletion is an explicit coordinated operator action.
 
 Hosted use requires authentication, owner scoping, encryption, backup, lifecycle policy, and audited deletion.
@@ -201,9 +238,12 @@ See [SCORING_RULES.md](docs/SCORING_RULES.md) and the verified [reconciliation f
 
 ```text
 GET  /health
-GET  /daily/summary?limit=365
+GET  /daily/summary?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=365
 GET  /daily/:date/score-breakdown
 GET  /performance/best?distanceM=5000&limit=50
+GET  /performance/events?distanceM=5000&from=YYYY-MM-DD&to=YYYY-MM-DD&limit=100
+GET  /performance/events/:eventId
+GET  /exports/canonical?from=YYYY-MM-DD&to=YYYY-MM-DD
 
 GET  /imports?limit=20&offset=0
 GET  /imports/:batchId?diagnosticLimit=100&diagnosticOffset=0
@@ -222,7 +262,7 @@ POST /rules/changes/:changeId/retry
 POST /rules/changes/:changeId/cancel
 ```
 
-Rule proposal validation returns `400 INVALID_RULE_PROPOSAL` with field-level issues. Stale fingerprints, overlaps, active family changes, and invalid lifecycle transitions return stable `409` contracts. Unknown valid UUIDs return `404`.
+Real dates, ordered ranges, maximum spans, positive distances, limits, and UUIDs are validated before repository execution. Unknown valid UUIDs return `404`; malformed inputs return stable `400` contracts.
 
 ## Validation
 
@@ -251,8 +291,8 @@ SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test
   pnpm --filter @sportos/importers test:integration
 ```
 
-The suites cover import and rule-job claims, queue limits, monotonic progress, cancellation, retries, stale recovery, independent worker execution, transactional imports, overlap rejection, atomic rule activation/recomputation, exact ledger UUIDs, API contracts, browser polling, and production builds.
+The suites cover import and rule-job claims, queue limits, cancellation, retries, stale recovery, independent workers, transactional imports, rule overlap and activation, exact ledger UUIDs, canonical export provenance/privacy/order/counts, API validation, cockpit states, browser downloads, and production builds.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing imports, jobs, scoring rules, migrations, or generated evidence.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing imports, jobs, scoring rules, migrations, read models, or exports.
