@@ -1,6 +1,7 @@
 import {
   ImportJobsRepository,
   UploadsRepository,
+  WorkerDispatchRepository,
   withAccountContext,
   type Database,
   type Json,
@@ -42,7 +43,8 @@ export class ImportJobRunner {
   private readonly pollIntervalMs: number;
 
   constructor(
-    private readonly db: Kysely<Database>,
+    private readonly dispatchDb: Kysely<Database>,
+    private readonly dataDb: Kysely<Database>,
     private readonly storage: UploadStorage = new LocalUploadStorage(),
     options: ImportJobRunnerOptions = { workerId: 'sportos-worker' },
   ) {
@@ -52,18 +54,12 @@ export class ImportJobRunner {
   }
 
   async processNext(): Promise<boolean> {
-    const systemJobs = new ImportJobsRepository(this.db);
-    await systemJobs.recoverStale();
-    const job = await systemJobs.claimNext(this.workerId, this.leaseSeconds);
+    const dispatcher = new WorkerDispatchRepository(this.dispatchDb);
+    await dispatcher.recoverStaleImports();
+    const job = await dispatcher.claimImport(this.workerId, this.leaseSeconds);
     if (!job) return false;
 
-    const owner = await this.db
-      .selectFrom('import_jobs')
-      .select('owner_id')
-      .where('id', '=', job.id)
-      .executeTakeFirstOrThrow();
-
-    return withAccountContext(this.db, owner.owner_id, async (scopedDb) => {
+    return withAccountContext(this.dataDb, job.ownerId, async (scopedDb) => {
       const jobs = new ImportJobsRepository(scopedDb);
       const uploads = new UploadsRepository(scopedDb);
       try {
