@@ -7,9 +7,8 @@
   background: #f5f7fb;
 }
 
-body {
-  margin: 0;
-}
+html { scroll-behavior: smooth; }
+body { margin: 0; }
 
 .shell {
   max-width: 1440px;
@@ -17,15 +16,20 @@ body {
   padding: 24px;
 }
 
-.grid {
-  display: grid;
-  min-width: 0;
-  gap: 16px;
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: -80px;
+  z-index: 1000;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #172033;
+  color: white;
 }
+.skip-link:focus { top: 12px; }
 
-.grid.two {
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
-}
+.grid { display: grid; min-width: 0; gap: 16px; }
+.grid.two { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); }
 
 .card {
   min-width: 0;
@@ -35,17 +39,29 @@ body {
   box-shadow: 0 12px 35px rgba(20, 33, 61, 0.08);
 }
 
+.cockpit-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+.cockpit-header nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.cockpit-header nav a {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #eef3ff;
+  color: #1d4ed8;
+  font-weight: 650;
+  text-decoration: none;
+}
+
 sportos-daily-log,
-sportos-score-breakdown-panel {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-}
+sportos-score-breakdown-panel,
+sportos-run-lab,
+sportos-export-panel { display: block; min-width: 0; max-width: 100%; }
 
-sportos-score-breakdown-panel {
-  overflow: hidden;
-}
-
+sportos-score-breakdown-panel { overflow: hidden; }
 sportos-score-breakdown-panel .breakdown-panel,
 sportos-score-breakdown-panel .ledger-scroll {
   box-sizing: border-box;
@@ -53,10 +69,7 @@ sportos-score-breakdown-panel .ledger-scroll {
   min-width: 0;
   max-width: 100%;
 }
-
-sportos-score-breakdown-panel .breakdown-panel {
-  overflow: hidden;
-}
+sportos-score-breakdown-panel .breakdown-panel { overflow: hidden; }
 
 .kpi-row {
   display: grid;
@@ -64,22 +77,9 @@ sportos-score-breakdown-panel .breakdown-panel {
   gap: 12px;
   margin-bottom: 16px;
 }
-
-.kpi {
-  border-radius: 16px;
-  padding: 14px;
-  background: #eef3ff;
-}
-
-.kpi .label {
-  font-size: 12px;
-  color: #667085;
-}
-
-.kpi .value {
-  font-size: 26px;
-  font-weight: 750;
-}
+.kpi { border-radius: 16px; padding: 14px; background: #eef3ff; }
+.kpi .label { font-size: 12px; color: #667085; }
+.kpi .value { font-size: 26px; font-weight: 750; }
 
 h1, h2, h3 { margin-top: 0; }
 
@@ -92,17 +92,61 @@ button {
   color: white;
   font-weight: 650;
 }
+button.secondary { background: #e4e7ec; color: #344054; }
+button:disabled { cursor: not-allowed; opacity: 0.6; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid #f59e0b;
+  outline-offset: 2px;
+}
 
-input {
+input, select {
+  box-sizing: border-box;
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid #d0d5dd;
-  min-width: 260px;
+  min-width: 170px;
+  background: white;
+  color: #172033;
 }
+label { display: grid; gap: 5px; color: #475467; font-size: 13px; font-weight: 650; }
 
-.form-row {
+.form-row, .filter-bar {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: end;
+}
+.filter-bar { margin-bottom: 16px; }
+
+.state-message {
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+.state-message.error { background: #fff1f0; color: #912018; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 1050px) {
+  .grid.two { grid-template-columns: 1fr; }
+  .cockpit-header { display: grid; }
+  .cockpit-header nav { justify-content: flex-start; }
+}
+
+@media (max-width: 700px) {
+  .shell { padding: 12px; }
+  .card { padding: 14px; border-radius: 14px; }
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filter-bar { align-items: stretch; }
+  .filter-bar label, .filter-bar input, .filter-bar select, .filter-bar button { width: 100%; }
 }

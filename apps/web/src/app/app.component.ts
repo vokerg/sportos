@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { DailyLogComponent } from './daily-log.component';
+import { ExportPanelComponent } from './export-panel.component';
 import { ImportPanelComponent } from './import-panel.component';
 import { RulesStudioComponent } from './rules-studio.component';
 import { RunLabComponent } from './run-lab.component';
@@ -7,27 +8,36 @@ import { RunLabComponent } from './run-lab.component';
 @Component({
   selector: 'sportos-root',
   standalone: true,
-  imports: [DailyLogComponent, ImportPanelComponent, RulesStudioComponent, RunLabComponent],
+  imports: [DailyLogComponent, ExportPanelComponent, ImportPanelComponent, RulesStudioComponent, RunLabComponent],
   template: `
-    <main class="shell">
-      <header class="card" style="margin-bottom: 16px;">
-        <h1>SportOS</h1>
-        <p>Spreadsheet import → canonical database → deterministic scores → dashboards. AI comes later, after the facts are clean.</p>
+    <a class="skip-link" href="#main-content">Skip to cockpit</a>
+    <main class="shell" id="main-content">
+      <header class="card cockpit-header">
+        <div>
+          <h1>SportOS</h1>
+          <p>Canonical sports data, deterministic scores, source provenance, and audited local workflows.</p>
+        </div>
+        <nav aria-label="Cockpit sections">
+          <a href="#daily-log">Daily Log</a>
+          <a href="#run-lab">Run Lab</a>
+          <a href="#rules-studio">Rules</a>
+          <a href="#imports">Imports</a>
+          <a href="#canonical-export">Export</a>
+        </nav>
       </header>
 
       <div class="grid two">
-        <section class="grid">
-          <div id="daily-log">
-            <sportos-daily-log #dailyLog />
-          </div>
-          <sportos-run-lab />
-          <sportos-rules-studio />
+        <section class="grid" aria-label="Training review">
+          <div id="daily-log"><sportos-daily-log #dailyLog /></div>
+          <div id="run-lab"><sportos-run-lab /></div>
+          <div id="rules-studio"><sportos-rules-studio /></div>
         </section>
-        <aside class="grid">
-          <sportos-import-panel (reconcileDate)="dailyLog.openBreakdownForDate($event)" />
+        <aside class="grid" aria-label="Data operations">
+          <div id="imports"><sportos-import-panel (reconcileDate)="dailyLog.openBreakdownForDate($event)" /></div>
+          <div id="canonical-export"><sportos-export-panel /></div>
           <section class="card">
-            <h2>Milestone scope</h2>
-            <p>The local cockpit now preserves source provenance, executes imports in durable jobs, explains deterministic scores, and supports audited rule-version changes with previewed recomputation.</p>
+            <h2>Local cockpit scope</h2>
+            <p>Import supported workbooks, inspect canonical facts and provenance, explain deterministic scores, manage audited rule versions, review performance history, and export a stable canonical JSON bundle.</p>
           </section>
         </aside>
       </div>

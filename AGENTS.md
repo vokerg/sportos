@@ -16,9 +16,10 @@ Validated local capabilities include:
 - import history and row diagnostics;
 - bounded browser upload and external source-file storage;
 - durable import jobs with leases, progress, retry, cancellation, stale recovery, and independent worker execution;
-- immutable scoring-rule versions, read-only impact previews, audited rule-change jobs, atomic recomputation, and Rules Studio.
+- immutable scoring-rule versions, read-only impact previews, audited rule-change jobs, atomic recomputation, and Rules Studio;
+- validated daily/performance date ranges, source drill-downs, responsive cockpit navigation, explicit loading/empty/error states, and strict canonical JSON export.
 
-The next incomplete queue item is #13: complete local cockpit drill-downs and canonical export. Use the status vocabulary in `docs/ROADMAP.md`: **Implemented**, **Validated**, and **Operational**.
+The next incomplete queue item is #14: authentication and per-user data ownership. Use the status vocabulary in `docs/ROADMAP.md`: **Implemented**, **Validated**, and **Operational**.
 
 ## Start here
 
@@ -68,8 +69,9 @@ Data-integrity, privacy, and dependency failures may move to P0. Convenience wor
 11. Flyway owns append-only schema evolution; Kysely types stay synchronized.
 12. Postgres is authoritative for job state and leases; only the current lease owner may progress or complete work.
 13. Running cancellation occurs only at documented safe boundaries.
-14. Secrets, personal workbooks, storage keys, local paths, and unredacted exports are never committed or exposed.
-15. Dependencies point toward shared/pure packages; framework code does not leak into domain logic.
+14. Secrets, personal workbooks, storage keys, local paths, raw payloads, formulas, upload hashes, and unredacted exports are never committed or exposed.
+15. Canonical exports have an explicit version, real inclusive dates, deterministic ordering, exact row counts, and explicit provenance status.
+16. Dependencies point toward shared/pure packages; framework code does not leak into domain logic.
 
 ## Repository entry points
 
@@ -87,26 +89,29 @@ Data-integrity, privacy, and dependency failures may move to P0. Convenience wor
 - `src/main.ts` — Nest bootstrap.
 - `src/app.module.ts` — controller/provider wiring.
 - `src/db.provider.ts` — database lifecycle.
+- `src/query-validation.ts` — real dates, bounded ranges/numbers, and UUID validation.
 - `src/imports/imports.controller.ts` — upload, import jobs, history, diagnostics.
 - `src/imports/imports.service.ts` — storage/enqueue orchestration.
 - `src/rules/rules.controller.ts` — rule list, preview, activation, audit, retry, cancellation.
 - `src/rules/rules.service.ts` — preview fingerprint and audit enqueue boundary.
-- `src/daily/` — daily summary and persisted score breakdown.
-- `src/performance/` — performance reads.
+- `src/daily/` — filtered daily summaries and persisted score breakdown.
+- `src/performance/` — filtered events, trends, and source detail.
+- `src/exports/` — bounded canonical export download.
 
 API code validates and bounds inputs, orchestrates package services, and returns stable path-free error contracts. It must not reproduce importer or scoring rules.
 
 ### Web: `apps/web`
 
-- `src/app/app.component.ts` — cockpit composition.
+- `src/app/app.component.ts` — responsive cockpit composition and navigation.
 - `src/app/api.service.ts` — HTTP contracts.
 - `src/app/import-panel.component.ts` — upload and import-job monitoring.
 - `src/app/rules-studio.component.ts` — immutable versions, preview, confirmation, rule-job monitoring, audit history.
-- `src/app/daily-log.component.ts` — daily review and reconciliation.
-- `src/app/score-breakdown-panel.component.ts` — ledger/rule/source explanation.
-- `src/app/run-lab.component.ts` — performance review.
+- `src/app/daily-log.component.ts` — validated daily ranges, trends, reconciliation, and source drill-down.
+- `src/app/score-breakdown-panel.component.ts` — ledger/rule/activity/source/batch explanation.
+- `src/app/run-lab.component.ts` — distance/date trends, markers, event detail, and provenance.
+- `src/app/export-panel.component.ts` — canonical JSON range download and row-count feedback.
 
-Angular treats API responses as canonical. Do not calculate official scores, interpret workbooks, deduplicate facts, or transition durable jobs in the browser.
+Angular treats API responses as canonical. Do not calculate official scores, interpret workbooks, deduplicate facts, assemble export truth, or transition durable jobs in the browser.
 
 ### Worker: `apps/worker`
 
@@ -128,6 +133,15 @@ Worker orchestration stays thin. Import semantics belong in `packages/importers`
 
 This package has no database, HTTP, Angular, NestJS, filesystem, provider SDK, or generated-text dependencies.
 
+### Shared contracts: `packages/shared`
+
+- `src/schemas.ts` — canonical importer inputs.
+- `src/dates.ts` — real ISO-date and Excel-date utilities.
+- `src/canonical-export.ts` — strict `sportos.canonical-export.v1` runtime contract.
+- `src/canonical-export.test.ts` — date, ordering, row-count, strict-field, and provenance invariants.
+
+Shared contracts may define serialization truth but must not query a database or depend on frameworks.
+
 ### Persistence: `packages/db`
 
 - `src/schema.ts` — Kysely tables/views synchronized with migrations.
@@ -135,9 +149,12 @@ This package has no database, HTTP, Angular, NestJS, filesystem, provider SDK, o
 - `src/repositories/rule-changes.repository.ts` — immutable versions, overlap checks, audit leases, atomic activation/recomputation.
 - `src/repositories/scoring.repository.ts` — active rule reads and runtime normalization.
 - `src/repositories/daily.repository.ts` — activities, daily facts, ledger, and breakdown reads.
-- `src/repositories/imports.repository.ts`, `uploads.repository.ts`, `performance.repository.ts` — other persistence boundaries.
+- `src/repositories/cockpit.repository.ts` — filtered daily read model.
+- `src/repositories/performance.repository.ts` — performance lists/details and provenance.
+- `src/repositories/canonical-export.repository.ts` — deterministic export assembly and privacy boundary.
+- `src/repositories/imports.repository.ts`, `uploads.repository.ts` — remaining persistence boundaries.
 
-Repositories own typed queries and transactions, not source interpretation.
+Repositories own typed queries, serialization adapters, and transactions, not source interpretation.
 
 ### Import boundary: `packages/importers`
 
@@ -156,6 +173,7 @@ Importer semantic changes require anonymized fixtures, malformed/ambiguous cases
 - `docs/adr/0002-upload-storage-and-retention.md`
 - `docs/adr/0003-import-job-lifecycle.md`
 - `docs/adr/0004-rule-versioning-and-recomputation.md`
+- `docs/CANONICAL_EXPORT.md`
 - `docs/SPREADSHEET_MAPPING.md`
 - `docs/SCORING_RULES.md`
 
@@ -180,9 +198,20 @@ Importer semantic changes require anonymized fixtures, malformed/ambiguous cases
 - prove rollback, cancellation, retry, and stale recovery;
 - update ADR/scoring docs for semantic changes.
 
+### Cockpit reads and export
+
+- validate real inclusive dates, range ordering, maximum spans, numeric filters, pagination, and UUIDs before querying;
+- normalize database `date` values to `YYYY-MM-DD` at repository boundaries;
+- keep Daily Log and performance provenance linked to exact canonical/source/batch UUIDs;
+- represent unavailable provenance as `missing` or `unsupported`, never inferred;
+- assemble export datasets in repositories and validate the complete versioned envelope before returning;
+- exclude raw cells, formulas, raw payload JSON, upload hashes, object keys, and paths;
+- preserve deterministic ordering and exact declared row counts;
+- cover loading, empty, error, retry, focus, keyboard, and responsive states.
+
 ### Database
 
-- add an ordered Flyway migration;
+- add an ordered Flyway migration only when schema changes are required;
 - add constraints/indexes for new invariants and access paths;
 - synchronize Kysely types;
 - document backfill, rollback, and integrity impact;
@@ -191,16 +220,16 @@ Importer semantic changes require anonymized fixtures, malformed/ambiguous cases
 ### API
 
 - validate all route/query/body/file inputs;
-- bound uploads, pagination, previews, and date ranges;
+- bound uploads, pagination, previews, exports, and date ranges;
 - return stable actionable errors without private data;
 - update README endpoint documentation and controller tests.
 
 ### Web
 
 - cover loading, empty, error, progress, terminal, retry, cancel, and stale states;
-- keep primary workflows keyboard accessible;
+- keep primary workflows keyboard accessible and responsive at common widths;
 - add service/component tests;
-- never duplicate official calculations.
+- never duplicate official calculations or persistence truth.
 
 ### Jobs
 
