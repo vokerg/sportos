@@ -18,6 +18,8 @@ import {
 } from './score-breakdown-panel.component';
 import type { ApiErrorBody, DailyScoreBreakdown } from './score-breakdown.models';
 
+type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
+
 @Component({
   selector: 'sportos-daily-log',
   standalone: true,
@@ -29,28 +31,47 @@ import type { ApiErrorBody, DailyScoreBreakdown } from './score-breakdown.models
     ScoreBreakdownPanelComponent,
   ],
   template: `
-    <section class="card">
-      <h2>Daily Log</h2>
-      <p class="daily-log-help">Use <strong>Explain</strong> on any row to reconcile the persisted app score with the imported spreadsheet total.</p>
-      <div class="kpi-row">
-        <div class="kpi"><div class="label">Rows</div><div class="value">{{ rows().length }}</div></div>
-        <div class="kpi"><div class="label">Latest total</div><div class="value">{{ latest()?.total_points ?? '—' }}</div></div>
-        <div class="kpi"><div class="label">Latest 30d avg</div><div class="value">{{ latest()?.avg_30d ? (latest()!.avg_30d | number:'1.0-0') : '—' }}</div></div>
-        <div class="kpi"><div class="label">Excel delta</div><div class="value">{{ latest()?.points_delta_vs_excel ?? '—' }}</div></div>
-      </div>
+    <section class="card" aria-labelledby="daily-log-title">
+      <h2 id="daily-log-title">Daily Log</h2>
+      <p class="daily-log-help">Filter canonical daily facts, then use <strong>Explain</strong> to trace a total through ledger entries, activities, source rows, and import batches.</p>
 
-      <div echarts [options]="chartOptions()" style="height: 320px;"></div>
+      <form class="filter-bar" (submit)="applyFilters(); $event.preventDefault()" aria-label="Daily Log date range">
+        <label>From <input type="date" [value]="from()" (input)="from.set($any($event.target).value)" /></label>
+        <label>To <input type="date" [value]="to()" (input)="to.set($any($event.target).value)" /></label>
+        <button type="submit" [disabled]="summaryState() === 'loading'">Apply range</button>
+        <button type="button" class="secondary" (click)="resetFilters()">Reset</button>
+      </form>
 
-      <ag-grid-angular
-        class="ag-theme-quartz"
-        style="width: 100%; height: 460px; margin-top: 16px;"
-        aria-label="Daily scores. Use the Explain action in a row to view its persisted score breakdown."
-        [rowData]="rows()"
-        [columnDefs]="columnDefs"
-        [context]="gridContext"
-        [pagination]="true"
-        [paginationPageSize]="25">
-      </ag-grid-angular>
+      @if (summaryState() === 'loading') {
+        <p role="status" aria-live="polite">Loading daily summaries…</p>
+      } @else if (summaryState() === 'error') {
+        <div class="state-message error" role="alert">
+          <p>{{ summaryError() }}</p>
+          <button type="button" (click)="loadRows()">Retry</button>
+        </div>
+      } @else if (summaryState() === 'empty') {
+        <p class="state-message" role="status">No canonical daily summaries match this range.</p>
+      } @else {
+        <div class="kpi-row">
+          <div class="kpi"><div class="label">Rows</div><div class="value">{{ rows().length }}</div></div>
+          <div class="kpi"><div class="label">Latest total</div><div class="value">{{ latest()?.total_points ?? '—' }}</div></div>
+          <div class="kpi"><div class="label">Latest 30d avg</div><div class="value">{{ latest()?.avg_30d ? (latest()!.avg_30d | number:'1.0-0') : '—' }}</div></div>
+          <div class="kpi"><div class="label">Excel delta</div><div class="value">{{ latest()?.points_delta_vs_excel ?? '—' }}</div></div>
+        </div>
+
+        <div echarts [options]="chartOptions()" style="height: 320px;" aria-label="Daily total and 30 day average trend"></div>
+
+        <ag-grid-angular
+          class="ag-theme-quartz"
+          style="width: 100%; height: 460px; margin-top: 16px;"
+          aria-label="Daily scores. Use the Explain action in a row to view canonical facts and source provenance."
+          [rowData]="rows()"
+          [columnDefs]="columnDefs"
+          [context]="gridContext"
+          [pagination]="true"
+          [paginationPageSize]="25">
+        </ag-grid-angular>
+      }
 
       <sportos-score-breakdown-panel
         [state]="breakdownState()"
@@ -62,21 +83,22 @@ import type { ApiErrorBody, DailyScoreBreakdown } from './score-breakdown.models
     </section>
   `,
   styles: [`
-    .daily-log-help {
-      margin: -6px 0 16px;
-      color: #667085;
-      font-size: 13px;
-    }
+    .daily-log-help { margin: -6px 0 16px; color: #667085; font-size: 13px; }
   `],
 })
 export class DailyLogComponent implements OnInit, OnDestroy {
   readonly rows = signal<DailySummaryRow[]>([]);
   readonly latest = computed(() => this.rows()[0]);
+  readonly from = signal('');
+  readonly to = signal('');
+  readonly summaryState = signal<SummaryState>('loading');
+  readonly summaryError = signal<string | null>(null);
   readonly selectedDate = signal<string | null>(null);
   readonly breakdownState = signal<ScoreBreakdownViewState>('idle');
   readonly breakdown = signal<DailyScoreBreakdown | null>(null);
   readonly breakdownError = signal<string | null>(null);
 
+  private summarySubscription?: Subscription;
   private breakdownSubscription?: Subscription;
 
   readonly gridContext: DailyBreakdownGridContext = {
@@ -84,18 +106,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   };
 
   readonly columnDefs: ColDef<DailySummaryRow>[] = [
-    {
-      colId: 'scoreBreakdown',
-      headerName: 'Details',
-      cellRenderer: DailyBreakdownButtonComponent,
-      pinned: 'left',
-      width: 108,
-      minWidth: 108,
-      maxWidth: 108,
-      sortable: false,
-      filter: false,
-      suppressHeaderMenuButton: true,
-    },
+    { colId: 'scoreBreakdown', headerName: 'Details', cellRenderer: DailyBreakdownButtonComponent, pinned: 'left', width: 108, minWidth: 108, maxWidth: 108, sortable: false, filter: false, suppressHeaderMenuButton: true },
     { field: 'metric_date', headerName: 'Date', pinned: 'left', filter: true },
     { field: 'steps', filter: 'agNumberColumnFilter' },
     { field: 'run_m', headerName: 'Run m', filter: 'agNumberColumnFilter' },
@@ -130,21 +141,51 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     private readonly scoreBreakdownApi: ScoreBreakdownApiService,
   ) {}
 
-  ngOnInit(): void {
-    this.api.dailySummary().subscribe((rows) => this.rows.set(rows));
-  }
+  ngOnInit(): void { this.loadRows(); }
 
   ngOnDestroy(): void {
+    this.summarySubscription?.unsubscribe();
     this.breakdownSubscription?.unsubscribe();
   }
 
-  openBreakdown(row: DailySummaryRow): void {
-    this.openBreakdownForDate(row.metric_date);
+  applyFilters(): void {
+    if (this.from() && this.to() && this.from() > this.to()) {
+      this.summaryError.set('From date must be on or before the to date.');
+      this.summaryState.set('error');
+      return;
+    }
+    this.loadRows();
   }
 
-  openBreakdownForDate(date: string): void {
-    this.loadBreakdown(date);
+  resetFilters(): void {
+    this.from.set('');
+    this.to.set('');
+    this.loadRows();
   }
+
+  loadRows(): void {
+    this.summarySubscription?.unsubscribe();
+    this.summaryState.set('loading');
+    this.summaryError.set(null);
+    this.summarySubscription = this.api.dailySummary({
+      from: this.from() || undefined,
+      to: this.to() || undefined,
+      limit: 2000,
+    }).subscribe({
+      next: (rows) => {
+        this.rows.set(rows);
+        this.summaryState.set(rows.length === 0 ? 'empty' : 'loaded');
+      },
+      error: (error: unknown) => {
+        this.rows.set([]);
+        this.summaryError.set(this.describeSummaryError(error));
+        this.summaryState.set('error');
+      },
+    });
+  }
+
+  openBreakdown(row: DailySummaryRow): void { this.openBreakdownForDate(row.metric_date); }
+  openBreakdownForDate(date: string): void { this.loadBreakdown(date); }
 
   retryBreakdown(): void {
     const date = this.selectedDate();
@@ -165,31 +206,25 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.breakdown.set(null);
     this.breakdownError.set(null);
     this.breakdownState.set('loading');
-
     this.breakdownSubscription = this.scoreBreakdownApi.getForDate(date).subscribe({
-      next: (result) => {
-        this.breakdown.set(result);
-        this.breakdownState.set('loaded');
-      },
-      error: (error: unknown) => {
-        this.breakdownError.set(this.describeBreakdownError(error));
-        this.breakdownState.set('error');
-      },
+      next: (result) => { this.breakdown.set(result); this.breakdownState.set('loaded'); },
+      error: (error: unknown) => { this.breakdownError.set(this.describeBreakdownError(error)); this.breakdownState.set('error'); },
     });
+  }
+
+  private describeSummaryError(error: unknown): string {
+    if (!(error instanceof HttpErrorResponse)) return 'The daily summary request failed unexpectedly.';
+    const body = this.apiErrorBody(error.error);
+    if (error.status === 0) return 'The SportOS API is unavailable. Check that the local API is running.';
+    return body?.message || `The daily summary API returned HTTP ${error.status}.`;
   }
 
   private describeBreakdownError(error: unknown): string {
     if (!(error instanceof HttpErrorResponse)) return 'The score-breakdown request failed unexpectedly.';
     const body = this.apiErrorBody(error.error);
-    if (body?.code === 'DAILY_SCORE_NOT_FOUND' || error.status === 404) {
-      return body?.message || 'No persisted score exists for the selected date.';
-    }
-    if (body?.code === 'INVALID_DATE' || error.status === 400) {
-      return body?.message || 'The selected date is invalid.';
-    }
-    if (body?.code === 'SCORE_BREAKDOWN_INCONSISTENT') {
-      return 'The persisted score failed consistency checks. Review the import and ledger data before using this total.';
-    }
+    if (body?.code === 'DAILY_SCORE_NOT_FOUND' || error.status === 404) return body?.message || 'No persisted score exists for the selected date.';
+    if (body?.code === 'INVALID_DATE' || error.status === 400) return body?.message || 'The selected date is invalid.';
+    if (body?.code === 'SCORE_BREAKDOWN_INCONSISTENT') return 'The persisted score failed consistency checks. Review the import and ledger data before using this total.';
     if (error.status === 0) return 'The SportOS API is unavailable. Check that the local API is running.';
     return body?.message || `The API returned HTTP ${error.status}.`;
   }
