@@ -1,5 +1,11 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
+
+export interface DateRangeQuery {
+  from?: string;
+  to?: string;
+  limit?: number;
+}
 
 export interface DailySummaryRow {
   metric_date: string;
@@ -33,6 +39,49 @@ export interface PerformanceRow {
   tags: string[];
 }
 
+export interface ProvenanceReference {
+  status: 'available' | 'missing' | 'unsupported';
+  sourceRecordId: string | null;
+  sourceRecordHash: string | null;
+  importBatchId: string | null;
+  source: string | null;
+  sheetName: string | null;
+  rowIndex: number | null;
+  filename: string | null;
+}
+
+export interface PerformanceEventRow {
+  id: string;
+  activityId: string | null;
+  eventDate: string;
+  source: 'manual' | 'run_db_xlsx' | 'strava' | 'garmin' | 'fit';
+  distanceM: number;
+  durationS: number;
+  paceSPerKm: number;
+  isTreadmill: boolean;
+  isRace: boolean;
+  isPrMarker: boolean;
+  isPrByTime: boolean;
+  sourceRank: number | null;
+  allTimeRank: number;
+  tags: string[];
+  notes: string | null;
+}
+
+export interface PerformanceEventDetail extends PerformanceEventRow {
+  provenance: ProvenanceReference;
+}
+
+export interface CanonicalExportBundle {
+  schemaVersion: 'sportos.canonical-export.v1';
+  generatedAt: string;
+  dateRange: { from: string; to: string };
+  rowCounts: { dailySummaries: number; activities: number; performanceEvents: number };
+  dailySummaries: unknown[];
+  activities: unknown[];
+  performanceEvents: unknown[];
+}
+
 export type ImportBatchStatus = 'started' | 'parsed' | 'normalized' | 'scored' | 'failed';
 export type UploadWorkbookKind = 'my_sport' | 'run_db';
 export type ImportJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
@@ -54,12 +103,7 @@ export interface ImportBatchHistoryItem {
   startedAt: string;
   completedAt: string | null;
   affectedDates: string[];
-  failure: {
-    phase: string;
-    name: string;
-    message: string;
-    recordedAt: string;
-  } | null;
+  failure: { phase: string; name: string; message: string; recordedAt: string } | null;
 }
 
 export interface ImportBatchHistoryPage {
@@ -82,11 +126,7 @@ export interface ImportDiagnostic {
 
 export interface ImportBatchDetail {
   batch: ImportBatchHistoryItem;
-  transitions: Array<{
-    status: ImportBatchStatus;
-    phase: string;
-    recordedAt: string;
-  }>;
+  transitions: Array<{ status: ImportBatchStatus; phase: string; recordedAt: string }>;
   diagnostics: ImportDiagnostic[];
   diagnosticTotal: number;
   diagnosticLimit: number;
@@ -218,12 +258,29 @@ export class ApiService {
 
   constructor(private readonly http: HttpClient) {}
 
-  dailySummary(limit = 365) {
-    return this.http.get<DailySummaryRow[]>(`${this.apiBase()}/daily/summary?limit=${limit}`);
+  dailySummary(query: DateRangeQuery | number = { limit: 365 }) {
+    const normalized = typeof query === 'number' ? { limit: query } : query;
+    return this.http.get<DailySummaryRow[]>(`${this.apiBase()}/daily/summary`, { params: queryParams(normalized) });
   }
 
   bestPerformance(distanceM: number, limit = 50) {
     return this.http.get<PerformanceRow[]>(`${this.apiBase()}/performance/best?distanceM=${distanceM}&limit=${limit}`);
+  }
+
+  performanceEvents(query: DateRangeQuery & { distanceM?: number }) {
+    return this.http.get<PerformanceEventRow[]>(`${this.apiBase()}/performance/events`, { params: queryParams(query) });
+  }
+
+  performanceEvent(eventId: string) {
+    return this.http.get<PerformanceEventDetail>(
+      `${this.apiBase()}/performance/events/${encodeURIComponent(eventId)}`,
+    );
+  }
+
+  canonicalExport(from: string, to: string) {
+    return this.http.get<CanonicalExportBundle>(`${this.apiBase()}/exports/canonical`, {
+      params: queryParams({ from, to }),
+    });
   }
 
   uploadWorkbook(file: File, workbookKind: UploadWorkbookKind) {
@@ -294,4 +351,12 @@ export class ApiService {
   cancelRuleChange(changeId: string) {
     return this.http.post<RuleChange>(`${this.apiBase()}/rules/changes/${encodeURIComponent(changeId)}/cancel`, {});
   }
+}
+
+function queryParams(values: Record<string, string | number | undefined>): HttpParams {
+  let params = new HttpParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined && value !== '') params = params.set(key, String(value));
+  }
+  return params;
 }
