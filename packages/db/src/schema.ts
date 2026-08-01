@@ -5,9 +5,53 @@ export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 export type NullableTimestamp = ColumnType<Date | null, Date | string | null, Date | string | null>;
 export type GeneratedTimestamp = ColumnType<Date, Date | string | undefined, Date | string>;
 export type DateString = ColumnType<string, string, string>;
+export type OwnerId = Generated<string>;
+
+export interface AccountsTable {
+  id: Generated<string>;
+  display_name: string;
+  email: string | null;
+  status: 'active' | 'disabled';
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface ExternalIdentitiesTable {
+  id: Generated<string>;
+  account_id: string;
+  issuer: string;
+  subject: string;
+  email: string | null;
+  display_name: string | null;
+  created_at: GeneratedTimestamp;
+  last_login_at: GeneratedTimestamp;
+}
+
+export interface AuthSessionsTable {
+  id: Generated<string>;
+  account_id: string;
+  token_hash: string;
+  csrf_hash: string;
+  user_agent_hash: string | null;
+  expires_at: Timestamp;
+  absolute_expires_at: Timestamp;
+  last_seen_at: GeneratedTimestamp;
+  revoked_at: NullableTimestamp;
+  created_at: GeneratedTimestamp;
+}
+
+export interface AuthTransactionsTable {
+  state_hash: string;
+  code_verifier: string;
+  nonce: string;
+  return_to: string;
+  expires_at: Timestamp;
+  created_at: GeneratedTimestamp;
+}
 
 export interface UploadedFilesTable {
   id: string;
+  owner_id: OwnerId;
   workbook_kind: 'my_sport' | 'run_db';
   storage_provider: 'local';
   object_key: string;
@@ -25,6 +69,7 @@ export interface UploadedFilesTable {
 
 export interface ImportBatchesTable {
   id: Generated<string>;
+  owner_id: OwnerId;
   uploaded_file_id: Generated<string | null>;
   source: string;
   source_kind: 'xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit' | 'manual';
@@ -42,6 +87,7 @@ export interface ImportBatchesTable {
 
 export interface ImportJobsTable {
   id: Generated<string>;
+  owner_id: OwnerId;
   uploaded_file_id: string;
   import_batch_id: string | null;
   status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
@@ -65,6 +111,7 @@ export interface ImportJobsTable {
 
 export interface SourceRecordsTable {
   id: Generated<string>;
+  owner_id: OwnerId;
   import_batch_id: string;
   source: string;
   sheet_name: string | null;
@@ -82,6 +129,7 @@ export interface SourceRecordsTable {
 
 export interface ActivitiesTable {
   id: Generated<string>;
+  owner_id: OwnerId;
   source: 'manual' | 'my_sport_xlsx' | 'run_db_xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit';
   source_record_id: string | null;
   source_activity_id: string | null;
@@ -108,6 +156,7 @@ export interface ActivitiesTable {
 }
 
 export interface DailyMetricsTable {
+  owner_id: OwnerId;
   metric_date: DateString;
   source_record_id: string | null;
   steps: number;
@@ -126,6 +175,7 @@ export interface DailyMetricsTable {
 
 export interface ScoringRulesTable {
   id: Generated<string>;
+  owner_id: OwnerId;
   code: string;
   version: number;
   supersedes_rule_id: string | null;
@@ -148,6 +198,7 @@ export interface ScoringRulesTable {
 
 export interface ScoringRuleChangesTable {
   id: Generated<string>;
+  owner_id: OwnerId;
   rule_code: string;
   previous_rule_id: string | null;
   proposed_rule_id: string;
@@ -179,17 +230,19 @@ export interface ScoringRuleChangesTable {
 
 export interface ScoreLedgerTable {
   id: Generated<string>;
+  owner_id: OwnerId;
   metric_date: DateString;
   activity_id: string | null;
   rule_id: string | null;
   points: number;
   reason: string;
   calculation_json: Json;
-  created_at: Generated<Timestamp>;
+  created_at: GeneratedTimestamp;
 }
 
 export interface PerformanceEventsTable {
   id: Generated<string>;
+  owner_id: OwnerId;
   activity_id: string | null;
   source_record_id: string | null;
   source_record_hash: string | null;
@@ -209,6 +262,10 @@ export interface PerformanceEventsTable {
 }
 
 export interface Database {
+  accounts: AccountsTable;
+  external_identities: ExternalIdentitiesTable;
+  auth_sessions: AuthSessionsTable;
+  auth_transactions: AuthTransactionsTable;
   uploaded_files: UploadedFilesTable;
   import_batches: ImportBatchesTable;
   import_jobs: ImportJobsTable;
@@ -219,10 +276,14 @@ export interface Database {
   scoring_rule_changes: ScoringRuleChangesTable;
   score_ledger: ScoreLedgerTable;
   performance_events: PerformanceEventsTable;
-  v_daily_summary: Omit<DailyMetricsTable, 'source_record_id'> & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
-  v_performance_events: Omit<PerformanceEventsTable, 'source_record_hash'> & { all_time_rank: number; is_pr_by_time: boolean };
+  v_daily_summary: Omit<DailyMetricsTable, 'owner_id' | 'source_record_id'> & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
+  v_performance_events: Omit<PerformanceEventsTable, 'owner_id' | 'source_record_hash'> & { all_time_rank: number; is_pr_by_time: boolean };
 }
 
+export type Account = Selectable<AccountsTable>;
+export type NewAccount = Insertable<AccountsTable>;
+export type ExternalIdentity = Selectable<ExternalIdentitiesTable>;
+export type AuthSession = Selectable<AuthSessionsTable>;
 export type UploadedFile = Selectable<UploadedFilesTable>;
 export type NewUploadedFile = Insertable<UploadedFilesTable>;
 export type ImportBatch = Selectable<ImportBatchesTable>;
