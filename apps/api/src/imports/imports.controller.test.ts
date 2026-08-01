@@ -1,4 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { LEGACY_ACCOUNT_ID } from '@sportos/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImportsController } from './imports.controller.js';
 import type { ImportsService } from './imports.service.js';
@@ -83,11 +84,11 @@ describe('ImportsController history, jobs, and detail', () => {
     controller = new ImportsController(service as unknown as ImportsService);
   });
 
-  it('uses bounded history defaults and delegates to the query service', async () => {
+  it('uses bounded history defaults and forwards owner context', async () => {
     service.history.mockResolvedValue(historyPage);
 
     await expect(controller.history()).resolves.toEqual(historyPage);
-    expect(service.history).toHaveBeenCalledWith(20, 0);
+    expect(service.history).toHaveBeenCalledWith(20, 0, LEGACY_ACCOUNT_ID);
   });
 
   it('accepts explicit bounded pagination values', async () => {
@@ -95,7 +96,7 @@ describe('ImportsController history, jobs, and detail', () => {
 
     await controller.history('50', '100');
 
-    expect(service.history).toHaveBeenCalledWith(50, 100);
+    expect(service.history).toHaveBeenCalledWith(50, 100, LEGACY_ACCOUNT_ID);
   });
 
   it('rejects malformed or unbounded pagination before querying the database', async () => {
@@ -116,10 +117,13 @@ describe('ImportsController history, jobs, and detail', () => {
     service.uploadWorkbook.mockResolvedValue(response);
 
     await expect(controller.uploadWorkbook(uploadFile, 'my_sport')).resolves.toEqual(response);
-    expect(service.uploadWorkbook).toHaveBeenCalledWith({ file: uploadFile, workbookKind: 'my_sport' });
+    expect(service.uploadWorkbook).toHaveBeenCalledWith(
+      { file: uploadFile, workbookKind: 'my_sport' },
+      LEGACY_ACCOUNT_ID,
+    );
   });
 
-  it('delegates job status, retry, and cancellation operations', async () => {
+  it('delegates job status, retry, and cancellation operations with owner context', async () => {
     service.job.mockResolvedValue(jobResponse);
     service.retryJob.mockResolvedValue(jobResponse);
     service.cancelJob.mockResolvedValue({ ...jobResponse, status: 'cancelled' });
@@ -127,9 +131,9 @@ describe('ImportsController history, jobs, and detail', () => {
     await expect(controller.job(jobId)).resolves.toEqual(jobResponse);
     await expect(controller.retryJob(jobId)).resolves.toEqual(jobResponse);
     await expect(controller.cancelJob(jobId)).resolves.toMatchObject({ status: 'cancelled' });
-    expect(service.job).toHaveBeenCalledWith(jobId);
-    expect(service.retryJob).toHaveBeenCalledWith(jobId);
-    expect(service.cancelJob).toHaveBeenCalledWith(jobId);
+    expect(service.job).toHaveBeenCalledWith(jobId, LEGACY_ACCOUNT_ID);
+    expect(service.retryJob).toHaveBeenCalledWith(jobId, LEGACY_ACCOUNT_ID);
+    expect(service.cancelJob).toHaveBeenCalledWith(jobId, LEGACY_ACCOUNT_ID);
   });
 
   it('rejects malformed job ids before calling the service', async () => {
@@ -159,7 +163,7 @@ describe('ImportsController history, jobs, and detail', () => {
     service.detail.mockResolvedValue(detailResponse);
 
     await expect(controller.detail(batchId, '25', '50')).resolves.toEqual(detailResponse);
-    expect(service.detail).toHaveBeenCalledWith(batchId, 25, 50);
+    expect(service.detail).toHaveBeenCalledWith(batchId, 25, 50, LEGACY_ACCOUNT_ID);
   });
 
   it('rejects malformed batch ids without querying the database', async () => {
@@ -177,7 +181,7 @@ describe('ImportsController history, jobs, and detail', () => {
     expect(service.detail).not.toHaveBeenCalled();
   });
 
-  it('returns an actionable not-found response for an unknown batch', async () => {
+  it('returns a non-enumerating not-found response for a missing or foreign batch', async () => {
     service.detail.mockResolvedValue(null);
 
     try {
@@ -187,17 +191,19 @@ describe('ImportsController history, jobs, and detail', () => {
       expect(error).toBeInstanceOf(NotFoundException);
       expect((error as NotFoundException).getResponse()).toEqual({
         code: 'IMPORT_BATCH_NOT_FOUND',
-        message: `No import batch exists with id ${batchId}.`,
-        batchId,
+        message: 'Import batch was not found.',
       });
     }
   });
 
-  it('keeps the existing local import command behind the service boundary', async () => {
+  it('keeps the existing local import command behind the account-scoped service boundary', async () => {
     const result = { batches: [], dailyRows: 0, activities: 0, performanceEvents: 0, warnings: [] };
     service.importLocalFiles.mockResolvedValue(result);
 
     await expect(controller.importLocalFiles({ mySportPath: '/private/workbook.xlsx' })).resolves.toEqual(result);
-    expect(service.importLocalFiles).toHaveBeenCalledWith({ mySportPath: '/private/workbook.xlsx' });
+    expect(service.importLocalFiles).toHaveBeenCalledWith(
+      { mySportPath: '/private/workbook.xlsx' },
+      LEGACY_ACCOUNT_ID,
+    );
   });
 });
