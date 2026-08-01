@@ -8,7 +8,7 @@ The primary format is one UTF-8 JSON document validated by `CanonicalExportBundl
 
 ## Purpose
 
-The export provides portable canonical and reconciled application data. It is not a workbook backup and does not reproduce hidden spreadsheet formulas, raw cell payloads, storage object keys, local filesystem paths, credentials, or internal worker leases.
+The export provides portable canonical and reconciled application data. It is not a workbook backup and does not reproduce hidden spreadsheet formulas, raw cell payloads, upload hashes, storage object keys, local filesystem paths, credentials, or internal worker leases.
 
 Included datasets:
 
@@ -17,12 +17,18 @@ Included datasets:
 3. canonical performance events;
 4. explicit source provenance references for every row.
 
+## Request boundary
+
+`GET /exports/canonical?from=YYYY-MM-DD&to=YYYY-MM-DD`
+
+Both dates are required, real calendar dates, inclusive, and ordered. The local endpoint accepts at most 3,660 days in one request. Invalid dates, reversed ranges, and excessive spans return stable `400` errors before a repository query runs. Responses use `Cache-Control: no-store` and an attachment disposition.
+
 ## Envelope
 
 ```json
 {
   "schemaVersion": "sportos.canonical-export.v1",
-  "generatedAt": "2026-07-31T08:00:00.000Z",
+  "generatedAt": "2026-08-01T08:00:00.000Z",
   "dateRange": {
     "from": "2026-05-01",
     "to": "2026-05-31"
@@ -38,7 +44,7 @@ Included datasets:
 }
 ```
 
-Dates are ISO `YYYY-MM-DD`. Timestamps are ISO 8601 strings with an explicit UTC offset. `from` and `to` are inclusive. Declared row counts must exactly match each dataset.
+Dates are real ISO `YYYY-MM-DD` values. Timestamps are ISO 8601 strings with an explicit offset. Declared row counts must exactly match each dataset, and every row date must fall within the envelope range.
 
 ## Provenance
 
@@ -55,7 +61,7 @@ Every exported row has one strict provenance object:
 | `rowIndex` | one-based source row when applicable, or `null` |
 | `filename` | sanitized source filename, or `null` |
 
-`available` requires both a source-record UUID and import-batch UUID. `missing` means SportOS expected provenance but cannot currently resolve it. `unsupported` means the source type does not provide that provenance concept. Missing fields are represented with `null`; they are never silently omitted or inferred.
+`available` requires both a source-record UUID and import-batch UUID. `missing` means SportOS expected provenance but cannot currently resolve a complete source-record/batch chain. `unsupported` means the source type, such as a manual record, does not provide that provenance concept. Non-available provenance cannot claim traceable source-record or batch UUIDs. Values are never silently inferred.
 
 ## Daily summaries
 
@@ -70,9 +76,11 @@ Each daily row contains:
 Reconciliation status is one of:
 
 - `exact` — app and spreadsheet totals match;
-- `explained` — the delta is supported by explicit scoring evidence;
-- `unresolved` — totals differ without sufficient evidence;
+- `explained` — reserved in v1 for a future persisted explanation classification;
+- `unresolved` — totals differ without a persisted explanation classification;
 - `not_comparable` — no numeric spreadsheet total is available.
+
+The current repository emits `exact`, `unresolved`, or `not_comparable`; it does not promote a delta to `explained` from UI-only or inferred evidence.
 
 ## Activities
 
@@ -84,20 +92,39 @@ Nullable values stay `null`; zero is reserved for a measured/configured zero. Ra
 
 Performance rows contain the canonical event UUID, optional linked activity UUID, event date, source, distance, duration, pace, treadmill/race/PR markers, source rank, tags, notes, and provenance.
 
-The export does not derive new rankings or trend values. Consumers may calculate presentation views from the canonical event fields.
+The export does not derive new rankings or trend values. Consumers may calculate presentation views from canonical event fields.
+
+## Assembly and ordering
+
+`CanonicalExportRepository` queries daily, activity, and performance rows concurrently, joins source records and import batches, normalizes PostgreSQL dates/timestamps/numeric values, maps reconciliation/provenance status, and validates the complete document before returning it.
+
+Stable ascending ordering is:
+
+- daily summaries: `metricDate`;
+- activities: `activityDate`, then activity UUID;
+- performance events: `eventDate`, then event UUID.
+
+The shared schema rejects out-of-range rows, unstable ordering, count mismatches, impossible dates, contradictory provenance, and undeclared fields.
 
 ## Stability rules
 
 - Existing v1 field meanings do not change.
 - Additive optional fields require a documented compatibility decision; required or semantic changes require a new schema version.
 - Unknown top-level or row fields are rejected by the v1 runtime schema.
-- Export generation must validate the complete bundle before sending it.
-- Filters must be validated and applied deterministically using inclusive date boundaries.
-- Rows must use stable ordering: date then UUID for daily/activity/event datasets as applicable.
-- Export tests must trace representative rows back to canonical database records and provenance identifiers.
+- Export generation validates the complete bundle before sending it.
+- Filters are validated and applied deterministically using inclusive date boundaries.
+- Database-backed tests trace representative exported rows to exact canonical, source-record, activity, event, and import-batch UUIDs.
 
 ## Privacy
 
-Exports may contain personal training data and sanitized source filenames. They intentionally omit storage keys, server paths, raw workbook rows, workbook formulas, hashes of complete uploaded files, secrets, and authentication data.
+Exports may contain personal training data and sanitized source filenames. They intentionally omit:
 
-Hosted export requires ownership authorization and an audited download policy before multi-user deployment.
+- storage keys and server paths;
+- raw workbook rows and formulas;
+- importer raw payload JSON;
+- hashes of complete uploaded files;
+- source bytes, credentials, and authentication data.
+
+Integration tests insert forbidden raw/formula/hash values and assert they do not appear in serialized output.
+
+Hosted export requires ownership authorization, an audited download policy, and likely streaming or durable delivery before multi-user deployment.
