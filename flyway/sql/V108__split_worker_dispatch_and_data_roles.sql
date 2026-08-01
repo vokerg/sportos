@@ -16,6 +16,18 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE accounts, external_identities, aut
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM sportos_data;
 
+CREATE OR REPLACE FUNCTION sportos_reject_owner_change()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
+    RAISE EXCEPTION 'owner_id is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
 DO $$
 DECLARE
   table_name text;
@@ -28,6 +40,10 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS worker_system_access ON %I', table_name);
     EXECUTE format(
       'ALTER POLICY account_isolation ON %I TO sportos_app, sportos_legacy, sportos_worker_data',
+      table_name
+    );
+    EXECUTE format(
+      'CREATE TRIGGER reject_owner_change BEFORE UPDATE OF owner_id ON %I FOR EACH ROW EXECUTE FUNCTION sportos_reject_owner_change()',
       table_name
     );
   END LOOP;
