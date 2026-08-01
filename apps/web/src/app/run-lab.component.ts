@@ -43,7 +43,7 @@ type DetailState = 'idle' | 'loading' | 'loaded' | 'error';
       } @else if (state() === 'empty') {
         <p class="state-message" role="status">No performance events match these filters.</p>
       } @else {
-        <div echarts [options]="chartOptions()" style="height: 280px;" aria-label="Performance duration trend"></div>
+        <div echarts [options]="chartOptions()" style="height: 280px;" role="img" aria-label="Performance duration trend"></div>
         <div class="table-scroll">
           <table>
             <caption class="visually-hidden">Filtered performance events</caption>
@@ -135,6 +135,7 @@ export class RunLabComponent implements OnInit, OnDestroy {
   }
 
   applyFilters(): void {
+    this.closeDetail();
     if (this.from() && this.to() && this.from() > this.to()) {
       this.errorMessage.set('From date must be on or before the to date.');
       this.state.set('error');
@@ -151,6 +152,7 @@ export class RunLabComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
+    this.closeDetail();
     this.listSubscription?.unsubscribe();
     this.state.set('loading');
     this.errorMessage.set(null);
