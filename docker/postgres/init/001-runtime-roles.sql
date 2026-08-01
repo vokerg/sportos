@@ -1,5 +1,5 @@
 -- Local-development runtime roles. Production deployments must provision
--- equivalent non-superuser roles with deployment-managed secrets.
+-- equivalent non-superuser roles with deployment-managed credentials.
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sportos_data') THEN
@@ -10,6 +10,9 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sportos_worker') THEN
     CREATE ROLE sportos_worker LOGIN PASSWORD 'sportos_worker' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION IN ROLE sportos_data;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sportos_worker_data') THEN
+    CREATE ROLE sportos_worker_data LOGIN PASSWORD 'sportos_worker_data' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION IN ROLE sportos_data;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sportos_legacy') THEN
     CREATE ROLE sportos_legacy LOGIN PASSWORD 'sportos_legacy' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION IN ROLE sportos_data;
