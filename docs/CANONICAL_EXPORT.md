@@ -96,7 +96,7 @@ The export does not derive new rankings or trend values. Consumers may calculate
 
 ## Assembly and ordering
 
-`CanonicalExportRepository` queries daily, activity, and performance rows concurrently, joins source records and import batches, normalizes PostgreSQL dates/timestamps/numeric values, maps reconciliation/provenance status, and validates the complete document before returning it.
+`CanonicalExportRepository` opens one repeatable-read transaction, reads daily, activity, and performance rows from that single snapshot, joins source records and import batches, normalizes PostgreSQL dates/timestamps/numeric values, maps reconciliation/provenance status, and validates the complete document before returning it. A concurrent import or rule recomputation therefore cannot produce a mixed pre/post-commit bundle.
 
 Stable ascending ordering is:
 
