@@ -1,6 +1,7 @@
 import {
   ImportJobsRepository,
   UploadsRepository,
+  withAccountContext,
   type Database,
   type Json,
   type Kysely,
@@ -36,8 +37,6 @@ const PHASE_PROGRESS: Record<ImportFailurePhase, number> = {
 };
 
 export class ImportJobRunner {
-  private readonly jobs: ImportJobsRepository;
-  private readonly uploads: UploadsRepository;
   private readonly workerId: string;
   private readonly leaseSeconds: number;
   private readonly pollIntervalMs: number;
@@ -47,59 +46,68 @@ export class ImportJobRunner {
     private readonly storage: UploadStorage = new LocalUploadStorage(),
     options: ImportJobRunnerOptions = { workerId: 'sportos-worker' },
   ) {
-    this.jobs = new ImportJobsRepository(db);
-    this.uploads = new UploadsRepository(db);
     this.workerId = options.workerId.slice(0, 200);
     this.leaseSeconds = clampInteger(options.leaseSeconds ?? 60, 15, 600);
     this.pollIntervalMs = clampInteger(options.pollIntervalMs ?? 1000, 100, 60_000);
   }
 
   async processNext(): Promise<boolean> {
-    await this.jobs.recoverStale();
-    const job = await this.jobs.claimNext(this.workerId, this.leaseSeconds);
+    const systemJobs = new ImportJobsRepository(this.db);
+    await systemJobs.recoverStale();
+    const job = await systemJobs.claimNext(this.workerId, this.leaseSeconds);
     if (!job) return false;
 
-    try {
-      await this.checkCancellation(job.id);
-      await this.jobs.heartbeat(job.id, this.workerId, 'reading-upload', 10, this.leaseSeconds);
-      const bytes = await this.storage.read(job.objectKey);
+    const owner = await this.db
+      .selectFrom('import_jobs')
+      .select('owner_id')
+      .where('id', '=', job.id)
+      .executeTakeFirstOrThrow();
 
-      await this.checkCancellation(job.id);
-      await this.jobs.heartbeat(job.id, this.workerId, 'parsing-workbook', 20, this.leaseSeconds);
-      const extract = readWorkbookBuffer(bytes, job.filename);
+    return withAccountContext(this.db, owner.owner_id, async (scopedDb) => {
+      const jobs = new ImportJobsRepository(scopedDb);
+      const uploads = new UploadsRepository(scopedDb);
+      try {
+        await this.checkCancellation(jobs, job.id);
+        await jobs.heartbeat(job.id, this.workerId, 'reading-upload', 10, this.leaseSeconds);
+        const bytes = await this.storage.read(job.objectKey);
 
-      let linkedBatchId: string | null = null;
-      const importer = new ImportService(this.db, {
-        failureInjector: async (phase, context) => {
-          if (linkedBatchId !== context.batchId) {
-            await this.jobs.linkBatch(job.id, this.workerId, context.batchId);
-            linkedBatchId = context.batchId;
-          }
-          await this.checkCancellation(job.id);
-          await this.jobs.heartbeat(job.id, this.workerId, phase, PHASE_PROGRESS[phase], this.leaseSeconds);
-        },
-      });
+        await this.checkCancellation(jobs, job.id);
+        await jobs.heartbeat(job.id, this.workerId, 'parsing-workbook', 20, this.leaseSeconds);
+        const extract = readWorkbookBuffer(bytes, job.filename);
 
-      const result = await importer.importWorkbook({
-        workbookKind: job.workbookKind,
-        extract,
-        uploadId: job.uploadId,
-      });
-      await this.uploads.markImported(job.uploadId);
-      await this.jobs.markSucceeded(job.id, this.workerId, toJson(result));
-      return true;
-    } catch (error) {
-      const cancellationRequested = error instanceof ImportJobCancelledError
-        || await this.jobs.cancellationRequested(job.id, this.workerId).catch(() => false);
-      if (cancellationRequested) {
-        await this.jobs.markCancelled(job.id, this.workerId);
+        let linkedBatchId: string | null = null;
+        const importer = new ImportService(scopedDb, {
+          failureInjector: async (phase, context) => {
+            if (linkedBatchId !== context.batchId) {
+              await jobs.linkBatch(job.id, this.workerId, context.batchId);
+              linkedBatchId = context.batchId;
+            }
+            await this.checkCancellation(jobs, job.id);
+            await jobs.heartbeat(job.id, this.workerId, phase, PHASE_PROGRESS[phase], this.leaseSeconds);
+          },
+        });
+
+        const result = await importer.importWorkbook({
+          workbookKind: job.workbookKind,
+          extract,
+          uploadId: job.uploadId,
+        });
+        await uploads.markImported(job.uploadId);
+        await jobs.markSucceeded(job.id, this.workerId, toJson(result));
+        return true;
+      } catch (error) {
+        const cancellationRequested = error instanceof ImportJobCancelledError
+          || await jobs.cancellationRequested(job.id, this.workerId).catch(() => false);
+        if (cancellationRequested) {
+          await jobs.markCancelled(job.id, this.workerId);
+          return true;
+        }
+
+        await uploads.markFailed(job.uploadId, error).catch(() => undefined);
+        await jobs.markFailed(job.id, this.workerId, failureCode(error), error);
         return true;
       }
-
-      await this.uploads.markFailed(job.uploadId, error).catch(() => undefined);
-      await this.jobs.markFailed(job.id, this.workerId, failureCode(error), error);
-      return true;
-    }
+    });
   }
 
   async run(signal: AbortSignal): Promise<void> {
@@ -109,10 +117,8 @@ export class ImportJobRunner {
     }
   }
 
-  private async checkCancellation(jobId: string): Promise<void> {
-    if (await this.jobs.cancellationRequested(jobId, this.workerId)) {
-      throw new ImportJobCancelledError();
-    }
+  private async checkCancellation(jobs: ImportJobsRepository, jobId: string): Promise<void> {
+    if (await jobs.cancellationRequested(jobId, this.workerId)) throw new ImportJobCancelledError();
   }
 }
 
