@@ -1,4 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { LEGACY_ACCOUNT_ID } from '@sportos/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DailyController } from './daily.controller.js';
 import type { DailyService } from './daily.service.js';
@@ -21,10 +22,13 @@ describe('DailyController cockpit contracts', () => {
     controller = new DailyController(service as unknown as DailyService);
   });
 
-  it('passes a validated inclusive summary range and bounded limit', async () => {
+  it('passes a validated inclusive summary range and owner context', async () => {
     service.summary.mockResolvedValue([]);
     await expect(controller.summary('2026-05-01', '2026-05-31', '250')).resolves.toEqual([]);
-    expect(service.summary).toHaveBeenCalledWith({ from: '2026-05-01', to: '2026-05-31', limit: 250 });
+    expect(service.summary).toHaveBeenCalledWith(
+      { from: '2026-05-01', to: '2026-05-31', limit: 250 },
+      LEGACY_ACCOUNT_ID,
+    );
   });
 
   it('rejects impossible, reversed, and unbounded summary filters before querying', async () => {
@@ -37,7 +41,7 @@ describe('DailyController cockpit contracts', () => {
   it('returns the stable persisted score response for a valid date', async () => {
     service.scoreBreakdown.mockResolvedValue(response);
     await expect(controller.scoreBreakdown('2026-05-18')).resolves.toEqual(response);
-    expect(service.scoreBreakdown).toHaveBeenCalledWith('2026-05-18');
+    expect(service.scoreBreakdown).toHaveBeenCalledWith('2026-05-18', LEGACY_ACCOUNT_ID);
   });
 
   it('rejects malformed and impossible calendar dates without querying the database', async () => {
@@ -47,7 +51,7 @@ describe('DailyController cockpit contracts', () => {
     expect(service.scoreBreakdown).not.toHaveBeenCalled();
   });
 
-  it('returns an actionable not-found contract for a valid date with no persisted score', async () => {
+  it('returns a non-enumerating not-found contract for a missing or foreign score', async () => {
     service.scoreBreakdown.mockResolvedValue(null);
     try {
       await controller.scoreBreakdown('2026-05-19');
@@ -56,7 +60,7 @@ describe('DailyController cockpit contracts', () => {
       expect(error).toBeInstanceOf(NotFoundException);
       expect((error as NotFoundException).getResponse()).toEqual({
         code: 'DAILY_SCORE_NOT_FOUND',
-        message: 'No persisted daily score exists for 2026-05-19.',
+        message: 'No persisted daily score exists for the selected date.',
         date: '2026-05-19',
       });
     }
