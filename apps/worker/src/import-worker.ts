@@ -15,8 +15,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => controller.abort());
 }
 
-const dispatchDb = createDb(process.env.SPORTOS_WORKER_DATABASE_URL ?? process.env.DATABASE_URL);
-const dataDb = createDb(process.env.SPORTOS_WORKER_DATA_DATABASE_URL);
+const dispatchDb = createDb(requiredUrl('SPORTOS_WORKER_DATABASE_URL'));
+const dataDb = createDb(requiredUrl('SPORTOS_WORKER_DATA_DATABASE_URL'));
 const storage = new LocalUploadStorage();
 
 try {
@@ -34,6 +34,12 @@ try {
   ]);
 } finally {
   await Promise.all([dispatchDb.destroy(), dataDb.destroy()]);
+}
+
+function requiredUrl(name: 'SPORTOS_WORKER_DATABASE_URL' | 'SPORTOS_WORKER_DATA_DATABASE_URL'): string {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required; the worker must not fall back to API or schema-owner credentials.`);
+  return value;
 }
 
 function clampInteger(value: number, minimum: number, maximum: number): number {
