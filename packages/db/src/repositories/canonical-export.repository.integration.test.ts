@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../pool.js';
 import { CanonicalExportRepository } from './canonical-export.repository.js';
+import { PerformanceRepository } from './performance.repository.js';
 
 const testDatabaseUrl = process.env.SPORTOS_TEST_DATABASE_URL;
 const databaseDescribe = testDatabaseUrl ? describe : describe.skip;
@@ -125,6 +126,16 @@ databaseDescribe('CanonicalExportRepository database integration', () => {
     expect(serialized).not.toContain('secretFormula');
     expect(serialized).not.toContain('not-exported-upload-hash');
     expect(serialized).not.toContain('raw_payload_json');
+
+    const legacyPerformance = await new PerformanceRepository(db).listBestByDistance(5000, 10);
+    expect(legacyPerformance).toHaveLength(1);
+    expect(legacyPerformance[0]).toMatchObject({ event_date: metricDate, distance_m: 5000, duration_s: 1500 });
+    expect(Object.keys(legacyPerformance[0]!)).not.toEqual(expect.arrayContaining([
+      'raw_payload_json',
+      'source_record_hash',
+      'source_record_id',
+    ]));
+    expect(JSON.stringify(legacyPerformance)).not.toContain('not exported');
   });
 
   it('marks manual canonical records as unsupported rather than inventing provenance', async () => {
