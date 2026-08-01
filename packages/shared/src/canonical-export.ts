@@ -1,9 +1,12 @@
 import { z } from 'zod';
+import { isRealIsoDate } from './dates.js';
 import { ActivitySubtypeSchema, ActivityTypeSchema } from './schemas.js';
 
 export const CANONICAL_EXPORT_SCHEMA_VERSION = 'sportos.canonical-export.v1' as const;
 
-export const ExportDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const ExportDateSchema = z.string().refine(isRealIsoDate, {
+  message: 'Expected a real calendar date in YYYY-MM-DD format.',
+});
 export const ExportTimestampSchema = z.string().datetime({ offset: true });
 
 export const ExportProvenanceStatusSchema = z.enum(['available', 'missing', 'unsupported']);
@@ -25,6 +28,14 @@ export const ExportProvenanceSchema = z.object({
     if (!value.importBatchId) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ['importBatchId'], message: 'Available provenance requires an import batch id.' });
     }
+    return;
+  }
+  if (value.sourceRecordId !== null || value.importBatchId !== null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['status'],
+      message: `${value.status} provenance cannot claim traceable source identifiers.`,
+    });
   }
 });
 
@@ -131,7 +142,33 @@ export const CanonicalExportBundleSchema = z.object({
       });
     }
   }
+
+  validateDatesAndOrder(value.dailySummaries, (row) => row.metricDate, (row) => row.metricDate, value.dateRange, 'dailySummaries', context);
+  validateDatesAndOrder(value.activities, (row) => row.activityDate, (row) => `${row.activityDate}:${row.id}`, value.dateRange, 'activities', context);
+  validateDatesAndOrder(value.performanceEvents, (row) => row.eventDate, (row) => `${row.eventDate}:${row.id}`, value.dateRange, 'performanceEvents', context);
 });
+
+function validateDatesAndOrder<T>(
+  rows: T[],
+  dateOf: (row: T) => string,
+  keyOf: (row: T) => string,
+  range: { from: string; to: string },
+  path: string,
+  context: z.RefinementCtx,
+): void {
+  let previous = '';
+  rows.forEach((row, index) => {
+    const date = dateOf(row);
+    if (date < range.from || date > range.to) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: [path, index], message: 'Export row falls outside the declared date range.' });
+    }
+    const key = keyOf(row);
+    if (index > 0 && key < previous) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: [path, index], message: 'Export rows are not in stable ascending order.' });
+    }
+    previous = key;
+  });
+}
 
 export type ExportProvenance = z.infer<typeof ExportProvenanceSchema>;
 export type CanonicalDailyExportRow = z.infer<typeof CanonicalDailyExportRowSchema>;
