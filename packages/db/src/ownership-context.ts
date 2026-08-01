@@ -9,9 +9,13 @@ export async function withAccountContext<T>(
   callback: (scopedDb: Kysely<Database>) => Promise<T>,
 ): Promise<T> {
   assertAccountId(accountId);
-  return db.transaction().execute(async (transaction) => {
-    await sql`select set_config('sportos.account_id', ${accountId}, true)`.execute(transaction);
-    return callback(transaction);
+  return db.connection().execute(async (connection) => {
+    await sql`select set_config('sportos.account_id', ${accountId}, false)`.execute(connection);
+    try {
+      return await callback(connection);
+    } finally {
+      await sql`select set_config('sportos.account_id', '', false)`.execute(connection);
+    }
   });
 }
 
