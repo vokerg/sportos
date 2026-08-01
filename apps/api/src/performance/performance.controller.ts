@@ -6,6 +6,7 @@ import {
   parseBoundedInteger,
   parseDateRange,
   parseOptionalPositiveNumber,
+  parsePositiveNumber,
 } from '../query-validation.js';
 
 @Controller('performance')
@@ -13,10 +14,9 @@ export class PerformanceController {
   constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
 
   @Get('best')
-  async best(@Query('distanceM') distanceM = '5000', @Query('limit') limit?: string) {
-    const distance = parseOptionalPositiveNumber(distanceM, 'distanceM');
+  async best(@Query('distanceM') distanceM?: string, @Query('limit') limit?: string) {
     return new PerformanceRepository(this.dbProvider.db).listBestByDistance(
-      distance!,
+      parsePositiveNumber(distanceM, { name: 'distanceM', defaultValue: 5000 }),
       parseBoundedInteger(limit, { name: 'limit', defaultValue: 25, min: 1, max: 200 }),
     );
   }
