@@ -84,27 +84,27 @@ export class CanonicalExportRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
   async buildBundle(from: string, to: string, generatedAt = new Date()): Promise<CanonicalExportBundle> {
-    const [dailyRows, activityRows, performanceRows] = await Promise.all([
-      this.listDailyRows(from, to),
-      this.listActivityRows(from, to),
-      this.listPerformanceRows(from, to),
-    ]);
-
-    const dailySummaries = dailyRows.map(mapDailyRow);
-    const activities = activityRows.map(mapActivityRow);
-    const performanceEvents = performanceRows.map(mapPerformanceRow);
-    return CanonicalExportBundleSchema.parse({
-      schemaVersion: CANONICAL_EXPORT_SCHEMA_VERSION,
-      generatedAt: generatedAt.toISOString(),
-      dateRange: { from, to },
-      rowCounts: {
-        dailySummaries: dailySummaries.length,
-        activities: activities.length,
-        performanceEvents: performanceEvents.length,
-      },
-      dailySummaries,
-      activities,
-      performanceEvents,
+    return this.db.transaction().setIsolationLevel('repeatable read').execute(async (transaction) => {
+      const reader = new CanonicalExportRepository(transaction);
+      const dailyRows = await reader.listDailyRows(from, to);
+      const activityRows = await reader.listActivityRows(from, to);
+      const performanceRows = await reader.listPerformanceRows(from, to);
+      const dailySummaries = dailyRows.map(mapDailyRow);
+      const activities = activityRows.map(mapActivityRow);
+      const performanceEvents = performanceRows.map(mapPerformanceRow);
+      return CanonicalExportBundleSchema.parse({
+        schemaVersion: CANONICAL_EXPORT_SCHEMA_VERSION,
+        generatedAt: generatedAt.toISOString(),
+        dateRange: { from, to },
+        rowCounts: {
+          dailySummaries: dailySummaries.length,
+          activities: activities.length,
+          performanceEvents: performanceEvents.length,
+        },
+        dailySummaries,
+        activities,
+        performanceEvents,
+      });
     });
   }
 
