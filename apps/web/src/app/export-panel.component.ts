@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, signal } from '@angular/core';
+import { Component, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ApiService, type CanonicalExportBundle } from './api.service';
 
@@ -31,7 +31,7 @@ type ExportState = 'idle' | 'loading' | 'ready' | 'error';
   `,
   styles: [`.help { margin: -6px 0 16px; color: #667085; font-size: 13px; }`],
 })
-export class ExportPanelComponent {
+export class ExportPanelComponent implements OnDestroy {
   readonly from = signal(defaultFrom());
   readonly to = signal(today());
   readonly state = signal<ExportState>('idle');
@@ -41,6 +41,10 @@ export class ExportPanelComponent {
   private subscription?: Subscription;
 
   constructor(private readonly api: ApiService) {}
+
+  ngOnDestroy(): void {
+    this.subscription?.unsubscribe();
+  }
 
   export(): void {
     if (!this.from() || !this.to()) {
@@ -76,11 +80,14 @@ export class ExportPanelComponent {
   private download(bundle: CanonicalExportBundle): void {
     const blob = new Blob([this.serialize(bundle)], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `sportos-canonical-${bundle.dateRange.from}-${bundle.dateRange.to}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `sportos-canonical-${bundle.dateRange.from}-${bundle.dateRange.to}.json`;
+      anchor.click();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   }
 
   private describeError(error: unknown): string {
