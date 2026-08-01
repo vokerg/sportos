@@ -1,6 +1,7 @@
 import {
   RuleChangeCancelledError,
   RuleChangesRepository,
+  WorkerDispatchRepository,
   withAccountContext,
   type Database,
   type Kysely,
@@ -18,7 +19,8 @@ export class RuleChangeRunner {
   private readonly pollIntervalMs: number;
 
   constructor(
-    private readonly db: Kysely<Database>,
+    private readonly dispatchDb: Kysely<Database>,
+    private readonly dataDb: Kysely<Database>,
     options: RuleChangeRunnerOptions = { workerId: 'sportos-rule-worker' },
   ) {
     this.workerId = options.workerId.slice(0, 200);
@@ -27,18 +29,12 @@ export class RuleChangeRunner {
   }
 
   async processNext(): Promise<boolean> {
-    const systemChanges = new RuleChangesRepository(this.db);
-    await systemChanges.recoverStale();
-    const change = await systemChanges.claimNext(this.workerId, this.leaseSeconds);
+    const dispatcher = new WorkerDispatchRepository(this.dispatchDb);
+    await dispatcher.recoverStaleRuleChanges();
+    const change = await dispatcher.claimRuleChange(this.workerId, this.leaseSeconds);
     if (!change) return false;
 
-    const owner = await this.db
-      .selectFrom('scoring_rule_changes')
-      .select('owner_id')
-      .where('id', '=', change.id)
-      .executeTakeFirstOrThrow();
-
-    return withAccountContext(this.db, owner.owner_id, async (scopedDb) => {
+    return withAccountContext(this.dataDb, change.ownerId, async (scopedDb) => {
       const changes = new RuleChangesRepository(scopedDb);
       try {
         if (await changes.cancellationRequested(change.id, this.workerId)) throw new RuleChangeCancelledError();
