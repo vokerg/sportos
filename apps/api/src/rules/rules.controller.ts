@@ -12,12 +12,15 @@ import {
 } from '@nestjs/common';
 import {
   ActiveRuleChangeError,
+  LEGACY_ACCOUNT_ID,
   RuleChangeStateError,
   RuleOverlapError,
   RuleProposalValidationError,
   RuleReplacementError,
   type RuleProposal,
 } from '@sportos/db';
+import { CurrentAccount } from '../auth/current-account.decorator.js';
+import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import {
   InvalidRuleChangeReasonError,
   RulePreviewLimitError,
@@ -31,50 +34,50 @@ export class RulesController {
   constructor(@Inject(RulesService) private readonly rulesService: RulesService) {}
 
   @Get()
-  listRules() {
-    return this.rulesService.listRules();
+  listRules(@CurrentAccount() account?: AuthenticatedAccount) {
+    return this.rulesService.listRules(account?.id ?? LEGACY_ACCOUNT_ID);
   }
 
   @Get('changes')
-  listChanges(@Query('limit') limit?: string) {
+  listChanges(@Query('limit') limit?: string, @CurrentAccount() account?: AuthenticatedAccount) {
     const parsed = limit === undefined ? 50 : Number(limit);
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 200) {
       throw new BadRequestException({ code: 'INVALID_LIMIT', message: 'Limit must be an integer from 1 through 200.' });
     }
-    return this.rulesService.listChanges(parsed);
+    return this.rulesService.listChanges(parsed, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 
   @Get('changes/:changeId')
-  async getChange(@Param('changeId') changeId: string) {
+  async getChange(@Param('changeId') changeId: string, @CurrentAccount() account?: AuthenticatedAccount) {
     assertUuid(changeId, 'INVALID_RULE_CHANGE_ID');
-    const change = await this.rulesService.getChange(changeId);
+    const change = await this.rulesService.getChange(changeId, account?.id ?? LEGACY_ACCOUNT_ID);
     if (!change) throw new NotFoundException({ code: 'RULE_CHANGE_NOT_FOUND', message: 'Rule change was not found.' });
     return change;
   }
 
   @Post('preview')
-  async preview(@Body() proposal: RuleProposal) {
+  async preview(@Body() proposal: RuleProposal, @CurrentAccount() account?: AuthenticatedAccount) {
     try {
-      return await this.rulesService.preview(proposal);
+      return await this.rulesService.preview(proposal, account?.id ?? LEGACY_ACCOUNT_ID);
     } catch (error) {
       throw mapRuleError(error);
     }
   }
 
   @Post('activate')
-  async activate(@Body() request: ActivateRuleChangeRequest) {
+  async activate(@Body() request: ActivateRuleChangeRequest, @CurrentAccount() account?: AuthenticatedAccount) {
     try {
-      return await this.rulesService.activate(request);
+      return await this.rulesService.activate(request, account?.id ?? LEGACY_ACCOUNT_ID);
     } catch (error) {
       throw mapRuleError(error);
     }
   }
 
   @Post('changes/:changeId/retry')
-  async retry(@Param('changeId') changeId: string) {
+  async retry(@Param('changeId') changeId: string, @CurrentAccount() account?: AuthenticatedAccount) {
     assertUuid(changeId, 'INVALID_RULE_CHANGE_ID');
     try {
-      const change = await this.rulesService.retry(changeId);
+      const change = await this.rulesService.retry(changeId, account?.id ?? LEGACY_ACCOUNT_ID);
       if (!change) throw new NotFoundException({ code: 'RULE_CHANGE_NOT_FOUND', message: 'Rule change was not found.' });
       return change;
     } catch (error) {
@@ -84,9 +87,9 @@ export class RulesController {
   }
 
   @Post('changes/:changeId/cancel')
-  async cancel(@Param('changeId') changeId: string) {
+  async cancel(@Param('changeId') changeId: string, @CurrentAccount() account?: AuthenticatedAccount) {
     assertUuid(changeId, 'INVALID_RULE_CHANGE_ID');
-    const change = await this.rulesService.cancel(changeId);
+    const change = await this.rulesService.cancel(changeId, account?.id ?? LEGACY_ACCOUNT_ID);
     if (!change) throw new NotFoundException({ code: 'RULE_CHANGE_NOT_FOUND', message: 'Rule change was not found.' });
     return change;
   }
