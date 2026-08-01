@@ -37,7 +37,7 @@ export class AuthController {
   async developmentSession(
     @Headers('authorization') authorization: string | undefined,
     @Headers('user-agent') userAgent: string | undefined,
-    @Res() response: ResponseLike,
+    @Res({ passthrough: true }) response: ResponseLike,
   ) {
     const result = await this.auth.createDevelopmentSession(authorization, userAgent);
     response.setHeader('Set-Cookie', this.auth.sessionCookieHeaders(result));
@@ -54,7 +54,10 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Req() request: AuthenticatedRequest, @Res() response: ResponseLike) {
+  async logout(
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: ResponseLike,
+  ) {
     if (request.authSession) await this.auth.revokeSession(request.authSession.id);
     response.setHeader('Set-Cookie', this.auth.clearCookieHeaders());
     return { signedOut: true };
