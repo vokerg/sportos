@@ -60,6 +60,7 @@ jobs:
       - name: Worker job integration
         env:
           SPORTOS_TEST_DATABASE_URL: postgres://sportos_worker:sportos_worker@localhost:5432/sportos_test
+          SPORTOS_WORKER_DATA_DATABASE_URL: postgres://sportos_worker_data:sportos_worker_data@localhost:5432/sportos_test
         run: pnpm --filter @sportos/worker test:integration
 
       - name: Database import integration
