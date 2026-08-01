@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { PerformanceRepository } from '@sportos/db';
+import { PerformanceRepository, type Database, type Kysely } from '@sportos/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DbProvider } from '../db.provider.js';
 import { PerformanceController } from './performance.controller.js';
@@ -50,14 +50,23 @@ describe('PerformanceController', () => {
     expect(list).not.toHaveBeenCalled();
   });
 
-  it('returns event provenance and a stable not-found contract', async () => {
+  it('returns event provenance and a generic not-found contract', async () => {
     const detail = vi.spyOn(PerformanceRepository.prototype, 'getEventDetail')
       .mockResolvedValueOnce({ id: eventId } as never)
       .mockResolvedValueOnce(null);
     const controller = createController();
 
     await expect(controller.event(eventId)).resolves.toMatchObject({ id: eventId });
-    await expect(controller.event(eventId)).rejects.toBeInstanceOf(NotFoundException);
+    try {
+      await controller.event(eventId);
+      throw new Error('Expected missing event to throw.');
+    } catch (error) {
+      expect(error).toBeInstanceOf(NotFoundException);
+      expect((error as NotFoundException).getResponse()).toEqual({
+        code: 'PERFORMANCE_EVENT_NOT_FOUND',
+        message: 'Performance event was not found.',
+      });
+    }
     expect(detail).toHaveBeenCalledTimes(2);
   });
 
@@ -69,5 +78,9 @@ describe('PerformanceController', () => {
 });
 
 function createController(): PerformanceController {
-  return new PerformanceController({ db: {} } as unknown as DbProvider);
+  const scopedDb = {} as Kysely<Database>;
+  return new PerformanceController({
+    db: scopedDb,
+    withAccount: async <T>(_accountId: string, callback: (db: Kysely<Database>) => Promise<T>) => callback(scopedDb),
+  } as unknown as DbProvider);
 }
