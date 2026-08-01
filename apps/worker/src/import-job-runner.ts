@@ -59,51 +59,72 @@ export class ImportJobRunner {
     const job = await dispatcher.claimImport(this.workerId, this.leaseSeconds);
     if (!job) return false;
 
-    return withAccountContext(this.dataDb, job.ownerId, async (scopedDb) => {
-      const jobs = new ImportJobsRepository(scopedDb);
-      const uploads = new UploadsRepository(scopedDb);
-      try {
-        await this.checkCancellation(jobs, job.id);
-        await jobs.heartbeat(job.id, this.workerId, 'reading-upload', 10, this.leaseSeconds);
-        const bytes = await this.storage.read(job.objectKey);
+    try {
+      await this.checkCancellation(job.ownerId, job.id);
+      await this.updateJob(job.ownerId, (jobs) => jobs.heartbeat(
+        job.id,
+        this.workerId,
+        'reading-upload',
+        10,
+        this.leaseSeconds,
+      ));
+      const bytes = await this.storage.read(job.objectKey);
 
-        await this.checkCancellation(jobs, job.id);
-        await jobs.heartbeat(job.id, this.workerId, 'parsing-workbook', 20, this.leaseSeconds);
-        const extract = readWorkbookBuffer(bytes, job.filename);
+      await this.checkCancellation(job.ownerId, job.id);
+      await this.updateJob(job.ownerId, (jobs) => jobs.heartbeat(
+        job.id,
+        this.workerId,
+        'parsing-workbook',
+        20,
+        this.leaseSeconds,
+      ));
+      const extract = readWorkbookBuffer(bytes, job.filename);
 
-        let linkedBatchId: string | null = null;
-        const importer = new ImportService(scopedDb, {
+      let linkedBatchId: string | null = null;
+      const result = await withAccountContext(this.dataDb, job.ownerId, async (importDb) => {
+        const importer = new ImportService(importDb, {
           failureInjector: async (phase, context) => {
-            if (linkedBatchId !== context.batchId) {
-              await jobs.linkBatch(job.id, this.workerId, context.batchId);
-              linkedBatchId = context.batchId;
-            }
-            await this.checkCancellation(jobs, job.id);
-            await jobs.heartbeat(job.id, this.workerId, phase, PHASE_PROGRESS[phase], this.leaseSeconds);
+            await this.updateJob(job.ownerId, async (jobs) => {
+              if (linkedBatchId !== context.batchId) {
+                await jobs.linkBatch(job.id, this.workerId, context.batchId);
+                linkedBatchId = context.batchId;
+              }
+              if (await jobs.cancellationRequested(job.id, this.workerId)) {
+                throw new ImportJobCancelledError();
+              }
+              await jobs.heartbeat(job.id, this.workerId, phase, PHASE_PROGRESS[phase], this.leaseSeconds);
+            });
           },
         });
-
-        const result = await importer.importWorkbook({
+        return importer.importWorkbook({
           workbookKind: job.workbookKind,
           extract,
           uploadId: job.uploadId,
         });
-        await uploads.markImported(job.uploadId);
-        await jobs.markSucceeded(job.id, this.workerId, toJson(result));
-        return true;
-      } catch (error) {
-        const cancellationRequested = error instanceof ImportJobCancelledError
-          || await jobs.cancellationRequested(job.id, this.workerId).catch(() => false);
-        if (cancellationRequested) {
-          await jobs.markCancelled(job.id, this.workerId);
-          return true;
-        }
+      });
 
-        await uploads.markFailed(job.uploadId, error).catch(() => undefined);
-        await jobs.markFailed(job.id, this.workerId, failureCode(error), error);
+      await withAccountContext(this.dataDb, job.ownerId, async (ownerDb) => {
+        await new UploadsRepository(ownerDb).markImported(job.uploadId);
+        await new ImportJobsRepository(ownerDb).markSucceeded(job.id, this.workerId, toJson(result));
+      });
+      return true;
+    } catch (error) {
+      const cancellationRequested = error instanceof ImportJobCancelledError
+        || await this.updateJob(
+          job.ownerId,
+          (jobs) => jobs.cancellationRequested(job.id, this.workerId),
+        ).catch(() => false);
+      if (cancellationRequested) {
+        await this.updateJob(job.ownerId, (jobs) => jobs.markCancelled(job.id, this.workerId));
         return true;
       }
-    });
+
+      await withAccountContext(this.dataDb, job.ownerId, async (ownerDb) => {
+        await new UploadsRepository(ownerDb).markFailed(job.uploadId, error).catch(() => undefined);
+        await new ImportJobsRepository(ownerDb).markFailed(job.id, this.workerId, failureCode(error), error);
+      });
+      return true;
+    }
   }
 
   async run(signal: AbortSignal): Promise<void> {
@@ -113,8 +134,16 @@ export class ImportJobRunner {
     }
   }
 
-  private async checkCancellation(jobs: ImportJobsRepository, jobId: string): Promise<void> {
-    if (await jobs.cancellationRequested(jobId, this.workerId)) throw new ImportJobCancelledError();
+  private updateJob<T>(
+    ownerId: string,
+    callback: (jobs: ImportJobsRepository) => Promise<T>,
+  ): Promise<T> {
+    return withAccountContext(this.dataDb, ownerId, (ownerDb) => callback(new ImportJobsRepository(ownerDb)));
+  }
+
+  private async checkCancellation(ownerId: string, jobId: string): Promise<void> {
+    const requested = await this.updateJob(ownerId, (jobs) => jobs.cancellationRequested(jobId, this.workerId));
+    if (requested) throw new ImportJobCancelledError();
   }
 }
 
