@@ -53,7 +53,7 @@ export class PerformanceRepository {
           .insertInto('performance_events')
           .values(chunk)
           .onConflict((oc) =>
-            oc.columns(['source', 'source_record_hash']).doUpdateSet({
+            oc.columns(['owner_id', 'source', 'source_record_hash']).doUpdateSet({
               activity_id: sql`excluded.activity_id`,
               source_record_id: sql`excluded.source_record_id`,
               event_date: sql`excluded.event_date`,
@@ -95,15 +95,13 @@ export class PerformanceRepository {
       .limit(limit)
       .execute();
     return rows.map((row) => ({
+      ...row,
       event_date: toIsoDate(row.event_date),
       distance_m: Number(row.distance_m),
       duration_s: Number(row.duration_s),
       pace_s_per_km: Number(row.pace_s_per_km),
-      is_treadmill: row.is_treadmill,
-      is_pr_marker: row.is_pr_marker,
       source_rank: row.source_rank === null ? null : Number(row.source_rank),
       all_time_rank: Number(row.all_time_rank),
-      tags: row.tags,
     }));
   }
 
