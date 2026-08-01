@@ -9,7 +9,7 @@ export class ExportsController {
   @Get('canonical')
   @Header('Cache-Control', 'no-store')
   @Header('Content-Disposition', 'attachment; filename="sportos-canonical-export.json"')
-  canonical(@Query('from') from?: string, @Query('to') to?: string) {
+  async canonical(@Query('from') from?: string, @Query('to') to?: string) {
     const range = parseDateRange(from, to, { required: true, maxDays: 3660 });
     return this.exportsService.canonical(range.from!, range.to!);
   }
