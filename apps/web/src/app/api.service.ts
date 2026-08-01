@@ -353,10 +353,12 @@ export class ApiService {
   }
 }
 
-function queryParams(values: Record<string, string | number | undefined>): HttpParams {
+function queryParams<T extends object>(values: T): HttpParams {
   let params = new HttpParams();
   for (const [key, value] of Object.entries(values)) {
-    if (value !== undefined && value !== '') params = params.set(key, String(value));
+    if ((typeof value === 'string' || typeof value === 'number') && value !== '') {
+      params = params.set(key, String(value));
+    }
   }
   return params;
 }
