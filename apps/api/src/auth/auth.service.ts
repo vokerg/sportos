@@ -1,6 +1,10 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
-import { AuthRepository, LEGACY_ACCOUNT_ID } from '@sportos/db';
+import {
+  AuthRepository,
+  ExternalIdentityClaimError,
+  LEGACY_ACCOUNT_ID,
+} from '@sportos/db';
 import { DbProvider } from '../db.provider.js';
 import type { AuthenticatedSession } from './auth.models.js';
 
@@ -85,7 +89,7 @@ export class AuthService {
       body,
     });
     if (!tokenResponse.ok) throw new UnauthorizedException({ code: 'OIDC_TOKEN_FAILED', message: 'Sign-in could not be completed.' });
-    const token = await tokenResponse.json() as { access_token?: unknown; token_type?: unknown };
+    const token = await tokenResponse.json() as { access_token?: unknown };
     const accessToken = typeof token.access_token === 'string' ? token.access_token : '';
     if (!accessToken) throw new UnauthorizedException({ code: 'OIDC_TOKEN_INVALID', message: 'Sign-in could not be completed.' });
 
@@ -97,14 +101,26 @@ export class AuthService {
     const subject = typeof userInfo.sub === 'string' ? userInfo.sub.trim() : '';
     if (!subject || subject.length > 500) throw new UnauthorizedException({ code: 'OIDC_SUBJECT_INVALID', message: 'Sign-in could not be completed.' });
 
-    const account = await this.repository.provisionExternalIdentity({
-      issuer: discovery.issuer,
-      subject,
-      email: typeof userInfo.email === 'string' ? userInfo.email : null,
-      displayName: typeof userInfo.name === 'string'
-        ? userInfo.name
-        : typeof userInfo.preferred_username === 'string' ? userInfo.preferred_username : null,
-    });
+    let account;
+    try {
+      account = await this.repository.provisionExternalIdentity({
+        issuer: discovery.issuer,
+        subject,
+        email: typeof userInfo.email === 'string' ? userInfo.email : null,
+        displayName: typeof userInfo.name === 'string'
+          ? userInfo.name
+          : typeof userInfo.preferred_username === 'string' ? userInfo.preferred_username : null,
+        preferredAccountId: configuredLegacyClaim(discovery.issuer, subject),
+      });
+    } catch (error) {
+      if (error instanceof ExternalIdentityClaimError) {
+        throw new UnauthorizedException({
+          code: 'OIDC_ACCOUNT_CLAIM_FAILED',
+          message: 'Sign-in could not be completed.',
+        });
+      }
+      throw error;
+    }
     return this.issueSession(account.id, account.display_name, account.email, transaction.returnTo, userAgent);
   }
 
@@ -236,6 +252,14 @@ export class AuthService {
 
 export function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function configuredLegacyClaim(issuer: string, subject: string): string | null {
+  const configuredIssuer = String(process.env.SPORTOS_LEGACY_OIDC_ISSUER ?? '').replace(/\/$/, '');
+  const configuredSubject = String(process.env.SPORTOS_LEGACY_OIDC_SUBJECT ?? '').trim();
+  return configuredIssuer && configuredSubject && configuredIssuer === issuer && configuredSubject === subject
+    ? LEGACY_ACCOUNT_ID
+    : null;
 }
 
 function randomToken(bytes: number): string {
