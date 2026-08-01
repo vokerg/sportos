@@ -36,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Start test database
+      - name: Start and migrate fresh test database
         run: |
           docker compose up -d postgres
           docker compose exec -T postgres sh -c 'until pg_isready -h 127.0.0.1 -U sportos -d sportos; do sleep 1; done'
@@ -44,6 +44,18 @@ jobs:
           docker compose run --rm \
             -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_test \
             flyway migrate
+
+      - name: Verify populated V105 ownership upgrade
+        run: |
+          docker compose exec -T postgres createdb -h 127.0.0.1 -U sportos sportos_upgrade_test
+          docker compose run --rm \
+            -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_upgrade_test \
+            flyway -target=105 migrate
+          docker compose exec -T postgres psql -h 127.0.0.1 -U sportos -d sportos_upgrade_test < scripts/ownership-upgrade-fixture.sql
+          docker compose run --rm \
+            -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_upgrade_test \
+            flyway migrate
+          docker compose exec -T postgres psql -h 127.0.0.1 -U sportos -d sportos_upgrade_test < scripts/verify-ownership-upgrade.sql
 
       - name: Typecheck
         run: pnpm typecheck
