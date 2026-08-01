@@ -80,15 +80,12 @@ export class ImportJobRunner {
       ));
       const extract = readWorkbookBuffer(bytes, job.filename);
 
-      let linkedBatchId: string | null = null;
+      let committedBatchId: string | null = null;
       const result = await withAccountContext(this.dataDb, job.ownerId, async (importDb) => {
         const importer = new ImportService(importDb, {
           failureInjector: async (phase, context) => {
+            committedBatchId = context.batchId;
             await this.updateJob(job.ownerId, async (jobs) => {
-              if (linkedBatchId !== context.batchId) {
-                await jobs.linkBatch(job.id, this.workerId, context.batchId);
-                linkedBatchId = context.batchId;
-              }
               if (await jobs.cancellationRequested(job.id, this.workerId)) {
                 throw new ImportJobCancelledError();
               }
@@ -104,8 +101,10 @@ export class ImportJobRunner {
       });
 
       await withAccountContext(this.dataDb, job.ownerId, async (ownerDb) => {
+        const jobs = new ImportJobsRepository(ownerDb);
+        if (committedBatchId) await jobs.linkBatch(job.id, this.workerId, committedBatchId);
         await new UploadsRepository(ownerDb).markImported(job.uploadId);
-        await new ImportJobsRepository(ownerDb).markSucceeded(job.id, this.workerId, toJson(result));
+        await jobs.markSucceeded(job.id, this.workerId, toJson(result));
       });
       return true;
     } catch (error) {
