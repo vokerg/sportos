@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@sportos/db": "workspace:*",
-    "@sportos/importers": "workspace:*",
-    "@sportos/providers": "workspace:*"
+    "@sportos/importers": "workspace:*"
   }
 }
