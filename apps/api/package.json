@@ -16,7 +16,6 @@
     "@nestjs/platform-express": "^10.4.15",
     "@sportos/db": "workspace:*",
     "@sportos/importers": "workspace:*",
-    "@sportos/providers": "workspace:*",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   }
