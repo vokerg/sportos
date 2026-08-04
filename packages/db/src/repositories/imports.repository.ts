@@ -258,7 +258,7 @@ export class ImportsRepository {
     const recordedAt = new Date().toISOString();
     const failure: Json = {
       phase: details.phase,
-      name: sanitizeCode(errorName, 'IMPORT_FAILED'),
+      name: sanitizeErrorName(errorName),
       message: errorMessage,
       recordedAt,
       ...(attemptedCounts ? { attemptedCounts } : {}),
@@ -516,6 +516,10 @@ function safeSheetName(value: string | null | undefined): string | null {
 
 function safePhase(value: string): string {
   return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase().slice(0, 100) || 'unknown';
+}
+
+function sanitizeErrorName(value: string): string {
+  return value.replace(/[^A-Za-z0-9_$.-]+/g, '_').slice(0, 100) || 'ImportError';
 }
 
 function sanitizeCode(value: string, fallback: string): string {
