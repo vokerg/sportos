@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSportosApiRequest } from './auth-http.interceptor.js';
+import { isSportosApiRequest } from './sportos-api-origin.js';
 
 describe('isSportosApiRequest', () => {
   it('accepts the configured SportOS API origin', () => {
