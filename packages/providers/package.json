@@ -1,0 +1,13 @@
+{
+  "name": "@sportos/providers",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b tsconfig.json --pretty false",
+    "typecheck": "tsc -b tsconfig.json --pretty false",
+    "test": "vitest run --passWithNoTests"
+  }
+}
