@@ -267,7 +267,7 @@ export class ImportsRepository {
       ...jsonArray(previousMetadata.diagnostics),
       diagnosticToJson({
         severity: 'error',
-        code: sanitizeCode(errorName, 'IMPORT_FAILED'),
+        code: 'IMPORT_FAILED',
         message: errorMessage,
         phase: details.phase,
         sheetName: null,
