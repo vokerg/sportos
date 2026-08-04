@@ -6,7 +6,6 @@
     { "path": "packages/analytics" },
     { "path": "packages/db" },
     { "path": "packages/importers" },
-    { "path": "packages/providers" },
     { "path": "apps/api" },
     { "path": "apps/worker" }
   ]
