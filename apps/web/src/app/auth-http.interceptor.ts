@@ -1,11 +1,11 @@
 import { HttpErrorResponse, type HttpInterceptorFn } from '@angular/common/http';
 import { catchError, throwError } from 'rxjs';
+import { isSportosApiRequest } from './sportos-api-origin.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-const SPORTOS_API_ORIGIN = 'http://localhost:3000';
 
 export const authHttpInterceptor: HttpInterceptorFn = (request, next) => {
-  if (!isSportosApiRequest(request.url)) return next(request);
+  if (!isSportosApiRequest(request.url, window.location.origin)) return next(request);
 
   const csrf = readCookie('sportos_csrf');
   const authenticatedRequest = request.clone({
@@ -22,18 +22,6 @@ export const authHttpInterceptor: HttpInterceptorFn = (request, next) => {
     return throwError(() => error);
   }));
 };
-
-export function isSportosApiRequest(
-  requestUrl: string,
-  browserOrigin = window.location.origin,
-  apiOrigin = SPORTOS_API_ORIGIN,
-): boolean {
-  try {
-    return new URL(requestUrl, browserOrigin).origin === new URL(apiOrigin).origin;
-  } catch {
-    return false;
-  }
-}
 
 function readCookie(name: string): string | null {
   for (const part of document.cookie.split(';')) {
