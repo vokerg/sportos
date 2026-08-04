@@ -4,240 +4,149 @@ This is the operational entry point for coding agents and maintainers working on
 
 ## Current state
 
-SportOS is a local-first single-user application for importing sports workbooks, retaining source bytes and raw rows, normalizing canonical facts, calculating deterministic scores, and reviewing results through a NestJS API and Angular UI.
+SportOS is an authenticated account-scoped application for importing sports workbooks, preserving source provenance, calculating deterministic scores, and reviewing/exporting canonical results.
 
-Validated local capabilities include:
+Validated capabilities include browser XLSX upload, external source storage, durable import and rule-change jobs, immutable scoring-rule versions, audited recomputation, daily/performance provenance drill-downs, canonical export, OIDC sign-in, opaque server-side sessions, CSRF protection, account-scoped database constraints, forced row-level security, split worker authorization, and authenticated Angular states.
 
-- reproducible workspace and fresh-database validation;
-- sanitized XLSX fixtures;
-- transactional and idempotent import orchestration;
-- source-to-canonical traceability;
-- deterministic scoring and reconciliation evidence;
-- import history and row diagnostics;
-- bounded browser upload and external source-file storage;
-- durable import jobs with leases, progress, retry, cancellation, stale recovery, and independent worker execution;
-- immutable scoring-rule versions, read-only impact previews, audited rule-change jobs, atomic recomputation, and Rules Studio;
-- validated daily/performance date ranges, source drill-downs, responsive cockpit navigation, explicit loading/empty/error states, and strict canonical JSON export.
-
-The next incomplete queue item is #14: authentication and per-user data ownership. Use the status vocabulary in `docs/ROADMAP.md`: **Implemented**, **Validated**, and **Operational**.
+The next incomplete queue item is #15: provider ingestion framework and the first Strava adapter.
 
 ## Start here
 
-1. Read `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, and the relevant ADRs.
+1. Read `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/AUTHENTICATION.md`, and relevant ADRs.
 2. Open issue #3, the authoritative work queue.
 3. Check open pull requests and active claim comments.
 4. Select the first ready unchecked issue.
-5. Record the files inspected before implementation.
+5. Record every file inspected before implementation.
 
-## Queue selection
+## Queue and branch rules
 
-Issue #3 is the sole source of truth for order. A ready issue is the first unchecked item, scanning P0 then P1 then P2, whose blockers are closed and which has no active implementation PR or claim.
-
-When taking an issue:
-
-1. comment `CLAIMED — branch: issue-<number>-<short-slug>`;
-2. create the branch from current `main`;
-3. keep one primary issue per PR;
-4. open a draft PR early;
-5. update the issue when blocked or when scope materially changes.
-
-If blocked, record the exact blocker and required decision, leave the branch/PR safe, and select the next ready issue.
-
-## Reprioritization
-
-Do not infer priority from issue numbers. To reprioritize:
-
-1. move the checklist item in issue #3;
-2. comment with reason, date, and dependency impact;
-3. update `Blocked by` and `Unblocks` sections;
-4. notify any active claimant.
-
-Data-integrity, privacy, and dependency failures may move to P0. Convenience work must not bypass provenance, idempotency, or deterministic-scoring defects without an ADR.
+- Issue #3 is the sole source of truth for order.
+- Comment `CLAIMED — branch: issue-<number>-<short-slug>` before work.
+- Always create the branch from current `main`; never commit directly to `main`.
+- Keep one primary issue per PR and open a draft PR early.
+- Do not merge unless explicitly asked; when asked, squash merge.
+- If blocked, record the exact blocker and leave the branch safe.
 
 ## Non-negotiable invariants
 
-1. Raw input is retained before normalization with workbook, sheet, row, hash, upload, and batch provenance.
-2. Uploaded bytes remain outside Postgres behind a replaceable contract; paths and object keys are private.
-3. Unknown source semantics are not guessed.
-4. Canonical facts are usable independently of the UI and API process.
-5. Official scoring is deterministic domain logic; generated text never calculates or persists authoritative points.
-6. Every ledger contribution identifies the exact rule UUID, inputs, points, and explanation payload.
-7. Rule UUIDs are immutable semantic versions; enabled family ranges cannot overlap.
-8. Preview is non-authoritative and cannot mutate official rules, totals, or ledger rows.
-9. Rule publication and affected score replacement are atomic.
-10. Re-importing identical data converges without duplicate canonical facts.
-11. Flyway owns append-only schema evolution; Kysely types stay synchronized.
-12. Postgres is authoritative for job state and leases; only the current lease owner may progress or complete work.
-13. Running cancellation occurs only at documented safe boundaries.
-14. Secrets, personal workbooks, storage keys, local paths, raw payloads, formulas, upload hashes, and unredacted exports are never committed or exposed.
-15. Canonical exports have an explicit version, real inclusive dates, deterministic ordering, exact row counts, and explicit provenance status.
-16. Dependencies point toward shared/pure packages; framework code does not leak into domain logic.
+1. External `(issuer, subject)` maps to immutable internal `accounts.id`; mutable email is not ownership identity.
+2. Every user-visible row has an explicit owner or documented shared-system exception.
+3. Runtime API, dispatcher, worker-data, and legacy processes use non-owner database roles; schema migration identity is separate.
+4. API and worker-data repository work runs inside `withAccountContext`; account identity comes only from the authenticated session or persisted claim.
+5. `withAccountContext` reserves one pooled connection, sets the account for that connection, supports repository-owned transactions, and clears the setting before release.
+6. Forced RLS filters account-owned rows, and valid foreign identifiers return the same generic result as nonexistent identifiers.
+7. Same-owner composite foreign keys and immutable-owner triggers prevent cross-account links or reassignment.
+8. Queue discovery uses the narrow dispatcher role; source, canonical, rule, ledger, performance, and authentication data use the owner-scoped worker-data role.
+9. Raw input is retained before normalization with workbook, sheet, row, hash, upload, batch, and owner provenance.
+10. Uploaded bytes stay outside Postgres; storage keys and local paths are private.
+11. Unknown source semantics are never guessed.
+12. Official scoring is deterministic domain logic; generated text never calculates or persists points.
+13. Every ledger contribution identifies the exact rule UUID, inputs, points, and explanation payload.
+14. Rule UUIDs are immutable versions; enabled ranges are account scoped and non-overlapping.
+15. Preview is non-authoritative; rule publication and affected score replacement are atomic.
+16. Re-importing identical data converges within one owner without duplicate canonical facts.
+17. Flyway owns append-only schema evolution; Kysely types stay synchronized.
+18. Postgres is authoritative for jobs and leases; only the current lease owner progresses or completes work.
+19. Sessions are opaque server-side records with bounded expiry and revocation; unsafe methods require session-bound CSRF.
+20. Private source content, session material, storage internals, paths, formulas, hashes, authentication data, and owner internals are never committed or exposed.
+21. Canonical exports are owner scoped, versioned, bounded, deterministic, count checked, and explicit about provenance.
 
 ## Repository entry points
 
-### Root workflow
+### Root and operations
 
-- `package.json` — canonical workspace commands.
-- `pnpm-workspace.yaml` — package boundaries.
-- `.env.example` — database, worker, and upload settings.
-- `docker-compose.yml` — Postgres, Redis, and Flyway.
-- `.github/workflows/ci.yml` — migration, typecheck, unit/UI, DB jobs, worker jobs, importer integration, and build.
-- `CONTRIBUTING.md` — change and validation rules.
+- `.env.example` — API, dispatcher, worker-data, legacy, OIDC, session, and storage settings.
+- `docker-compose.yml` and `docker/postgres/init/` — local Postgres and non-owner runtime-role initialization.
+- `.github/workflows/ci.yml` — fresh migration and non-owner API/dispatcher/worker-data/legacy integration gates.
+- `docs/AUTHENTICATION.md` — deployment, role, OIDC, session, CSRF, legacy claim, and migration guidance.
 
 ### API: `apps/api`
 
-- `src/main.ts` — Nest bootstrap.
-- `src/app.module.ts` — controller/provider wiring.
-- `src/db.provider.ts` — database lifecycle.
-- `src/query-validation.ts` — real dates, bounded ranges/numbers, and UUID validation.
-- `src/imports/imports.controller.ts` — upload, import jobs, history, diagnostics.
-- `src/imports/imports.service.ts` — storage/enqueue orchestration.
-- `src/rules/rules.controller.ts` — rule list, preview, activation, audit, retry, cancellation.
-- `src/rules/rules.service.ts` — preview fingerprint and audit enqueue boundary.
-- `src/daily/` — filtered daily summaries and persisted score breakdown.
-- `src/performance/` — filtered events, trends, and source detail.
-- `src/exports/` — bounded canonical export download.
+- `src/auth/auth.service.ts` — OIDC flow, identity provisioning, legacy-account claim, opaque sessions, cookie policy.
+- `src/auth/session.guard.ts` — global session and CSRF enforcement.
+- `src/auth/auth.controller.ts` — login, callback, session, logout, optional local bootstrap.
+- `src/auth/current-account.decorator.ts` — authenticated account extraction.
+- `src/db.provider.ts` — database lifecycle and account-bound execution.
+- `src/imports/`, `rules/`, `daily/`, `performance/`, `exports/` — owner-scoped application routes.
 
-API code validates and bounds inputs, orchestrates package services, and returns stable path-free error contracts. It must not reproduce importer or scoring rules.
+Never accept owner or audit-actor identifiers from request bodies. Derive them from the authenticated request and execute database work inside account context.
 
 ### Web: `apps/web`
 
-- `src/app/app.component.ts` — responsive cockpit composition and navigation.
-- `src/app/api.service.ts` — HTTP contracts.
-- `src/app/import-panel.component.ts` — upload and import-job monitoring.
-- `src/app/rules-studio.component.ts` — immutable versions, preview, confirmation, rule-job monitoring, audit history.
-- `src/app/daily-log.component.ts` — validated daily ranges, trends, reconciliation, and source drill-down.
-- `src/app/score-breakdown-panel.component.ts` — ledger/rule/activity/source/batch explanation.
-- `src/app/run-lab.component.ts` — distance/date trends, markers, event detail, and provenance.
-- `src/app/export-panel.component.ts` — canonical JSON range download and row-count feedback.
-
-Angular treats API responses as canonical. Do not calculate official scores, interpret workbooks, deduplicate facts, assemble export truth, or transition durable jobs in the browser.
+- `src/app/web-auth.service.ts` — session bootstrap, sign-in, expiry, and sign-out.
+- `src/app/auth-http.interceptor.ts` — credentialed requests, CSRF, and global unauthorized handling.
+- `src/app/app.component.ts` — protected cockpit composition after session success.
+- remaining components render API truth only and never assign ownership or calculate official scores.
 
 ### Worker: `apps/worker`
 
-- `src/import-worker.ts` — long-running process and shutdown.
-- `src/import-job-runner.ts` — workbook import leases.
-- `src/rule-change-runner.ts` — audited rule publication/recomputation leases.
-- `src/import-local.ts` — local CLI import.
-- integration tests prove API-independent execution.
+- `src/import-worker.ts` — requires separate dispatcher and worker-data database connections.
+- `src/import-job-runner.ts` — global queue claim followed by owner-scoped import execution; progress updates use separate short scoped connections to avoid transaction deadlocks.
+- `src/rule-change-runner.ts` — global claim followed by owner-scoped atomic recomputation.
+- `src/import-local.ts` — fixed legacy-owner local CLI.
 
-Worker orchestration stays thin. Import semantics belong in `packages/importers`; scoring and proposal semantics belong in `packages/domain`.
-
-### Domain: `packages/domain`
-
-- `src/scoring.ts` — authoritative deterministic scoring and ledger creation.
-- `src/rules-studio.ts` — proposal normalization/validation and read-only preview.
-- `src/reconciliation.ts` — spreadsheet/app reconciliation.
-- `src/types.ts` — domain contracts.
-- `src/daily.ts`, `performance.ts`, `units.ts` — pure helpers.
-
-This package has no database, HTTP, Angular, NestJS, filesystem, provider SDK, or generated-text dependencies.
-
-### Shared contracts: `packages/shared`
-
-- `src/schemas.ts` — canonical importer inputs.
-- `src/dates.ts` — real ISO-date and Excel-date utilities.
-- `src/canonical-export.ts` — strict `sportos.canonical-export.v1` runtime contract.
-- `src/canonical-export.test.ts` — date, ordering, row-count, strict-field, and provenance invariants.
-
-Shared contracts may define serialization truth but must not query a database or depend on frameworks.
+The dispatcher is a narrow trusted-system exception. It may inspect upload dispatch metadata and queue lifecycle rows only. Never reuse dispatcher credentials for API, browser, local CLI, or canonical-data work.
 
 ### Persistence: `packages/db`
 
-- `src/schema.ts` — Kysely tables/views synchronized with migrations.
-- `src/repositories/import-jobs.repository.ts` — import queue, leases, retry/cancel/recovery.
-- `src/repositories/rule-changes.repository.ts` — immutable versions, overlap checks, audit leases, atomic activation/recomputation.
-- `src/repositories/scoring.repository.ts` — active rule reads and runtime normalization.
-- `src/repositories/daily.repository.ts` — activities, daily facts, ledger, and breakdown reads.
-- `src/repositories/cockpit.repository.ts` — filtered daily read model.
-- `src/repositories/performance.repository.ts` — performance lists/details and provenance.
-- `src/repositories/canonical-export.repository.ts` — deterministic export assembly and privacy boundary.
-- `src/repositories/imports.repository.ts`, `uploads.repository.ts` — remaining persistence boundaries.
+- `src/schema.ts` — account/session/owned table and view types.
+- `src/ownership-context.ts` — account-bound pooled connection and fixed legacy owner.
+- `src/repositories/auth.repository.ts` — identity, legacy claim, authorization transaction, and session persistence.
+- `src/repositories/worker-dispatch.repository.ts` — narrow cross-owner claim and stale-recovery boundary.
+- queue, import, rule, daily, performance, and export repositories remain typed query/transaction boundaries.
 
-Repositories own typed queries, serialization adapters, and transactions, not source interpretation.
+### Domain/shared/importers
 
-### Import boundary: `packages/importers`
-
-- `src/import-service.ts` — transactional import orchestration.
-- `src/xlsx-reader.ts` — path/in-memory workbook extraction.
-- `src/my-sport.importer.ts`, `run-db.importer.ts` — source interpretation.
-- `src/upload-storage.ts` — shared byte contract and local adapter.
-- `src/test-fixtures/xlsx-fixtures.ts` — deterministic fixtures.
-
-Importer semantic changes require anonymized fixtures, malformed/ambiguous cases, warning evidence, duplicate safety, and mapping documentation.
+- `packages/domain` — pure authoritative scoring, reconciliation, rule validation, and preview.
+- `packages/shared` — serialization, date, and export contracts.
+- `packages/importers` — storage, XLSX extraction, normalization, warnings, and import transactions.
+- authentication/framework dependencies do not belong in pure packages.
 
 ### Migrations and decisions
 
-- `flyway/sql/` — inspect all migrations before adding an append-only next version.
-- `docs/adr/0001-import-transactions-and-identity.md`
-- `docs/adr/0002-upload-storage-and-retention.md`
-- `docs/adr/0003-import-job-lifecycle.md`
-- `docs/adr/0004-rule-versioning-and-recomputation.md`
-- `docs/CANONICAL_EXPORT.md`
-- `docs/SPREADSHEET_MAPPING.md`
-- `docs/SCORING_RULES.md`
+- inspect all `flyway/sql/` migrations before adding the next append-only version;
+- V105.1 provides upgrade-safe runtime-role placeholders;
+- V106 adds accounts, sessions, owners, RLS, and same-owner constraints;
+- V107 keeps owner internals out of the public performance view;
+- V108 splits dispatcher/worker-data authorization, restricts authentication tables, and makes ownership immutable;
+- ADRs 0001–0005 document import, storage, jobs, rule publication, and authentication/ownership.
 
-## Change-specific requirements
+## Change requirements
 
-### Imports and uploads
+### Authentication and ownership
 
-- validate size, extension, MIME signal, readability, filename, and traversal;
-- retain raw rows before normalization;
-- preserve batch/upload/source links;
-- prove retries and duplicate delivery converge;
-- never expose object keys or local paths.
+- keep all runtime connections separate from the schema owner;
+- use exact configured origins and protected cookies in production;
+- store only session/token digests and sanitize errors/logs;
+- require CSRF on unsafe authenticated methods;
+- derive account and audit actor from the session;
+- preserve the configured one-time legacy OIDC claim path;
+- add same-user positive and cross-user negative tests for identifiers, jobs, exports, rules, and workers;
+- prove the dispatcher cannot read canonical, rule, ledger, source, performance, or authentication data.
 
-### Scoring and Rules Studio
+### Imports, jobs, and providers
+
+- validate and bound all external input;
+- retain raw source before normalization and preserve owner/provenance links;
+- prove retries and duplicate delivery converge within one owner;
+- keep provider authorization material server-side and provider cursors owner scoped;
+- never expose object keys, paths, provider authorization data, or foreign account details.
+
+### Scoring, cockpit, and export
 
 - keep calculations in `packages/domain`;
-- validate activity, metric, unit, kind, coefficient/threshold, priority, and dates;
-- preserve immutable historical UUIDs;
-- reject overlapping enabled inclusive ranges in API and database;
-- preview without persistence and confirm a freshness fingerprint;
-- publish activation, daily totals, ledger UUIDs, and audit success atomically;
-- prove rollback, cancellation, retry, and stale recovery;
-- update ADR/scoring docs for semantic changes.
-
-### Cockpit reads and export
-
-- validate real inclusive dates, range ordering, maximum spans, numeric filters, pagination, and UUIDs before querying;
-- normalize database `date` values to `YYYY-MM-DD` at repository boundaries;
-- keep Daily Log and performance provenance linked to exact canonical/source/batch UUIDs;
-- represent unavailable provenance as `missing` or `unsupported`, never inferred;
-- assemble export datasets in repositories and validate the complete versioned envelope before returning;
-- exclude raw cells, formulas, raw payload JSON, upload hashes, object keys, and paths;
-- preserve deterministic ordering and exact declared row counts;
-- cover loading, empty, error, retry, focus, keyboard, and responsive states.
+- preserve immutable historical UUIDs and account-scoped effective ranges;
+- preview without writes and publish recomputation atomically;
+- validate dates, ranges, numbers, pagination, and UUIDs before querying;
+- exclude owner fields and private/raw/storage/authentication data from exports;
+- cover authenticated loading, anonymous, error, expiry, and sign-out states plus workflow states.
 
 ### Database
 
-- add an ordered Flyway migration only when schema changes are required;
-- add constraints/indexes for new invariants and access paths;
-- synchronize Kysely types;
-- document backfill, rollback, and integrity impact;
-- run fresh migration and database integration tests.
-
-### API
-
-- validate all route/query/body/file inputs;
-- bound uploads, pagination, previews, exports, and date ranges;
-- return stable actionable errors without private data;
-- update README endpoint documentation and controller tests.
-
-### Web
-
-- cover loading, empty, error, progress, terminal, retry, cancel, and stale states;
-- keep primary workflows keyboard accessible and responsive at common widths;
-- add service/component tests;
-- never duplicate official calculations or persistence truth.
-
-### Jobs
-
-- design for duplicate delivery and restart recovery;
-- persist state, attempts, lease owner/expiry, progress, cancellation, result, and sanitized error;
-- guard writes by current lease owner;
-- define bounded concurrency, queue depth, attempts, and polling;
-- keep committed success from being relabelled cancelled.
+- use append-only Flyway migrations and synchronize Kysely types;
+- add constraints, indexes, RLS, grants, and immutable-owner enforcement for new invariants;
+- test fresh migration and populated upgrade/backfill paths when applicable;
+- run integration using the intended non-owner runtime roles.
 
 ## Common commands
 
@@ -259,51 +168,10 @@ pnpm dev:web
 pnpm dev:worker
 ```
 
-Database integration uses a disposable database ending in `_test` or `-test`:
+Use pnpm only. Do not commit build output, caches, local environment files, uploaded files, authorization material, or personal data.
 
-```bash
-SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
-  pnpm --filter @sportos/db test:integration
-SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
-  pnpm --filter @sportos/worker test:integration
-SPORTOS_TEST_DATABASE_URL=postgres://sportos:sportos@localhost:5432/sportos_test \
-  pnpm --filter @sportos/importers test:integration
-```
+## Investigation protocol and definition of done
 
-Use pnpm only. Do not commit build output, caches, `.env`, uploaded files, or personal data.
+Before editing, read the issue/dependencies/PRs, inspect the closest code/tests/migrations, identify the invariant and roadmap exit criterion, list all inspected files, and call out documentation mismatches.
 
-## Investigation protocol
-
-Before editing:
-
-1. read the issue, dependencies, and linked PRs;
-2. inspect the closest entry points, tests, and migrations;
-3. identify the invariant and roadmap exit criterion advanced;
-4. list all inspected files in the issue or PR;
-5. call out code/documentation mismatches.
-
-## Branch and PR rules
-
-- Always branch from current `main`.
-- Never commit directly to `main`.
-- Do not merge unless a maintainer explicitly asks.
-- When asked to merge, use squash merge.
-- Keep one primary issue per PR.
-- Open a draft PR early and link the issue.
-- Do not silently expand scope; create or link follow-up work.
-
-PR descriptions include problem, investigation files, implementation, architecture/milestone impact, validation evidence, migration/privacy/integrity implications, and limitations.
-
-## Definition of done
-
-A queue item is complete only when:
-
-- acceptance criteria are satisfied;
-- relevant domain, API, UI, migration, DB, worker, and importer tests pass;
-- `pnpm typecheck`, `pnpm test`, and `pnpm build` pass;
-- documentation is current;
-- integrity and privacy implications are addressed;
-- the PR is merged;
-- the linked issue is closed and issue #3 is updated.
-
-If validation is incomplete, record exactly what was not run and do not describe the capability as validated or operational.
+A queue item is complete only when acceptance criteria are satisfied; relevant domain, API, UI, migration, database, worker, and importer tests and root validation pass; documentation and privacy/integrity implications are current; the PR is merged; the issue is closed; and issue #3 is updated. Incomplete validation must be stated explicitly.

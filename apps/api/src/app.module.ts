@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthController } from './auth/auth.controller.js';
+import { AuthService } from './auth/auth.service.js';
+import { SessionGuard } from './auth/session.guard.js';
 import { HealthController } from './health/health.controller.js';
 import { ImportsController } from './imports/imports.controller.js';
 import { ImportsService } from './imports/imports.service.js';
@@ -15,6 +19,7 @@ import { UploadStorage } from './storage/upload-storage.js';
 
 @Module({
   controllers: [
+    AuthController,
     HealthController,
     ImportsController,
     DailyController,
@@ -24,10 +29,13 @@ import { UploadStorage } from './storage/upload-storage.js';
   ],
   providers: [
     DbProvider,
+    AuthService,
     ImportsService,
     DailyService,
     RulesService,
     ExportsService,
+    SessionGuard,
+    { provide: APP_GUARD, useExisting: SessionGuard },
     { provide: UploadStorage, useFactory: () => new LocalUploadStorage() },
   ],
   exports: [DbProvider],

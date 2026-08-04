@@ -1,5 +1,7 @@
 import { BadRequestException, Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
-import { isIsoDate } from '@sportos/db';
+import { isIsoDate, LEGACY_ACCOUNT_ID } from '@sportos/db';
+import { CurrentAccount } from '../auth/current-account.decorator.js';
+import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { parseBoundedInteger, parseDateRange } from '../query-validation.js';
 import { DailyService } from './daily.service.js';
 
@@ -12,16 +14,17 @@ export class DailyController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('limit') limit?: string,
+    @CurrentAccount() account?: AuthenticatedAccount,
   ) {
     const range = parseDateRange(from, to, { maxDays: 3660 });
     return this.dailyService.summary({
       ...range,
       limit: parseBoundedInteger(limit, { name: 'limit', defaultValue: 365, min: 1, max: 2000 }),
-    });
+    }, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 
   @Get(':date/score-breakdown')
-  async scoreBreakdown(@Param('date') date: string) {
+  async scoreBreakdown(@Param('date') date: string, @CurrentAccount() account?: AuthenticatedAccount) {
     if (!isIsoDate(date)) {
       throw new BadRequestException({
         code: 'INVALID_DATE',
@@ -30,11 +33,11 @@ export class DailyController {
       });
     }
 
-    const result = await this.dailyService.scoreBreakdown(date);
+    const result = await this.dailyService.scoreBreakdown(date, account?.id ?? LEGACY_ACCOUNT_ID);
     if (result === null) {
       throw new NotFoundException({
         code: 'DAILY_SCORE_NOT_FOUND',
-        message: `No persisted daily score exists for ${date}.`,
+        message: 'No persisted daily score exists for the selected date.',
         date,
       });
     }

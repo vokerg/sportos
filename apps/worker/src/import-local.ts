@@ -15,7 +15,7 @@ if (!mySportPath && !runDbPath) {
   process.exit(1);
 }
 
-const db = createDb();
+const db = createDb(process.env.SPORTOS_LEGACY_DATABASE_URL ?? process.env.DATABASE_URL);
 try {
   const service = new ImportService(db);
   const result = await service.importLocalFiles({ mySportPath, runDbPath });

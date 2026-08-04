@@ -2,6 +2,7 @@ import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common
 import {
   CockpitRepository,
   DailyRepository,
+  LEGACY_ACCOUNT_ID,
   ScoreBreakdownContractError,
   parseDailyScoreBreakdown,
   type DailyScoreBreakdown,
@@ -14,13 +15,15 @@ import { DbProvider } from '../db.provider.js';
 export class DailyService {
   constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
 
-  async summary(input: DailySummaryQuery) {
-    return new CockpitRepository(this.dbProvider.db).listDailySummary(input);
+  summary(input: DailySummaryQuery, accountId = LEGACY_ACCOUNT_ID) {
+    return this.dbProvider.withAccount(accountId, (db) => new CockpitRepository(db).listDailySummary(input));
   }
 
-  async scoreBreakdown(metricDate: string): Promise<DailyScoreBreakdown | null> {
-    const result: DailyScoreBreakdownReadModel | null = await new DailyRepository(this.dbProvider.db)
-      .getDailyScoreBreakdown(metricDate);
+  async scoreBreakdown(metricDate: string, accountId = LEGACY_ACCOUNT_ID): Promise<DailyScoreBreakdown | null> {
+    const result: DailyScoreBreakdownReadModel | null = await this.dbProvider.withAccount(
+      accountId,
+      (db) => new DailyRepository(db).getDailyScoreBreakdown(metricDate),
+    );
     if (result === null) return null;
 
     try {

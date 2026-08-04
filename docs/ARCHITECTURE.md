@@ -2,225 +2,219 @@
 
 ## Goal
 
-Replace spreadsheet formulas with a canonical, auditable sports-data system while preserving source provenance and deterministic score explanations.
+Replace spreadsheet formulas with a canonical, auditable sports-data system while preserving source provenance, deterministic score explanations, and account ownership.
 
 ```text
-browser XLSX / local CLI / future integrations
-                    |
-                    v
-       upload storage + uploaded_files
-                    |
-                    v
-            import_jobs ------------------+
-                    |                      |
-                    v                      |
-          independent worker <--- scoring_rule_changes
-                    |                      |
-                    v                      |
-       import_batches + source_records     |
-                    |                      |
-                    v                      |
- activities + daily_metrics + performance_events
-                    |                      |
-                    v                      |
-       scoring_rules + score_ledger <------+ 
-                    |
-                    v
- stable reads + canonical export repository
-                    |
-                    v
-          NestJS API -> Angular cockpit
-                    |
-                    v
-        future authorized read-only tools
+OIDC provider
+      |
+      v
+opaque API session + CSRF
+      |
+      v
+account-bound pooled connection -> forced RLS + same-owner constraints
+      |
+browser XLSX / local CLI / future providers
+      |
+      v
+upload storage + uploaded_files
+      |
+      v
+import_jobs / scoring_rule_changes
+      |
+      v
+narrow queue dispatcher (cross-owner lifecycle only)
+      |
+      +---- persisted immutable owner ----+
+                                          |
+                                          v
+                         owner-scoped worker-data executor
+                                          |
+                                          v
+                    import_batches + source_records
+                                          |
+                                          v
+       activities + daily_metrics + performance_events
+                                          |
+                                          v
+         scoring_rules + score_ledger + audited changes
+                                          |
+                                          v
+             owner-scoped reads + canonical export
+                                          |
+                                          v
+                         NestJS API -> Angular cockpit
 ```
 
 ## System boundary
 
-SportOS is currently a local-first, single-user monorepo. Postgres is authoritative for metadata, job leases, audit history, provenance, canonical facts, rule versions, and official scores. Workbook bytes remain outside Postgres behind a replaceable storage contract.
+SportOS is an authenticated account-scoped monorepo. Postgres is authoritative for accounts, external identities, sessions, ownership, job leases, audit history, provenance, canonical facts, rule versions, and official scores. Workbook bytes remain outside Postgres behind a replaceable storage contract.
 
-The API validates and durably enqueues work, validates bounded read/export inputs, and returns privacy-safe canonical responses. An independent worker executes import and rule-recomputation jobs. Bounded Postgres polling is sufficient for local correctness; future wake-up delivery may reduce latency but cannot bypass persisted claim and lease rules.
+The API authenticates an opaque server-side session, validates CSRF for unsafe methods, reserves one pooled connection, establishes the authenticated account on that connection, runs repository-owned transactions, and clears the context before release. Angular renders API truth only.
+
+Background processing uses two database identities. A narrow dispatcher may discover and lease jobs across accounts but cannot read source, canonical, scoring, ledger, performance, or authentication data. A separate worker-data identity executes the claimed job under the persisted owner.
 
 ## Architectural invariants
 
-1. Raw input is retained before normalization with workbook, sheet, row, batch, and upload provenance.
-2. Canonical facts and official scoring do not depend on Angular or the API process.
-3. Official points are deterministic domain output; generated text never calculates or persists them.
-4. Every score contribution identifies the exact rule UUID, inputs, reason, and calculation payload.
-5. Unknown source semantics are never guessed.
-6. Flyway owns append-only schema evolution.
-7. Re-imports converge on the same canonical facts without duplicates.
-8. Uploaded bytes stay outside Postgres; storage keys and local paths are private.
-9. Postgres is authoritative for job state and worker leases.
-10. Only the current lease owner may progress or complete running work.
-11. Cancellation occurs only at safe transactional boundaries.
-12. A rule UUID is one immutable semantic version; family codes may repeat only across non-overlapping enabled ranges.
-13. Preview is non-authoritative and cannot mutate rule rows, daily totals, or ledger entries.
-14. Rule activation and affected score replacement publish atomically or not at all.
-15. Public dates are real `YYYY-MM-DD` calendar values normalized at repository boundaries.
-16. Canonical exports are versioned, range-bounded, deterministically ordered, count-checked, and validated after database assembly.
-17. Missing provenance is explicit; the system never invents source/batch identifiers.
-18. Raw cells, formulas, raw payload JSON, upload hashes, object keys, paths, and source bytes are excluded from canonical export.
-19. One canonical export is assembled from one repeatable-read database snapshot.
+1. External `(issuer, subject)` maps to one immutable internal account UUID; mutable profile attributes are not ownership identity.
+2. Every user-visible record has an explicit owner or documented shared-system exception.
+3. Runtime identities are non-superuser and separate from the Flyway/schema owner.
+4. API and worker-data access is account scoped by forced PostgreSQL RLS.
+5. Account context is set on one reserved pooled connection and reset before release.
+6. Valid foreign identifiers are indistinguishable from nonexistent identifiers at the API boundary.
+7. Same-owner composite foreign keys prevent cross-account provenance, canonical, rule, and job links.
+8. Owner columns are immutable after insertion.
+9. Queue dispatch is separated from owner-scoped data execution.
+10. Raw input is retained before normalization with workbook, sheet, row, hash, upload, batch, and owner provenance.
+11. Uploaded bytes stay outside Postgres; storage keys, roots, and paths are private.
+12. Official scoring is deterministic domain output and does not depend on Angular or generated text.
+13. Every score contribution identifies the exact rule UUID, inputs, reason, and calculation payload.
+14. Rule UUIDs are immutable semantic versions; enabled effective ranges are account scoped and cannot overlap.
+15. Preview is read-only; rule publication and affected score replacement are atomic.
+16. Re-imports converge within an owner without duplicate canonical facts.
+17. Postgres is authoritative for job state and leases; only the current lease owner may progress or complete work.
+18. Sessions are opaque, digest-backed, bounded by idle/absolute expiry, revocable, and protected by session-bound CSRF.
+19. Public dates are real `YYYY-MM-DD` calendar values normalized at repository boundaries.
+20. Canonical exports are owner scoped, versioned, range bounded, deterministic, count checked, and assembled from one repeatable-read snapshot.
+21. Raw cells, formulas, raw payloads, upload hashes, storage internals, account IDs, authentication data, and source bytes are excluded from canonical export.
 
-## Layers
+## Identity, sessions, and authorization
+
+Authentication control-plane tables:
+
+- `accounts`
+- `external_identities`
+- `auth_sessions`
+- `auth_transactions`
+
+SportOS uses OIDC Authorization Code with PKCE and does not store passwords. The provider's immutable issuer/subject pair provisions an internal account. Only opaque session and CSRF digests are stored. Sign-out revokes the server-side session.
+
+The migrated single-user data belongs to fixed legacy account `00000000-0000-4000-8000-000000000001`. One explicitly configured OIDC issuer/subject may claim that account atomically; a second identity cannot claim it.
+
+Runtime database identities:
+
+- `sportos_app` — authentication control plane and account-scoped API data;
+- `sportos_legacy` — fixed legacy-account local CLI and compatibility tests;
+- `sportos_worker` — narrow cross-owner queue dispatcher;
+- `sportos_worker_data` — account-scoped import/recomputation execution;
+- `sportos_data` — shared no-login privileges, excluding authentication tables.
+
+Credentialed CORS accepts one configured web origin. Unsafe authenticated requests require the readable CSRF cookie to be echoed in `X-SportOS-CSRF` and matched to the active session digest.
+
+See [ADR 0005](adr/0005-authentication-and-data-ownership.md) and [AUTHENTICATION.md](AUTHENTICATION.md).
+
+## Ownership migration
+
+- V105.1 creates upgrade-safe runtime-role placeholders.
+- V106 creates identity/session tables, creates and backfills the legacy account, adds non-null owners, converts global identities to account scope, replaces links with same-owner foreign keys, enables forced RLS, and recreates owner-aware views.
+- V107 removes owner/private identity fields from the public performance view.
+- V108 separates dispatcher and worker-data authorization, restricts authentication-table grants, removes broad future grants, and makes ownership immutable.
+
+Existing upload, batch, source-record, canonical, performance, rule, audit, daily, and ledger UUIDs are preserved during backfill.
+
+## Data and job layers
 
 ### Upload storage and metadata
 
-Table: `uploaded_files`
+`uploaded_files` stores account-owned metadata only. The `UploadStorage` contract lives in `packages/importers`; local objects use opaque keys and mode-`0600` writes. Public contracts omit object keys, roots, paths, bytes, hashes, and owner internals.
 
-The shared `UploadStorage` contract and local adapter live in `packages/importers`. Local objects use opaque keys and mode-`0600` writes beneath `SPORTOS_UPLOAD_DIR`. Public contracts omit object keys, roots, paths, and raw bytes. See [ADR 0002](adr/0002-upload-storage-and-retention.md).
+### Import jobs
 
-### Durable import jobs
+`import_jobs` persists owner/upload/batch links, phase, progress, attempts, lease state, cancellation, result, and sanitized errors.
 
-Table: `import_jobs`
+The dispatcher claims a job with `FOR UPDATE SKIP LOCKED` and returns the persisted owner. The worker-data executor establishes that owner before reading/writing account data. The transactional importer uses one account-bound connection; progress/cancellation callbacks use separate short owner-scoped connections so they do not deadlock the importer transaction.
 
-Import jobs persist upload/batch links, phase, monotonic progress, attempts, lease owner/expiry, heartbeat, cancellation, result, sanitized error, and lifecycle timestamps.
+### Rule versions and recomputation
 
-Workers claim with `FOR UPDATE SKIP LOCKED`. Advisory locking bounds enqueue/retry. Lease-owner predicates guard progress and terminal writes. Stale jobs are requeued, cancelled, or failed according to attempts and cancellation state. See [ADR 0003](adr/0003-import-job-lifecycle.md).
+A rule family is `(owner_id, code)` and a version is `(owner_id, code, version)`. A GiST exclusion constraint prevents overlapping enabled inclusive ranges within an account.
 
-### Rule versions and audited recomputation
+Activation records the authenticated account as actor. The dispatcher claims the audit job; the worker-data executor establishes the owner and atomically closes the superseded range, enables the proposed UUID, recomputes affected totals, replaces ledger rows, and completes the audit.
 
-Tables:
+### Provenance and canonical facts
 
+Account-owned tables:
+
+- `import_batches`
+- `source_records`
+- `activities`
+- `daily_metrics`
+- `performance_events`
 - `scoring_rules`
 - `scoring_rule_changes`
 - `score_ledger`
 
-`scoring_rules.code` identifies a family; `(code, version)` identifies its monotonic display version, while the UUID remains the immutable database identity. A GiST exclusion constraint prevents overlapping enabled inclusive date ranges within a family.
+Dates and deterministic source identities are unique within an account. Composite foreign keys require linked records to share the same owner.
 
-A proposed version is inserted disabled together with a durable `scoring_rule_changes` audit/job record. The audit stores actor, reason, previous/proposed UUIDs, complete proposal, preview, fingerprint, affected range, attempts, progress, result, and sanitized error.
+### Read models and export
 
-The worker publishes one change in one transaction: close the superseded range when needed, enable the proposed UUID, recompute affected daily totals with domain scoring, replace ledger rows, and mark the audit succeeded. Any exception rolls the whole publication transaction back. See [ADR 0004](adr/0004-rule-versioning-and-recomputation.md).
+Invoker-security views operate over RLS-filtered tables and partition window functions by owner before omitting owner fields from public shapes.
 
-### Raw provenance
+Repositories provide narrow boundaries for daily score explanations, bounded cockpit summaries, performance/provenance reads, rule workflows, import diagnostics, and strict canonical export.
 
-Tables:
+## Runtime flows
 
-- `import_batches`
-- `source_records`
+### Sign-in
 
-Every import creates a durable batch failure envelope before the raw/canonical transaction. Raw records are batch-scoped, and uploaded batches retain their upload/job links. Exceptions roll back raw/canonical writes while retaining sanitized batch failure evidence.
+1. Browser requests `/auth/login` with a safe local return path.
+2. API stores one-time hashed state and PKCE verifier, then redirects to OIDC.
+3. Callback exchanges the code, fetches `userinfo`, and provisions or resolves the account.
+4. API creates opaque session and CSRF tokens and stores only digests.
+5. Angular loads `/auth/session`; protected components are created only after authentication succeeds.
+6. Sign-out revokes the server-side session and expires cookies.
 
-### Canonical facts
+### Authenticated API request
 
-Tables:
+1. Global guard authenticates the session.
+2. Unsafe methods validate session-bound CSRF.
+3. Controller derives the account from the session, never request input.
+4. Service reserves an account-bound connection.
+5. RLS and same-owner constraints filter and validate repository work.
+6. The account setting is cleared before connection release.
 
-- `activities`
-- `daily_metrics`
-- `performance_events`
+### Import worker
 
-Spreadsheet layout does not cross the importer boundary. Deterministic source identities make retry and duplicate delivery converge on the same canonical rows.
+1. API validates/stores the upload and enqueues an owner-scoped job.
+2. Dispatcher claims globally and returns the persisted owner.
+3. Worker-data executor establishes that owner.
+4. Importer writes raw rows, canonical facts, scores, and provenance transactionally.
+5. Progress and cancellation use short separate owner-scoped connections.
+6. Terminal job/upload state remains under the same owner.
 
-### Read models and canonical export
+### Rule worker
 
-Views:
+1. Authenticated preview reads only the account's facts and rules.
+2. Activation records the authenticated account and enqueues an owner-scoped audit job.
+3. Dispatcher claims globally and returns the owner.
+4. Worker-data executor recomputes and publishes atomically within that owner.
 
-- `v_daily_summary`
-- `v_score_breakdown`
-- `v_performance_events`
+### Cockpit and export
 
-Repositories provide narrow read boundaries:
-
-- `DailyRepository` assembles a persisted daily score explanation with ledger, exact rule UUIDs, activities, source records, and import batches;
-- `CockpitRepository` applies bounded daily ranges and normalizes database dates;
-- `PerformanceRepository` filters events and resolves event-level provenance;
-- `CanonicalExportRepository` opens a repeatable-read transaction, joins canonical rows to provenance from one snapshot, maps database dates/timestamps/numbers, excludes private/raw fields, and validates `sportos.canonical-export.v1` before returning.
-
-The API and future authorized tools use these stable reads rather than querying raw tables or interpreting spreadsheets.
+1. Validate dates, ranges, limits, numbers, and UUIDs before querying.
+2. Execute repositories under authenticated account context.
+3. Return explicit provenance without storage, owner, or authentication internals.
+4. Build canonical export from one owner-scoped repeatable-read snapshot and validate the strict schema.
 
 ## Package responsibilities
 
 | Package or app | Responsibility |
 |---|---|
-| `apps/api` | HTTP validation, upload/rule orchestration, bounded canonical reads, and export delivery |
-| `apps/web` | Accessible local review, drill-down, monitoring, rule preview/audit, and download UI; no authoritative calculations |
-| `apps/worker` | Long-running import and rule-change execution plus local CLI |
-| `packages/shared` | Serialization schemas, real-date utilities, and canonical export contract |
-| `packages/domain` | Pure aggregation, scoring, reconciliation, rule validation, and preview logic |
-| `packages/db` | Typed schema, leases, audits, canonical reads, provenance joins, and export assembly |
-| `packages/importers` | Storage, XLSX extraction, normalization, warnings, and import transactions |
-| `packages/analytics` | Pure analytics without database dependencies |
-| `flyway/sql` | Append-only migrations and database constraints |
-
-Dependencies point toward shared and pure packages. Angular and NestJS do not own scoring, provenance, or export semantics.
-
-## Runtime flows
-
-### Browser upload
-
-1. Validate one bounded XLSX upload and explicit workbook kind.
-2. Reject unsupported, unreadable, oversized, or known duplicate content.
-3. Store bytes under an opaque object key.
-4. Insert safe upload metadata and one durable import job.
-5. Return HTTP `202` with privacy-safe upload/job state.
-6. Poll only while active, with a finite client budget.
-
-### Import worker
-
-1. Recover stale leases and claim one queued job.
-2. Read the stored object and parse workbook bytes.
-3. Invoke the transactional importer.
-4. At safe phase boundaries, link the batch, check cancellation, persist progress, and extend the lease.
-5. Mark success with result counts, or persist sanitized failure/cancellation state.
-
-### Import transaction
-
-1. Create and link a durable batch envelope.
-2. Persist raw source records.
-3. Normalize known rows and preserve warnings for ambiguity.
-4. Upsert canonical facts by deterministic identity.
-5. Recompute affected daily dates and replace their score ledger.
-6. Commit batch counts/status and canonical links together.
-
-See [ADR 0001](adr/0001-import-transactions-and-identity.md).
-
-### Rules Studio preview
-
-1. Validate and normalize the proposal in `packages/domain`.
-2. Load enabled rule UUIDs, persisted daily facts, and canonical activities.
-3. Apply the proposed version in memory only.
-4. Score current and candidate sets with the same deterministic engine.
-5. Return bounded date-level and aggregate deltas plus a confirmation fingerprint.
-
-No authoritative row is written during preview.
-
-### Rule activation and recomputation
-
-1. Re-run preview and reject a stale fingerprint.
-2. Insert the proposed disabled UUID and queued audit/job atomically.
-3. The worker claims the change with a lease.
-4. One transaction closes the superseded range, enables the new UUID, recomputes the bounded date range, replaces ledger entries, and completes the audit.
-5. Failure rolls back all authoritative changes; retry reuses the same audit identity.
-
-### Cockpit query flow
-
-1. Validate real dates, ordered inclusive ranges, maximum spans, positive distances, bounded limits, and UUIDs before querying.
-2. Query stable views/tables through a narrow repository.
-3. Normalize PostgreSQL date values to canonical strings.
-4. Return canonical facts and explicit `available`, `missing`, or `unsupported` provenance without storage internals.
-5. Angular renders loading, empty, error, retry, trend, table, and detail states without recalculating official data.
-
-### Canonical export flow
-
-1. Require `from` and `to`; reject invalid, reversed, or ranges larger than 3,660 days.
-2. Open one repeatable-read transaction and read daily summaries, activities, and performance events from the same snapshot in deterministic ascending order.
-3. Join source-record and import-batch identifiers where available.
-4. Map reconciliation and provenance status explicitly.
-5. Validate real dates, range containment, strict fields, stable order, and exact row counts with the shared v1 schema.
-6. Return a `no-store` JSON attachment; the browser names and downloads the validated document.
-
-The export intentionally does not serialize raw records, formula payloads, uploaded-file metadata, object storage identity, or server paths. See [CANONICAL_EXPORT.md](CANONICAL_EXPORT.md).
+| `apps/api` | OIDC/session/CSRF, account context, HTTP validation, orchestration, reads, export delivery |
+| `apps/web` | authenticated accessible cockpit; no authoritative calculations |
+| `apps/worker` | split queue dispatch and owner-scoped import/rule execution; legacy CLI |
+| `packages/shared` | serialization schemas, real-date utilities, canonical export contract |
+| `packages/domain` | pure aggregation, scoring, reconciliation, rule validation, preview logic |
+| `packages/db` | identity/session persistence, account context, typed schema, RLS-compatible repositories, dispatcher, leases, audits, reads, export assembly |
+| `packages/importers` | storage, XLSX extraction, normalization, warnings, import transactions |
+| `packages/analytics` | pure analytics without database dependencies |
+| `flyway/sql` | append-only migrations, grants, ownership constraints, RLS, views, indexes |
 
 ## Current risks
 
 - Workbook assumptions are based on a small known sample.
-- Local source storage is single-host and lacks automated backup/lifecycle policy.
-- Duplicate upload detection is advisory rather than owner-scoped reservation.
+- Local source storage is single-host and needs coordinated database/object backup.
+- Production OIDC, runtime-role provisioning, monitoring, backup/restoration, and account deletion require deployment operations beyond source code.
+- The dispatcher is trusted for queue lifecycle and upload dispatch metadata; its credentials require strict isolation.
 - Postgres polling adds periodic load; wake-up acceleration must preserve durable claims.
-- Rule recomputation is intentionally bounded to 5,000 persisted dates in one publication transaction; hosted-scale chunking needs a separate publication ADR.
-- Canonical export is intentionally assembled in memory and bounded to 3,660 days; larger authenticated exports may require streaming or durable delivery.
-- Authentication, ownership isolation, and hosted deletion are not implemented.
-- Provenance for manual records is structurally unsupported rather than fabricated.
+- Rule recomputation and canonical export remain intentionally bounded.
+- Provider credential encryption, cursors, cross-source deduplication, and time-zone policy remain issue #15 work.
 
 Milestone sequencing is tracked in [ROADMAP.md](ROADMAP.md).

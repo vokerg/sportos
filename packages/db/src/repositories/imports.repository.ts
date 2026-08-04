@@ -120,16 +120,16 @@ export class ImportsRepository {
     for (let i = 0; i < records.length; i += chunkSize) {
       const chunk = records.slice(i, i + chunkSize).map((record) => ({
         ...record,
-        raw_json: jsonb(record.raw_json),
-        errors: jsonb(record.errors),
-        warnings: jsonb(record.warnings),
+        raw_json: jsonb(record.raw_json ?? null),
+        errors: jsonb(record.errors ?? []),
+        warnings: jsonb(record.warnings ?? []),
       }));
       inserted.push(
         ...(await this.db
           .insertInto('source_records')
           .values(chunk)
           .onConflict((oc) =>
-            oc.columns(['import_batch_id', 'source_record_key', 'row_hash']).doUpdateSet({
+            oc.columns(['owner_id', 'import_batch_id', 'source_record_key', 'row_hash']).doUpdateSet({
               raw_json: sql`excluded.raw_json`,
               status: 'raw',
               errors: sql`excluded.errors`,
@@ -258,47 +258,69 @@ export class ImportsRepository {
     const recordedAt = new Date().toISOString();
     const failure: Json = {
       phase: details.phase,
-      name: errorName.slice(0, 120),
-      message: errorMessage.slice(0, 500),
-      recordedAt,
-      attemptedCounts,
-    };
-    const diagnostic = diagnosticToJson({
-      severity: 'error',
-      code: 'IMPORT_FAILED',
+      name: sanitizeErrorName(errorName),
       message: errorMessage,
-      phase: details.phase,
-      sheetName: null,
-      rowIndex: null,
-      sourceRecordId: null,
       recordedAt,
-    });
-    const metadata: Json = {
-      ...previousMetadata,
-      failure,
-      diagnostics: [...jsonArray(previousMetadata.diagnostics), diagnostic],
-      transitions: [
-        ...jsonArray(previousMetadata.transitions),
-        { status: 'failed', phase: details.phase, recordedAt },
-      ],
+      ...(attemptedCounts ? { attemptedCounts } : {}),
     };
+    const diagnostics = [
+      ...jsonArray(previousMetadata.diagnostics),
+      diagnosticToJson({
+        severity: 'error',
+        code: 'IMPORT_FAILED',
+        message: errorMessage,
+        phase: details.phase,
+        sheetName: null,
+        rowIndex: null,
+        sourceRecordId: null,
+        recordedAt,
+      }),
+    ];
+    const transitions = appendTransition(previousMetadata, 'failed', details.phase).transitions;
+    const previousErrorCount = Number(batch?.error_count ?? 0);
 
     await this.db
       .updateTable('import_batches')
       .set({
         status: 'failed',
-        error_count: Math.max(1, (batch?.error_count ?? 0) + 1),
         completed_at: new Date(),
-        metadata,
+        row_count: details.attemptedCounts?.rowCount ?? undefined,
+        normalized_count: details.attemptedCounts?.normalizedCount ?? undefined,
+        warning_count: details.attemptedCounts?.warningCount ?? undefined,
+        error_count: Math.max(previousErrorCount, 1),
+        metadata: {
+          ...previousMetadata,
+          failure,
+          diagnostics,
+          transitions,
+        },
       })
       .where('id', '=', batchId)
       .execute();
   }
 
+  async linkNormalizedRecords(links: NormalizedSourceRecordLink[]): Promise<void> {
+    for (const link of links) {
+      await this.db
+        .updateTable('source_records')
+        .set({
+          normalized_entity_type: link.entityType,
+          normalized_entity_id: link.entityId,
+          status: 'normalized',
+        })
+        .where('id', '=', link.sourceRecordId)
+        .execute();
+    }
+  }
+
+  async markRecordsNormalized(links: NormalizedSourceRecordLink[]): Promise<void> {
+    await this.linkNormalizedRecords(links);
+  }
+
   async listBatches(limit = 20, offset = 0): Promise<ImportBatchHistoryPageReadModel> {
     const boundedLimit = clampInteger(limit, 1, 100);
     const boundedOffset = clampInteger(offset, 0, 10_000);
-    const [rows, totalRow] = await Promise.all([
+    const [rows, countRow] = await Promise.all([
       this.db
         .selectFrom('import_batches')
         .selectAll()
@@ -312,10 +334,9 @@ export class ImportsRepository {
         .select((eb) => eb.fn.countAll<number>().as('count'))
         .executeTakeFirstOrThrow(),
     ]);
-
     return {
-      items: rows.map(toHistoryItem),
-      total: Number(totalRow.count),
+      items: rows.map(mapBatchHistoryItem),
+      total: Number(countRow.count),
       limit: boundedLimit,
       offset: boundedOffset,
     };
@@ -333,209 +354,194 @@ export class ImportsRepository {
       .executeTakeFirst();
     if (!batch) return null;
 
-    const sourceRecords = await this.db
-      .selectFrom('source_records')
-      .select(['id', 'sheet_name', 'row_index', 'warnings', 'errors'])
-      .where('import_batch_id', '=', batchId)
-      .orderBy('sheet_name', 'asc')
-      .orderBy('row_index', 'asc')
-      .execute();
-    const metadata = jsonObject(batch.metadata);
-    const diagnostics = deduplicateDiagnostics([
-      ...diagnosticsFromJson(metadata.diagnostics),
-      ...sourceRecords.flatMap((record) => [
-        ...diagnosticsFromJson(record.warnings, {
-          severity: 'warning',
-          sourceRecordId: record.id,
-          sheetName: record.sheet_name,
-          rowIndex: record.row_index,
-        }),
-        ...diagnosticsFromJson(record.errors, {
-          severity: 'error',
-          sourceRecordId: record.id,
-          sheetName: record.sheet_name,
-          rowIndex: record.row_index,
-        }),
-      ]),
-    ]);
     const boundedLimit = clampInteger(diagnosticLimit, 1, 250);
     const boundedOffset = clampInteger(diagnosticOffset, 0, 50_000);
-
+    const allDiagnostics = parseDiagnostics(batch.metadata);
     return {
-      batch: toHistoryItem(batch),
-      transitions: transitionsFromJson(metadata.transitions),
-      diagnostics: diagnostics.slice(boundedOffset, boundedOffset + boundedLimit),
-      diagnosticTotal: diagnostics.length,
+      batch: mapBatchHistoryItem(batch),
+      transitions: parseTransitions(batch.metadata, batch.status, timestampToIso(batch.started_at)),
+      diagnostics: allDiagnostics.slice(boundedOffset, boundedOffset + boundedLimit),
+      diagnosticTotal: allDiagnostics.length,
       diagnosticLimit: boundedLimit,
       diagnosticOffset: boundedOffset,
     };
   }
-
-  async markRecordsNormalized(links: NormalizedSourceRecordLink[]): Promise<void> {
-    for (const link of links) {
-      await this.db
-        .updateTable('source_records')
-        .set({
-          status: 'normalized',
-          normalized_entity_type: link.entityType,
-          normalized_entity_id: link.entityId,
-        })
-        .where('id', '=', link.sourceRecordId)
-        .execute();
-    }
-  }
-
-  async markRecordNormalized(sourceRecordId: string, entityType: string, entityId: string): Promise<void> {
-    await this.db
-      .updateTable('source_records')
-      .set({ status: 'normalized', normalized_entity_type: entityType, normalized_entity_id: entityId })
-      .where('id', '=', sourceRecordId)
-      .execute();
-  }
 }
 
-function toHistoryItem(batch: ImportBatch): ImportBatchHistoryItemReadModel {
-  const metadata = jsonObject(batch.metadata);
+function mapBatchHistoryItem(row: ImportBatch): ImportBatchHistoryItemReadModel {
+  const metadata = jsonObject(row.metadata);
   return {
-    id: batch.id,
-    source: batch.source,
-    sourceKind: batch.source_kind,
-    filename: safeFilename(batch.filename),
-    status: batch.status,
-    rowCount: batch.row_count,
-    normalizedCount: batch.normalized_count,
-    warningCount: batch.warning_count,
-    errorCount: batch.error_count,
-    startedAt: timestampToIso(batch.started_at),
-    completedAt: batch.completed_at === null ? null : timestampToIso(batch.completed_at),
-    affectedDates: jsonStringArray(metadata.affectedDates).filter(isIsoDateString).sort(),
-    failure: failureFromJson(metadata.failure),
+    id: row.id,
+    source: row.source,
+    sourceKind: row.source_kind,
+    filename: safeFilename(row.filename),
+    status: row.status,
+    rowCount: Number(row.row_count),
+    normalizedCount: Number(row.normalized_count),
+    warningCount: Number(row.warning_count),
+    errorCount: Number(row.error_count),
+    startedAt: timestampToIso(row.started_at),
+    completedAt: row.completed_at ? timestampToIso(row.completed_at) : null,
+    affectedDates: jsonStringArray(metadata.affectedDates).sort(),
+    failure: parseFailure(metadata.failure),
   };
 }
 
-function appendTransition(metadataValue: Json | undefined, status: ImportBatch['status'], phase: string): Json {
+function parseTransitions(
+  metadataValue: Json,
+  fallbackStatus: ImportBatch['status'],
+  fallbackRecordedAt: string,
+): ImportBatchTransitionReadModel[] {
   const metadata = jsonObject(metadataValue);
+  const transitions = jsonArray(metadata.transitions)
+    .map((value) => {
+      const item = jsonObject(value);
+      const status = isImportStatus(item.status) ? item.status : null;
+      const phase = typeof item.phase === 'string' ? item.phase : null;
+      const recordedAt = typeof item.recordedAt === 'string' ? item.recordedAt : null;
+      return status && phase && recordedAt ? { status, phase, recordedAt } : null;
+    })
+    .filter((value): value is ImportBatchTransitionReadModel => value !== null);
+  return transitions.length > 0
+    ? transitions
+    : [{ status: fallbackStatus, phase: 'legacy-import', recordedAt: fallbackRecordedAt }];
+}
+
+function parseDiagnostics(value: Json): ImportDiagnosticReadModel[] {
+  return jsonArray(jsonObject(value).diagnostics)
+    .map((item) => {
+      const diagnostic = jsonObject(item);
+      if (diagnostic.severity !== 'warning' && diagnostic.severity !== 'error') return null;
+      if (typeof diagnostic.code !== 'string' || typeof diagnostic.message !== 'string') return null;
+      if (typeof diagnostic.phase !== 'string') return null;
+      return {
+        severity: diagnostic.severity,
+        code: diagnostic.code,
+        message: redactSensitiveText(diagnostic.message),
+        phase: diagnostic.phase,
+        sheetName: typeof diagnostic.sheetName === 'string' ? diagnostic.sheetName : null,
+        rowIndex: typeof diagnostic.rowIndex === 'number' ? diagnostic.rowIndex : null,
+        sourceRecordId: typeof diagnostic.sourceRecordId === 'string' ? diagnostic.sourceRecordId : null,
+        recordedAt: typeof diagnostic.recordedAt === 'string' ? diagnostic.recordedAt : null,
+      } satisfies ImportDiagnosticReadModel;
+    })
+    .filter((item): item is ImportDiagnosticReadModel => item !== null);
+}
+
+function parseFailure(value: Json | undefined): ImportBatchFailureReadModel | null {
+  const failure = jsonObject(value);
+  if (
+    typeof failure.phase !== 'string'
+    || typeof failure.name !== 'string'
+    || typeof failure.message !== 'string'
+    || typeof failure.recordedAt !== 'string'
+  ) return null;
   return {
-    ...metadata,
-    transitions: [
-      ...jsonArray(metadata.transitions),
-      { status, phase: phase.slice(0, 120), recordedAt: new Date().toISOString() },
-    ],
+    phase: failure.phase,
+    name: failure.name,
+    message: redactSensitiveText(failure.message),
+    recordedAt: failure.recordedAt,
   };
 }
 
-function normalizeDiagnostic(input: ImportDiagnosticInput): ImportDiagnosticReadModel {
+function appendTransition(metadataValue: Json | undefined, status: ImportBatch['status'], phase: string): Record<string, Json> {
+  const metadata = jsonObject(metadataValue);
+  const transitions = [
+    ...jsonArray(metadata.transitions),
+    { status, phase: safePhase(phase), recordedAt: new Date().toISOString() },
+  ] as Json[];
+  return { ...metadata, transitions };
+}
+
+function normalizeDiagnostic(value: ImportDiagnosticInput): ImportDiagnosticReadModel {
   return {
-    severity: input.severity,
-    code: input.code.trim().slice(0, 120) || 'IMPORT_DIAGNOSTIC',
-    message: redactSensitiveText(input.message.trim()).slice(0, 1000),
-    phase: input.phase.trim().slice(0, 120) || 'unknown',
-    sheetName: input.sheetName?.trim().slice(0, 255) || null,
-    rowIndex: Number.isInteger(input.rowIndex) && Number(input.rowIndex) > 0 ? Number(input.rowIndex) : null,
-    sourceRecordId: input.sourceRecordId ?? null,
+    severity: value.severity,
+    code: sanitizeCode(value.code, value.severity === 'warning' ? 'IMPORT_WARNING' : 'IMPORT_ERROR'),
+    message: redactSensitiveText(value.message),
+    phase: safePhase(value.phase),
+    sheetName: safeSheetName(value.sheetName),
+    rowIndex: Number.isInteger(value.rowIndex) && Number(value.rowIndex) >= 0 ? Number(value.rowIndex) : null,
+    sourceRecordId: typeof value.sourceRecordId === 'string' ? value.sourceRecordId : null,
     recordedAt: new Date().toISOString(),
   };
 }
 
-function diagnosticToJson(diagnostic: ImportDiagnosticReadModel): Json {
+function diagnosticToJson(value: ImportDiagnosticReadModel): Json {
   return {
-    severity: diagnostic.severity,
-    code: diagnostic.code,
-    message: diagnostic.message,
-    phase: diagnostic.phase,
-    sheetName: diagnostic.sheetName,
-    rowIndex: diagnostic.rowIndex,
-    sourceRecordId: diagnostic.sourceRecordId,
-    recordedAt: diagnostic.recordedAt,
+    severity: value.severity,
+    code: value.code,
+    message: value.message,
+    phase: value.phase,
+    sheetName: value.sheetName,
+    rowIndex: value.rowIndex,
+    sourceRecordId: value.sourceRecordId,
+    recordedAt: value.recordedAt,
   };
 }
 
-function diagnosticsFromJson(
-  value: Json | undefined,
-  defaults: Partial<ImportDiagnosticReadModel> = {},
-): ImportDiagnosticReadModel[] {
-  return jsonArray(value).flatMap((entry) => {
-    if (typeof entry === 'string') {
-      return [{
-        severity: defaults.severity ?? 'warning',
-        code: defaults.code ?? 'IMPORT_DIAGNOSTIC',
-        message: redactSensitiveText(entry).slice(0, 1000),
-        phase: defaults.phase ?? 'parse',
-        sheetName: defaults.sheetName ?? null,
-        rowIndex: defaults.rowIndex ?? null,
-        sourceRecordId: defaults.sourceRecordId ?? null,
-        recordedAt: defaults.recordedAt ?? null,
-      }];
-    }
-    const object = jsonObject(entry);
-    const rawMessage = jsonString(object.message);
-    if (!rawMessage) return [];
-    const severity = object.severity === 'error' || object.severity === 'warning'
-      ? object.severity
-      : defaults.severity ?? 'warning';
-    return [{
-      severity,
-      code: jsonString(object.code) ?? defaults.code ?? 'IMPORT_DIAGNOSTIC',
-      message: redactSensitiveText(rawMessage).slice(0, 1000),
-      phase: jsonString(object.phase) ?? defaults.phase ?? 'parse',
-      sheetName: jsonString(object.sheetName) ?? defaults.sheetName ?? null,
-      rowIndex: jsonPositiveInteger(object.rowIndex) ?? defaults.rowIndex ?? null,
-      sourceRecordId: jsonString(object.sourceRecordId) ?? defaults.sourceRecordId ?? null,
-      recordedAt: jsonString(object.recordedAt) ?? defaults.recordedAt ?? null,
-    }];
-  });
+function compactCounts(value: ImportFailureDetails['attemptedCounts']): Json | undefined {
+  if (!value) return undefined;
+  const counts: Record<string, number> = {};
+  if (Number.isInteger(value.rowCount)) counts.rowCount = Number(value.rowCount);
+  if (Number.isInteger(value.normalizedCount)) counts.normalizedCount = Number(value.normalizedCount);
+  if (Number.isInteger(value.warningCount)) counts.warningCount = Number(value.warningCount);
+  return Object.keys(counts).length > 0 ? counts : undefined;
 }
 
-function transitionsFromJson(value: Json | undefined): ImportBatchTransitionReadModel[] {
-  return jsonArray(value).flatMap((entry) => {
-    const object = jsonObject(entry);
-    const status = object.status;
-    const phase = jsonString(object.phase);
-    const recordedAt = jsonString(object.recordedAt);
-    if (!isImportStatus(status) || !phase || !recordedAt) return [];
-    return [{ status, phase, recordedAt }];
-  });
+function jsonb(value: Json) {
+  return sql<Json>`${JSON.stringify(value)}::jsonb`;
 }
 
-function failureFromJson(value: Json | undefined): ImportBatchFailureReadModel | null {
-  const object = jsonObject(value);
-  const phase = jsonString(object.phase);
-  const name = jsonString(object.name);
-  const rawMessage = jsonString(object.message);
-  const recordedAt = jsonString(object.recordedAt);
-  return phase && name && rawMessage && recordedAt
-    ? { phase, name, message: redactSensitiveText(rawMessage).slice(0, 500), recordedAt }
-    : null;
+function jsonObject(value: Json | undefined): Record<string, Json> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
-function deduplicateDiagnostics(diagnostics: ImportDiagnosticReadModel[]): ImportDiagnosticReadModel[] {
-  const seen = new Set<string>();
-  return diagnostics.filter((diagnostic) => {
-    const key = [
-      diagnostic.severity,
-      diagnostic.code,
-      diagnostic.message,
-      diagnostic.sheetName ?? '',
-      diagnostic.rowIndex ?? '',
-      diagnostic.sourceRecordId ?? '',
-    ].join('|');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+function jsonArray(value: Json | undefined): Json[] {
+  return Array.isArray(value) ? value : [];
 }
 
-function safeFilename(filename: string | null): string | null {
-  if (!filename) return null;
-  const basename = filename.replaceAll('\\', '/').split('/').filter(Boolean).at(-1)?.trim();
-  return basename ? basename.slice(0, 255) : null;
+function jsonStringArray(value: Json | undefined): string[] {
+  return jsonArray(value).filter((item): item is string => typeof item === 'string');
+}
+
+function safeFilename(value: string | null): string | null {
+  if (!value) return null;
+  return value.replaceAll('\\', '/').split('/').filter(Boolean).at(-1)?.slice(0, 255) ?? null;
+}
+
+function safeSheetName(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  return value.replace(/[\r\n\t]/g, ' ').trim().slice(0, 255) || null;
+}
+
+function safePhase(value: string): string {
+  return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase().slice(0, 100) || 'unknown';
+}
+
+function sanitizeErrorName(value: string): string {
+  return value.replace(/[^A-Za-z0-9_$.-]+/g, '_').slice(0, 100) || 'ImportError';
+}
+
+function sanitizeCode(value: string, fallback: string): string {
+  return value.replace(/[^A-Z0-9_-]+/gi, '_').toUpperCase().slice(0, 100) || fallback;
 }
 
 function redactSensitiveText(value: string): string {
   return value
     .replace(/(["'`])(?:[A-Za-z]:[\\/]|\/)[^"'`\r\n]+\1/g, '$1[redacted local path]$1')
     .replace(/\b[A-Za-z]:[\\/][^\s,;]+/g, '[redacted local path]')
-    .replace(/(^|\s)\/(?:[^/\s]+\/)*[^/\s,;]+/g, '$1[redacted local path]');
+    .replace(/(^|\s)\/(?:[^/\s]+\/)*[^/\s,;]+/g, '$1[redacted local path]')
+    .slice(0, 500);
+}
+
+function isImportStatus(value: Json | undefined): value is ImportBatch['status'] {
+  return typeof value === 'string' && ['started', 'parsed', 'normalized', 'scored', 'failed'].includes(value);
+}
+
+function isIsoDateString(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
 }
 
 function timestampToIso(value: unknown): string {
@@ -547,51 +553,7 @@ function timestampToIso(value: unknown): string {
   return String(value);
 }
 
-function isImportStatus(value: Json | undefined): value is ImportBatch['status'] {
-  return value === 'started' || value === 'parsed' || value === 'normalized' || value === 'scored' || value === 'failed';
-}
-
-function isIsoDateString(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
-}
-
-function jsonObject(value: Json | undefined): Record<string, Json> {
-  if (value === null || Array.isArray(value) || typeof value !== 'object') return {};
-  return value;
-}
-
-function jsonArray(value: Json | undefined): Json[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function jsonStringArray(value: Json | undefined): string[] {
-  return jsonArray(value).filter((entry): entry is string => typeof entry === 'string');
-}
-
-function jsonString(value: Json | undefined): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function jsonPositiveInteger(value: Json | undefined): number | null {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
-}
-
-function jsonb(value: Json | undefined) {
-  return sql<Json>`${JSON.stringify(value ?? null)}::jsonb`;
-}
-
 function clampInteger(value: number, minimum: number, maximum: number): number {
   if (!Number.isFinite(value)) return minimum;
   return Math.min(maximum, Math.max(minimum, Math.trunc(value)));
-}
-
-function compactCounts(counts: ImportFailureDetails['attemptedCounts']): Record<string, Json> {
-  if (!counts) return {};
-  const result: Record<string, Json> = {};
-  if (counts.rowCount !== undefined) result.rowCount = counts.rowCount;
-  if (counts.normalizedCount !== undefined) result.normalizedCount = counts.normalizedCount;
-  if (counts.warningCount !== undefined) result.warningCount = counts.warningCount;
-  return result;
 }
