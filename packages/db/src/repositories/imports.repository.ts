@@ -120,9 +120,9 @@ export class ImportsRepository {
     for (let i = 0; i < records.length; i += chunkSize) {
       const chunk = records.slice(i, i + chunkSize).map((record) => ({
         ...record,
-        raw_json: jsonb(record.raw_json),
-        errors: jsonb(record.errors),
-        warnings: jsonb(record.warnings),
+        raw_json: jsonb(record.raw_json ?? null),
+        errors: jsonb(record.errors ?? []),
+        warnings: jsonb(record.warnings ?? []),
       }));
       inserted.push(
         ...(await this.db
@@ -311,6 +311,10 @@ export class ImportsRepository {
         .where('id', '=', link.sourceRecordId)
         .execute();
     }
+  }
+
+  async markRecordsNormalized(links: NormalizedSourceRecordLink[]): Promise<void> {
+    await this.linkNormalizedRecords(links);
   }
 
   async listBatches(limit = 20, offset = 0): Promise<ImportBatchHistoryPageReadModel> {
