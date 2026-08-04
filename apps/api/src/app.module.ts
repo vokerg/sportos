@@ -11,6 +11,8 @@ import { DailyService } from './daily/daily.service.js';
 import { ExportsController } from './exports/exports.controller.js';
 import { ExportsService } from './exports/exports.service.js';
 import { PerformanceController } from './performance/performance.controller.js';
+import { ProvidersController } from './providers/providers.controller.js';
+import { ProvidersService } from './providers/providers.service.js';
 import { RulesController } from './rules/rules.controller.js';
 import { RulesService } from './rules/rules.service.js';
 import { DbProvider } from './db.provider.js';
@@ -26,6 +28,7 @@ import { UploadStorage } from './storage/upload-storage.js';
     PerformanceController,
     RulesController,
     ExportsController,
+    ProvidersController,
   ],
   providers: [
     DbProvider,
@@ -34,6 +37,7 @@ import { UploadStorage } from './storage/upload-storage.js';
     DailyService,
     RulesService,
     ExportsService,
+    ProvidersService,
     SessionGuard,
     { provide: APP_GUARD, useExisting: SessionGuard },
     { provide: UploadStorage, useFactory: () => new LocalUploadStorage() },
