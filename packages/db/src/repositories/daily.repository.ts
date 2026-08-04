@@ -105,7 +105,7 @@ export class DailyRepository {
           .insertInto('activities')
           .values(chunk)
           .onConflict((oc) =>
-            oc.columns(['source', 'source_record_hash']).doUpdateSet({
+            oc.columns(['owner_id', 'source', 'source_record_hash']).doUpdateSet({
               source_record_id: sql`excluded.source_record_id`,
               source_activity_id: sql`excluded.source_activity_id`,
               activity_date: sql`excluded.activity_date`,
@@ -165,7 +165,7 @@ export class DailyRepository {
         excel_row_hash: facts.excelRowHash ?? null,
       })
       .onConflict((oc) =>
-        oc.column('metric_date').doUpdateSet({
+        oc.columns(['owner_id', 'metric_date']).doUpdateSet({
           source_record_id: sourceRecordId ?? null,
           steps: facts.steps,
           run_m: facts.runM,
