@@ -27,3 +27,5 @@ SELECT
     ORDER BY pe.event_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
   ) = pe.duration_s AS is_pr_by_time
 FROM performance_events pe;
+
+GRANT SELECT ON v_performance_events TO sportos_data;
