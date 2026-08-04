@@ -1,5 +1,5 @@
 import { sql, type Kysely } from 'kysely';
-import type { Database } from '../schema.js';
+import type { Database, Json } from '../schema.js';
 
 export interface DispatchedImportJob {
   id: string;
@@ -20,6 +20,18 @@ export interface DispatchedRuleChange {
   proposedRuleId: string;
   affectedFrom: string;
   affectedTo: string;
+  attemptCount: number;
+  maxAttempts: number;
+}
+
+export interface DispatchedProviderSync {
+  id: string;
+  ownerId: string;
+  connectionId: string;
+  mode: 'initial_backfill' | 'incremental' | 'webhook_refresh';
+  requestedAfter: Date | null;
+  requestedBefore: Date | null;
+  cursor: Json;
   attemptCount: number;
   maxAttempts: number;
 }
@@ -244,6 +256,80 @@ export class WorkerDispatchRepository {
       };
     });
   }
+
+  async recoverStaleProviderSyncs(limit = 100): Promise<StaleRecoveryCounts> {
+    return this.db.transaction().execute(async (transaction) => {
+      const stale = await transaction.selectFrom('provider_sync_jobs')
+        .select(['id', 'attempt_count', 'max_attempts', 'cancellation_requested_at'])
+        .where('status', '=', 'running')
+        .where('lease_expires_at', '<', new Date())
+        .orderBy('lease_expires_at', 'asc')
+        .limit(clampInteger(limit, 1, 1000))
+        .forUpdate().skipLocked().execute();
+      const counts = emptyCounts();
+      for (const job of stale) {
+        if (job.cancellation_requested_at !== null) {
+          await transaction.updateTable('provider_sync_jobs').set(providerTerminal('cancelled', null, null))
+            .where('id', '=', job.id).execute();
+          counts.cancelled += 1;
+        } else if (job.attempt_count >= job.max_attempts) {
+          await transaction.updateTable('provider_sync_jobs').set(providerTerminal(
+            'failed', 'STALE_LEASE', 'Provider worker lease expired after the final attempt.',
+          )).where('id', '=', job.id).execute();
+          counts.failed += 1;
+        } else {
+          await transaction.updateTable('provider_sync_jobs').set({
+            status: 'queued', phase: 'recovered', lease_owner: null, lease_expires_at: null,
+            heartbeat_at: null, next_attempt_at: new Date(), updated_at: new Date(),
+            error_code: 'STALE_LEASE_RECOVERED',
+            error_message: 'The previous provider worker lease expired; the job was safely requeued.',
+          }).where('id', '=', job.id).execute();
+          counts.requeued += 1;
+        }
+      }
+      return counts;
+    });
+  }
+
+  async claimProviderSync(workerId: string, leaseSeconds = 60): Promise<DispatchedProviderSync | null> {
+    const safeWorkerId = safeText(workerId, 200, 'sportos-provider-worker');
+    const boundedLease = clampInteger(leaseSeconds, 15, 600);
+    return this.db.transaction().execute(async (transaction) => {
+      const candidate = await transaction.selectFrom('provider_sync_jobs')
+        .select([
+          'id', 'owner_id', 'connection_id', 'mode', 'requested_after', 'requested_before',
+          'cursor_json', 'attempt_count', 'max_attempts',
+        ])
+        .where('status', '=', 'queued')
+        .where('next_attempt_at', '<=', new Date())
+        .where('cancellation_requested_at', 'is', null)
+        .orderBy('created_at', 'asc').orderBy('id', 'asc')
+        .forUpdate().skipLocked().executeTakeFirst();
+      if (!candidate) return null;
+      const updated = await transaction.updateTable('provider_sync_jobs').set({
+        status: 'running', phase: 'claimed', progress_percent: 5,
+        attempt_count: sql<number>`attempt_count + 1`,
+        lease_owner: safeWorkerId,
+        lease_expires_at: sql<Date>`now() + make_interval(secs => ${boundedLease})`,
+        heartbeat_at: new Date(), updated_at: new Date(),
+        started_at: sql<Date>`coalesce(started_at, now())`, completed_at: null,
+        error_code: null, error_message: null,
+      }).where('id', '=', candidate.id).where('owner_id', '=', candidate.owner_id).where('status', '=', 'queued')
+        .returning(['attempt_count', 'max_attempts']).executeTakeFirst();
+      if (!updated) return null;
+      return {
+        id: candidate.id,
+        ownerId: candidate.owner_id,
+        connectionId: candidate.connection_id,
+        mode: candidate.mode,
+        requestedAfter: dateOrNull(candidate.requested_after),
+        requestedBefore: dateOrNull(candidate.requested_before),
+        cursor: candidate.cursor_json,
+        attemptCount: updated.attempt_count,
+        maxAttempts: updated.max_attempts,
+      };
+    });
+  }
 }
 
 function importTerminal(
@@ -282,6 +368,24 @@ function ruleTerminal(
   } as const;
 }
 
+function providerTerminal(
+  status: 'failed' | 'cancelled',
+  errorCode: string | null,
+  errorMessage: string | null,
+) {
+  return {
+    status,
+    phase: status,
+    lease_owner: null,
+    lease_expires_at: null,
+    heartbeat_at: new Date(),
+    completed_at: new Date(),
+    updated_at: new Date(),
+    error_code: errorCode,
+    error_message: errorMessage,
+  } as const;
+}
+
 function emptyCounts(): StaleRecoveryCounts {
   return { requeued: 0, failed: 0, cancelled: 0 };
 }
@@ -298,6 +402,13 @@ function safeText(value: string, maximum: number, fallback: string): string {
 function dateString(value: unknown): string {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return String(value).slice(0, 10);
+}
+
+function dateOrNull(value: unknown | null): Date | null {
+  if (value === null) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (!Number.isFinite(date.getTime())) return null;
+  return date;
 }
 
 function clampInteger(value: number, minimum: number, maximum: number): number {
