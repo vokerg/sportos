@@ -1,29 +1,32 @@
 # SportOS
 
-SportOS is a local-first sports-data cockpit that turns spreadsheet training records into canonical, auditable facts and deterministic scores. It supports authenticated accounts with database-enforced ownership across uploads, imports, canonical facts, scores, jobs, exports, and rule configuration.
+SportOS is a local-first sports-data cockpit that turns training records and connected provider activity into canonical, auditable facts and deterministic scores. It supports authenticated accounts with database-enforced ownership across uploads, provider connections, imports, canonical facts, scores, jobs, exports, and rule configuration.
 
 ## Current capabilities
 
 - bounded browser upload for supported XLSX workbooks;
 - replaceable external source-file storage and durable upload metadata;
-- Postgres-authoritative import and rule-change jobs with leases, progress, retry, cancellation, and stale recovery;
-- retained raw rows and source-to-canonical provenance;
+- Postgres-authoritative import, provider-sync, and rule-change jobs with leases, progress, retry, cancellation, and stale recovery;
+- retained raw workbook rows and raw provider snapshots with source-to-canonical provenance;
 - transactional and idempotent normalization of activities, daily metrics, and performance events;
+- Strava OAuth connection, rotating-token refresh, initial backfill, incremental synchronization, rate-limit rescheduling, retry, cancellation, and disconnect;
+- application-layer AES-256-GCM provider credential encryption with versioned keys and owner/connection-bound authentication data;
+- deterministic cross-source identity handling that links one exact workbook/provider match, creates new canonical facts when no match exists, and surfaces ambiguous collisions;
 - deterministic scoring, reconciliation, exact ledger/rule provenance, immutable rule versions, previews, and audited recomputation;
 - Daily Log and Run Lab drill-downs with explicit source provenance;
 - strict versioned canonical JSON export;
 - OIDC Authorization Code + PKCE sign-in with opaque server-side sessions;
 - per-account uniqueness, same-owner foreign keys, forced row-level security, and non-enumerating API responses;
 - split queue-dispatch and owner-scoped worker execution;
-- responsive keyboard-accessible Angular session and cockpit states.
+- responsive keyboard-accessible Angular session, provider, and cockpit states.
 
-The next authoritative queue item after account ownership is provider ingestion and the first Strava adapter. See [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), [authentication and ownership](docs/AUTHENTICATION.md), [canonical export](docs/CANONICAL_EXPORT.md), and [issue #3](https://github.com/vokerg/sportos/issues/3).
+The next authoritative queue item is read-only AI analysis with cited provenance. See [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), [authentication and ownership](docs/AUTHENTICATION.md), [canonical export](docs/CANONICAL_EXPORT.md), and [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## Not yet implemented
 
-- Strava, Garmin, Google Sheets, or FIT synchronization;
-- encrypted provider credential lifecycle and provider backfills;
-- hosted object deletion, backup, restoration, and account-erasure workflows;
+- Garmin, Google Sheets, or FIT synchronization;
+- automated processing of provider webhook hints beyond the bounded durable inbox schema;
+- hosted object deletion, backup, restoration, key-management-service integration, and account-erasure workflows;
 - streaming or durable hosted-scale export;
 - AI analysis.
 
@@ -32,14 +35,17 @@ The next authoritative queue item after account ownership is provider ingestion 
 ```text
 OIDC provider -> opaque API session -> account-bound database connection
                                       |
-browser XLSX / local CLI              v
+browser XLSX / Strava OAuth           v
           |                 forced RLS + same-owner constraints
           v                            |
-upload storage + uploaded_files       |
+upload storage / encrypted tokens     |
           |                            |
           v                            |
-import_jobs -> narrow dispatcher ------+
+import_jobs / provider_sync_jobs ------+
           |                claimed owner
+          v                            |
+narrow queue dispatcher               |
+          |                            |
           v                            |
 owner-scoped worker-data executor <----+
           |
@@ -47,10 +53,10 @@ owner-scoped worker-data executor <----+
 import_batches + source_records
           |
           v
-activities + daily_metrics + performance_events
+activities + provider_activity_links + performance_events
           |
           v
-scoring_rules + score_ledger + audited rule changes
+daily_metrics + scoring_rules + score_ledger + audited changes
           |
           v
 stable account-scoped reads + canonical export
@@ -59,7 +65,7 @@ stable account-scoped reads + canonical export
 NestJS API -> Angular cockpit
 ```
 
-Postgres is authoritative for accounts, sessions, ownership, job state, leases, rule versions, audit history, canonical facts, provenance, and official scores. Workbook bytes remain outside Postgres behind a replaceable storage contract.
+Postgres is authoritative for accounts, sessions, ownership, provider connection metadata, encrypted credential envelopes, cursors, job state, leases, rule versions, audit history, canonical facts, provenance, and official scores. Workbook bytes remain outside Postgres behind a replaceable storage contract. Provider tokens are stored only inside authenticated encrypted envelopes and never returned to the browser or dispatcher.
 
 Key decisions:
 
@@ -68,6 +74,7 @@ Key decisions:
 - [ADR 0003](docs/adr/0003-import-job-lifecycle.md) — durable import jobs;
 - [ADR 0004](docs/adr/0004-rule-versioning-and-recomputation.md) — immutable rule versions and audited recomputation;
 - [ADR 0005](docs/adr/0005-authentication-and-data-ownership.md) — OIDC, sessions, ownership, RLS, worker authorization, and migration;
+- [ADR 0006](docs/adr/0006-provider-ingestion-and-strava.md) — provider adapters, encrypted credentials, durable synchronization, raw provenance, and cross-source identity;
 - [Canonical export v1](docs/CANONICAL_EXPORT.md) — stable datasets, ordering, provenance, reconciliation, and privacy exclusions.
 
 ## Prerequisites
@@ -76,6 +83,7 @@ Key decisions:
 - pnpm 9.12.0
 - Docker with Docker Compose
 - an OIDC provider for normal sign-in
+- optional Strava API application for provider synchronization
 
 Use pnpm exclusively. Do not create npm or Yarn lockfiles.
 
@@ -103,6 +111,22 @@ SPORTOS_COOKIE_SECURE=false
 
 To let one OIDC identity claim data migrated from the former single-user installation, configure both `SPORTOS_LEGACY_OIDC_ISSUER` and `SPORTOS_LEGACY_OIDC_SUBJECT` before that identity's first login. Keep the mapping stable until the claim is verified.
 
+Optional Strava setup:
+
+1. Register the exact callback URL, such as `http://localhost:3000/providers/strava/callback`, in the Strava API application.
+2. Generate at least one 32-byte credential-encryption key outside source control.
+3. Configure the same provider secrets and key ring for both the API and worker processes.
+
+```dotenv
+STRAVA_CLIENT_ID=
+STRAVA_CLIENT_SECRET=
+STRAVA_REDIRECT_URI=http://localhost:3000/providers/strava/callback
+SPORTOS_PROVIDER_CREDENTIAL_KEYS=k1=<base64-encoded-32-byte-key>
+SPORTOS_PROVIDER_ACTIVE_KEY_ID=k1
+```
+
+For key rotation, add the new `keyId:key` entry, retain old keys for decryption, and change `SPORTOS_PROVIDER_ACTIVE_KEY_ID`. Refreshed or reauthorized credentials are then written with the active key. Removing an old key before all envelopes have rotated makes those connections require reauthorization.
+
 Start the API, web application, and worker in separate terminals:
 
 ```bash
@@ -119,19 +143,25 @@ Stop local services with:
 pnpm db:down
 ```
 
-## Authentication and ownership
+## Authentication, ownership, and provider credentials
 
 SportOS does not store passwords. It maps the OIDC provider's immutable `(issuer, subject)` to an internal account UUID. A random opaque session is stored only as a digest and delivered in an HttpOnly cookie. Unsafe requests require a session-bound CSRF cookie/header pair. Credentialed CORS accepts only `SPORTOS_WEB_ORIGIN`.
 
-Every user-visible row has an owner. API and worker-data operations reserve an account-bound pooled connection, set the account context, run repository-owned transactions on that same connection, and clear the context before release. Forced PostgreSQL RLS filters reads and writes; date, upload, rule-family, job, and audit identities are account scoped; cross-table links use same-owner constraints. A valid foreign UUID returns the same generic 404 as a nonexistent UUID.
+Every user-visible row has an owner. API and worker-data operations reserve an account-bound pooled connection, set the account context, run repository-owned transactions on that same connection, and clear the context before release. Forced PostgreSQL RLS filters reads and writes; provider, date, upload, rule-family, job, and audit identities are account scoped; cross-table links use same-owner constraints. A valid foreign UUID returns the same generic 404 as a nonexistent UUID.
 
-The worker uses two non-superuser roles. A narrow dispatcher can inspect and lease queue rows across owners but cannot read source, canonical, scoring, ledger, or authentication tables. A separate worker-data connection executes the claimed import or recomputation under the persisted owner. See [AUTHENTICATION.md](docs/AUTHENTICATION.md) for deployment, migration, CSRF, and role details.
+The worker uses two non-superuser roles. A narrow dispatcher can inspect and lease queue lifecycle rows across owners but cannot read provider connections, credentials, raw source records, canonical facts, scoring data, ledgers, or authentication tables. A separate worker-data connection establishes the persisted owner before decrypting credentials or writing provider provenance and canonical data. V109 contains migration-time privilege assertions for this split.
 
-## Workbook imports and review
+Credential ciphertext, nonces, authentication tags, key identifiers, access/refresh tokens, provider raw payloads, and provider-account identifiers are excluded from public API and export contracts. Disconnect attempts provider revocation, removes local credentials even when the remote provider is unavailable, and cancels queued or running sync work cooperatively.
+
+## Workbook and provider ingestion
 
 After sign-in, open **Imports**, select `my_sport` or `run_db`, choose one `.xlsx` file, and queue it. The API validates the extension, MIME signal, ZIP signature, workbook readability, filename, and 20 MB limit. Source bytes are stored outside Postgres; the request returns HTTP `202`, and the independent worker performs the import.
 
-Daily Log, Run Lab, Rules Studio, import history, job state, provenance, and exports are scoped to the signed-in account. Angular never calculates authoritative scores or bypasses the API's owner context.
+Open **Providers** to connect Strava. An initial backfill or incremental sync runs through `provider_sync_jobs`. The worker refreshes near-expiry credentials, requests bounded pages until an empty page, persists each raw activity in `source_records`, and only then normalizes supported fields. Rate-limit responses are durably rescheduled without consuming the retry budget. A six-hour overlap around the high-watermark allows updated activities to converge after retries or provider delays.
+
+Provider activities use provider-native identity first. For an activity not previously linked, SportOS may link one exact canonical candidate matching type, start instant, distance, and moving time; the existing workbook/manual canonical row and provenance remain unchanged. No candidate creates a new provider canonical fact. Multiple exact candidates are retained as raw source with a `POTENTIAL_DUPLICATE` warning rather than guessed. Unsupported activity types are also retained as warning-bearing raw source records.
+
+Daily Log, Run Lab, Rules Studio, provider jobs, import history, provenance, and exports are scoped to the signed-in account. Angular never calculates authoritative scores or bypasses the API's owner context.
 
 The local CLI remains available for the fixed legacy account:
 
@@ -143,7 +173,7 @@ pnpm import:local -- \
 
 ## Canonical export
 
-The canonical export endpoint downloads `sportos.canonical-export.v1` JSON for a required inclusive range of at most 3,660 days. One repeatable-read transaction assembles account-owned daily summaries, activities, performance events, reconciliation, and explicit provenance. Raw cells, formulas, payload JSON, upload hashes, object keys, paths, account IDs, authentication data, and source bytes are excluded.
+The canonical export endpoint downloads `sportos.canonical-export.v1` JSON for a required inclusive range of at most 3,660 days. One repeatable-read transaction assembles account-owned daily summaries, activities, performance events, reconciliation, and explicit provenance. Raw cells, provider payloads, formulas, upload hashes, object keys, paths, account IDs, authentication data, credential envelopes, tokens, and source bytes are excluded.
 
 ## API surface
 
@@ -176,6 +206,16 @@ GET  /imports/jobs/:jobId
 POST /imports/jobs/:jobId/retry
 POST /imports/jobs/:jobId/cancel
 POST /imports/local-files
+
+GET  /providers/connections
+POST /providers/strava/connect
+GET  /providers/strava/callback
+POST /providers/connections/:connectionId/sync
+GET  /providers/connections/:connectionId/jobs?limit=20
+POST /providers/connections/:connectionId/disconnect
+GET  /providers/jobs/:jobId
+POST /providers/jobs/:jobId/retry
+POST /providers/jobs/:jobId/cancel
 
 GET  /rules
 POST /rules/preview
@@ -217,8 +257,8 @@ SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:543
   pnpm --filter @sportos/importers test:integration
 ```
 
-The suites cover migrations through V108, owner isolation, immutable ownership, cross-user negative cases, legacy identity claim, import and rule-job dispatch, denied dispatcher access to canonical data, owner-scoped worker execution, transactional imports, exact ledger UUIDs, canonical export privacy/provenance, API session/CSRF validation, cockpit states, and production builds.
+The suites cover migrations through V109, populated ownership upgrade, owner isolation, immutable ownership, cross-user negative cases, legacy identity claim, import/rule/provider job dispatch, denied dispatcher access to provider credentials and canonical data, owner-scoped worker execution, rotating provider credentials, pagination and empty-page termination, raw provider provenance, idempotent repeated delivery, workbook/provider overlap, transactional imports, exact ledger UUIDs, canonical export privacy/provenance, API session/CSRF validation, cockpit states, and production builds.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing authentication, ownership, imports, jobs, scoring rules, migrations, read models, or exports.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing authentication, ownership, imports, providers, jobs, scoring rules, migrations, read models, or exports.
