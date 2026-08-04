@@ -1,0 +1,247 @@
+import { randomBytes } from 'node:crypto';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  createDb,
+  LEGACY_ACCOUNT_ID,
+  ProvidersRepository,
+  WorkerDispatchRepository,
+  withAccountContext,
+} from '@sportos/db';
+import {
+  CredentialCipher,
+  parseCredentialKeyRing,
+  type ActivityPage,
+  type ActivityPageRequest,
+  type ActivityRequest,
+  type AuthorizationCodeExchange,
+  type AuthorizationRequest,
+  type ProviderActivity,
+  type ProviderAdapter,
+  type ProviderAuthorization,
+} from '@sportos/importers';
+import { ProviderSyncRunner } from './provider-sync-runner.js';
+
+const dispatchDatabaseUrl = process.env.SPORTOS_TEST_DATABASE_URL;
+const dataDatabaseUrl = process.env.SPORTOS_WORKER_DATA_DATABASE_URL;
+const databaseDescribe = dispatchDatabaseUrl && dataDatabaseUrl ? describe : describe.skip;
+type TestDatabase = ReturnType<typeof createDb>;
+
+const connectionId = '44444444-4444-4444-8444-444444444444';
+const manualActivityId = '55555555-5555-4555-8555-555555555555';
+const authorization: ProviderAuthorization = {
+  providerAccountId: 'athlete-42',
+  displayName: 'Integration Athlete',
+  accessToken: 'old-access',
+  refreshToken: 'old-refresh',
+  expiresAt: new Date(Date.now() + 30_000),
+  scopes: ['activity:read_all', 'read'],
+};
+
+const workbookOverlap: ProviderActivity = {
+  providerActivityId: '1001',
+  providerUpdatedAt: new Date('2026-08-03T10:00:00Z'),
+  name: 'Workbook overlap',
+  type: 'Run',
+  sportType: 'Run',
+  startDate: new Date('2026-08-03T06:00:00Z'),
+  localDate: '2026-08-03',
+  timezone: 'Europe/Copenhagen',
+  distanceM: 10_000,
+  elapsedTimeS: 3600,
+  movingTimeS: 3500,
+  elevationGainM: 100,
+  averageHeartrate: 145,
+  maxHeartrate: 170,
+  averageSpeedMps: 2.857,
+  calories: 700,
+  isManual: false,
+  isIndoor: false,
+  isPrivate: false,
+  isRace: false,
+  raw: { id: 1001, type: 'Run', distance: 10_000 },
+};
+
+const providerOnly: ProviderActivity = {
+  ...workbookOverlap,
+  providerActivityId: '1002',
+  name: 'Provider-only race',
+  startDate: new Date('2026-08-04T06:00:00Z'),
+  localDate: '2026-08-04',
+  distanceM: 5000,
+  elapsedTimeS: 1500,
+  movingTimeS: 1450,
+  isRace: true,
+  raw: { id: 1002, type: 'Run', distance: 5000 },
+};
+
+class FakeStravaAdapter implements ProviderAdapter {
+  readonly provider = 'strava' as const;
+  refreshes = 0;
+  pageRequests: number[] = [];
+
+  createAuthorizationUrl(_input: AuthorizationRequest): URL { return new URL('https://example.test/authorize'); }
+  async exchangeAuthorizationCode(_input: AuthorizationCodeExchange): Promise<ProviderAuthorization> { return authorization; }
+  async refreshAuthorization(input: ProviderAuthorization): Promise<ProviderAuthorization> {
+    this.refreshes += 1;
+    return { ...input, accessToken: 'new-access', refreshToken: 'new-refresh', expiresAt: new Date(Date.now() + 60 * 60 * 1000) };
+  }
+  async revokeAuthorization(_input: ProviderAuthorization): Promise<void> {}
+  async fetchActivityPage(input: ActivityPageRequest): Promise<ActivityPage> {
+    this.pageRequests.push(input.page);
+    return input.page === 1
+      ? { activities: [workbookOverlap, providerOnly], rawActivities: [workbookOverlap.raw, providerOnly.raw], rateLimit: { shortLimit: 100, shortUsage: 2, dailyLimit: 1000, dailyUsage: 2, retryAt: null } }
+      : { activities: [], rawActivities: [], rateLimit: { shortLimit: 100, shortUsage: 3, dailyLimit: 1000, dailyUsage: 3, retryAt: null } };
+  }
+  async fetchActivity(_input: ActivityRequest): Promise<ProviderActivity | null> { return null; }
+}
+
+databaseDescribe('ProviderSyncRunner database integration', () => {
+  let dispatchDb: TestDatabase;
+  let dataDb: TestDatabase;
+  let cipher: CredentialCipher;
+
+  beforeAll(async () => {
+    dispatchDb = createDb(requireDatabaseUrl(dispatchDatabaseUrl, 'SPORTOS_TEST_DATABASE_URL'));
+    dataDb = createDb(requireDatabaseUrl(dataDatabaseUrl, 'SPORTOS_WORKER_DATA_DATABASE_URL'));
+    cipher = new CredentialCipher(parseCredentialKeyRing(`test:${randomBytes(32).toString('base64')}`, 'test'));
+    await resetProviderTables(dataDb);
+  });
+
+  afterAll(async () => {
+    if (dataDb) await resetProviderTables(dataDb);
+    await Promise.all([dispatchDb?.destroy(), dataDb?.destroy()]);
+  });
+
+  it('refreshes credentials, paginates, preserves workbook provenance, and converges on repeated delivery', async () => {
+    const adapter = new FakeStravaAdapter();
+    const firstJobId = await seedConnectionAndJob(dataDb, cipher);
+    const runner = new ProviderSyncRunner(dispatchDb, dataDb, adapter, cipher, { workerId: 'provider-integration', leaseSeconds: 60, pageSize: 200 });
+    const dispatch = new WorkerDispatchRepository(dispatchDb);
+
+    const firstClaim = await dispatch.claimProviderSync('provider-integration', 60);
+    expect(firstClaim).toMatchObject({ id: firstJobId, ownerId: LEGACY_ACCOUNT_ID, connectionId });
+    await runner.process(firstClaim!);
+
+    const firstEvidence = await readEvidence(dataDb, firstJobId, cipher);
+    expect(firstEvidence.job).toMatchObject({ status: 'succeeded', phase: 'completed', attemptCount: 1, batchId: expect.any(String) });
+    expect(firstEvidence.job.result).toMatchObject({ rawRecords: 2, activities: 2, performanceEvents: 1, warnings: 0 });
+    expect(firstEvidence.activities).toHaveLength(2);
+    expect(firstEvidence.manual).toMatchObject({ id: manualActivityId, source: 'manual', source_record_id: null, source_activity_id: null });
+    expect(firstEvidence.provider).toMatchObject({ source: 'strava', source_activity_id: '1002' });
+    expect(firstEvidence.links).toHaveLength(2);
+    expect(firstEvidence.sourceRecords).toHaveLength(2);
+    expect(firstEvidence.decrypted.refreshToken).toBe('new-refresh');
+    expect(adapter.refreshes).toBe(1);
+    expect(adapter.pageRequests).toEqual([1, 2]);
+
+    const secondJob = await withAccountContext(dataDb, LEGACY_ACCOUNT_ID, (db) => new ProvidersRepository(db).enqueueSync({ connectionId, mode: 'incremental' }));
+    const secondClaim = await dispatch.claimProviderSync('provider-integration', 60);
+    await runner.process(secondClaim!);
+    const secondEvidence = await readEvidence(dataDb, secondJob.id, cipher);
+    expect(secondEvidence.job.status).toBe('succeeded');
+    expect(secondEvidence.activities).toHaveLength(2);
+    expect(secondEvidence.links).toHaveLength(2);
+    expect(secondEvidence.sourceRecords).toHaveLength(4);
+
+    await expect(dispatchDb.selectFrom('provider_credentials').select('connection_id').execute()).rejects.toThrow();
+    await expect(dispatchDb.selectFrom('activities').select('id').execute()).rejects.toThrow();
+  });
+});
+
+async function seedConnectionAndJob(db: TestDatabase, credentialCipher: CredentialCipher): Promise<string> {
+  return withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+    await ownerDb.insertInto('activities').values({
+      id: manualActivityId,
+      source: 'manual',
+      source_record_id: null,
+      source_activity_id: null,
+      source_record_hash: null,
+      activity_date: '2026-08-03',
+      start_time: workbookOverlap.startDate,
+      activity_type: 'run',
+      subtype: 'outdoor',
+      distance_m: workbookOverlap.distanceM,
+      duration_s: workbookOverlap.elapsedTimeS,
+      moving_time_s: workbookOverlap.movingTimeS,
+      steps: null,
+      calories: null,
+      avg_hr: null,
+      max_hr: null,
+      elevation_gain_m: null,
+      avg_speed_mps: null,
+      avg_pace_s_per_km: null,
+      effort_points: null,
+      notes: 'Original workbook/manual provenance',
+      raw_payload_json: {},
+    }).execute();
+    await ownerDb.insertInto('provider_connections').values({
+      id: connectionId,
+      provider: 'strava',
+      provider_account_id: authorization.providerAccountId,
+      display_name: authorization.displayName,
+      scopes: authorization.scopes,
+      status: 'connected',
+      access_expires_at: authorization.expiresAt,
+      cursor_json: {},
+      last_sync_at: null,
+      last_attempt_at: null,
+      last_error_code: null,
+      last_error_message: null,
+      disconnected_at: null,
+      revoked_at: null,
+    }).execute();
+    const envelope = credentialCipher.encrypt(connectionId, LEGACY_ACCOUNT_ID, 'strava', authorization);
+    await ownerDb.insertInto('provider_credentials').values({
+      connection_id: connectionId,
+      key_id: envelope.keyId,
+      algorithm: envelope.algorithm,
+      nonce: envelope.nonce,
+      ciphertext: envelope.ciphertext,
+      authentication_tag: envelope.authenticationTag,
+      envelope_version: envelope.envelopeVersion,
+    }).execute();
+    return (await new ProvidersRepository(ownerDb).enqueueSync({ connectionId, mode: 'initial_backfill' })).id;
+  });
+}
+
+async function readEvidence(db: TestDatabase, jobId: string, credentialCipher: CredentialCipher) {
+  return withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+    const repository = new ProvidersRepository(ownerDb);
+    const job = await repository.getSyncJob(jobId);
+    const activities = await ownerDb.selectFrom('activities').selectAll().orderBy('activity_date').execute();
+    const manual = activities.find((activity) => activity.id === manualActivityId);
+    const provider = activities.find((activity) => activity.source === 'strava');
+    const links = await ownerDb.selectFrom('provider_activity_links').selectAll().orderBy('provider_activity_id').execute();
+    const sourceRecords = await ownerDb.selectFrom('source_records').selectAll().orderBy('created_at').execute();
+    const stored = await repository.loadWorkerAuthorization(connectionId);
+    const decrypted = credentialCipher.decrypt(connectionId, LEGACY_ACCOUNT_ID, 'strava', {
+      keyId: stored!.credential.key_id,
+      algorithm: stored!.credential.algorithm,
+      nonce: stored!.credential.nonce,
+      ciphertext: stored!.credential.ciphertext,
+      authenticationTag: stored!.credential.authentication_tag,
+      envelopeVersion: stored!.credential.envelope_version,
+    });
+    return { job: job!, activities, manual, provider, links, sourceRecords, decrypted };
+  });
+}
+
+async function resetProviderTables(db: TestDatabase): Promise<void> {
+  await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+    await ownerDb.deleteFrom('provider_activity_links').execute();
+    await ownerDb.deleteFrom('provider_sync_jobs').execute();
+    await ownerDb.deleteFrom('provider_credentials').execute();
+    await ownerDb.deleteFrom('provider_connections').execute();
+    await ownerDb.deleteFrom('performance_events').execute();
+    await ownerDb.deleteFrom('activities').execute();
+    await ownerDb.deleteFrom('source_records').execute();
+    await ownerDb.deleteFrom('import_batches').execute();
+  });
+}
+
+function requireDatabaseUrl(value: string | undefined, name: string): string {
+  if (!value) throw new Error(`${name} is required for database integration tests.`);
+  const databaseName = new URL(value).pathname.replace(/^\//, '');
+  if (databaseName !== 'test' && !/[_-]test$/i.test(databaseName)) throw new Error(`${name} must target a test database.`);
+  return value;
+}
