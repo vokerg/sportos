@@ -261,6 +261,105 @@ export interface PerformanceEventsTable {
   created_at: Generated<Timestamp>;
 }
 
+export interface ProviderConnectionsTable {
+  id: Generated<string>;
+  owner_id: OwnerId;
+  provider: 'strava';
+  provider_account_id: string;
+  display_name: string | null;
+  scopes: string[];
+  status: 'connected' | 'reauthorization_required' | 'revoked' | 'disconnected' | 'error';
+  access_expires_at: NullableTimestamp;
+  cursor_json: Json;
+  last_sync_at: NullableTimestamp;
+  last_attempt_at: NullableTimestamp;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+  disconnected_at: NullableTimestamp;
+  revoked_at: NullableTimestamp;
+}
+
+export interface ProviderCredentialsTable {
+  connection_id: string;
+  owner_id: OwnerId;
+  key_id: string;
+  algorithm: 'aes-256-gcm';
+  nonce: string;
+  ciphertext: string;
+  authentication_tag: string;
+  envelope_version: 1;
+  created_at: GeneratedTimestamp;
+  rotated_at: GeneratedTimestamp;
+}
+
+export interface ProviderOauthTransactionsTable {
+  state_hash: string;
+  owner_id: OwnerId;
+  provider: 'strava';
+  return_to: string;
+  expires_at: Timestamp;
+  created_at: GeneratedTimestamp;
+}
+
+export interface ProviderSyncJobsTable {
+  id: Generated<string>;
+  owner_id: OwnerId;
+  connection_id: string;
+  import_batch_id: string | null;
+  mode: 'initial_backfill' | 'incremental' | 'webhook_refresh';
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  phase: string;
+  progress_percent: number;
+  attempt_count: number;
+  max_attempts: number;
+  lease_owner: string | null;
+  lease_expires_at: NullableTimestamp;
+  heartbeat_at: NullableTimestamp;
+  cancellation_requested_at: NullableTimestamp;
+  next_attempt_at: Timestamp;
+  requested_after: NullableTimestamp;
+  requested_before: NullableTimestamp;
+  cursor_json: Json;
+  error_code: string | null;
+  error_message: string | null;
+  result_json: Json;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+  started_at: NullableTimestamp;
+  completed_at: NullableTimestamp;
+}
+
+export interface ProviderActivityLinksTable {
+  id: Generated<string>;
+  owner_id: OwnerId;
+  connection_id: string;
+  provider_activity_id: string;
+  activity_id: string;
+  latest_source_record_id: string;
+  identity_fingerprint: string;
+  fingerprint_version: 1;
+  availability: 'available' | 'deleted' | 'inaccessible';
+  provider_updated_at: NullableTimestamp;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface ProviderWebhookEventsTable {
+  id: Generated<string>;
+  owner_id: string | null;
+  provider: 'strava';
+  event_key: string;
+  provider_account_id: string;
+  provider_object_id: string | null;
+  aspect: 'create' | 'update' | 'delete' | 'deauthorize';
+  raw_json: Json;
+  received_at: GeneratedTimestamp;
+  processed_at: NullableTimestamp;
+  processing_error: string | null;
+}
+
 export interface Database {
   accounts: AccountsTable;
   external_identities: ExternalIdentitiesTable;
@@ -276,6 +375,12 @@ export interface Database {
   scoring_rule_changes: ScoringRuleChangesTable;
   score_ledger: ScoreLedgerTable;
   performance_events: PerformanceEventsTable;
+  provider_connections: ProviderConnectionsTable;
+  provider_credentials: ProviderCredentialsTable;
+  provider_oauth_transactions: ProviderOauthTransactionsTable;
+  provider_sync_jobs: ProviderSyncJobsTable;
+  provider_activity_links: ProviderActivityLinksTable;
+  provider_webhook_events: ProviderWebhookEventsTable;
   v_daily_summary: Omit<DailyMetricsTable, 'owner_id' | 'source_record_id'> & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
   v_performance_events: Omit<PerformanceEventsTable, 'owner_id' | 'source_record_hash'> & { all_time_rank: number; is_pr_by_time: boolean };
 }
@@ -302,3 +407,7 @@ export type ScoringRuleChange = Selectable<ScoringRuleChangesTable>;
 export type NewScoreLedger = Insertable<ScoreLedgerTable>;
 export type PerformanceEvent = Selectable<PerformanceEventsTable>;
 export type NewPerformanceEvent = Insertable<PerformanceEventsTable>;
+export type ProviderConnection = Selectable<ProviderConnectionsTable>;
+export type ProviderCredential = Selectable<ProviderCredentialsTable>;
+export type ProviderSyncJob = Selectable<ProviderSyncJobsTable>;
+export type ProviderActivityLink = Selectable<ProviderActivityLinksTable>;
