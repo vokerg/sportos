@@ -211,6 +211,13 @@ CREATE TRIGGER reject_owner_change BEFORE UPDATE OF owner_id ON provider_sync_jo
 CREATE TRIGGER reject_owner_change BEFORE UPDATE OF owner_id ON provider_activity_links
   FOR EACH ROW EXECUTE FUNCTION sportos_reject_owner_change();
 
+-- Default/shared grants are intentionally removed first. Direct grants are applied
+-- afterward so runtime capabilities are deterministic even when a login inherits
+-- from sportos_data.
+REVOKE ALL ON provider_connections, provider_credentials, provider_oauth_transactions,
+  provider_sync_jobs, provider_activity_links, provider_webhook_events
+  FROM sportos_data, sportos_legacy, sportos_worker, sportos_worker_data, sportos_app;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON provider_connections TO sportos_app, sportos_worker_data;
 GRANT SELECT, INSERT, UPDATE, DELETE ON provider_credentials TO sportos_app, sportos_worker_data;
 GRANT SELECT, INSERT, UPDATE, DELETE ON provider_oauth_transactions TO sportos_app;
@@ -219,7 +226,24 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON provider_activity_links TO sportos_app, 
 GRANT SELECT, INSERT, UPDATE, DELETE ON provider_webhook_events TO sportos_app;
 GRANT SELECT, UPDATE ON provider_sync_jobs TO sportos_worker;
 
-REVOKE ALL ON provider_credentials, provider_oauth_transactions, provider_webhook_events
-  FROM sportos_data, sportos_legacy, sportos_worker;
-REVOKE ALL ON provider_connections, provider_activity_links
-  FROM sportos_data, sportos_legacy, sportos_worker;
+DO $$
+BEGIN
+  IF NOT has_table_privilege('sportos_worker_data', 'provider_connections', 'SELECT, UPDATE') THEN
+    RAISE EXCEPTION 'sportos_worker_data must read and update provider_connections';
+  END IF;
+  IF NOT has_table_privilege('sportos_worker_data', 'provider_credentials', 'SELECT, UPDATE') THEN
+    RAISE EXCEPTION 'sportos_worker_data must read and rotate provider_credentials';
+  END IF;
+  IF NOT has_table_privilege('sportos_worker_data', 'provider_sync_jobs', 'SELECT, INSERT, UPDATE') THEN
+    RAISE EXCEPTION 'sportos_worker_data must operate owner-scoped provider_sync_jobs';
+  END IF;
+  IF NOT has_table_privilege('sportos_worker_data', 'provider_activity_links', 'SELECT, INSERT, UPDATE') THEN
+    RAISE EXCEPTION 'sportos_worker_data must operate owner-scoped provider_activity_links';
+  END IF;
+  IF has_table_privilege('sportos_worker', 'provider_credentials', 'SELECT') THEN
+    RAISE EXCEPTION 'sportos_worker dispatcher must not read provider_credentials';
+  END IF;
+  IF has_table_privilege('sportos_worker', 'provider_connections', 'SELECT') THEN
+    RAISE EXCEPTION 'sportos_worker dispatcher must not read provider_connections';
+  END IF;
+END $$;
