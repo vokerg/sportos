@@ -160,10 +160,8 @@ export class FetchProviderTransport implements ProviderHttpTransport {
 export function stravaActivityFingerprint(activity: ProviderActivity): string {
   return createHash('sha256').update(JSON.stringify({
     version: 1,
-    type: canonicalActivityType(activity),
-    startDate: activity.startDate.toISOString(),
-    distanceM: rounded(activity.distanceM),
-    movingTimeS: rounded(activity.movingTimeS ?? activity.elapsedTimeS),
+    provider: 'strava',
+    providerActivityId: activity.providerActivityId,
   })).digest('hex');
 }
 
@@ -242,6 +240,5 @@ function date(value: unknown, name: string): Date { const result = value instanc
 function optionalDate(value: unknown): Date | null { return value === null || value === undefined || value === '' ? null : date(value, 'provider update date'); }
 function epoch(value: Date): number { return Math.floor(date(value, 'cursor date').getTime() / 1000); }
 function safeInt(value?: number): number | null { return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null; }
-function rounded(value: number | null): number | null { return value === null || !Number.isFinite(value) ? null : Math.round(value); }
 function secureUrl(value: string): URL { const url = new URL(value); if (url.protocol !== 'https:' && url.hostname !== 'localhost') throw new ProviderError('PROVIDER_CONFIGURATION_ERROR', 'Provider URL must use HTTPS.', false); return url; }
 function normalizedBase(value: string): URL { const url = secureUrl(value); url.pathname = url.pathname.replace(/\/$/, ''); url.search = ''; url.hash = ''; return url; }
