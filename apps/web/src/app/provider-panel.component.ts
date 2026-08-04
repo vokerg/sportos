@@ -1,11 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
-import {
-  ProviderApiService,
-  type ProviderConnection,
-  type ProviderSyncJob,
-} from './provider-api.service';
+import { ProviderApiService, type ProviderConnection, type ProviderSyncJob } from './provider-api.service';
 
 type PanelState = 'loading' | 'ready' | 'working' | 'error';
 
@@ -27,17 +23,12 @@ type PanelState = 'loading' | 'ready' | 'working' | 'error';
         <button type="button" (click)="connect()" [disabled]="state() === 'working'">Connect Strava</button>
       } @else {
         <div class="provider-summary">
-          <div>
-            <strong>Strava</strong>
-            <span>{{ connection()!.displayName || 'Connected athlete' }}</span>
-          </div>
+          <div><strong>Strava</strong><span>{{ connection()!.displayName || 'Connected athlete' }}</span></div>
           <span class="status" [attr.data-status]="connection()!.status">{{ connection()!.status }}</span>
         </div>
         <p class="meta">Scopes: {{ connection()!.scopes.join(', ') || 'none' }}</p>
         <p class="meta">Last successful sync: {{ connection()!.lastSyncAt || 'not yet synced' }}</p>
-        @if (connection()!.error) {
-          <p class="state-message error" role="alert">{{ connection()!.error!.message }}</p>
-        }
+        @if (connection()!.error) { <p class="state-message error" role="alert">{{ connection()!.error!.message }}</p> }
 
         <div class="actions">
           @if (connection()!.status === 'connected') {
@@ -51,24 +42,16 @@ type PanelState = 'loading' | 'ready' | 'working' | 'error';
 
         @if (job()) {
           <div class="job" aria-live="polite">
-            <div class="job-heading">
-              <strong>{{ job()!.mode === 'initial_backfill' ? 'Backfill' : 'Sync' }}</strong>
-              <span>{{ job()!.status }} · {{ job()!.phase }}</span>
-            </div>
+            <div class="job-heading"><strong>{{ job()!.mode === 'initial_backfill' ? 'Backfill' : 'Sync' }}</strong><span>{{ job()!.status }} · {{ job()!.phase }}</span></div>
             <progress max="100" [value]="job()!.progressPercent">{{ job()!.progressPercent }}%</progress>
             <p class="meta">Attempt {{ job()!.attemptCount }} of {{ job()!.maxAttempts }}</p>
-            @if (job()!.batchId) {
-              <p class="meta">Provenance batch: <code>{{ job()!.batchId }}</code></p>
-            }
-            @if (job()!.error) {
-              <p class="state-message error" role="alert">{{ job()!.error!.message }}</p>
-            }
+            @if (job()!.batchId) { <p class="meta">Provenance batch: <code>{{ job()!.batchId }}</code></p> }
+            @if (job()!.error) { <p class="state-message error" role="alert">{{ job()!.error!.message }}</p> }
+            @if (pollingPaused()) { <p class="state-message" role="status">Automatic status refresh paused after ten minutes. Refresh this panel to continue checking.</p> }
             <div class="actions">
-              @if (job()!.status === 'queued' || job()!.status === 'running') {
-                <button type="button" class="secondary" (click)="cancel()">Cancel</button>
-              } @else if (job()!.status === 'failed' && job()!.attemptCount < job()!.maxAttempts) {
-                <button type="button" (click)="retry()">Retry</button>
-              }
+              @if (job()!.status === 'queued' || job()!.status === 'running') { <button type="button" class="secondary" (click)="cancel()">Cancel</button> }
+              @else if (job()!.status === 'failed' && job()!.attemptCount < job()!.maxAttempts) { <button type="button" (click)="retry()">Retry</button> }
+              @if (pollingPaused()) { <button type="button" class="secondary" (click)="refreshJob()">Refresh status</button> }
             </div>
           </div>
         }
@@ -92,20 +75,16 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
   readonly connection = signal<ProviderConnection | null>(null);
   readonly job = signal<ProviderSyncJob | null>(null);
   readonly errorMessage = signal<string | null>(null);
+  readonly pollingPaused = signal(false);
 
   private subscription?: Subscription;
   private pollTimer?: ReturnType<typeof setTimeout>;
+  private pollCount = 0;
+  private readonly maxPolls = 400;
 
   constructor(private readonly api: ProviderApiService) {}
-
-  ngOnInit(): void {
-    this.load();
-  }
-
-  ngOnDestroy(): void {
-    this.subscription?.unsubscribe();
-    if (this.pollTimer) clearTimeout(this.pollTimer);
-  }
+  ngOnInit(): void { this.load(); }
+  ngOnDestroy(): void { this.subscription?.unsubscribe(); this.clearPolling(); }
 
   busy(): boolean {
     const status = this.job()?.status;
@@ -114,15 +93,13 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
 
   load(): void {
     this.clearPolling();
+    this.pollCount = 0;
+    this.pollingPaused.set(false);
     this.state.set('loading');
     this.errorMessage.set(null);
     this.subscription?.unsubscribe();
     this.subscription = this.api.connections().subscribe({
-      next: (connections) => {
-        this.connections.set(connections);
-        this.connection.set(connections.find((item) => item.provider === 'strava') ?? null);
-        this.state.set('ready');
-      },
+      next: (connections) => { this.connections.set(connections); this.connection.set(connections.find((item) => item.provider === 'strava') ?? null); this.state.set('ready'); },
       error: (error: unknown) => this.fail(error, 'Provider connections could not be loaded.'),
     });
   }
@@ -139,14 +116,11 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
   sync(mode: 'initial_backfill' | 'incremental'): void {
     const connection = this.connection();
     if (!connection) return;
+    this.beginPolling();
     this.state.set('working');
     this.subscription?.unsubscribe();
     this.subscription = this.api.enqueueSync(connection.id, mode).subscribe({
-      next: (job) => {
-        this.job.set(job);
-        this.state.set('ready');
-        this.schedulePoll(job);
-      },
+      next: (job) => { this.job.set(job); this.state.set('ready'); this.schedulePoll(job); },
       error: (error: unknown) => this.fail(error, 'Provider sync could not be queued.'),
     });
   }
@@ -154,14 +128,11 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
   retry(): void {
     const job = this.job();
     if (!job) return;
+    this.beginPolling();
     this.state.set('working');
     this.subscription?.unsubscribe();
     this.subscription = this.api.retrySync(job.id).subscribe({
-      next: (updated) => {
-        this.job.set(updated);
-        this.state.set('ready');
-        this.schedulePoll(updated);
-      },
+      next: (updated) => { this.job.set(updated); this.state.set('ready'); this.schedulePoll(updated); },
       error: (error: unknown) => this.fail(error, 'Provider sync could not be retried.'),
     });
   }
@@ -171,13 +142,16 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
     if (!job) return;
     this.subscription?.unsubscribe();
     this.subscription = this.api.cancelSync(job.id).subscribe({
-      next: (updated) => {
-        this.job.set(updated);
-        this.state.set('ready');
-        this.schedulePoll(updated);
-      },
+      next: (updated) => { this.job.set(updated); this.schedulePoll(updated); },
       error: (error: unknown) => this.fail(error, 'Provider sync could not be cancelled.'),
     });
+  }
+
+  refreshJob(): void {
+    const job = this.job();
+    if (!job) return;
+    this.beginPolling();
+    this.fetchJob(job.id);
   }
 
   disconnect(): void {
@@ -192,42 +166,32 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
     });
   }
 
+  private beginPolling(): void { this.clearPolling(); this.pollCount = 0; this.pollingPaused.set(false); }
+
   private schedulePoll(job: ProviderSyncJob): void {
     this.clearPolling();
-    if (job.status !== 'queued' && job.status !== 'running') {
-      this.loadConnectionAfterTerminal();
-      return;
-    }
-    this.pollTimer = setTimeout(() => {
-      this.subscription = this.api.syncJob(job.id).subscribe({
-        next: (updated) => {
-          this.job.set(updated);
-          this.schedulePoll(updated);
-        },
-        error: (error: unknown) => this.fail(error, 'Provider sync status could not be refreshed.'),
-      });
-    }, 1500);
+    if (job.status !== 'queued' && job.status !== 'running') { this.loadConnectionAfterTerminal(); return; }
+    if (this.pollCount >= this.maxPolls) { this.pollingPaused.set(true); return; }
+    this.pollCount += 1;
+    this.pollTimer = setTimeout(() => this.fetchJob(job.id), 1500);
+  }
+
+  private fetchJob(jobId: string): void {
+    this.subscription?.unsubscribe();
+    this.subscription = this.api.syncJob(jobId).subscribe({
+      next: (updated) => { this.job.set(updated); this.schedulePoll(updated); },
+      error: (error: unknown) => this.fail(error, 'Provider sync status could not be refreshed.'),
+    });
   }
 
   private loadConnectionAfterTerminal(): void {
     this.subscription = this.api.connections().subscribe({
-      next: (connections) => {
-        this.connections.set(connections);
-        this.connection.set(connections.find((item) => item.provider === 'strava') ?? null);
-      },
+      next: (connections) => { this.connections.set(connections); this.connection.set(connections.find((item) => item.provider === 'strava') ?? null); },
     });
   }
 
-  private clearPolling(): void {
-    if (this.pollTimer) clearTimeout(this.pollTimer);
-    this.pollTimer = undefined;
-  }
-
-  private fail(error: unknown, fallback: string): void {
-    this.clearPolling();
-    this.errorMessage.set(describeError(error, fallback));
-    this.state.set('error');
-  }
+  private clearPolling(): void { if (this.pollTimer) clearTimeout(this.pollTimer); this.pollTimer = undefined; }
+  private fail(error: unknown, fallback: string): void { this.clearPolling(); this.errorMessage.set(describeError(error, fallback)); this.state.set('error'); }
 }
 
 export function describeError(error: unknown, fallback: string): string {
