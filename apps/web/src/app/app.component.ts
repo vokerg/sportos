@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { DailyLogComponent } from './daily-log.component';
 import { ExportPanelComponent } from './export-panel.component';
 import { ImportPanelComponent } from './import-panel.component';
+import { ProviderPanelComponent } from './provider-panel.component';
 import { RulesStudioComponent } from './rules-studio.component';
 import { RunLabComponent } from './run-lab.component';
 import { WebAuthService } from './web-auth.service';
@@ -9,7 +10,7 @@ import { WebAuthService } from './web-auth.service';
 @Component({
   selector: 'sportos-root',
   standalone: true,
-  imports: [DailyLogComponent, ExportPanelComponent, ImportPanelComponent, RulesStudioComponent, RunLabComponent],
+  imports: [DailyLogComponent, ExportPanelComponent, ImportPanelComponent, ProviderPanelComponent, RulesStudioComponent, RunLabComponent],
   template: `
     <a class="skip-link" href="#main-content">Skip to cockpit</a>
     <main class="shell" id="main-content">
@@ -42,6 +43,7 @@ import { WebAuthService } from './web-auth.service';
               <a href="#daily-log">Daily Log</a>
               <a href="#run-lab">Run Lab</a>
               <a href="#rules-studio">Rules</a>
+              <a href="#providers">Providers</a>
               <a href="#imports">Imports</a>
               <a href="#canonical-export">Export</a>
             </nav>
@@ -56,11 +58,12 @@ import { WebAuthService } from './web-auth.service';
             <div id="rules-studio"><sportos-rules-studio /></div>
           </section>
           <aside class="grid" aria-label="Data operations">
+            <div id="providers"><sportos-provider-panel /></div>
             <div id="imports"><sportos-import-panel (reconcileDate)="dailyLog.openBreakdownForDate($event)" /></div>
             <div id="canonical-export"><sportos-export-panel /></div>
             <section class="card">
               <h2>Private account scope</h2>
-              <p>Uploads, import jobs, canonical facts, score ledgers, rule versions, audit records, performance history, and exports are isolated to the signed-in account.</p>
+              <p>Provider connections, uploads, jobs, canonical facts, score ledgers, rule versions, audit records, performance history, and exports are isolated to the signed-in account.</p>
             </section>
           </aside>
         </div>
