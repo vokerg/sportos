@@ -11,8 +11,7 @@
   },
   "references": [
     { "path": "../../packages/db" },
-    { "path": "../../packages/importers" },
-    { "path": "../../packages/providers" }
+    { "path": "../../packages/importers" }
   ],
   "include": ["src/**/*.ts"]
 }
