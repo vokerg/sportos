@@ -9,7 +9,8 @@
   },
   "references": [
     { "path": "../../packages/db" },
-    { "path": "../../packages/importers" }
+    { "path": "../../packages/importers" },
+    { "path": "../../packages/providers" }
   ],
   "include": ["src/**/*.ts"]
 }
