@@ -80,15 +80,18 @@ describe('StravaAdapter', () => {
     expect(transport.requests[0]?.body).toContain('grant_type=refresh_token');
   });
 
-  it('parses activity pages and rate limits', async () => {
+  it('parses activity pages, rate limits, and stable provider identity', async () => {
     const adapter = new StravaAdapter({ clientId: 'client', clientSecret: 'secret' }, new FakeTransport([{ status: 200, headers: {
       'x-ratelimit-limit': '100,1000',
       'x-ratelimit-usage': '10,100',
     }, body: [activity] }]));
     const page = await adapter.fetchActivityPage({ authorization, page: 1, perPage: 200 });
-    expect(page.activities[0]?.providerActivityId).toBe('123456789');
-    expect(page.activities[0] && canonicalActivityType(page.activities[0])).toBe('run');
-    expect(page.activities[0] && stravaActivityFingerprint(page.activities[0])).toMatch(/^[0-9a-f]{64}$/);
+    const parsed = page.activities[0]!;
+    expect(parsed.providerActivityId).toBe('123456789');
+    expect(canonicalActivityType(parsed)).toBe('run');
+    expect(stravaActivityFingerprint(parsed)).toMatch(/^[0-9a-f]{64}$/);
+    expect(stravaActivityFingerprint({ ...parsed, distanceM: 9999, movingTimeS: 3000 })).toBe(stravaActivityFingerprint(parsed));
+    expect(stravaActivityFingerprint({ ...parsed, providerActivityId: 'different' })).not.toBe(stravaActivityFingerprint(parsed));
     expect(page.rateLimit).toMatchObject({ shortLimit: 100, dailyLimit: 1000 });
   });
 
