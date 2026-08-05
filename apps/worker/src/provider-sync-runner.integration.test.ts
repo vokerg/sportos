@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
+  ImportsRepository,
   LEGACY_ACCOUNT_ID,
   ProvidersRepository,
   WorkerDispatchRepository,
@@ -27,7 +28,8 @@ const databaseDescribe = dispatchDatabaseUrl && dataDatabaseUrl ? describe : des
 type TestDatabase = ReturnType<typeof createDb>;
 
 const connectionId = '44444444-4444-4444-8444-444444444444';
-const manualActivityId = '55555555-5555-4555-8555-555555555555';
+const workbookActivityId = '55555555-5555-4555-8555-555555555555';
+const workbookHash = 'a'.repeat(64);
 const authorization: ProviderAuthorization = {
   providerAccountId: 'athlete-42',
   displayName: 'Integration Athlete',
@@ -145,10 +147,17 @@ databaseDescribe('ProviderSyncRunner database integration', () => {
     expect(firstEvidence.job).toMatchObject({ status: 'succeeded', phase: 'completed', attemptCount: 1, batchId: expect.any(String) });
     expect(firstEvidence.job.result).toMatchObject({ rawRecords: 2, activities: 2, performanceEvents: 1, warnings: 0 });
     expect(firstEvidence.activities).toHaveLength(2);
-    expect(firstEvidence.manual).toMatchObject({ id: manualActivityId, source: 'manual', source_record_id: null, source_activity_id: null });
+    expect(firstEvidence.workbook).toMatchObject({
+      id: workbookActivityId,
+      source: 'my_sport_xlsx',
+      source_record_id: expect.any(String),
+      source_activity_id: null,
+      source_record_hash: workbookHash,
+      notes: 'Original workbook provenance',
+    });
     expect(firstEvidence.provider).toMatchObject({ source: 'strava', source_activity_id: '1002' });
     expect(firstEvidence.links).toHaveLength(2);
-    expect(firstEvidence.sourceRecords).toHaveLength(2);
+    expect(firstEvidence.sourceRecords).toHaveLength(3);
     expect(firstEvidence.decrypted.refreshToken).toBe('new-refresh');
     expect(adapter.refreshes).toBe(1);
     expect(adapter.pageRequests).toEqual([1, 2]);
@@ -160,7 +169,7 @@ databaseDescribe('ProviderSyncRunner database integration', () => {
     expect(secondEvidence.job.status).toBe('succeeded');
     expect(secondEvidence.activities).toHaveLength(2);
     expect(secondEvidence.links).toHaveLength(2);
-    expect(secondEvidence.sourceRecords).toHaveLength(4);
+    expect(secondEvidence.sourceRecords).toHaveLength(5);
 
     await expect(dispatchDb.selectFrom('provider_credentials').select('connection_id').execute()).rejects.toThrow();
     await expect(dispatchDb.selectFrom('activities').select('id').execute()).rejects.toThrow();
@@ -184,6 +193,7 @@ databaseDescribe('ProviderSyncRunner database integration', () => {
         .executeTakeFirstOrThrow();
       const sourceCount = await ownerDb.selectFrom('source_records')
         .select((eb) => eb.fn.countAll<number>().as('count'))
+        .where('source', '=', 'strava_api')
         .executeTakeFirstOrThrow();
       return { jobRow, sourceCount: Number(sourceCount.count) };
     });
@@ -209,12 +219,31 @@ databaseDescribe('ProviderSyncRunner database integration', () => {
 
 async function seedConnectionAndJob(db: TestDatabase, credentialCipher: CredentialCipher): Promise<string> {
   return withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+    const workbookBatch = await new ImportsRepository(ownerDb).createBatch({
+      source: 'my_sport_xlsx',
+      sourceKind: 'xlsx',
+      metadata: { fixture: 'provider-overlap' },
+    });
+    const workbookSource = await ownerDb.insertInto('source_records').values({
+      import_batch_id: workbookBatch.id,
+      source: 'my_sport_xlsx',
+      sheet_name: 'Activities',
+      row_index: 2,
+      source_record_key: 'activities:2',
+      row_hash: workbookHash,
+      raw_json: { Date: '2026-08-03', Type: 'Run', DistanceM: 10_000, MovingTimeS: 3500 },
+      normalized_entity_type: 'activity',
+      normalized_entity_id: workbookActivityId,
+      status: 'normalized',
+      errors: [],
+      warnings: [],
+    }).returning('id').executeTakeFirstOrThrow();
     await ownerDb.insertInto('activities').values({
-      id: manualActivityId,
-      source: 'manual',
-      source_record_id: null,
+      id: workbookActivityId,
+      source: 'my_sport_xlsx',
+      source_record_id: workbookSource.id,
       source_activity_id: null,
-      source_record_hash: null,
+      source_record_hash: workbookHash,
       activity_date: '2026-08-03',
       start_time: workbookOverlap.startDate,
       activity_type: 'run',
@@ -230,7 +259,7 @@ async function seedConnectionAndJob(db: TestDatabase, credentialCipher: Credenti
       avg_speed_mps: null,
       avg_pace_s_per_km: null,
       effort_points: null,
-      notes: 'Original workbook/manual provenance',
+      notes: 'Original workbook provenance',
       raw_payload_json: {},
     }).execute();
     await ownerDb.insertInto('provider_connections').values({
@@ -268,7 +297,7 @@ async function readEvidence(db: TestDatabase, jobId: string, credentialCipher: C
     const repository = new ProvidersRepository(ownerDb);
     const job = await repository.getSyncJob(jobId);
     const activities = await ownerDb.selectFrom('activities').selectAll().orderBy('activity_date').execute();
-    const manual = activities.find((activity) => activity.id === manualActivityId);
+    const workbook = activities.find((activity) => activity.id === workbookActivityId);
     const provider = activities.find((activity) => activity.source === 'strava');
     const links = await ownerDb.selectFrom('provider_activity_links').selectAll().orderBy('provider_activity_id').execute();
     const sourceRecords = await ownerDb.selectFrom('source_records').selectAll().orderBy('created_at').execute();
@@ -281,7 +310,7 @@ async function readEvidence(db: TestDatabase, jobId: string, credentialCipher: C
       authenticationTag: stored!.credential.authentication_tag,
       envelopeVersion: stored!.credential.envelope_version,
     });
-    return { job: job!, activities, manual, provider, links, sourceRecords, decrypted };
+    return { job: job!, activities, workbook, provider, links, sourceRecords, decrypted };
   });
 }
 
