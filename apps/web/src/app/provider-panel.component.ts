@@ -37,7 +37,7 @@ type PanelState = 'loading' | 'ready' | 'working' | 'error';
           } @else {
             <button type="button" (click)="connect()" [disabled]="busy()">Reconnect Strava</button>
           }
-          <button type="button" class="secondary" (click)="disconnect()" [disabled]="busy()">Disconnect</button>
+          <button type="button" class="secondary" (click)="disconnect()" [disabled]="state() === 'working'">Disconnect</button>
         </div>
 
         @if (job()) {
@@ -78,13 +78,18 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
   readonly pollingPaused = signal(false);
 
   private subscription?: Subscription;
+  private recoverySubscription?: Subscription;
   private pollTimer?: ReturnType<typeof setTimeout>;
   private pollCount = 0;
   private readonly maxPolls = 400;
 
   constructor(private readonly api: ProviderApiService) {}
   ngOnInit(): void { this.load(); }
-  ngOnDestroy(): void { this.subscription?.unsubscribe(); this.clearPolling(); }
+  ngOnDestroy(): void {
+    this.subscription?.unsubscribe();
+    this.recoverySubscription?.unsubscribe();
+    this.clearPolling();
+  }
 
   busy(): boolean {
     const status = this.job()?.status;
@@ -97,9 +102,17 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
     this.pollingPaused.set(false);
     this.state.set('loading');
     this.errorMessage.set(null);
+    this.job.set(null);
     this.subscription?.unsubscribe();
+    this.recoverySubscription?.unsubscribe();
     this.subscription = this.api.connections().subscribe({
-      next: (connections) => { this.connections.set(connections); this.connection.set(connections.find((item) => item.provider === 'strava') ?? null); this.state.set('ready'); },
+      next: (connections) => {
+        const connection = connections.find((item) => item.provider === 'strava') ?? null;
+        this.connections.set(connections);
+        this.connection.set(connection);
+        this.state.set('ready');
+        if (connection) this.recoverLatestJob(connection.id);
+      },
       error: (error: unknown) => this.fail(error, 'Provider connections could not be loaded.'),
     });
   }
@@ -160,9 +173,22 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
     this.clearPolling();
     this.state.set('working');
     this.subscription?.unsubscribe();
+    this.recoverySubscription?.unsubscribe();
     this.subscription = this.api.disconnect(connection.id).subscribe({
       next: () => this.load(),
       error: (error: unknown) => this.fail(error, 'Provider connection could not be disconnected.'),
+    });
+  }
+
+  private recoverLatestJob(connectionId: string): void {
+    this.recoverySubscription?.unsubscribe();
+    this.recoverySubscription = this.api.syncJobs(connectionId, 1).subscribe({
+      next: (jobs) => {
+        const latest = jobs[0] ?? null;
+        this.job.set(latest);
+        if (latest?.status === 'queued' || latest?.status === 'running') this.schedulePoll(latest);
+      },
+      error: () => this.job.set(null),
     });
   }
 
@@ -186,7 +212,10 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
 
   private loadConnectionAfterTerminal(): void {
     this.subscription = this.api.connections().subscribe({
-      next: (connections) => { this.connections.set(connections); this.connection.set(connections.find((item) => item.provider === 'strava') ?? null); },
+      next: (connections) => {
+        this.connections.set(connections);
+        this.connection.set(connections.find((item) => item.provider === 'strava') ?? null);
+      },
     });
   }
 
