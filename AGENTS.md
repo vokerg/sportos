@@ -4,11 +4,11 @@ This is the operational entry point for coding agents and maintainers working on
 
 ## Current state
 
-SportOS is an authenticated account-scoped application for importing sports workbooks, preserving source provenance, calculating deterministic scores, and reviewing/exporting canonical results.
+SportOS is an authenticated account-scoped application for importing sports workbooks, synchronizing Strava activity, preserving raw source provenance, calculating deterministic scores, and reviewing/exporting canonical results.
 
-Validated capabilities include browser XLSX upload, external source storage, durable import and rule-change jobs, immutable scoring-rule versions, audited recomputation, daily/performance provenance drill-downs, canonical export, OIDC sign-in, opaque server-side sessions, CSRF protection, account-scoped database constraints, forced row-level security, split worker authorization, and authenticated Angular states.
+Validated capabilities include browser XLSX upload, external source storage, encrypted provider credentials, Strava connection/backfill/incremental sync, durable import/provider/rule jobs, immutable scoring-rule versions, audited recomputation, daily/performance provenance drill-downs, canonical export, OIDC sign-in, opaque server-side sessions, CSRF protection, account-scoped database constraints, forced row-level security, split worker authorization, and authenticated Angular states.
 
-The next incomplete queue item is #15: provider ingestion framework and the first Strava adapter.
+The next incomplete queue item is #16: read-only AI analysis with cited provenance.
 
 ## Start here
 
@@ -36,70 +36,81 @@ The next incomplete queue item is #15: provider ingestion framework and the firs
 5. `withAccountContext` reserves one pooled connection, sets the account for that connection, supports repository-owned transactions, and clears the setting before release.
 6. Forced RLS filters account-owned rows, and valid foreign identifiers return the same generic result as nonexistent identifiers.
 7. Same-owner composite foreign keys and immutable-owner triggers prevent cross-account links or reassignment.
-8. Queue discovery uses the narrow dispatcher role; source, canonical, rule, ledger, performance, and authentication data use the owner-scoped worker-data role.
-9. Raw input is retained before normalization with workbook, sheet, row, hash, upload, batch, and owner provenance.
+8. Queue discovery uses the narrow dispatcher role; provider credentials, source, canonical, rule, ledger, performance, and authentication data use the owner-scoped worker-data role.
+9. Raw input is retained before normalization with source, record key, hash, batch, owner, and source-specific provenance.
 10. Uploaded bytes stay outside Postgres; storage keys and local paths are private.
-11. Unknown source semantics are never guessed.
-12. Official scoring is deterministic domain logic; generated text never calculates or persists points.
-13. Every ledger contribution identifies the exact rule UUID, inputs, points, and explanation payload.
-14. Rule UUIDs are immutable versions; enabled ranges are account scoped and non-overlapping.
-15. Preview is non-authoritative; rule publication and affected score replacement are atomic.
-16. Re-importing identical data converges within one owner without duplicate canonical facts.
-17. Flyway owns append-only schema evolution; Kysely types stay synchronized.
-18. Postgres is authoritative for jobs and leases; only the current lease owner progresses or completes work.
-19. Sessions are opaque server-side records with bounded expiry and revocation; unsafe methods require session-bound CSRF.
-20. Private source content, session material, storage internals, paths, formulas, hashes, authentication data, and owner internals are never committed or exposed.
-21. Canonical exports are owner scoped, versioned, bounded, deterministic, count checked, and explicit about provenance.
+11. Provider access and refresh tokens remain server-side inside authenticated encrypted envelopes; never expose them to the browser, dispatcher, logs, errors, or exports.
+12. Provider credential envelopes use AES-256-GCM, versioned key IDs, random nonces, and additional authenticated data binding owner, connection, provider, and version.
+13. Provider-native identity is primary within a connection; cross-source matching follows the documented exact/no-match/ambiguous policy and never guesses.
+14. Unsupported or ambiguous provider records remain inspectable raw source records with warnings.
+15. Unknown source semantics are never guessed.
+16. Official scoring is deterministic domain logic; generated text and provider payloads never calculate or persist official points directly.
+17. Every ledger contribution identifies the exact rule UUID, inputs, points, and explanation payload.
+18. Rule UUIDs are immutable versions; enabled ranges are account scoped and non-overlapping.
+19. Preview is non-authoritative; rule publication and affected score replacement are atomic.
+20. Re-importing or redelivering identical source data converges within one owner without duplicate canonical facts.
+21. Flyway owns append-only schema evolution; Kysely types stay synchronized.
+22. Postgres is authoritative for jobs and leases; only the current lease owner progresses or completes work.
+23. Rate-limit rescheduling is durable and does not consume the provider job retry budget.
+24. Sessions are opaque server-side records with bounded expiry and revocation; unsafe methods require session-bound CSRF.
+25. Private source content, provider payloads, credential envelopes, session material, storage internals, paths, formulas, hashes, authentication data, and owner internals are never committed or exposed.
+26. Canonical exports are owner scoped, versioned, bounded, deterministic, count checked, and explicit about provenance.
 
 ## Repository entry points
 
 ### Root and operations
 
-- `.env.example` — API, dispatcher, worker-data, legacy, OIDC, session, and storage settings.
+- `.env.example` — API, dispatcher, worker-data, legacy, OIDC, session, provider, encryption-key, and storage settings.
 - `docker-compose.yml` and `docker/postgres/init/` — local Postgres and non-owner runtime-role initialization.
-- `.github/workflows/ci.yml` — fresh migration and non-owner API/dispatcher/worker-data/legacy integration gates.
+- `.github/workflows/ci.yml` — fresh/populated migration and non-owner API/dispatcher/worker-data/legacy integration gates.
 - `docs/AUTHENTICATION.md` — deployment, role, OIDC, session, CSRF, legacy claim, and migration guidance.
+- `docs/adr/0006-provider-ingestion-and-strava.md` — provider authorization, encryption, sync, provenance, and identity policy.
 
 ### API: `apps/api`
 
-- `src/auth/auth.service.ts` — OIDC flow, identity provisioning, legacy-account claim, opaque sessions, cookie policy.
-- `src/auth/session.guard.ts` — global session and CSRF enforcement.
-- `src/auth/auth.controller.ts` — login, callback, session, logout, optional local bootstrap.
-- `src/auth/current-account.decorator.ts` — authenticated account extraction.
+- `src/auth/` — OIDC flow, identity provisioning, legacy claim, opaque sessions, cookie and CSRF policy.
+- `src/providers/providers.service.ts` — Strava OAuth exchange, encrypted credential persistence, sync orchestration, revoke/disconnect.
+- `src/providers/providers.controller.ts` — account-scoped provider connection and sync routes.
 - `src/db.provider.ts` — database lifecycle and account-bound execution.
 - `src/imports/`, `rules/`, `daily/`, `performance/`, `exports/` — owner-scoped application routes.
 
-Never accept owner or audit-actor identifiers from request bodies. Derive them from the authenticated request and execute database work inside account context.
+Never accept owner or audit-actor identifiers from request bodies. Derive them from the authenticated request and execute database work inside account context. Provider callbacks require the initiating authenticated account and one-time state.
 
 ### Web: `apps/web`
 
 - `src/app/web-auth.service.ts` — session bootstrap, sign-in, expiry, and sign-out.
-- `src/app/auth-http.interceptor.ts` — credentialed requests, CSRF, and global unauthorized handling.
+- `src/app/auth-http.interceptor.ts` — exact-API-origin credentials, CSRF, and global unauthorized handling.
+- `src/app/provider-panel.component.ts` — connection, backfill/sync, progress, retry, cancel, disconnect, provenance, bounded polling.
+- `src/app/provider-api.service.ts` — user-safe provider API contracts only.
 - `src/app/app.component.ts` — protected cockpit composition after session success.
-- remaining components render API truth only and never assign ownership or calculate official scores.
+
+Angular renders API truth only. It never receives provider tokens/envelopes, assigns ownership, normalizes canonical facts, or calculates official scores.
 
 ### Worker: `apps/worker`
 
-- `src/import-worker.ts` — requires separate dispatcher and worker-data database connections.
-- `src/import-job-runner.ts` — global queue claim followed by owner-scoped import execution; progress updates use separate short scoped connections to avoid transaction deadlocks.
+- `src/import-worker.ts` — requires separate dispatcher and worker-data connections; provider runner starts only when all provider/key settings are present.
+- `src/import-job-runner.ts` — global claim followed by owner-scoped workbook import.
+- `src/provider-sync-runner.ts` — global claim followed by owner-scoped credential refresh, pagination, raw retention, conservative normalization, cursor commit, and terminal state.
 - `src/rule-change-runner.ts` — global claim followed by owner-scoped atomic recomputation.
 - `src/import-local.ts` — fixed legacy-owner local CLI.
 
-The dispatcher is a narrow trusted-system exception. It may inspect upload dispatch metadata and queue lifecycle rows only. Never reuse dispatcher credentials for API, browser, local CLI, or canonical-data work.
+The dispatcher is a narrow trusted-system exception. It may inspect queue lifecycle and upload dispatch metadata only. Never reuse dispatcher credentials for API, provider decryption, browser, local CLI, or canonical-data work.
 
 ### Persistence: `packages/db`
 
-- `src/schema.ts` — account/session/owned table and view types.
+- `src/schema.ts` — account/session/provider/owned table and view types.
 - `src/ownership-context.ts` — account-bound pooled connection and fixed legacy owner.
 - `src/repositories/auth.repository.ts` — identity, legacy claim, authorization transaction, and session persistence.
-- `src/repositories/worker-dispatch.repository.ts` — narrow cross-owner claim and stale-recovery boundary.
-- queue, import, rule, daily, performance, and export repositories remain typed query/transaction boundaries.
+- `src/repositories/providers.repository.ts` — provider OAuth state, connections, encrypted credentials, sync jobs, raw/canonical links, and cross-source identity.
+- `src/repositories/worker-dispatch.repository.ts` — narrow cross-owner import/provider/rule claim and stale recovery.
+- remaining queue, import, rule, daily, performance, and export repositories remain typed query/transaction boundaries.
 
 ### Domain/shared/importers
 
 - `packages/domain` — pure authoritative scoring, reconciliation, rule validation, and preview.
 - `packages/shared` — serialization, date, and export contracts.
-- `packages/importers` — storage, XLSX extraction, normalization, warnings, and import transactions.
+- `packages/importers` — storage, XLSX extraction, provider adapter/cipher contracts, normalization, warnings, and import transactions.
+- `packages/analytics` — pure analytics without database dependencies.
 - authentication/framework dependencies do not belong in pure packages.
 
 ### Migrations and decisions
@@ -109,28 +120,34 @@ The dispatcher is a narrow trusted-system exception. It may inspect upload dispa
 - V106 adds accounts, sessions, owners, RLS, and same-owner constraints;
 - V107 keeps owner internals out of the public performance view;
 - V108 splits dispatcher/worker-data authorization, restricts authentication tables, and makes ownership immutable;
-- ADRs 0001–0005 document import, storage, jobs, rule publication, and authentication/ownership.
+- V109 adds provider connections, encrypted credentials, OAuth state, sync jobs, links, webhook inbox, RLS, direct grants, and privilege assertions;
+- ADRs 0001–0006 document import, storage, jobs, rule publication, authentication/ownership, and providers.
 
 ## Change requirements
 
-### Authentication and ownership
+### Authentication, ownership, and providers
 
 - keep all runtime connections separate from the schema owner;
 - use exact configured origins and protected cookies in production;
-- store only session/token digests and sanitize errors/logs;
+- store only session/token digests or authenticated provider ciphertext; sanitize errors/logs;
 - require CSRF on unsafe authenticated methods;
 - derive account and audit actor from the session;
 - preserve the configured one-time legacy OIDC claim path;
-- add same-user positive and cross-user negative tests for identifiers, jobs, exports, rules, and workers;
-- prove the dispatcher cannot read canonical, rule, ledger, source, performance, or authentication data.
+- keep provider OAuth state one-time, hashed, owner scoped, and expiring;
+- rotate refresh tokens atomically and retain old encryption keys until envelopes have migrated;
+- add same-user positive and cross-user negative tests for identifiers, jobs, exports, rules, providers, and workers;
+- prove the dispatcher cannot read provider connections/credentials, canonical, rule, ledger, source, performance, or authentication data.
 
 ### Imports, jobs, and providers
 
-- validate and bound all external input;
+- validate and bound all external input and provider payload retention;
 - retain raw source before normalization and preserve owner/provenance links;
 - prove retries and duplicate delivery converge within one owner;
 - keep provider authorization material server-side and provider cursors owner scoped;
-- never expose object keys, paths, provider authorization data, or foreign account details.
+- persist cursor/count state only after the corresponding page commits;
+- preserve workbook/manual facts when provider identity links to them;
+- surface ambiguous cross-source collisions rather than merging them;
+- never expose object keys, paths, provider authorization data, raw payloads, or foreign account details.
 
 ### Scoring, cockpit, and export
 
@@ -138,14 +155,15 @@ The dispatcher is a narrow trusted-system exception. It may inspect upload dispa
 - preserve immutable historical UUIDs and account-scoped effective ranges;
 - preview without writes and publish recomputation atomically;
 - validate dates, ranges, numbers, pagination, and UUIDs before querying;
-- exclude owner fields and private/raw/storage/authentication data from exports;
-- cover authenticated loading, anonymous, error, expiry, and sign-out states plus workflow states.
+- exclude owner fields and private/raw/storage/authentication/provider credential data from exports;
+- cover authenticated loading, anonymous, error, expiry, sign-out, provider, and workflow states;
+- bound browser polling and provide a manual refresh path.
 
 ### Database
 
 - use append-only Flyway migrations and synchronize Kysely types;
-- add constraints, indexes, RLS, grants, and immutable-owner enforcement for new invariants;
-- test fresh migration and populated upgrade/backfill paths when applicable;
+- add constraints, indexes, RLS, grants, immutable-owner enforcement, and privilege assertions for new invariants;
+- test fresh migration and populated upgrade paths when applicable;
 - run integration using the intended non-owner runtime roles.
 
 ## Common commands
@@ -168,10 +186,10 @@ pnpm dev:web
 pnpm dev:worker
 ```
 
-Use pnpm only. Do not commit build output, caches, local environment files, uploaded files, authorization material, or personal data.
+Use pnpm only. Do not commit build output, caches, local environment files, uploaded files, authorization material, encryption keys, provider payloads, or personal data.
 
 ## Investigation protocol and definition of done
 
 Before editing, read the issue/dependencies/PRs, inspect the closest code/tests/migrations, identify the invariant and roadmap exit criterion, list all inspected files, and call out documentation mismatches.
 
-A queue item is complete only when acceptance criteria are satisfied; relevant domain, API, UI, migration, database, worker, and importer tests and root validation pass; documentation and privacy/integrity implications are current; the PR is merged; the issue is closed; and issue #3 is updated. Incomplete validation must be stated explicitly.
+A queue item is complete only when acceptance criteria are satisfied; relevant domain, API, UI, migration, database, worker, importer/provider, and root validation pass; documentation and privacy/integrity implications are current; the PR is merged; the issue is closed; and issue #3 is updated. Incomplete validation must be stated explicitly.
