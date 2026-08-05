@@ -80,6 +80,11 @@ type AnalysisState = 'idle' | 'loading' | 'ready' | 'error';
               @if (record.dataQuality.flags.length > 0) {
                 <p class="help">Flags: {{ record.dataQuality.flags.join(', ') }}</p>
               }
+              <details class="facts">
+                <summary>Official deterministic facts</summary>
+                <pre>{{ formatFacts(record.facts) }}</pre>
+              </details>
+              <h4>Evidence identifiers</h4>
               <ul class="citations">
                 @for (citation of record.citations; track citation.key) {
                   <li><code>{{ citation.key }}</code> — {{ citation.label }}</li>
@@ -103,6 +108,8 @@ type AnalysisState = 'idle' | 'loading' | 'ready' | 'error';
     .answer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     .help, small, .audit { color: #667085; font-size: 13px; }
     small { display: block; margin-top: 3px; }
+    .facts { margin: 12px 0; }
+    .facts pre { max-height: 280px; overflow: auto; padding: 12px; background: #f8fafc; border: 1px solid #d0d5dd; white-space: pre-wrap; overflow-wrap: anywhere; }
     .citations { max-height: 240px; overflow: auto; }
     .warning { background: #fffaeb; }
     @media (max-width: 760px) { .analysis-form, .answer-grid { grid-template-columns: 1fr; } }
@@ -152,6 +159,10 @@ export class AnalysisPanelComponent implements OnDestroy {
   citationSummary(keys: string[]): string {
     if (keys.length === 0) return '';
     return `Evidence: ${keys.slice(0, 3).join(', ')}${keys.length > 3 ? ` (+${keys.length - 3} more)` : ''}`;
+  }
+
+  formatFacts(facts: unknown): string {
+    return JSON.stringify(facts, null, 2);
   }
 
   private buildRequest(): AnalysisAnswerRequest | null {

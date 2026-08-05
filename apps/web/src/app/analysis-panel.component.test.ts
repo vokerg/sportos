@@ -20,7 +20,7 @@ const answer: AnalysisAnswer = {
     readOnly: true,
     authority: 'official_sportos_record',
     generatedText: false,
-    facts: {},
+    facts: { statistics: { recordCount: 1, averageOfficialPoints: 12 } },
     citations: [{ key: 'daily_metric:2026-05-18', kind: 'daily_metric', date: '2026-05-18', label: 'Official daily metric for 2026-05-18' }],
     dataQuality: { status: 'complete', flags: [] },
   },
@@ -43,6 +43,7 @@ describe('AnalysisPanelComponent', () => {
     expect(component.state()).toBe('ready');
     expect(component.result()?.generatedGuidance.observations[0]?.text).toContain('12 points');
     expect(component.result()?.officialRecord?.citations[0]?.key).toBe('daily_metric:2026-05-18');
+    expect(component.formatFacts(component.result()?.officialRecord?.facts)).toContain('averageOfficialPoints');
     expect(component.generatorLabel(answer)).toBe('deterministic safe fallback');
     expect(api.answer).toHaveBeenCalledWith({
       question: 'What stands out?',

@@ -53,6 +53,13 @@ describe('read-only analysis evaluations', () => {
     }, new Set(['daily_metric:2026-05-18']))).toThrow(/unsupported citation/);
   });
 
+  it('rejects unsupported conclusions that do not cite returned evidence', () => {
+    expect(() => parseGeneratedAnalysisDraft({
+      observations: [{ text: 'The athlete is fully recovered.', citationKeys: [] }],
+      uncertainty: [], suggestions: [],
+    }, new Set(['daily_metric:2026-05-18']))).toThrow(/require at least one allowed citation/);
+  });
+
   it('unsupported writes and medical conclusions are classified conservatively', () => {
     expect(requestsAuthoritativeWrite('Delete this activity and recompute the score.')).toBe(true);
     expect(requestsAuthoritativeWrite('What changed in my score this month?')).toBe(false);
