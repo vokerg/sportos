@@ -111,6 +111,17 @@ export class ProviderSyncRunner {
           await new ImportsRepository(db).updateBatchCounts(requireBatch(batchId), { row_count: rawCount, normalized_count: activityCount, warning_count: warningCount, status: 'normalized' }, 'provider-page-committed');
           await new ProvidersRepository(db).updateCursor(job.id, this.workerId, cursor, Math.min(95, 10 + page));
         });
+
+        if (fetched.rateLimit.retryAt) {
+          await this.withOwner(job.ownerId, (db) => new ProvidersRepository(db).reschedule(
+            job.id,
+            this.workerId,
+            fetched.rateLimit.retryAt!,
+            'PROVIDER_RATE_LIMITED',
+            'Provider rate limit reached; sync will resume from the committed cursor.',
+          ));
+          return;
+        }
       }
 
       await this.withOwner(job.ownerId, async (db) => {
