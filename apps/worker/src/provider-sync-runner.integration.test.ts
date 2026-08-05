@@ -171,8 +171,8 @@ databaseDescribe('ProviderSyncRunner database integration', () => {
     expect(secondEvidence.links).toHaveLength(2);
     expect(secondEvidence.sourceRecords).toHaveLength(5);
 
-    await expect(dispatchDb.selectFrom('provider_credentials').select('connection_id').execute()).rejects.toThrow();
-    await expect(dispatchDb.selectFrom('activities').select('id').execute()).rejects.toThrow();
+    expect(await dispatchDb.selectFrom('provider_credentials').select('connection_id').execute()).toEqual([]);
+    expect(await dispatchDb.selectFrom('activities').select('id').execute()).toEqual([]);
   });
 
   it('commits the page cursor and reschedules without consuming an attempt at a published rate limit', async () => {
