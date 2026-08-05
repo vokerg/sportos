@@ -10,6 +10,7 @@ export type {
   RuleProposal,
 } from '@sportos/domain';
 export * from './schema.js';
+export * from './analysis-schema.js';
 export * from './ownership-context.js';
 export * from './repository-contracts.js';
 export * from './score-breakdown-contract.js';
@@ -26,3 +27,4 @@ export * from './repositories/performance.repository.js';
 export * from './repositories/cockpit.repository.js';
 export * from './repositories/canonical-export.repository.js';
 export * from './repositories/scoring.repository.js';
+export * from './repositories/analysis-audit.repository.js';

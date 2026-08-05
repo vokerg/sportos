@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { AnalysisController } from './analysis/analysis.controller.js';
+import { AnalysisTextGenerator, createAnalysisTextGenerator } from './analysis/analysis.model.js';
+import { AnalysisService } from './analysis/analysis.service.js';
+import { AnalysisToolService } from './analysis/analysis-tool.service.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthService } from './auth/auth.service.js';
 import { SessionGuard } from './auth/session.guard.js';
@@ -29,6 +33,7 @@ import { UploadStorage } from './storage/upload-storage.js';
     RulesController,
     ExportsController,
     ProvidersController,
+    AnalysisController,
   ],
   providers: [
     DbProvider,
@@ -38,6 +43,9 @@ import { UploadStorage } from './storage/upload-storage.js';
     RulesService,
     ExportsService,
     ProvidersService,
+    AnalysisToolService,
+    AnalysisService,
+    { provide: AnalysisTextGenerator, useFactory: createAnalysisTextGenerator },
     SessionGuard,
     { provide: APP_GUARD, useExisting: SessionGuard },
     { provide: UploadStorage, useFactory: () => new LocalUploadStorage() },

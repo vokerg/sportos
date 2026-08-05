@@ -1,6 +1,6 @@
 # Roadmap
 
-SportOS is sequenced by product risk: trustworthy facts and deterministic scores first, convenient workflows second, accounts/providers third, and AI analysis only after stable authorized read models exist.
+SportOS is sequenced by product risk: trustworthy facts and deterministic scores first, convenient workflows second, accounts/providers third, and read-only generated analysis only after stable authorized read models exist.
 
 ## Status vocabulary
 
@@ -14,7 +14,7 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Validated | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Validated through V110 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
@@ -24,10 +24,10 @@ A feature is not delivered solely because a component or table exists.
 | Cockpit review and export | Validated and account scoped | larger export delivery |
 | Authentication and ownership | Validated with non-superuser RLS evidence | production OIDC/secret operations and account deletion policy |
 | Provider ingestion | Strava connection, refresh, backfill, incremental sync, retry, disconnect, and provenance validated | webhook processing and additional providers |
-| API | Authenticated, CSRF-protected, and account scoped | hosted monitoring and external rate limiting |
-| Web UI | Authenticated import, provider, review, rule, drill-down, and export workflows | broader provider portfolio |
+| API | Authenticated, CSRF-protected, account scoped, and equipped with narrow cited analysis tools | hosted monitoring and external rate limiting |
+| Web UI | Authenticated import, provider, review, rule, drill-down, analysis, and export workflows | broader provider portfolio and additional analysis tools |
 | Hosted operation | Partially implemented | deployment, key management, backup, restoration, deletion, and observability |
-| AI analysis | Intentionally not implemented | authorized read-tool implementation and evaluation |
+| Read-only analysis | Validated with cited evidence, deterministic calculations, safe fallback, append-only audit metadata, evaluations, and UI separation | hosted model-gateway operations and broader semantic evaluation |
 
 ## Milestone 0: trustworthy local ingestion
 
@@ -96,21 +96,29 @@ Milestone 2 exit is satisfied for the first provider: a user can connect Strava,
 
 ## Milestone 3: read-only analysis
 
-The next ordered product work is narrow read-only analysis:
+Delivered:
 
-- read-only tools over stable account-authorized views;
-- cited dates, activities, rules, and source provenance;
-- deterministic calculations outside the model;
-- evaluations for hallucination, missing/conflicting data, and imported-text prompt injection;
-- explicit separation of observations, uncertainty, suggestions, and official records.
+- a fixed read-only tool allowlist over stable account-authorized daily and score-breakdown reads;
+- strict dates, ranges, limits, question length, and exact request fields before repository execution;
+- canonical date, activity, immutable rule UUID, score-ledger, source-record, and import-batch citations;
+- deterministic totals, averages, extrema, first-to-last comparison, and official score calculations outside the generator;
+- generated `observations`, `uncertainty`, and `suggestions` with observations restricted to returned citation keys;
+- deterministic local fallback and an optional bounded operator-controlled HTTPS JSON generator;
+- refusal of authoritative write requests and explicit medical/insufficient-data limitations;
+- prompt-injection reduction by excluding imported narrative, filenames, hashes, rule names/descriptions, and rule-name-derived ledger reason text;
+- append-only owner-scoped audit metadata without raw questions or generated answers;
+- cross-account isolation evidence and evaluations for missing, conflicting, ambiguous, malicious, unsupported-write, and medical cases;
+- an Angular entry point that visibly separates generated guidance from official SportOS evidence.
 
-Exit: generated analysis can explain canonical data without authoritative calculation or write access.
+See [ADR 0007](adr/0007-read-only-ai-analysis.md) and [AI_ANALYSIS.md](AI_ANALYSIS.md).
+
+Milestone 3 exit is satisfied: generated analysis can explain canonical data without authoritative calculation or write access.
 
 ## Near-term queue
 
-Issue #3 is authoritative. The next item is read-only AI analysis with cited provenance. Provider operational hardening may be scheduled ahead of it only through explicit queue reprioritization.
+Issue #3 remains authoritative. The ordered queue is complete through issue #16. New hosted operations, provider expansion, analysis tools, or product work must be added and prioritized explicitly rather than inferred from this completed sequence.
 
-Each PR must identify the milestone exit criterion it advances and include repeatable evidence appropriate to the risk.
+Each PR must identify the milestone or operational exit criterion it advances and include repeatable evidence appropriate to the risk.
 
 ## Accepted decisions
 
@@ -120,6 +128,7 @@ Each PR must identify the milestone exit criterion it advances and include repea
 - [ADR 0004](adr/0004-rule-versioning-and-recomputation.md) — immutable rule versions, preview, audit, and atomic recomputation.
 - [ADR 0005](adr/0005-authentication-and-data-ownership.md) — identity, sessions, database ownership, and worker context.
 - [ADR 0006](adr/0006-provider-ingestion-and-strava.md) — provider adapters, encrypted credentials, durable synchronization, provenance, and cross-source identity.
+- [ADR 0007](adr/0007-read-only-ai-analysis.md) — read tools, deterministic calculations, generated-answer validation, audit, and UI separation.
 - [Canonical export v1](CANONICAL_EXPORT.md) — versioned canonical datasets, stable ordering, reconciliation, provenance states, and privacy exclusions.
 
-Future decisions still required include provider webhook operations, time-zone/locale policy, hosted observability, backup/restoration, key lifecycle, deletion, and read-only AI tool/evaluation boundaries.
+Future decisions still required include provider webhook operations, time-zone/locale policy, hosted observability, backup/restoration, key lifecycle, deletion, hosted model-gateway operations, broader semantic evaluation, and any expansion of the analysis tool surface.
