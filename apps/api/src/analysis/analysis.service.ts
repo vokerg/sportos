@@ -8,6 +8,7 @@ import type {
   AnalysisToolEnvelope,
   AnalysisToolRequest,
   DailyScoreBreakdownFacts,
+  DailyScoreBreakdownToolRequest,
   DailySummaryFacts,
   DailySummaryToolRequest,
 } from './analysis.contracts.js';
@@ -16,7 +17,18 @@ import type {
 export class AnalysisService {
   constructor(@Inject(DailyService) private readonly dailyService: DailyService) {}
 
-  execute(request: AnalysisToolRequest, accountId = LEGACY_ACCOUNT_ID) {
+  execute(
+    request: DailySummaryToolRequest,
+    accountId?: string,
+  ): Promise<AnalysisToolEnvelope<DailySummaryFacts>>;
+  execute(
+    request: DailyScoreBreakdownToolRequest,
+    accountId?: string,
+  ): Promise<AnalysisToolEnvelope<DailyScoreBreakdownFacts | null>>;
+  execute(
+    request: AnalysisToolRequest,
+    accountId = LEGACY_ACCOUNT_ID,
+  ): Promise<AnalysisToolEnvelope<DailySummaryFacts> | AnalysisToolEnvelope<DailyScoreBreakdownFacts | null>> {
     switch (request.tool) {
       case 'daily_summary':
         return this.dailySummary(request, accountId);
@@ -191,7 +203,7 @@ function envelope<TFacts>(
     dataQuality,
     safety: {
       databaseWrites: false,
-      arbitraryStoredTextExcluded: true,
+      untrustedNarrativeTextExcluded: true,
       instructionsFromStoredDataAccepted: false,
     },
   };

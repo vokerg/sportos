@@ -57,7 +57,7 @@ export interface AnalysisToolEnvelope<TFacts> {
   dataQuality: AnalysisDataQuality;
   safety: {
     databaseWrites: false;
-    arbitraryStoredTextExcluded: true;
+    untrustedNarrativeTextExcluded: true;
     instructionsFromStoredDataAccepted: false;
   };
 }
