@@ -1,88 +1,140 @@
 # SportOS
 
-SportOS is a local-first sports-data cockpit that turns training records and connected provider activity into canonical, auditable facts and deterministic scores. It supports authenticated accounts with database-enforced ownership across uploads, provider connections, imports, canonical facts, scores, jobs, exports, rule configuration, and cited read-only analysis.
+SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-## Current capabilities
+> **Project status:** the prioritized implementation roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16). The current schema is validated through Flyway V110, and the authoritative work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
-- bounded browser upload for supported XLSX workbooks;
-- replaceable external source-file storage and durable upload metadata;
-- Postgres-authoritative import, provider-sync, and rule-change jobs with leases, progress, retry, cancellation, and stale recovery;
-- retained raw workbook rows and raw provider snapshots with source-to-canonical provenance;
-- transactional and idempotent normalization of activities, daily metrics, and performance events;
-- Strava OAuth connection, rotating-token refresh, initial backfill, incremental synchronization, rate-limit rescheduling, retry, cancellation, and disconnect;
-- application-layer AES-256-GCM provider credential encryption with versioned keys and owner/connection-bound authentication data;
-- deterministic cross-source identity handling that links one exact workbook/provider match, creates new canonical facts when no match exists, and surfaces ambiguous collisions;
-- deterministic scoring, reconciliation, exact ledger/rule provenance, immutable rule versions, previews, and audited recomputation;
-- Daily Log and Run Lab drill-downs with explicit source provenance;
-- cited read-only analysis over stable account-scoped reads, with deterministic calculations, strict generated-answer sections, safe fallback, and append-only audit metadata;
-- strict versioned canonical JSON export;
-- OIDC Authorization Code + PKCE sign-in with opaque server-side sessions;
-- per-account uniqueness, same-owner foreign keys, forced row-level security, and non-enumerating API responses;
-- split queue-dispatch and owner-scoped worker execution;
-- responsive keyboard-accessible Angular session, provider, analysis, and cockpit states.
+## What SportOS can do
 
-The authoritative ordered roadmap is complete through issue #16. See [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), [read-only analysis operations](docs/AI_ANALYSIS.md), [authentication and ownership](docs/AUTHENTICATION.md), [canonical export](docs/CANONICAL_EXPORT.md), and [issue #3](https://github.com/vokerg/sportos/issues/3).
+### Import and preserve training data
 
-## Not yet implemented
+- Upload supported `my_sport` and running-performance XLSX workbooks from the browser.
+- Validate file type, ZIP signature, workbook readability, filename, and a 20 MB size limit before queuing work.
+- Keep uploaded bytes outside Postgres behind a replaceable storage contract.
+- Process imports through durable Postgres-backed jobs with leases, progress, retries, cancellation, and stale recovery.
+- Retain raw workbook rows before normalization and link them to canonical activities, daily metrics, and performance events.
+- Re-import identical data transactionally and idempotently without duplicating canonical facts.
+- Review import history, row-level diagnostics, warnings, and exact source provenance.
 
-- Garmin, Google Sheets, or FIT synchronization;
-- automated processing of provider webhook hints beyond the bounded durable inbox schema;
-- hosted object deletion, backup, restoration, key-management-service integration, and account-erasure workflows;
-- streaming or durable hosted-scale export;
-- hosted model-gateway operations, semantic evaluation beyond the bounded repository cases, and additional analysis tools.
+### Connect and synchronize Strava
+
+- Connect Strava through OAuth without exposing access or refresh tokens to the browser.
+- Encrypt provider credentials with versioned AES-256-GCM envelopes bound to the account, connection, provider, and envelope version.
+- Run initial backfills and incremental synchronization through durable provider jobs.
+- Refresh rotating credentials server-side and resume safely across pagination, retries, rate limits, cancellation, and stale leases.
+- Persist bounded raw provider snapshots before normalization.
+- Use provider-native identity first, then apply a conservative exact/no-match/ambiguous cross-source policy.
+- Preserve existing workbook provenance when one exact Strava activity matches an existing canonical activity.
+- Retain unsupported or ambiguous provider records with warnings instead of guessing or discarding them.
+- Disconnect safely by attempting remote revocation, removing local credentials, and cancelling queued or running synchronization work.
+
+### Review, score, and export canonical records
+
+- Browse daily summaries and inspect exact score-ledger, immutable rule-version, activity, source-record, and import-batch provenance.
+- Explore running performance, personal-best views, event detail, and source attribution in Run Lab.
+- Preview scoring-rule changes without writes.
+- Publish immutable rule versions with non-overlapping account-scoped effective ranges.
+- Recompute affected scores atomically through audited background jobs.
+- Reconcile persisted score totals against deterministic domain calculations.
+- Export bounded, versioned `sportos.canonical-export.v1` JSON from one repeatable-read snapshot.
+- Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.
+
+### Ask cited, read-only questions
+
+- Analyze either a bounded daily range or one persisted daily score breakdown.
+- Keep totals, averages, extrema, comparisons, and official score explanations in deterministic application code.
+- Return exact citation keys for canonical dates, activities, score-ledger rows, immutable rule versions, source records, and import batches.
+- Separate generated observations, uncertainty, and suggestions from official SportOS evidence in both API contracts and the Angular UI.
+- Reject requests to edit authoritative records before tool or generator execution.
+- Add explicit uncertainty for insufficient data, conflicts, medical conclusions, recovery claims, and overtraining questions.
+- Use a deterministic local fallback by default, sending no question or SportOS record outside the API process.
+- Optionally call an operator-controlled HTTPS JSON generator with bounded sanitized evidence and strict citation validation.
+- Store only append-only redacted audit metadata: a question digest, bounded tool input, citation identifiers, generator metadata, outcome, and data-quality status.
+
+### Isolate every account
+
+- Authenticate with OIDC Authorization Code + PKCE; SportOS stores no passwords.
+- Map an immutable external `(issuer, subject)` identity to an internal account UUID.
+- Use opaque server-side sessions with idle and absolute expiry, immediate revocation, HttpOnly cookies, and session-bound CSRF protection.
+- Scope uploads, imports, jobs, providers, canonical facts, scores, rules, audits, analysis runs, performance records, and exports to the signed-in account.
+- Enforce ownership with account-scoped constraints, same-owner foreign keys, immutable owner columns, and forced PostgreSQL row-level security.
+- Return the same generic result for foreign and nonexistent identifiers to reduce account enumeration.
+- Separate the narrow cross-account queue dispatcher from owner-scoped worker-data execution.
+
+## Completed milestones
+
+| Milestone | Delivered outcome |
+|---|---|
+| Trustworthy ingestion | Sanitized fixtures, transactional/idempotent imports, source provenance, score explanations, reconciliation, diagnostics, and documented scoring semantics |
+| Usable local cockpit | Browser upload, durable import jobs, Rules Studio, audited recomputation, Daily Log, Run Lab, and canonical export |
+| Accounts and integrations | OIDC sessions, per-account ownership, forced RLS, split worker authorization, encrypted provider credentials, and the first Strava adapter |
+| Read-only analysis | Fixed authorized read tools, deterministic calculations, validated citations, safe generation fallback, append-only audit metadata, evaluations, and explicit generated-versus-official UI separation |
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone evidence and remaining operational gaps.
 
 ## Architecture
 
 ```text
-OIDC provider -> opaque API session -> account-bound database connection
-                                      |
-browser XLSX / Strava OAuth           v
-          |                 forced RLS + same-owner constraints
-          v                            |
-upload storage / encrypted tokens     |
-          |                            |
-          v                            |
-import_jobs / provider_sync_jobs ------+
-          |                claimed owner
-          v                            |
-narrow queue dispatcher               |
-          |                            |
-          v                            |
-owner-scoped worker-data executor <----+
-          |
-          v
-import_batches + source_records
-          |
-          v
-activities + provider_activity_links + performance_events
-          |
-          v
-daily_metrics + scoring_rules + score_ledger + audited changes
-          |
-          v
-stable account-scoped reads + deterministic analysis tools + canonical export
-          |                              |
-          |                              v
-          |                  validated generator + analysis_runs audit
-          |                              |
-          +------------------------------+
+OIDC provider -> opaque API session + CSRF
                          |
                          v
-               NestJS API -> Angular cockpit
+       account-bound pooled connection -> forced RLS + same-owner constraints
+                         |
+        +----------------+-------------------+
+        |                                    |
+        v                                    v
+browser XLSX -> upload storage       Strava OAuth -> encrypted credentials
+        |                                    |
+        v                                    v
+   import_jobs                       provider_sync_jobs
+        |                                    |
+        +---------- narrow queue dispatcher--+
+                         |
+                    persisted owner
+                         |
+                         v
+              owner-scoped worker-data executor
+                         |
+                         v
+              import_batches + source_records
+                         |
+          +--------------+----------------+
+          |                               |
+          v                               v
+ activities + provider links       performance_events
+          |                               |
+          +---------------+---------------+
+                          v
+        daily_metrics + scoring_rules + score_ledger
+                          |
+                          v
+       owner-scoped read repositories + deterministic analysis tools
+                          |                         |
+                          |                         v
+                          |            validated generator + safe fallback
+                          |                         |
+                          |                         v
+                          |                 analysis_runs audit
+                          |                         |
+                          +------------+------------+
+                                       |
+                                       v
+                   canonical export + Angular cockpit
 ```
 
-Postgres is authoritative for accounts, sessions, ownership, provider connection metadata, encrypted credential envelopes, cursors, job state, leases, rule versions, audit history, canonical facts, provenance, official scores, and append-only analysis-run metadata. Workbook bytes remain outside Postgres behind a replaceable storage contract. Provider tokens are stored only inside authenticated encrypted envelopes and never returned to the browser or dispatcher. Generated guidance is non-authoritative and never persists official calculations.
+Postgres is authoritative for accounts, external identities, sessions, ownership, provider metadata, encrypted credential envelopes, synchronization cursors, job leases, audit history, provenance, canonical facts, rule versions, official scores, and analysis-run metadata. Uploaded workbook bytes remain outside Postgres. Generated guidance is non-authoritative and cannot calculate or persist official scores.
 
-Key decisions:
+The runtime uses separate non-superuser database identities:
 
-- [ADR 0001](docs/adr/0001-import-transactions-and-identity.md) — import transactions and identity;
-- [ADR 0002](docs/adr/0002-upload-storage-and-retention.md) — uploaded-file storage and retention;
-- [ADR 0003](docs/adr/0003-import-job-lifecycle.md) — durable import jobs;
-- [ADR 0004](docs/adr/0004-rule-versioning-and-recomputation.md) — immutable rule versions and audited recomputation;
-- [ADR 0005](docs/adr/0005-authentication-and-data-ownership.md) — OIDC, sessions, ownership, RLS, worker authorization, and migration;
-- [ADR 0006](docs/adr/0006-provider-ingestion-and-strava.md) — provider adapters, encrypted credentials, durable synchronization, raw provenance, and cross-source identity;
-- [ADR 0007](docs/adr/0007-read-only-ai-analysis.md) — narrow analysis tools, deterministic calculations, citation validation, generation, audit, and UI separation;
-- [Canonical export v1](docs/CANONICAL_EXPORT.md) — stable datasets, ordering, provenance, reconciliation, and privacy exclusions.
+| Role | Responsibility |
+|---|---|
+| `sportos_app` | Authentication, sessions, account-scoped API work, provider authorization, and append-only analysis-audit inserts |
+| `sportos_worker` | Narrow cross-account queue discovery and leasing only |
+| `sportos_worker_data` | Owner-scoped import, provider-sync, and rule-recomputation execution |
+| `sportos_legacy` | Fixed legacy-account local CLI and compatibility paths |
+| Flyway/schema owner | Migrations only; never used by runtime processes |
+
+For the complete invariants and data flows, read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Prerequisites
 
@@ -90,23 +142,26 @@ Key decisions:
 - pnpm 9.12.0
 - Docker with Docker Compose
 - an OIDC provider for normal sign-in
-- optional Strava API application for provider synchronization
-- optional operator-controlled HTTPS JSON model endpoint for external generated guidance
+- optionally, a Strava API application
+- optionally, an operator-controlled HTTPS JSON model endpoint
 
 Use pnpm exclusively. Do not create npm or Yarn lockfiles.
 
-## Local setup
+## Quick start
 
 ```bash
+git clone https://github.com/vokerg/sportos.git
+cd sportos
+corepack enable
 pnpm install --frozen-lockfile
 cp .env.example .env
 pnpm db:up
 pnpm db:migrate
 ```
 
-The Docker init script creates development-only non-superuser runtime roles. Flyway continues to use the schema-owner credentials; the API, queue dispatcher, owner-scoped worker-data executor, and local CLI use separate URLs from `.env.example`. Existing database volumes should follow the role provisioning notes in [AUTHENTICATION.md](docs/AUTHENTICATION.md).
+The local Docker setup creates development-only non-superuser database roles. Existing database volumes should follow the provisioning and migration guidance in [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
-Configure OIDC:
+### Configure OIDC
 
 ```dotenv
 SPORTOS_OIDC_ISSUER=https://identity.example.com
@@ -119,11 +174,11 @@ SPORTOS_COOKIE_SECURE=false
 
 To let one OIDC identity claim data migrated from the former single-user installation, configure both `SPORTOS_LEGACY_OIDC_ISSUER` and `SPORTOS_LEGACY_OIDC_SUBJECT` before that identity's first login. Keep the mapping stable until the claim is verified.
 
-Optional Strava setup:
+`POST /auth/dev-session` is available only when `SPORTOS_DEV_AUTH_TOKEN` is explicitly configured. Keep it unset outside isolated development.
 
-1. Register the exact callback URL, such as `http://localhost:3000/providers/strava/callback`, in the Strava API application.
-2. Generate at least one 32-byte credential-encryption key outside source control.
-3. Configure the same provider secrets and key ring for both the API and worker processes.
+### Optional Strava configuration
+
+Register the exact callback URL with Strava, then configure the API and worker with the same provider secrets and encryption-key ring:
 
 ```dotenv
 STRAVA_CLIENT_ID=
@@ -133,9 +188,17 @@ SPORTOS_PROVIDER_CREDENTIAL_KEYS=k1=<base64-encoded-32-byte-key>
 SPORTOS_PROVIDER_ACTIVE_KEY_ID=k1
 ```
 
-For key rotation, add the new `keyId:key` entry, retain old keys for decryption, and change `SPORTOS_PROVIDER_ACTIVE_KEY_ID`. Refreshed or reauthorized credentials are then written with the active key. Removing an old key before all envelopes have rotated makes those connections require reauthorization.
+Generate a 32-byte key outside source control, for example:
 
-Read-only analysis uses the deterministic local fallback by default and sends no records to an external model. Optional external generation requires an operator-controlled endpoint:
+```bash
+openssl rand -base64 32
+```
+
+During key rotation, add the new key, retain older keys for decryption, and change `SPORTOS_PROVIDER_ACTIVE_KEY_ID`. Removing an old key before all stored envelopes rotate forces those connections to reauthorize.
+
+### Optional external analysis generator
+
+Read-only analysis uses the deterministic local fallback by default. External generation is opt-in:
 
 ```dotenv
 SPORTOS_AI_JSON_ENDPOINT=https://model-gateway.example.com/sportos-analysis
@@ -144,9 +207,11 @@ SPORTOS_AI_API_KEY=
 SPORTOS_AI_TIMEOUT_MS=15000
 ```
 
-See [AI_ANALYSIS.md](docs/AI_ANALYSIS.md) for the exact request/response schema, privacy boundary, fallback behavior, and deployment responsibilities.
+HTTPS is required except for localhost development. The external endpoint receives only a bounded question, sanitized official tool output, allowed citation keys, and the read-only policy. See [docs/AI_ANALYSIS.md](docs/AI_ANALYSIS.md) for the exact request and response contract.
 
-Start the API, web application, and worker in separate terminals:
+## Run the application
+
+Start each process in a separate terminal:
 
 ```bash
 pnpm dev:api
@@ -154,7 +219,7 @@ pnpm dev:web
 pnpm dev:worker
 ```
 
-Open `http://localhost:4200` and sign in. `POST /auth/dev-session` is available only when an explicit `SPORTOS_DEV_AUTH_TOKEN` is configured; keep it unset outside isolated development.
+Open `http://localhost:4200` and sign in.
 
 Stop local services with:
 
@@ -162,47 +227,29 @@ Stop local services with:
 pnpm db:down
 ```
 
-## Authentication, ownership, provider credentials, and analysis audit
+## Cockpit workflows
 
-SportOS does not store passwords. It maps the OIDC provider's immutable `(issuer, subject)` to an internal account UUID. A random opaque session is stored only as a digest and delivered in an HttpOnly cookie. Unsafe requests require a session-bound CSRF cookie/header pair. Credentialed CORS accepts only `SPORTOS_WEB_ORIGIN`.
+After authentication, the Angular cockpit provides:
 
-Every user-visible row has an owner. API and worker-data operations reserve an account-bound pooled connection, set the account context, run repository-owned transactions on that same connection, and clear the context before release. Forced PostgreSQL RLS filters reads and writes; provider, date, upload, rule-family, job, audit, and analysis-run identities are account scoped; cross-table links use same-owner constraints. A valid foreign UUID returns the same generic result as a nonexistent UUID.
+- **Analysis** — cited daily-range or score-breakdown guidance, official evidence, quality flags, and audit reference.
+- **Daily Log** — daily summaries, deterministic score totals, reconciliation, and exact ledger/rule/source provenance.
+- **Run Lab** — performance rankings, bounded event search, event detail, and provenance.
+- **Rules** — current rule versions, read-only preview, activation, recomputation progress, retry, and cancellation.
+- **Providers** — Strava connection, backfill, incremental sync, status, retry, cancellation, disconnect, and provenance.
+- **Imports** — browser upload, durable job status, history, diagnostics, retry, cancellation, and reconciliation handoff.
+- **Export** — bounded canonical JSON export with deterministic ordering and explicit provenance.
 
-The worker uses two non-superuser roles. A narrow dispatcher can inspect and lease queue lifecycle rows across owners but cannot read provider connections, credentials, raw source records, canonical facts, scoring data, ledgers, analysis audit rows, or authentication tables. A separate worker-data connection establishes the persisted owner before decrypting provider credentials or writing provider provenance and canonical data. V109 contains migration-time privilege assertions for this split; V110 keeps `analysis_runs` app-only and append-only.
+The browser renders API truth only. It never receives provider tokens, selects an owner, normalizes canonical facts, computes official scores, or treats generated guidance as authoritative.
 
-Credential ciphertext, nonces, authentication tags, key identifiers, access/refresh tokens, provider raw payloads, and provider-account identifiers are excluded from public API and export contracts. Disconnect attempts provider revocation, removes local credentials even when the remote provider is unavailable, and cancels queued or running sync work cooperatively.
+## Local workbook import CLI
 
-Analysis audit rows store a question digest, bounded date/range input summary, citation keys, generator metadata, outcome, and data-quality status. They do not store raw questions, generated answers, canonical facts, notes, source payloads, or account profile data.
-
-## Workbook and provider ingestion
-
-After sign-in, open **Imports**, select `my_sport` or `run_db`, choose one `.xlsx` file, and queue it. The API validates the extension, MIME signal, ZIP signature, workbook readability, filename, and 20 MB limit. Source bytes are stored outside Postgres; the request returns HTTP `202`, and the independent worker performs the import.
-
-Open **Providers** to connect Strava. An initial backfill or incremental sync runs through `provider_sync_jobs`. The worker refreshes near-expiry credentials, requests bounded pages until an empty page, persists each raw activity in `source_records`, and only then normalizes supported fields. Rate-limit responses are durably rescheduled without consuming the retry budget. A six-hour overlap around the high-watermark allows updated activities to converge after retries or provider delays.
-
-Provider activities use provider-native identity first. For an activity not previously linked, SportOS may link one exact canonical candidate matching type, start instant, distance, and moving time; the existing workbook/manual canonical row and provenance remain unchanged. No candidate creates a new provider canonical fact. Multiple exact candidates are retained as raw source with a `POTENTIAL_DUPLICATE` warning rather than guessed. Unsupported activity types are also retained as warning-bearing raw source records.
-
-Daily Log, Run Lab, Rules Studio, Analysis, provider jobs, import history, provenance, and exports are scoped to the signed-in account. Angular never calculates authoritative scores or bypasses the API's owner context.
-
-The local CLI remains available for the fixed legacy account:
+The fixed legacy-account CLI remains available:
 
 ```bash
 pnpm import:local -- \
   --mySport=/absolute/path/to/my_sport.xlsx \
   --runDb=/absolute/path/to/running-performance.xlsx
 ```
-
-## Read-only analysis
-
-The Analysis panel executes one of two fixed tools: a bounded daily range or one persisted score breakdown. Tool results contain deterministic facts, calculations, data-quality flags, and citation keys for canonical dates, activities, score-ledger rows, immutable rule versions, source records, and import batches.
-
-Generated guidance is returned in separate `observations`, `uncertainty`, and `suggestions` sections. Observations must cite evidence returned by the tool. Unknown citations, unsupported fields, invalid JSON, oversized output, model errors, and timeouts fall back to deterministic local guidance. Requests to edit authoritative data are refused before tool or model execution. Medical or recovery questions receive explicit uncertainty rather than a diagnosis.
-
-The generation boundary excludes imported narrative and private source metadata, including notes, filenames, sheet names, row/upload hashes, rule names/descriptions, and rule-name-derived ledger reason text. External generation is disabled unless explicitly configured.
-
-## Canonical export
-
-The canonical export endpoint downloads `sportos.canonical-export.v1` JSON for a required inclusive range of at most 3,660 days. One repeatable-read transaction assembles account-owned daily summaries, activities, performance events, reconciliation, and explicit provenance. Raw cells, provider payloads, formulas, upload hashes, object keys, paths, account IDs, authentication data, credential envelopes, tokens, source bytes, generated analysis, and analysis prompts are excluded.
 
 ## API surface
 
@@ -223,9 +270,11 @@ POST /auth/logout
 
 GET  /daily/summary?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=365
 GET  /daily/:date/score-breakdown
+
 GET  /performance/best?distanceM=5000&limit=50
 GET  /performance/events?distanceM=5000&from=YYYY-MM-DD&to=YYYY-MM-DD&limit=100
 GET  /performance/events/:eventId
+
 GET  /exports/canonical?from=YYYY-MM-DD&to=YYYY-MM-DD
 
 POST /analysis/tools/execute
@@ -234,10 +283,10 @@ POST /analysis/answers
 GET  /imports?limit=20&offset=0
 GET  /imports/:batchId?diagnosticLimit=100&diagnosticOffset=0
 POST /imports/upload
+POST /imports/local-files
 GET  /imports/jobs/:jobId
 POST /imports/jobs/:jobId/retry
 POST /imports/jobs/:jobId/cancel
-POST /imports/local-files
 
 GET  /providers/connections
 POST /providers/strava/connect
@@ -258,7 +307,22 @@ POST /rules/changes/:changeId/retry
 POST /rules/changes/:changeId/cancel
 ```
 
-All unsafe authenticated routes require `X-SportOS-CSRF`. Real dates, ordered ranges, maximum spans, positive distances, limits, UUIDs, analysis question length, and exact tool fields are validated before repository execution.
+All unsafe authenticated routes require `X-SportOS-CSRF`. The API validates real dates, ordered ranges, maximum spans, positive distances, limits, UUIDs, exact tool fields, and bounded questions before repository execution.
+
+## Repository layout
+
+| Path | Responsibility |
+|---|---|
+| `apps/api` | NestJS authentication, account context, HTTP validation, provider OAuth, reads, exports, analysis orchestration, and audit inserts |
+| `apps/web` | Angular authenticated cockpit and user-safe workflow states |
+| `apps/worker` | Queue dispatch plus owner-scoped import, provider, and rule workers; legacy CLI |
+| `packages/domain` | Pure deterministic scoring, reconciliation, rule validation, and preview logic |
+| `packages/db` | Kysely schema, account context, repositories, jobs, audits, read models, and export assembly |
+| `packages/importers` | Upload storage, XLSX extraction, provider contracts, normalization, warnings, and import transactions |
+| `packages/shared` | Shared schemas, serialization, real-date utilities, and export contracts |
+| `packages/analytics` | Pure analytics without database dependencies |
+| `flyway/sql` | Append-only schema migrations, constraints, RLS, grants, views, indexes, and privilege assertions |
+| `docs` | Architecture, roadmap, operational guidance, ADRs, and evidence |
 
 ## Validation
 
@@ -270,7 +334,7 @@ pnpm test
 pnpm build
 ```
 
-Create and migrate a disposable database ending in `_test` or `-test`, then exercise the non-superuser roles:
+For database integration, create and migrate a disposable database whose name ends in `_test` or `-test`, then run the suites through their intended non-owner roles:
 
 ```bash
 pnpm db:up
@@ -282,17 +346,47 @@ docker compose run --rm \
 SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:5432/sportos_test \
 SPORTOS_OWNER_TEST_DATABASE_URL=postgres://sportos_app:sportos_app@localhost:5432/sportos_test \
   pnpm --filter @sportos/db test:integration
+
 SPORTOS_OWNER_TEST_DATABASE_URL=postgres://sportos_app:sportos_app@localhost:5432/sportos_test \
   pnpm --filter @sportos/api exec vitest run src/analysis/analysis.integration.test.ts --no-file-parallelism
+
 SPORTOS_TEST_DATABASE_URL=postgres://sportos_worker:sportos_worker@localhost:5432/sportos_test \
 SPORTOS_WORKER_DATA_DATABASE_URL=postgres://sportos_worker_data:sportos_worker_data@localhost:5432/sportos_test \
   pnpm --filter @sportos/worker test:integration
+
 SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:5432/sportos_test \
   pnpm --filter @sportos/importers test:integration
 ```
 
-The suites cover migrations through V110, populated ownership upgrade, owner isolation, immutable ownership, cross-user negative cases, legacy identity claim, import/rule/provider job dispatch, denied dispatcher access to provider credentials, analysis audits, and canonical data, owner-scoped worker execution, rotating provider credentials, pagination and empty-page termination, raw provider provenance, idempotent repeated delivery, workbook/provider overlap, transactional imports, exact ledger UUIDs, canonical export privacy/provenance, read-only analysis evaluations and cross-account evidence, API session/CSRF validation, cockpit states, and production builds.
+CI covers frozen installation, fresh migration through V110, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
+
+## Current limitations
+
+The completed roadmap is a strong local and account-scoped foundation, not a finished hosted service. Work not yet implemented includes:
+
+- Garmin, Google Sheets, FIT, or additional provider synchronization;
+- operational provider-webhook subscription verification and inbox processing;
+- a broader cross-provider time-zone and locale policy;
+- hosted object deletion, backup, restoration, and account-erasure workflows;
+- managed key storage and automated credential-envelope migration;
+- hosted monitoring, alerting, deployment, external rate limiting, and wake-up acceleration;
+- streaming or durable hosted-scale export;
+- hosted model-gateway operations, broader semantic evaluation, and additional analysis tools.
+
+New product or operational work must be added and prioritized explicitly in [issue #3](https://github.com/vokerg/sportos/issues/3).
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Authentication and ownership](docs/AUTHENTICATION.md)
+- [Read-only analysis operations](docs/AI_ANALYSIS.md)
+- [Canonical export v1](docs/CANONICAL_EXPORT.md)
+- [First milestone evidence](docs/FIRST_MILESTONE.md)
+- [Architecture decision records](docs/adr/)
+- [Agent guidance](AGENTS.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing authentication, ownership, imports, providers, jobs, scoring rules, migrations, read models, analysis, or exports.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing authentication, ownership, imports, providers, jobs, scoring rules, migrations, read models, analysis, or exports. Always use the authoritative queue in [issue #3](https://github.com/vokerg/sportos/issues/3) to select implementation work.
