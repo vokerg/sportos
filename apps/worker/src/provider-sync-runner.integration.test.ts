@@ -171,7 +171,7 @@ databaseDescribe('ProviderSyncRunner database integration', () => {
     expect(secondEvidence.links).toHaveLength(2);
     expect(secondEvidence.sourceRecords).toHaveLength(5);
 
-    expect(await dispatchDb.selectFrom('provider_credentials').select('connection_id').execute()).toEqual([]);
+    await expect(dispatchDb.selectFrom('provider_credentials').select('connection_id').execute()).rejects.toThrow(/permission denied/i);
     expect(await dispatchDb.selectFrom('activities').select('id').execute()).toEqual([]);
   });
 
