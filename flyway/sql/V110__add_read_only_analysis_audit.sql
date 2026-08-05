@@ -43,6 +43,31 @@ REVOKE ALL ON analysis_runs
   FROM sportos_data, sportos_legacy, sportos_worker, sportos_worker_data, sportos_app;
 GRANT SELECT, INSERT ON analysis_runs TO sportos_app;
 
+-- V106 introduced the owner-aware daily view but accidentally omitted
+-- recomputed_at even though the typed read contract included it. Append the
+-- persisted timestamp without changing the order or meaning of existing columns.
+CREATE OR REPLACE VIEW v_daily_summary WITH (security_invoker = true) AS
+SELECT
+  dm.metric_date,
+  dm.steps,
+  dm.run_m,
+  dm.bike_m,
+  dm.swim_m,
+  dm.workout_points,
+  dm.power_points,
+  dm.base_points,
+  dm.bonus_points,
+  dm.total_points,
+  dm.excel_all_points,
+  CASE WHEN dm.excel_all_points IS NULL THEN NULL ELSE dm.total_points - dm.excel_all_points END AS points_delta_vs_excel,
+  avg(dm.total_points) OVER (PARTITION BY dm.owner_id ORDER BY dm.metric_date ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS avg_10d,
+  avg(dm.total_points) OVER (PARTITION BY dm.owner_id ORDER BY dm.metric_date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS avg_20d,
+  avg(dm.total_points) OVER (PARTITION BY dm.owner_id ORDER BY dm.metric_date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) AS avg_30d,
+  avg(dm.total_points) OVER (PARTITION BY dm.owner_id ORDER BY dm.metric_date ROWS BETWEEN 59 PRECEDING AND CURRENT ROW) AS avg_60d,
+  avg(dm.total_points) OVER (PARTITION BY dm.owner_id ORDER BY dm.metric_date ROWS BETWEEN 364 PRECEDING AND CURRENT ROW) AS avg_365d,
+  dm.recomputed_at
+FROM daily_metrics dm;
+
 DO $$
 BEGIN
   IF NOT has_table_privilege('sportos_app', 'analysis_runs', 'SELECT, INSERT') THEN
