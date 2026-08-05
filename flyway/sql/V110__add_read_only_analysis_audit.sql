@@ -11,7 +11,7 @@ CREATE TABLE analysis_runs (
   input_summary_json jsonb NOT NULL DEFAULT '{}'::jsonb
     CHECK (jsonb_typeof(input_summary_json) = 'object'),
   citation_keys text[] NOT NULL DEFAULT '{}'::text[]
-    CHECK (cardinality(citation_keys) <= 2000),
+    CHECK (cardinality(citation_keys) <= 3000),
   generator text NOT NULL CHECK (generator IN ('none', 'deterministic_fallback', 'external_model')),
   model_provider text CHECK (model_provider IS NULL OR char_length(model_provider) <= 100),
   model_name text CHECK (model_name IS NULL OR char_length(model_name) <= 200),
