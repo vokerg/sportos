@@ -1,325 +1,226 @@
 # ADR 0006: Provider ingestion framework and Strava adapter
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-08-04
 - Issue: #15
 
 ## Context
 
-SportOS currently ingests bounded workbook uploads. The importer already provides durable owner-scoped jobs, raw-before-normalized provenance, canonical activity/performance writes, deterministic scoring, retries, cancellation, and split dispatcher/data-worker authorization.
+SportOS already supports account-scoped workbook ingestion with durable jobs, raw-before-normalized provenance, deterministic scoring, and split queue-dispatch/owner-data authorization. Provider synchronization introduces different risks:
 
-A provider integration adds materially different concerns:
+- authorization and revocation are independent of SportOS sign-in;
+- access and refresh tokens must be recoverable by background work without being stored or exposed as plaintext;
+- backfills and incremental syncs require durable pagination, cursors, leases, retries, cancellation, and rate-limit handling;
+- provider records can overlap workbook activities;
+- raw provider snapshots must be retained before canonical writes;
+- the queue dispatcher must not gain access to credentials or canonical data;
+- provider-specific HTTP behavior must remain outside scoring and canonical domain logic.
 
-- a user grants and revokes provider authorization independently of SportOS sign-in;
-- access and refresh credentials must remain decryptable for background work, but must never be stored as plaintext, returned to the browser, exposed to the queue dispatcher, or logged;
-- backfills and incremental syncs need durable pagination/cursor state, rate-limit handling, retries, and restart recovery;
-- provider records can be created, updated, deleted, or made private after initial ingestion;
-- provider activities can overlap activities already imported from a workbook;
-- raw provider payloads must be persisted before canonical normalization;
-- provider-specific behavior must not leak into the canonical domain or make Strava the only possible integration.
-
-Strava's current API constraints shape the first adapter:
-
-- OAuth authorization codes are exchanged server-side with the application client secret;
-- access tokens are short lived and refresh responses may rotate the refresh token immediately;
-- activity-list endpoints are paginated and clients must continue until an empty page rather than treating a short page as terminal;
-- response headers expose 15-minute and daily application/read usage, and `429` responses require bounded rescheduling;
-- webhook events are the supported hint for activity changes and athlete deauthorization;
-- Strava is moving the V3 API hostname, so the adapter base URL must be configurable rather than scattered through application code;
-- the current token-revocation endpoint should be used for disconnect, while raw/canonical SportOS provenance remains retained.
-
-Official references:
-
-- <https://developers.strava.com/docs/authentication/>
-- <https://developers.strava.com/docs/rate-limits/>
-- <https://developers.strava.com/docs/webhooks/>
-- <https://developers.strava.com/docs/reference/>
-- <https://developers.strava.com/docs/changelog/>
+The first adapter targets Strava, but the persistence and orchestration boundaries are provider-neutral enough to support additional adapters later.
 
 ## Decision
 
-### Provider-neutral package boundary
+### Framework-neutral adapter and cipher boundary
 
-Create `@sportos/providers` as a framework-neutral package. It may depend on Node platform APIs and shared value contracts, but not NestJS, Angular, Kysely repositories, or worker process entry points.
+Provider contracts, the Strava adapter, transport abstraction, credential cipher, and pure tests live in `packages/importers` beside the existing external-ingestion contracts. A separate workspace package was considered but rejected for this milestone because the existing package already owns source adapters and is linked into both API and worker processes without changing the workspace dependency graph.
 
-The core adapter contract exposes:
+The adapter contract exposes authorization URL creation, authorization-code exchange, refresh, revoke, paginated activity retrieval, and individual activity retrieval. The adapter:
 
-```ts
-interface ProviderAdapter {
-  readonly provider: ProviderCode;
-  createAuthorizationUrl(input: AuthorizationRequest): URL;
-  exchangeAuthorizationCode(input: AuthorizationCodeExchange): Promise<ProviderAuthorization>;
-  refreshAuthorization(input: ProviderAuthorization): Promise<ProviderAuthorization>;
-  revokeAuthorization(input: ProviderAuthorization): Promise<void>;
-  fetchActivityPage(input: ActivityPageRequest): Promise<ActivityPage>;
-  fetchActivity(input: ActivityRequest): Promise<ProviderActivity | null>;
-}
-```
+- validates provider responses and bounded numeric/text fields;
+- converts provider errors into sanitized stable classifications;
+- exposes raw JSON and rate-limit metadata to orchestration;
+- never selects an owner, writes Postgres, creates canonical facts, or manages leases.
 
-Provider HTTP responses are converted into explicit transport results containing:
+The Strava HTTP transport rejects redirects, applies a 30-second timeout, and bounds response bodies to 5 MiB. Endpoint base URLs are configuration values rather than scattered constants.
 
-- sanitized provider error classification;
-- raw JSON payloads;
-- page/cursor information;
-- rate-limit limits and usage;
-- retry timing when known;
-- granted scopes and authorization expiry;
-- provider account identity.
+### Credential encryption and rotation
 
-The adapter does not write Postgres, create canonical facts, select owners, or manage job leases. API and worker orchestration own those responsibilities.
+Provider credentials are encrypted before persistence with AES-256-GCM.
 
-### Credential encryption and key rotation
+Deployment supplies a key ring and one active key ID. Each key is exactly 32 random bytes. The key ring is available only to the API provider service and owner-scoped provider worker; it is not stored in Postgres, returned to the browser, included in exports, or logged.
 
-Provider credentials are encrypted in the application before persistence using AES-256-GCM.
+Each envelope stores:
 
-Deployment configuration supplies a key ring and one active key identifier. Each key is exactly 32 random bytes. The key ring is available only to the API provider callback/service and provider data worker; it is not stored in Postgres, returned to the browser, embedded in a bundle, or logged.
+- key ID;
+- algorithm and envelope version;
+- random nonce;
+- ciphertext;
+- authentication tag;
+- creation and rotation timestamps.
 
-Persist a versioned envelope:
+Additional authenticated data binds the envelope to the owner UUID, connection UUID, provider code, and envelope version. Moving ciphertext to another owner or connection therefore fails authentication.
 
-- `key_id`
-- `algorithm` (`aes-256-gcm`)
-- `nonce`
-- `ciphertext`
-- `authentication_tag`
-- `created_at` / `rotated_at`
+Refresh responses may rotate the refresh token. The worker decrypts the current envelope, refreshes when expiry is near, and atomically replaces the encrypted access and refresh credentials plus expiry metadata. Refresh responses that omit the athlete object retain the existing immutable provider account identity and granted scopes.
 
-Authenticated additional data binds the envelope to:
+Old keys remain in the configured key ring until all envelopes encrypted with them have been rotated. New and refreshed credentials use the active key.
 
-- provider connection UUID;
-- owner UUID;
-- provider code;
-- credential-envelope version.
+### Durable persistence
 
-A ciphertext copied to another connection or account therefore fails authentication.
-
-`provider_credentials` is a separate one-to-one table from user-visible connection metadata. It is owner scoped and force-RLS protected, but is granted only to `sportos_app` and `sportos_worker_data`; it is excluded from `sportos_data`, `sportos_legacy`, and the dispatcher role.
-
-Refresh is serialized with `SELECT ... FOR UPDATE` on the credential row. The worker decrypts the latest envelope, refreshes only when required, and atomically replaces both access and refresh credentials because Strava can invalidate the previous refresh token immediately. Failures never include token material.
-
-A future key-rotation command can decrypt with the recorded key and re-encrypt with the active key without changing connection, provider, or canonical identifiers.
-
-### Durable provider persistence
-
-Add append-only migration V109 with the following account-owned tables.
+Flyway V109 adds the following tables.
 
 #### `provider_connections`
 
-Metadata safe for authenticated user-facing status:
+Account-owned user-visible metadata:
 
-- UUID and owner;
-- provider code (`strava` initially);
-- immutable provider account ID;
-- sanitized display label;
-- granted scopes;
-- connection status (`connected`, `reauthorization_required`, `revoked`, `disconnected`, `error`);
-- access-token expiry timestamp, without token material;
-- durable successful incremental high-watermark/cursor JSON;
-- last successful sync, last attempt, and sanitized error classification;
+- provider and immutable provider account identity;
+- safe display label and granted scopes;
+- connection status;
+- access-token expiry without token material;
+- successful incremental high-watermark;
+- last success, last attempt, and sanitized error fields;
 - created, updated, disconnected, and revoked timestamps.
 
-One provider account can belong to only one SportOS account. The global `(provider, provider_account_id)` uniqueness constraint prevents accidental multi-account attachment, while API errors remain generic to avoid enumeration. One active connection per owner/provider is supported for the first milestone.
+The first milestone supports one Strava connection per SportOS account. A provider account may not be attached to multiple SportOS accounts.
 
 #### `provider_credentials`
 
-One encrypted credential envelope per connection, same-owner constrained and immutable-owner protected. Deleting this row removes SportOS's ability to access the provider without deleting retained provenance or canonical history.
+One encrypted credential envelope per connection. The table is force-RLS protected and directly granted only to `sportos_app` and `sportos_worker_data`. It is explicitly unavailable to shared data roles, the legacy role, and the cross-owner dispatcher.
 
 #### `provider_oauth_transactions`
 
-One-time digest-backed provider authorization state tied to the authenticated owner, provider, safe return path, and expiry. It is API-control-plane data and is not granted to workers, legacy CLI, or shared runtime roles.
+One-time SHA-256-backed OAuth state tied to the authenticated owner, provider, safe return path, and expiry. Callback completion requires the same authenticated account that initiated the flow.
 
 #### `provider_sync_jobs`
 
-A durable queue separate from upload-only `import_jobs`:
+A Postgres-authoritative queue separate from upload-only import jobs. It stores:
 
-- owner and connection;
-- mode (`initial_backfill`, `incremental`, `webhook_refresh`);
-- status, phase, progress, attempts, cancellation, lease, heartbeat, and sanitized terminal error fields;
-- requested inclusive time bounds where applicable;
-- durable job cursor JSON updated after each committed page;
-- linked `import_batch_id` after the raw/canonical transaction commits;
-- result JSON containing counts and warnings only, never credentials or raw payloads.
+- owner, connection, and sync mode;
+- queued/running/succeeded/failed/cancelled state;
+- phase, progress, attempt budget, lease, heartbeat, and cancellation request;
+- frozen requested bounds;
+- durable page/count/high-watermark cursor;
+- linked import batch;
+- sanitized error and bounded result JSON.
 
-Postgres remains authoritative. The dispatcher may claim/recover provider jobs across owners but can read only queue lifecycle fields and the immutable owner/connection identifiers. It cannot read credentials, raw provider records, canonical data, or authentication tables. The provider worker opens a separate owner-scoped worker-data connection.
+Only one queued or running job may exist per connection. Queue capacity is bounded. Claims use the existing narrow dispatcher role; execution uses a separate owner-scoped worker-data connection.
 
-Only one queued/running sync job per connection is allowed. A failed job can be retried within its bounded attempt budget. A disconnected or revoked connection cannot enqueue or be claimed.
+Rate-limit rescheduling persists the committed page cursor, sets the next eligible attempt, releases the lease, and restores the attempt consumed by the claim. Both thrown 429 responses and successful responses whose published usage reaches a limit follow this path.
 
 #### `provider_activity_links`
 
-A same-owner mapping from `(connection_id, provider_activity_id)` to one canonical activity and the latest normalized source record. It stores provider update time and a deterministic identity fingerprint, but no credential or raw payload.
-
-This mapping makes repeated pages, retries, incremental syncs, and provider updates converge on one canonical activity even though each sync may retain a new raw snapshot.
+A same-owner mapping from `(connection_id, provider_activity_id)` to one canonical activity and the latest source snapshot. Provider-native identity is stable across edits. Raw content changes are represented by the source-record hash rather than by changing canonical provider identity.
 
 #### `provider_webhook_events`
 
-A bounded deduplicated inbox for provider event hints:
+V109 reserves a bounded deduplicated inbox schema for future verified webhook receipt and processing. Issue #15 does **not** expose a webhook receiver or background inbox processor. Initial backfill and incremental reconciliation are initiated through authenticated API/UI actions. Webhook verification, deauthorization processing, and targeted delete/private reconciliation remain follow-up work.
 
-- provider event identity/digest;
-- provider account/activity identity;
-- aspect (`create`, `update`, `delete`, `deauthorize`);
-- raw event JSON;
-- received and processed timestamps;
-- sanitized processing error.
+### Authorization and database roles
 
-Webhook receipt does not normalize facts directly. It records the event, resolves the owner through the provider account mapping without exposing whether one exists, and enqueues a provider sync job. Duplicate delivery converges through the inbox digest and active-job constraint.
+All provider-owned tables use non-null owner IDs, same-owner foreign keys where applicable, immutable-owner triggers, and forced row-level security.
 
-### Raw-before-normalized flow
+The migration first revokes inherited/default access and then grants exact privileges. It contains migration-time assertions that:
 
-A provider sync job creates an `import_batches` row with `source_kind = 'strava'`, `source = 'strava_api'`, and a same-owner provider connection/job link.
+- `sportos_worker_data` can read and rotate owner-scoped credentials;
+- `sportos_worker` can inspect and transition provider queue rows;
+- `sportos_worker` cannot read provider connections, credentials, source records, or canonical activities.
 
-For every fetched activity:
+The browser never supplies an owner or provider account ID as authority. Controllers derive the owner from the authenticated session. Foreign and nonexistent connection/job UUIDs remain indistinguishable through owner-scoped queries.
 
-1. validate size and required identity fields;
-2. persist a `source_records` row containing the bounded raw JSON, provider activity ID, page/cursor metadata, and deterministic raw hash;
-3. only after the raw row exists, map supported fields conservatively;
-4. insert/update the canonical activity through `provider_activity_links`;
-5. optionally create/update a performance event for supported run-distance records;
-6. link every raw snapshot to the resulting canonical activity or mark it skipped/error with warnings;
-7. commit the page and durable job cursor together.
+### Raw-before-normalized synchronization
 
-Retries may retain the same raw snapshot in a new batch, but canonical facts converge through the provider activity link and existing owner/source identities. Raw payloads stay out of API summaries, logs, exports, and job result JSON.
+A provider job creates an `import_batches` row with source kind `strava` and source `strava_api`. Each provider activity is processed as follows:
 
-### Conservative Strava mapping
+1. validate and bound the provider representation;
+2. retain a raw `source_records` snapshot with provider activity ID and deterministic content hash;
+3. map only explicitly supported activity types and fields;
+4. resolve an existing provider link, an exact cross-source candidate, an ambiguous collision, or a new canonical activity;
+5. write/update the provider link and source-to-canonical provenance;
+6. create or update a provider performance event only for a provider-owned supported run;
+7. commit batch counts and job cursor after the page has committed.
 
-The first adapter requests the minimum configured read scope needed for the selected connection mode. The callback verifies the actual granted scope and refuses to mark the connection usable when required scope is absent.
+Unsupported activities remain raw source rows with warnings. Ambiguous exact candidates are retained as skipped `POTENTIAL_DUPLICATE` rows and do not create a second canonical fact.
 
-Canonical mapping rules:
+For an existing workbook/manual activity, an exact match requires the same canonical type, local activity date, exact UTC start instant, distance (including explicit null semantics), and moving duration. A single match receives a provider link while retaining its original source fields and values. Multiple matches are never guessed.
 
-- provider activity ID is retained as a string, never coerced through an unsafe JavaScript number;
-- `start_date` is the canonical UTC instant;
-- the provider-local calendar date is derived from validated provider local date/time metadata and retained with the raw timezone value;
-- supported activity types map explicitly to SportOS activity types; unknown or unsupported types are skipped with a warning rather than guessed;
-- distance, elapsed/moving duration, elevation, heart rate, speed, and manual/indoor/race indicators are mapped only when finite and semantically documented;
-- privacy-sensitive map/polyline/location fields remain in bounded raw provenance and are not exposed in canonical API/export contracts;
-- deleted or newly inaccessible provider activities mark the provider link unavailable and trigger a documented canonical retention/reconciliation policy rather than silently erasing audit history.
+Repeated pages, retries, incremental overlap, and provider edits converge through `(owner, connection, provider_activity_id)`. Raw snapshots may repeat across different batches, but canonical facts and provider links remain stable.
 
-The API base URL is one adapter configuration value. The default follows the current official V3 hostname, while tests use a fake transport.
+### Pagination, cursors, and high-watermarks
 
-### Pagination, cursors, and rate limits
+The adapter requests at most 200 activities per page and continues until an empty page. An initial backfill freezes an upper bound. An incremental sync starts six hours before the last successful high-watermark to safely reread boundary updates.
 
-The Strava adapter requests at most 200 activities per page. It continues until an empty page because the provider documents that a non-final page can contain fewer rows than requested.
+The job cursor stores the next page, counts, and the maximum observed activity start instant. A retry or rate-limit resume starts from that cursor. A successful empty incremental run preserves the connection’s previous high-watermark instead of clearing it.
 
-An initial backfill freezes an upper `before` bound and persists page/cursor progress after each committed page. An incremental sync starts from the last successful high-watermark with a small deterministic overlap window so boundary updates are re-read safely. Provider IDs and update timestamps make overlap delivery idempotent.
+The independent worker uses bounded concurrency, polling, leases, heartbeats, stale recovery, cooperative cancellation, and graceful process shutdown. Provider execution is enabled only when all Strava and credential-key settings are present.
 
-Every response records the rate-limit headers in the job's bounded operational metadata. The worker stops before exhausting a known limit and reschedules `next_attempt_at` at the next natural 15-minute boundary or the next UTC daily reset as appropriate. `429` is retryable without consuming unbounded attempts; malformed authorization, missing scopes, or revoked credentials transition the connection to `reauthorization_required` or `revoked`.
+### Disconnect and retention
 
-No busy-loop polling is allowed. Webhooks are event hints; scheduled incremental reconciliation remains the correctness backstop.
+Authenticated disconnect serializes through the connection row, attempts provider revocation, deletes the encrypted credential regardless of an idempotent provider not-found response, cancels queued jobs, requests cancellation of running work, and marks the connection disconnected.
 
-### Cross-source identity policy
-
-Workbook and provider records are not silently merged by approximate distance or date alone.
-
-For each provider activity, compute a versioned fingerprint from documented normalized facts such as activity type, exact UTC start when known, integer distance, and moving/elapsed duration.
-
-Resolution order:
-
-1. an existing `(connection, provider_activity_id)` link always wins and updates the same canonical activity;
-2. an exact high-confidence fingerprint match to one canonical activity may attach the provider source to that activity;
-3. no match creates a new canonical activity and provider link;
-4. ambiguous or near matches are not normalized into a second scoring fact; the source record is retained with a `POTENTIAL_DUPLICATE` warning and surfaced for explicit resolution.
-
-The fingerprint version and decision are recorded in provenance. Changing the policy requires a new version and migration/reconciliation path; historical decisions are not reinterpreted silently.
-
-### Disconnect, revoke, and retention
-
-Authenticated disconnect:
-
-1. serializes against refresh/sync work;
-2. attempts the provider's current revocation endpoint with server-side client authentication;
-3. deletes the encrypted credential row regardless of a provider's idempotent not-found response;
-4. marks the connection disconnected and cancels queued jobs;
-5. prevents future claims and webhook-triggered syncs.
-
-Provider deauthorization webhook marks the connection revoked, deletes credentials, and cancels queued jobs.
-
-Disconnect/revoke does not delete import batches, raw source records, provider links, canonical facts, scores, or audit history. Account deletion remains a separate explicit audited lifecycle.
+Disconnect does not delete retained import batches, raw snapshots, provider links, canonical facts, performance events, scores, or audit history. Account erasure remains a separate explicit lifecycle.
 
 ### API and browser boundary
 
-Authenticated API routes will provide:
+Authenticated routes provide:
 
-- start connection;
-- callback completion;
-- connection/status list;
-- enqueue bounded backfill or incremental sync;
-- job status/retry/cancel;
-- disconnect;
-- provider provenance and warnings.
+- start Strava authorization and complete the callback;
+- list safe connection metadata;
+- enqueue initial backfill or incremental sync;
+- list and read job status;
+- retry, cancel, and disconnect.
 
-Owner and provider account identifiers are never accepted as authority from browser input. Controllers derive the SportOS owner from the session. Valid foreign connection/job UUIDs return the same generic result as nonexistent UUIDs.
+The Angular panel supports connection, sync/backfill, progress, retry, cancel, disconnect, latest-job recovery after reload, bounded polling, and manual refresh after polling pauses.
 
-The browser receives only status, granted-scope names, safe provider display metadata, sync progress/counts, warnings, and provenance references. It never receives access tokens, refresh tokens, ciphertext, nonce/tag, key IDs, provider client secret, raw payloads, dispatcher fields, or foreign account details.
+The API/browser contracts exclude access tokens, refresh tokens, ciphertext, nonce/tag, key IDs, client secrets, raw provider payloads, dispatcher lease fields, account IDs, and foreign-account details.
 
-### Validation strategy
+## Validation evidence
 
-Use a fake provider transport and sanitized contract fixtures. Required evidence includes:
+The CI gate includes:
 
-- authorization callback and scope validation;
-- credential encryption/decryption, AAD mismatch rejection, malformed envelope rejection, and key rotation;
-- serialized refresh-token rotation;
-- initial backfill across multiple pages;
-- continuation after a short non-empty page and termination only on empty page;
-- durable cursor restart after worker interruption;
-- incremental overlap without canonical duplicates;
-- retry delivery and stale lease recovery;
-- 429 and near-limit rescheduling;
-- revoked/expired authorization behavior;
-- webhook duplicate delivery and deauthorization;
-- same-user access and denied cross-user connection/job/provenance access;
-- dispatcher denial for credentials/raw/canonical data;
-- raw-before-normalized rollback behavior;
-- workbook overlap exact-match, no-match, and ambiguous-match fixtures;
-- disconnect/reconnect with retained provenance;
-- fresh migration, non-owner integration, importer/worker regressions, and root build.
-
-A manual seed path may insert an encrypted test authorization only in explicit local development; plaintext credentials must never be committed or accepted by a production browser route.
+- fresh V109 migration and populated V105-to-V109 upgrade;
+- migration-time role/privilege assertions;
+- TypeScript project and Angular typechecking;
+- credential round-trip, AAD isolation, key rotation, and malformed configuration tests;
+- Strava OAuth/refresh, activity mapping, response-size, and rate-limit classification tests;
+- API owner forwarding, UUID/range validation, and safe callback redirect tests;
+- Angular recovery and bounded-polling tests;
+- provider worker integration covering token refresh, multi-page empty termination, raw retention, exact workbook overlap, provider-only normalization, repeated-delivery convergence, dispatcher denial, and durable rate-limit rescheduling;
+- existing import, rule-recomputation, database ownership, canonical export, importer, and production build regressions.
 
 ## Consequences
 
 ### Positive
 
-- Provider-specific HTTP/OAuth behavior remains isolated from canonical scoring and framework code.
-- Credentials are recoverable for background work without being plaintext at rest.
-- Queue dispatch remains separated from sensitive provider/canonical data.
-- Raw payloads and pagination state survive retries and worker restarts.
-- Repeated syncs converge through provider identity links.
-- Cross-source overlap cannot silently double-count ambiguous activities.
-- The same framework can support Garmin or another provider without copying ownership, encryption, queue, and provenance rules.
+- Provider credentials are decryptable for authorized background work without plaintext-at-rest storage.
+- Queue discovery remains separated from credentials and canonical data.
+- Raw provider snapshots and durable cursors make retries auditable and restart-safe.
+- Provider identity remains stable across edits.
+- Exact cross-source overlap avoids silent double counting while ambiguous collisions remain visible.
+- Provider-specific HTTP behavior remains outside canonical scoring logic.
 
-### Costs and risks
+### Costs and limitations
 
-- Application-layer encryption requires operational key provisioning, rotation, backup, and disaster-recovery procedures.
-- One worker process currently hosts multiple runners; provider code must still preserve database-role separation and avoid sharing decrypted credentials outside the provider runner.
-- Webhook verification and provider application registration are deployment obligations.
-- Provider API terms, hostnames, schemas, and limits can change and require monitored adapter updates.
-- Conservative collision handling can require user review before a provider activity affects official scoring.
-- Raw provider retention increases database/storage volume and needs bounded payload and retention policy work.
+- Deployments must provision, back up, rotate, and retain encryption keys safely.
+- Raw provider retention increases database volume and requires a future retention policy.
+- The first milestone has one Strava connection per account and manual sync initiation.
+- Verified webhook ingress/processing, provider-side deletion/private reconciliation, scheduled reconciliation, and account-erasure policy are deferred.
+- Conservative cross-source matching may require future explicit review tooling for ambiguous rows.
 
 ## Rejected alternatives
 
-### Store provider tokens as plaintext in Postgres
+### Store provider tokens as plaintext
 
-Rejected because a database read, backup leak, or overly broad role would immediately expose live authorization material.
+Rejected because a database read, backup leak, or overly broad role would expose live authorization material.
 
 ### Hash provider tokens like SportOS sessions
 
-Rejected because background sync and revocation require the original provider credential.
+Rejected because background refresh and revocation require the original credential.
 
-### Give the dispatcher access to encrypted credentials
+### Give the dispatcher credential access
 
-Rejected because queue discovery does not require credentials and the split-role boundary exists specifically to limit a cross-owner identity.
+Rejected because cross-owner queue discovery does not require credentials.
 
-### Reuse upload-only `import_jobs`
+### Reuse upload-only import jobs
 
-Rejected because provider sync has no uploaded file and requires provider connection, mode, cursor, rate-limit, webhook, and refresh semantics. A separate queue can still reuse the same lease/state-machine pattern.
+Rejected because provider work has no uploaded file and requires connection, mode, cursor, refresh, and rate-limit semantics.
 
 ### Persist only normalized activities
 
-Rejected because it would violate raw-before-normalized provenance, make mapping changes unauditable, and prevent reliable replay/debugging.
+Rejected because it would remove replayable provenance and make mapping changes unauditable.
 
-### Auto-merge workbook/provider activities by date and approximate distance
+### Auto-merge by approximate date or distance
 
-Rejected because unrelated activities can share those values and a false merge is harder to detect than a surfaced unresolved collision.
+Rejected because false merges are harder to detect than explicit unresolved collisions.
 
 ### Let webhooks write canonical facts directly
 
-Rejected because webhook delivery is duplicated, unordered, partial, and does not contain a complete activity representation. Webhooks enqueue durable sync work instead.
+Rejected because webhook delivery is partial, duplicated, and unordered. A future webhook receiver will enqueue durable reconciliation work instead.
