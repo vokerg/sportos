@@ -1,16 +1,33 @@
 import { BadRequestException } from '@nestjs/common';
 import { isIsoDate } from '@sportos/db';
 import { parseDateRange } from '../query-validation.js';
-import type { AnalysisToolRequest } from './analysis.contracts.js';
+import type { AnalysisAnswerRequest, AnalysisToolRequest } from './analysis.contracts.js';
 
-const TOP_LEVEL_KEYS = new Set(['tool', 'input']);
+const TOOL_KEYS = new Set(['tool', 'input']);
+const ANSWER_KEYS = new Set(['question', 'tool', 'input']);
 
 export function parseAnalysisToolRequest(value: unknown): AnalysisToolRequest {
   const body = requireRecord(value, 'Request body must be an object.');
-  assertOnlyKeys(body, TOP_LEVEL_KEYS);
+  assertOnlyKeys(body, TOOL_KEYS);
+  return parseToolAndInput(body.tool, body.input);
+}
 
-  if (body.tool === 'daily_summary') {
-    const input = requireRecord(body.input, 'daily_summary input must be an object.');
+export function parseAnalysisAnswerRequest(value: unknown): AnalysisAnswerRequest {
+  const body = requireRecord(value, 'Request body must be an object.');
+  assertOnlyKeys(body, ANSWER_KEYS);
+  const question = requireString(body.question, 'question').trim();
+  if (question.length === 0 || question.length > 500) {
+    invalid('INVALID_ANALYSIS_QUESTION', 'question must contain from 1 through 500 characters.');
+  }
+  return {
+    question,
+    toolRequest: parseToolAndInput(body.tool, body.input),
+  };
+}
+
+function parseToolAndInput(tool: unknown, rawInput: unknown): AnalysisToolRequest {
+  if (tool === 'daily_summary') {
+    const input = requireRecord(rawInput, 'daily_summary input must be an object.');
     assertOnlyKeys(input, new Set(['from', 'to', 'limit']));
     const from = requireString(input.from, 'from');
     const to = requireString(input.to, 'to');
@@ -25,8 +42,8 @@ export function parseAnalysisToolRequest(value: unknown): AnalysisToolRequest {
     };
   }
 
-  if (body.tool === 'daily_score_breakdown') {
-    const input = requireRecord(body.input, 'daily_score_breakdown input must be an object.');
+  if (tool === 'daily_score_breakdown') {
+    const input = requireRecord(rawInput, 'daily_score_breakdown input must be an object.');
     assertOnlyKeys(input, new Set(['date']));
     const date = requireString(input.date, 'date');
     if (!isIsoDate(date)) {
