@@ -13,6 +13,10 @@ import type {
   DailySummaryToolRequest,
 } from './analysis.contracts.js';
 
+type AnalysisToolResult =
+  | AnalysisToolEnvelope<DailySummaryFacts>
+  | AnalysisToolEnvelope<DailyScoreBreakdownFacts | null>;
+
 @Injectable()
 export class AnalysisService {
   constructor(@Inject(DailyService) private readonly dailyService: DailyService) {}
@@ -25,10 +29,11 @@ export class AnalysisService {
     request: DailyScoreBreakdownToolRequest,
     accountId?: string,
   ): Promise<AnalysisToolEnvelope<DailyScoreBreakdownFacts | null>>;
+  execute(request: AnalysisToolRequest, accountId?: string): Promise<AnalysisToolResult>;
   execute(
     request: AnalysisToolRequest,
     accountId = LEGACY_ACCOUNT_ID,
-  ): Promise<AnalysisToolEnvelope<DailySummaryFacts> | AnalysisToolEnvelope<DailyScoreBreakdownFacts | null>> {
+  ): Promise<AnalysisToolResult> {
     switch (request.tool) {
       case 'daily_summary':
         return this.dailySummary(request, accountId);
