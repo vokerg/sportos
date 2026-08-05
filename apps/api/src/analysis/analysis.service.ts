@@ -202,7 +202,7 @@ export function requestsAuthoritativeWrite(question: string): boolean {
 }
 
 export function requestsHealthConclusion(question: string): boolean {
-  return /\b(diagnos|injur|illness|medical|overtrain|ready to train|recovered|recovery status)\b/i.test(question);
+  return /\b(diagnos(?:e|ed|ing|is)?|injur(?:y|ed|ies)?|illness|medical|overtrain(?:ed|ing)?|ready to train|recover(?:ed|y status)|recovery status)\b/i.test(question);
 }
 
 function hashText(value: string): string {

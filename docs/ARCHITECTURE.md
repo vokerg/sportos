@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace spreadsheet formulas with a canonical, auditable sports-data system while preserving source provenance, deterministic score explanations, account ownership, and conservative external-provider ingestion.
+Replace spreadsheet formulas with a canonical, auditable sports-data system while preserving source provenance, deterministic score explanations, account ownership, conservative external-provider ingestion, and cited read-only generated analysis.
 
 ```text
 OIDC provider -> opaque API session + CSRF
@@ -38,16 +38,29 @@ browser XLSX -> upload storage       Strava OAuth -> encrypted credential envelo
         daily_metrics + scoring_rules + score_ledger
                           |
                           v
-       owner-scoped reads + canonical export -> Angular cockpit
+       owner-scoped read repositories + deterministic analysis tools
+                          |                         |
+                          |                         v
+                          |            validated generator + safe fallback
+                          |                         |
+                          |                         v
+                          |                 analysis_runs audit
+                          |                         |
+                          +------------+------------+
+                                       |
+                                       v
+                   canonical export + Angular cockpit
 ```
 
 ## System boundary
 
-SportOS is an authenticated account-scoped monorepo. Postgres is authoritative for accounts, external identities, sessions, ownership, provider connection metadata, encrypted credential envelopes, OAuth state, sync cursors, job leases, audit history, provenance, canonical facts, rule versions, and official scores. Workbook bytes remain outside Postgres behind a replaceable storage contract.
+SportOS is an authenticated account-scoped monorepo. Postgres is authoritative for accounts, external identities, sessions, ownership, provider connection metadata, encrypted credential envelopes, OAuth state, sync cursors, job leases, audit history, provenance, canonical facts, rule versions, official scores, and append-only analysis-run metadata. Workbook bytes remain outside Postgres behind a replaceable storage contract. Generated guidance is not authoritative state.
 
-The API authenticates an opaque server-side session, validates CSRF for unsafe methods, reserves one pooled connection, establishes the authenticated account on that connection, runs repository-owned transactions, and clears the context before release. Angular renders API truth only.
+The API authenticates an opaque server-side session, validates CSRF for unsafe methods, reserves one pooled connection, establishes the authenticated account on that connection, runs repository-owned transactions, and clears the context before release. Angular renders API truth and explicitly separates generated guidance from official records.
 
-Background processing uses two database identities. A narrow dispatcher may discover and lease import, provider-sync, and rule-change jobs across accounts but cannot read provider connections or credentials, source rows, canonical facts, scoring rules, ledgers, performance data, or authentication data. A separate worker-data identity establishes the persisted owner before decrypting provider credentials or executing account data work.
+Background processing uses two database identities. A narrow dispatcher may discover and lease import, provider-sync, and rule-change jobs across accounts but cannot read provider connections or credentials, source rows, canonical facts, scoring rules, ledgers, performance data, analysis audit rows, or authentication data. A separate worker-data identity establishes the persisted owner before decrypting provider credentials or executing account data work.
+
+Read-only analysis is an API-only composition boundary. Fixed account-scoped tools return sanitized facts, deterministic calculations, citations, and data-quality flags. An optional generator may summarize those results but cannot invoke repositories, issue SQL, select an owner, or write official data. The only analysis write is an append-only audit insert through a repository whose database grant is limited to `SELECT, INSERT` on `analysis_runs`.
 
 ## Architectural invariants
 
@@ -75,7 +88,13 @@ Background processing uses two database identities. A narrow dispatcher may disc
 22. Sessions are opaque, digest-backed, bounded by idle/absolute expiry, revocable, and protected by session-bound CSRF.
 23. Public dates are real `YYYY-MM-DD` calendar values normalized at repository boundaries.
 24. Canonical exports are owner scoped, versioned, range bounded, deterministic, count checked, and assembled from one repeatable-read snapshot.
-25. Raw cells, formulas, raw provider payloads, upload hashes, storage internals, account IDs, authentication data, credential envelopes, and source bytes are excluded from canonical export.
+25. Raw cells, formulas, raw provider payloads, upload hashes, storage internals, account IDs, authentication data, credential envelopes, source bytes, prompts, and generated analysis are excluded from canonical export.
+26. Analysis accepts only a fixed tool allowlist with exact, bounded inputs; models and browsers cannot provide owner identifiers, SQL, repository names, or arbitrary filters.
+27. Totals, trends, comparisons, and official score explanations used by analysis are deterministic application output.
+28. Generated observations may cite only evidence keys returned by the executed tool; invalid output falls back safely.
+29. Imported/user-authored narrative and private source metadata are excluded from the generation boundary and never treated as instructions.
+30. Analysis audit rows are owner scoped, append-only for the API role, and omit raw questions, generated answers, and canonical fact payloads.
+31. Generated guidance, uncertainty, suggestions, and official records remain visibly and structurally distinct.
 
 ## Identity, sessions, and authorization
 
@@ -92,25 +111,26 @@ The migrated single-user data belongs to fixed legacy account `00000000-0000-400
 
 Runtime database identities:
 
-- `sportos_app` — authentication control plane, provider authorization callbacks, and account-scoped API data;
+- `sportos_app` — authentication control plane, provider authorization callbacks, account-scoped API data, and append-only analysis audit inserts;
 - `sportos_legacy` — fixed legacy-account local CLI and compatibility tests;
 - `sportos_worker` — narrow cross-owner queue dispatcher;
 - `sportos_worker_data` — account-scoped import, provider-sync, and recomputation execution;
-- `sportos_data` — shared no-login privileges, excluding authentication and provider credential control planes.
+- `sportos_data` — shared no-login privileges, excluding authentication, provider credential, and analysis-audit control planes.
 
-Credentialed CORS accepts one configured web origin. Unsafe authenticated requests require the readable CSRF cookie to be echoed in `X-SportOS-CSRF` and matched to the active session digest.
+Credentialed CORS accepts one configured web origin. Unsafe authenticated requests, including analysis `POST` routes, require the readable CSRF cookie to be echoed in `X-SportOS-CSRF` and matched to the active session digest.
 
-See [ADR 0005](adr/0005-authentication-and-data-ownership.md) and [AUTHENTICATION.md](AUTHENTICATION.md).
+See [ADR 0005](adr/0005-authentication-and-data-ownership.md), [ADR 0007](adr/0007-read-only-ai-analysis.md), [AUTHENTICATION.md](AUTHENTICATION.md), and [AI_ANALYSIS.md](AI_ANALYSIS.md).
 
-## Ownership and provider migrations
+## Ownership, provider, and analysis migrations
 
 - V105.1 creates upgrade-safe runtime-role placeholders.
 - V106 creates identity/session tables, creates and backfills the legacy account, adds non-null owners, converts global identities to account scope, replaces links with same-owner foreign keys, enables forced RLS, and recreates owner-aware views.
 - V107 removes owner/private identity fields from the public performance view.
 - V108 separates dispatcher and worker-data authorization, restricts authentication-table grants, removes broad future grants, and makes ownership immutable.
 - V109 creates provider connections, encrypted credential envelopes, OAuth transactions, sync jobs, activity links, and a bounded webhook inbox; it applies forced RLS, direct least-privilege grants, and migration-time privilege assertions.
+- V110 creates append-only owner-scoped `analysis_runs`, grants only `SELECT, INSERT` to `sportos_app`, denies worker/legacy access, and asserts those privileges during migration.
 
-Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance.
+Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance. Analysis adds audit metadata only and does not rewrite canonical or scoring rows.
 
 ## Data and job layers
 
@@ -160,11 +180,17 @@ A rule family is `(owner_id, code)` and a version is `(owner_id, code, version)`
 
 Activation records the authenticated account as actor. The dispatcher claims the audit job; the worker-data executor establishes the owner and atomically closes the superseded range, enables the proposed UUID, recomputes affected totals, replaces ledger rows, and completes the audit.
 
-### Read models and export
+### Read models, analysis, and export
 
 Invoker-security views operate over RLS-filtered tables and partition window functions by owner before omitting owner fields from public shapes.
 
 Repositories provide narrow boundaries for daily score explanations, bounded cockpit summaries, performance/provenance reads, rule workflows, import/provider diagnostics, and strict canonical export. Provider credentials and raw payloads are never part of public read models or canonical export.
+
+The analysis tool service reuses the daily read service under the authenticated account. It emits fixed-shape facts, deterministic statistics, exact source/rule/activity identifiers, and data-quality flags. It excludes filenames, notes, sheet names, hashes, rule codes/names/descriptions, and rule-name-derived ledger reason text before any external generation.
+
+The generator boundary is provider-neutral. The deterministic fallback is the default. An explicitly configured HTTPS JSON endpoint may receive the bounded question plus sanitized official record and citation allowlist. Its output is accepted only when it matches the exact three-section schema and every observation cites returned evidence. Otherwise the fallback is used.
+
+`analysis_runs` stores a question digest, bounded tool input summary, citation keys, generator metadata, outcome, and data-quality status. The raw question, generated text, facts, prompts, tokens, and user profile are not retained.
 
 ## Runtime flows
 
@@ -195,16 +221,27 @@ Repositories provide narrow boundaries for daily score explanations, bounded coc
 4. Queued jobs are cancelled; running jobs receive cooperative cancellation.
 5. Connection metadata/provenance remains for audit while future synchronization is disabled.
 
+### Read-only analysis
+
+1. Authenticated Angular submits a bounded question plus one fixed tool request; no owner identifier is accepted.
+2. The API validates exact fields, real dates, ordered ranges, limits, and question length.
+3. Requests to mutate authoritative data are refused before tool or generator execution.
+4. The tool service enters the authenticated account context and retrieves only the fixed read model.
+5. Deterministic application code computes totals/comparisons and emits sanitized facts, citations, and quality flags.
+6. Missing data uses deterministic insufficient-data guidance. Otherwise the configured generator runs; invalid or unavailable external output falls back deterministically.
+7. The API inserts an owner-scoped audit row containing only digest/metadata/source identifiers.
+8. Angular renders generated guidance separately from official evidence, quality flags, citations, and audit reference.
+
 ## Package responsibilities
 
 | Package or app | Responsibility |
 |---|---|
-| `apps/api` | OIDC/session/CSRF, provider OAuth, account context, HTTP validation, orchestration, reads, export delivery |
-| `apps/web` | authenticated accessible cockpit and provider workflows; no authoritative calculations or credential handling |
+| `apps/api` | OIDC/session/CSRF, provider OAuth, account context, HTTP validation, orchestration, reads, analysis tools/generation validation, audit inserts, export delivery |
+| `apps/web` | authenticated accessible cockpit, provider workflows, and separated generated/official analysis UI; no authoritative calculations or credential handling |
 | `apps/worker` | split queue dispatch and owner-scoped import/provider/rule execution; legacy CLI |
 | `packages/shared` | serialization schemas, real-date utilities, canonical export contract |
 | `packages/domain` | pure aggregation, scoring, reconciliation, rule validation, preview logic |
-| `packages/db` | identity/session/provider persistence, account context, typed schema, RLS-compatible repositories, dispatcher, leases, audits, reads, export assembly |
+| `packages/db` | identity/session/provider/analysis-audit persistence, account context, typed schema, RLS-compatible repositories, dispatcher, leases, audits, reads, export assembly |
 | `packages/importers` | storage, XLSX extraction, provider adapter/cipher contracts, normalization, warnings, import transactions |
 | `packages/analytics` | pure analytics without database dependencies |
 | `flyway/sql` | append-only migrations, grants, ownership constraints, RLS, views, indexes, privilege assertions |
@@ -219,6 +256,9 @@ Repositories provide narrow boundaries for daily score explanations, bounded coc
 - Strava fixtures exercise documented contracts but cannot replace production sandbox/limited-athlete operational testing.
 - Provider webhook subscription verification and inbox processing are not yet operational.
 - Provider-local dates are retained conservatively; a broader cross-provider time-zone/locale decision remains future work.
-- Rule recomputation and canonical export remain intentionally bounded.
+- Rule recomputation, canonical export, and the initial analysis tool ranges remain intentionally bounded.
+- Citation validation proves that generated observations reference returned evidence; it does not prove perfect semantic entailment for every external-model sentence.
+- Operators enabling external generation are responsible for endpoint retention, regional processing, access control, vendor terms, and monitoring.
+- Append-only analysis audit metadata must be incorporated into any future audited account-deletion workflow.
 
 Milestone sequencing is tracked in [ROADMAP.md](ROADMAP.md).

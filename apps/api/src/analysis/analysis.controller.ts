@@ -10,7 +10,7 @@ export class AnalysisController {
   constructor(@Inject(AnalysisService) private readonly analysisService: AnalysisService) {}
 
   @Post('tools/execute')
-  execute(@Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
+  async execute(@Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
     return this.analysisService.executeTool(
       parseAnalysisToolRequest(body),
       account?.id ?? LEGACY_ACCOUNT_ID,
@@ -18,7 +18,7 @@ export class AnalysisController {
   }
 
   @Post('answers')
-  answer(@Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
+  async answer(@Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
     return this.analysisService.answer(
       parseAnalysisAnswerRequest(body),
       account?.id ?? LEGACY_ACCOUNT_ID,
