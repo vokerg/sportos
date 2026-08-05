@@ -61,6 +61,13 @@ export class ProviderApiService {
     );
   }
 
+  syncJobs(connectionId: string, limit = 20) {
+    const boundedLimit = Math.min(100, Math.max(1, Math.trunc(limit)));
+    return this.http.get<ProviderSyncJob[]>(
+      `${this.api.apiBase()}/providers/connections/${encodeURIComponent(connectionId)}/jobs?limit=${boundedLimit}`,
+    );
+  }
+
   syncJob(jobId: string) {
     return this.http.get<ProviderSyncJob>(`${this.api.apiBase()}/providers/jobs/${encodeURIComponent(jobId)}`);
   }
