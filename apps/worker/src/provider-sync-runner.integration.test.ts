@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
   LEGACY_ACCOUNT_ID,
@@ -79,6 +79,8 @@ class FakeStravaAdapter implements ProviderAdapter {
   refreshes = 0;
   pageRequests: number[] = [];
 
+  constructor(private readonly retryAtAfterFirstPage: Date | null = null) {}
+
   createAuthorizationUrl(_input: AuthorizationRequest): URL { return new URL('https://example.test/authorize'); }
   async exchangeAuthorizationCode(_input: AuthorizationCodeExchange): Promise<ProviderAuthorization> { return authorization; }
   async refreshAuthorization(input: ProviderAuthorization): Promise<ProviderAuthorization> {
@@ -89,8 +91,22 @@ class FakeStravaAdapter implements ProviderAdapter {
   async fetchActivityPage(input: ActivityPageRequest): Promise<ActivityPage> {
     this.pageRequests.push(input.page);
     return input.page === 1
-      ? { activities: [workbookOverlap, providerOnly], rawActivities: [workbookOverlap.raw, providerOnly.raw], rateLimit: { shortLimit: 100, shortUsage: 2, dailyLimit: 1000, dailyUsage: 2, retryAt: null } }
-      : { activities: [], rawActivities: [], rateLimit: { shortLimit: 100, shortUsage: 3, dailyLimit: 1000, dailyUsage: 3, retryAt: null } };
+      ? {
+          activities: [workbookOverlap, providerOnly],
+          rawActivities: [workbookOverlap.raw, providerOnly.raw],
+          rateLimit: {
+            shortLimit: 100,
+            shortUsage: this.retryAtAfterFirstPage ? 100 : 2,
+            dailyLimit: 1000,
+            dailyUsage: 2,
+            retryAt: this.retryAtAfterFirstPage,
+          },
+        }
+      : {
+          activities: [],
+          rawActivities: [],
+          rateLimit: { shortLimit: 100, shortUsage: 3, dailyLimit: 1000, dailyUsage: 3, retryAt: null },
+        };
   }
   async fetchActivity(_input: ActivityRequest): Promise<ProviderActivity | null> { return null; }
 }
@@ -104,6 +120,9 @@ databaseDescribe('ProviderSyncRunner database integration', () => {
     dispatchDb = createDb(requireDatabaseUrl(dispatchDatabaseUrl, 'SPORTOS_TEST_DATABASE_URL'));
     dataDb = createDb(requireDatabaseUrl(dataDatabaseUrl, 'SPORTOS_WORKER_DATA_DATABASE_URL'));
     cipher = new CredentialCipher(parseCredentialKeyRing(`test:${randomBytes(32).toString('base64')}`, 'test'));
+  });
+
+  beforeEach(async () => {
     await resetProviderTables(dataDb);
   });
 
@@ -145,6 +164,46 @@ databaseDescribe('ProviderSyncRunner database integration', () => {
 
     await expect(dispatchDb.selectFrom('provider_credentials').select('connection_id').execute()).rejects.toThrow();
     await expect(dispatchDb.selectFrom('activities').select('id').execute()).rejects.toThrow();
+  });
+
+  it('commits the page cursor and reschedules without consuming an attempt at a published rate limit', async () => {
+    const retryAt = new Date(Date.now() + 60_000);
+    const adapter = new FakeStravaAdapter(retryAt);
+    const jobId = await seedConnectionAndJob(dataDb, cipher);
+    const runner = new ProviderSyncRunner(dispatchDb, dataDb, adapter, cipher, { workerId: 'provider-rate-limit', leaseSeconds: 60, pageSize: 200 });
+    const dispatch = new WorkerDispatchRepository(dispatchDb);
+
+    const claim = await dispatch.claimProviderSync('provider-rate-limit', 60);
+    expect(claim).toMatchObject({ id: jobId, ownerId: LEGACY_ACCOUNT_ID, connectionId });
+    await runner.process(claim!);
+
+    const evidence = await withAccountContext(dataDb, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      const jobRow = await ownerDb.selectFrom('provider_sync_jobs')
+        .select(['status', 'phase', 'attempt_count', 'next_attempt_at', 'cursor_json', 'import_batch_id'])
+        .where('id', '=', jobId)
+        .executeTakeFirstOrThrow();
+      const sourceCount = await ownerDb.selectFrom('source_records')
+        .select((eb) => eb.fn.countAll<number>().as('count'))
+        .executeTakeFirstOrThrow();
+      return { jobRow, sourceCount: Number(sourceCount.count) };
+    });
+
+    expect(evidence.jobRow).toMatchObject({
+      status: 'queued',
+      phase: 'rate-limited',
+      attempt_count: 0,
+      import_batch_id: expect.any(String),
+      cursor_json: {
+        page: 2,
+        rawCount: 2,
+        activityCount: 2,
+        performanceCount: 1,
+        warningCount: 0,
+      },
+    });
+    expect(new Date(evidence.jobRow.next_attempt_at).getTime()).toBe(retryAt.getTime());
+    expect(evidence.sourceCount).toBe(2);
+    await expect(dispatch.claimProviderSync('provider-rate-limit', 60)).resolves.toBeNull();
   });
 });
 
