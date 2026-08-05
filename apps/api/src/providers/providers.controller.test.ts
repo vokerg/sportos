@@ -106,7 +106,7 @@ describe('ProvidersController', () => {
   });
 
   it('validates connection/job UUIDs and pagination before service calls', async () => {
-    for (const operation of [
+    const operations: Array<() => unknown> = [
       () => controller.enqueueSync('not-a-uuid', {}, account),
       () => controller.listJobs('not-a-uuid', undefined, account),
       () => controller.disconnect('not-a-uuid', account),
@@ -116,8 +116,10 @@ describe('ProvidersController', () => {
       () => controller.listJobs(connectionId, '0', account),
       () => controller.listJobs(connectionId, '101', account),
       () => controller.listJobs(connectionId, '1.5', account),
-    ]) {
-      await expect(Promise.resolve().then(operation)).rejects.toBeInstanceOf(BadRequestException);
+    ];
+
+    for (const operation of operations) {
+      await expect(Promise.resolve().then(() => operation())).rejects.toBeInstanceOf(BadRequestException);
     }
     expect(service.enqueueSync).not.toHaveBeenCalled();
     expect(service.listSyncJobs).not.toHaveBeenCalled();
