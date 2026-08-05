@@ -138,6 +138,34 @@ describe('AnalysisToolService evidence envelopes', () => {
       expect(serialized).not.toContain(excluded);
     }
   });
+
+  it('bounds oversized score breakdowns and marks the returned evidence as truncated', async () => {
+    dailyService.scoreBreakdown.mockResolvedValue({
+      date: '2026-05-18',
+      recomputedAt: '2026-05-18T12:00:00.000Z',
+      facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      score: { appTotal: 501, excelTotal: null, delta: null, baseTotal: 501, bonusTotal: 0, ledgerTotal: 501 },
+      sourceRecord: null,
+      ledger: Array.from({ length: 501 }, (_, index) => ({
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        points: 1,
+        reason: 'bounded test contribution',
+        calculation: { points: 1 },
+        createdAt: '2026-05-18T12:00:00.000Z',
+        rule: null,
+        activity: null,
+      })),
+    });
+    const result = await service.execute({
+      tool: 'daily_score_breakdown',
+      input: { date: '2026-05-18' },
+    }, '11111111-1111-4111-8111-111111111111');
+    if (result.tool !== 'daily_score_breakdown' || result.facts === null) throw new Error('Expected score breakdown.');
+    expect(result.facts.ledger).toHaveLength(500);
+    expect(result.dataQuality.status).toBe('partial');
+    expect(result.dataQuality.flags).toEqual(expect.arrayContaining(['RESULT_TRUNCATED', 'SOURCE_PROVENANCE_MISSING']));
+    expect(result.citations.filter((citation) => citation.kind === 'score_ledger')).toHaveLength(500);
+  });
 });
 
 function dailyRow(date: string, total: number) {

@@ -13,6 +13,8 @@ import type {
   DailySummaryFacts,
 } from './analysis.contracts.js';
 
+const MAX_SCORE_LEDGER_ENTRIES = 500;
+
 @Injectable()
 export class AnalysisToolService {
   constructor(@Inject(DailyService) private readonly dailyService: DailyService) {}
@@ -86,6 +88,7 @@ export class AnalysisToolService {
     const flags = new Set<AnalysisDataQualityFlag>();
     if (record.score.delta !== null && record.score.delta !== 0) flags.add('OFFICIAL_SCORE_CONFLICT');
     if (record.sourceRecord === null) flags.add('SOURCE_PROVENANCE_MISSING');
+    if (record.ledger.length > MAX_SCORE_LEDGER_ENTRIES) flags.add('RESULT_TRUNCATED');
 
     const citations = new Map<string, AnalysisCitation>();
     addCitation(citations, {
@@ -96,7 +99,7 @@ export class AnalysisToolService {
     });
     addSourceCitations(citations, record.sourceRecord);
 
-    const ledger = record.ledger.map((entry) => {
+    const ledger = record.ledger.slice(0, MAX_SCORE_LEDGER_ENTRIES).map((entry) => {
       addCitation(citations, {
         key: `score_ledger:${entry.id}`,
         kind: 'score_ledger',

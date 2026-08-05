@@ -42,6 +42,7 @@ export interface AnalysisCitation {
 export type AnalysisDataQualityFlag =
   | 'NO_DATA'
   | 'RANGE_EXCEEDS_RESULT_LIMIT'
+  | 'RESULT_TRUNCATED'
   | 'OFFICIAL_SCORE_CONFLICT'
   | 'SOURCE_PROVENANCE_MISSING'
   | 'SOURCE_PROVENANCE_UNSUPPORTED'

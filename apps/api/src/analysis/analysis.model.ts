@@ -226,6 +226,7 @@ function qualityMessage(flag: AnalysisToolResult['dataQuality']['flags'][number]
   switch (flag) {
     case 'NO_DATA': return 'No official SportOS record was returned for the requested scope.';
     case 'RANGE_EXCEEDS_RESULT_LIMIT': return 'The requested date range exceeds the returned row limit, so the evidence is incomplete.';
+    case 'RESULT_TRUNCATED': return 'The score breakdown contains more than 500 ledger contributions, so the generated evidence is truncated.';
     case 'OFFICIAL_SCORE_CONFLICT': return 'The persisted SportOS total differs from the imported comparison total.';
     case 'SOURCE_PROVENANCE_MISSING': return 'Some canonical facts do not have complete source provenance.';
     case 'SOURCE_PROVENANCE_UNSUPPORTED': return 'Some manual facts do not support imported-source provenance.';
