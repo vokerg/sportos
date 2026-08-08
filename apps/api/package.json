@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node dist/main.js",
-    "start:dev": "tsx watch src/main.ts",
+    "start:dev": "node ../../scripts/dev.mjs --api-only",
     "build": "tsc -b tsconfig.json --pretty false",
     "typecheck": "tsc -b tsconfig.json --pretty false",
     "test": "vitest run --passWithNoTests"
