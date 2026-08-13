@@ -96,7 +96,7 @@ export class ProviderSyncRunner {
             activity: {
               activityDate: activity.localDate, startTime: activity.startDate, activityType: canonicalType, subtype: subtype(activity),
               distanceM: finiteOrNull(activity.distanceM), durationS: finiteOrNull(activity.elapsedTimeS), movingTimeS: finiteOrNull(activity.movingTimeS),
-              calories: finiteOrNull(activity.calories), avgHr: finiteOrNull(activity.averageHeartrate), maxHr: finiteOrNull(activity.maxHeartrate),
+              calories: integerOrNull(activity.calories), avgHr: integerOrNull(activity.averageHeartrate), maxHr: integerOrNull(activity.maxHeartrate),
               elevationGainM: finiteOrNull(activity.elevationGainM), avgSpeedMps: finiteOrNull(activity.averageSpeedMps),
               avgPaceSPerKm: pace(activity), notes: activity.name?.slice(0, 500) ?? null,
             },
@@ -175,6 +175,7 @@ function cursorHighWatermark(cursor: Json): Date | null { const value = cursorOb
 function subtype(activity: ProviderActivity): 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown' { if (activity.isManual) return 'manual'; if (activity.isRace) return 'race'; if (activity.isIndoor && canonicalActivityType(activity) === 'run') return 'treadmill'; return activity.isIndoor ? 'indoor' : 'outdoor'; }
 function pace(activity: ProviderActivity): number | null { const duration = activity.movingTimeS ?? activity.elapsedTimeS; return activity.distanceM !== null && duration !== null && activity.distanceM > 0 && duration >= 0 ? duration / (activity.distanceM / 1000) : null; }
 function finiteOrNull(value: number | null): number | null { return value !== null && Number.isFinite(value) && value >= 0 ? value : null; }
+export function integerOrNull(value: number | null): number | null { const finite = finiteOrNull(value); return finite === null ? null : Math.round(finite); }
 function boundedRaw(value: Record<string, unknown>): Json { const serialized = JSON.stringify(value); if (serialized.length <= 256_000) return JSON.parse(serialized) as Json; const safe = { ...value }; delete safe.map; delete safe.polyline; delete safe.summary_polyline; delete safe.start_latlng; delete safe.end_latlng; const reduced = JSON.stringify(safe); return reduced.length <= 256_000 ? JSON.parse(reduced) as Json : { id: String(value.id ?? ''), truncated: true }; }
 function hashJson(value: Json): string { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 function safeErrorMessage(error: unknown): string { return (error instanceof Error ? error.message : String(error)).replace(/(access|refresh|client)[-_ ]?(token|secret)\s*[:=]\s*[^\s,;]+/gi, '$1_$2=[redacted]').replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, 'Bearer [redacted]').slice(0, 500); }
