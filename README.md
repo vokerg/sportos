@@ -161,7 +161,17 @@ pnpm db:migrate
 
 The local Docker setup creates development-only non-superuser database roles. Existing database volumes should follow the provisioning and migration guidance in [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
-### Configure OIDC
+### Configure local development auth
+
+For this single-user hobby project, local development uses the fixed legacy account directly. No OIDC provider, login page, or browser session cookie is required:
+
+```dotenv
+SPORTOS_AUTH_MODE=dev-single-user
+SPORTOS_API_ORIGIN=http://localhost:3000
+SPORTOS_WEB_ORIGIN=http://localhost:4200
+```
+
+### Configure OIDC for hosted or multi-user deployments
 
 ```dotenv
 SPORTOS_OIDC_ISSUER=https://identity.example.com

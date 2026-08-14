@@ -89,7 +89,9 @@ An optional external JSON generator receives a bounded question and sanitized of
 
 ## Local development sign-in
 
-`POST /auth/dev-session` exists only for isolated development and requires an explicit `SPORTOS_DEV_AUTH_TOKEN` bearer value. When the setting is empty, the route is disabled. It signs in as the fixed legacy account and must not be exposed in hosted environments.
+`SPORTOS_AUTH_MODE=dev-single-user` is the simplest local mode: protected API routes resolve the fixed legacy account directly, so every browser can open the app without sharing cookies. It must not be used for hosted or multi-user deployments. OIDC remains available when this setting is unset.
+
+`POST /auth/dev-session` remains available as an explicit local-only session bootstrap when `SPORTOS_DEV_AUTH_TOKEN` is configured, but it is not needed in `dev-single-user` mode.
 
 A normal development setup should use a local or test OIDC provider and the regular `/auth/login` flow.
 

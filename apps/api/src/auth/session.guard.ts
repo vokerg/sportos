@@ -27,6 +27,13 @@ export class SessionGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    if (this.auth.isDevelopmentMode()) {
+      const session = await this.auth.getDevelopmentSession();
+      request.account = session.account;
+      request.authSession = session;
+      return true;
+    }
+
     const cookies = parseCookies(headerValue(request.headers.cookie));
     const session = await this.auth.authenticate(cookies.sportos_session ?? null);
     if (!session) {

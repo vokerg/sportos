@@ -29,6 +29,10 @@ export interface SessionIssueResult {
   returnTo: string;
 }
 
+const DEV_SESSION_ID = 'dev-single-user';
+const DEV_SESSION_IDLE_SECONDS = 43_200;
+const DEV_SESSION_ABSOLUTE_SECONDS = 604_800;
+
 @Injectable()
 export class AuthService {
   private readonly repository: AuthRepository;
@@ -38,15 +42,36 @@ export class AuthService {
     this.repository = new AuthRepository(database.db);
   }
 
+  isDevelopmentMode(): boolean {
+    return process.env.SPORTOS_AUTH_MODE === 'dev-single-user';
+  }
+
+  async getDevelopmentSession(): Promise<AuthenticatedSession> {
+    const account = await this.repository.getAccount(LEGACY_ACCOUNT_ID);
+    if (!account) throw new ServiceUnavailableException({ code: 'LEGACY_ACCOUNT_MISSING', message: 'The local account is unavailable.' });
+    const now = Date.now();
+    return {
+      id: DEV_SESSION_ID,
+      account: { id: account.id, displayName: account.display_name, email: account.email },
+      csrfHash: '',
+      expiresAt: new Date(now + DEV_SESSION_IDLE_SECONDS * 1000).toISOString(),
+      absoluteExpiresAt: new Date(now + DEV_SESSION_ABSOLUTE_SECONDS * 1000).toISOString(),
+    };
+  }
+
   async beginLogin(returnToValue?: string): Promise<string> {
+    const returnTo = normalizeReturnTo(returnToValue);
+    if (this.isDevelopmentMode()) {
+      const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4200').replace(/\/$/, '');
+      return `${webOrigin}${returnTo}`;
+    }
+
     const config = this.oidcConfig();
     const discovery = await this.discovery(config.issuer);
     const state = randomToken(32);
     const verifier = randomToken(64);
     const nonce = randomToken(32);
     const challenge = base64Url(createHash('sha256').update(verifier).digest());
-    const returnTo = normalizeReturnTo(returnToValue);
-
     await this.repository.createAuthorizationTransaction({
       stateHash: sha256(state),
       codeVerifier: verifier,

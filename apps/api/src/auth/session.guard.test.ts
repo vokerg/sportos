@@ -16,20 +16,34 @@ const session: AuthenticatedSession = {
 describe('SessionGuard', () => {
   it('allows explicitly public routes without reading cookies', async () => {
     const reflector = { getAllAndOverride: vi.fn().mockReturnValue(true) } as unknown as Reflector;
-    const auth = { authenticate: vi.fn() } as unknown as AuthService;
+    const auth = { isDevelopmentMode: vi.fn().mockReturnValue(false), authenticate: vi.fn() } as unknown as AuthService;
     await expect(new SessionGuard(reflector, auth).canActivate(context(request('GET')))).resolves.toBe(true);
     expect(auth.authenticate).not.toHaveBeenCalled();
   });
 
   it('rejects missing sessions with a generic unauthorized response', async () => {
     const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
-    const auth = { authenticate: vi.fn().mockResolvedValue(null) } as unknown as AuthService;
+    const auth = { isDevelopmentMode: vi.fn().mockReturnValue(false), authenticate: vi.fn().mockResolvedValue(null) } as unknown as AuthService;
     await expect(new SessionGuard(reflector, auth).canActivate(context(request('GET')))).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('uses the fixed development account without cookies in dev-single-user mode', async () => {
+    const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
+    const auth = {
+      isDevelopmentMode: vi.fn().mockReturnValue(true),
+      getDevelopmentSession: vi.fn().mockResolvedValue(session),
+      authenticate: vi.fn(),
+    } as unknown as AuthService;
+    const req = request('POST');
+    await expect(new SessionGuard(reflector, auth).canActivate(context(req))).resolves.toBe(true);
+    expect(req.account).toEqual(session.account);
+    expect(req.authSession).toEqual(session);
+    expect(auth.authenticate).not.toHaveBeenCalled();
   });
 
   it('attaches the authenticated account for safe methods', async () => {
     const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
-    const auth = { authenticate: vi.fn().mockResolvedValue(session) } as unknown as AuthService;
+    const auth = { isDevelopmentMode: vi.fn().mockReturnValue(false), authenticate: vi.fn().mockResolvedValue(session) } as unknown as AuthService;
     const req = request('GET', 'sportos_session=token-value');
     await expect(new SessionGuard(reflector, auth).canActivate(context(req))).resolves.toBe(true);
     expect(req.account).toEqual(session.account);
@@ -39,6 +53,7 @@ describe('SessionGuard', () => {
   it('requires a session-bound csrf token for mutations', async () => {
     const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
     const auth = {
+      isDevelopmentMode: vi.fn().mockReturnValue(false),
       authenticate: vi.fn().mockResolvedValue(session),
       verifyCsrf: vi.fn().mockReturnValue(false),
     } as unknown as AuthService;
@@ -49,6 +64,7 @@ describe('SessionGuard', () => {
   it('allows a mutation only when csrf validation succeeds', async () => {
     const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
     const auth = {
+      isDevelopmentMode: vi.fn().mockReturnValue(false),
       authenticate: vi.fn().mockResolvedValue(session),
       verifyCsrf: vi.fn().mockReturnValue(true),
     } as unknown as AuthService;

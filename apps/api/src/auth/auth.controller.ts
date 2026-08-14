@@ -58,7 +58,7 @@ export class AuthController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: ResponseLike,
   ) {
-    if (request.authSession) await this.auth.revokeSession(request.authSession.id);
+    if (request.authSession && !this.auth.isDevelopmentMode()) await this.auth.revokeSession(request.authSession.id);
     response.setHeader('Set-Cookie', this.auth.clearCookieHeaders());
     return { signedOut: true };
   }
