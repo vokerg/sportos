@@ -155,9 +155,16 @@ export class AuthService {
     if (!expected || !safeEqual(expected, provided)) {
       throw new UnauthorizedException({ code: 'DEV_AUTH_DISABLED', message: 'Development sign-in is unavailable.' });
     }
-    const account = await this.repository.getAccount(LEGACY_ACCOUNT_ID);
-    if (!account) throw new ServiceUnavailableException({ code: 'LEGACY_ACCOUNT_MISSING', message: 'The local account is unavailable.' });
-    return this.issueSession(account.id, account.display_name, account.email, '/', userAgent);
+    return this.issueDevelopmentSession('/', userAgent);
+  }
+
+  async createBrowserDevelopmentSession(returnToValue?: string, userAgent?: string): Promise<SessionIssueResult | null> {
+    const enabled = Boolean(process.env.SPORTOS_DEV_AUTH_TOKEN?.trim())
+      && process.env.NODE_ENV !== 'production'
+      && isLoopbackOrigin(process.env.SPORTOS_API_ORIGIN ?? 'http://localhost:3000')
+      && isLoopbackOrigin(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4200');
+    if (!enabled) return null;
+    return this.issueDevelopmentSession(normalizeReturnTo(returnToValue), userAgent);
   }
 
   async authenticate(sessionToken: string | null): Promise<AuthenticatedSession | null> {
@@ -205,6 +212,12 @@ export class AuthService {
     const secure = process.env.SPORTOS_COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production';
     const common = `Path=/; SameSite=Lax${secure ? '; Secure' : ''}; Max-Age=0`;
     return [`sportos_session=; ${common}; HttpOnly`, `sportos_csrf=; ${common}`];
+  }
+
+  private async issueDevelopmentSession(returnTo: string, userAgent?: string): Promise<SessionIssueResult> {
+    const account = await this.repository.getAccount(LEGACY_ACCOUNT_ID);
+    if (!account) throw new ServiceUnavailableException({ code: 'LEGACY_ACCOUNT_MISSING', message: 'The local account is unavailable.' });
+    return this.issueSession(account.id, account.display_name, account.email, returnTo, userAgent);
   }
 
   private async issueSession(
@@ -304,6 +317,15 @@ function safeEqual(left: string, right: string): boolean {
 function normalizeReturnTo(value: string | undefined): string {
   const candidate = String(value ?? '/').trim();
   return candidate.startsWith('/') && !candidate.startsWith('//') && candidate.length <= 1000 ? candidate : '/';
+}
+
+function isLoopbackOrigin(value: string): boolean {
+  try {
+    const hostname = new URL(value).hostname;
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+  } catch {
+    return false;
+  }
 }
 
 function boundedSeconds(value: string | undefined, fallback: number, minimum: number, maximum: number): number {

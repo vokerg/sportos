@@ -14,7 +14,18 @@ export class AuthController {
 
   @Get('login')
   @PublicRoute()
-  async login(@Query('returnTo') returnTo: string | undefined, @Res() response: ResponseLike) {
+  async login(
+    @Query('returnTo') returnTo: string | undefined,
+    @Headers('user-agent') userAgent: string | undefined,
+    @Res() response: ResponseLike,
+  ) {
+    const development = await this.auth.createBrowserDevelopmentSession(returnTo, userAgent);
+    if (development) {
+      response.setHeader('Set-Cookie', this.auth.sessionCookieHeaders(development));
+      const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4200').replace(/\/$/, '');
+      response.redirect(302, `${webOrigin}${development.returnTo}`);
+      return;
+    }
     response.redirect(302, await this.auth.beginLogin(returnTo));
   }
 
