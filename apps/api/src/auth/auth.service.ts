@@ -62,7 +62,7 @@ export class AuthService {
   async beginLogin(returnToValue?: string): Promise<string> {
     const returnTo = normalizeReturnTo(returnToValue);
     if (this.isDevelopmentMode()) {
-      const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4200').replace(/\/$/, '');
+      const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4210').replace(/\/$/, '');
       return `${webOrigin}${returnTo}`;
     }
 
@@ -257,7 +257,7 @@ export class AuthService {
       issuer,
       clientId,
       clientSecret: String(process.env.SPORTOS_OIDC_CLIENT_SECRET ?? ''),
-      redirectUri: `${String(process.env.SPORTOS_API_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '')}/auth/callback`,
+      redirectUri: `${String(process.env.SPORTOS_API_ORIGIN ?? 'http://localhost:3010').replace(/\/$/, '')}/auth/callback`,
     };
   }
 

@@ -161,14 +161,16 @@ pnpm db:migrate
 
 The local Docker setup creates development-only non-superuser database roles. Existing database volumes should follow the provisioning and migration guidance in [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
+SportOS uses API/web ports `3010`/`4210` and Docker host ports `5433`/`6380` by default, leaving the usual `3000`/`4200`/`5432`/`6379` ports available for Chess Trainer or other local services. Container-to-container database connections continue to use Postgres port `5432`.
+
 ### Configure local development auth
 
 For this single-user hobby project, local development uses the fixed legacy account directly. No OIDC provider, login page, or browser session cookie is required:
 
 ```dotenv
 SPORTOS_AUTH_MODE=dev-single-user
-SPORTOS_API_ORIGIN=http://localhost:3000
-SPORTOS_WEB_ORIGIN=http://localhost:4200
+SPORTOS_API_ORIGIN=http://localhost:3010
+SPORTOS_WEB_ORIGIN=http://localhost:4210
 ```
 
 ### Configure OIDC for hosted or multi-user deployments
@@ -177,8 +179,8 @@ SPORTOS_WEB_ORIGIN=http://localhost:4200
 SPORTOS_OIDC_ISSUER=https://identity.example.com
 SPORTOS_OIDC_CLIENT_ID=sportos-local
 SPORTOS_OIDC_CLIENT_SECRET=
-SPORTOS_API_ORIGIN=http://localhost:3000
-SPORTOS_WEB_ORIGIN=http://localhost:4200
+SPORTOS_API_ORIGIN=http://localhost:3010
+SPORTOS_WEB_ORIGIN=http://localhost:4210
 SPORTOS_COOKIE_SECURE=false
 ```
 
@@ -193,7 +195,7 @@ Register the exact callback URL with Strava, then configure the API and worker w
 ```dotenv
 STRAVA_CLIENT_ID=
 STRAVA_CLIENT_SECRET=
-STRAVA_REDIRECT_URI=http://localhost:3000/providers/strava/callback
+STRAVA_REDIRECT_URI=http://localhost:3010/providers/strava/callback
 SPORTOS_PROVIDER_CREDENTIAL_KEYS=k1=<base64-encoded-32-byte-key>
 SPORTOS_PROVIDER_ACTIVE_KEY_ID=k1
 ```
@@ -221,15 +223,16 @@ HTTPS is required except for localhost development. The external endpoint receiv
 
 ## Run the application
 
-Start each process in a separate terminal:
+Start the API, worker, and web application together:
 
 ```bash
-pnpm dev:api
-pnpm dev:web
-pnpm dev:worker
+pnpm dev
 ```
 
-Open `http://localhost:4200` and sign in.
+Open `http://localhost:4210` and sign in.
+
+For focused work, `pnpm dev:api` starts only the compiled/watch API, while
+`pnpm dev:web` and `pnpm dev:worker` remain available for separate processes.
 
 Stop local services with:
 
@@ -353,18 +356,18 @@ docker compose run --rm \
   -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_test \
   flyway migrate
 
-SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:5432/sportos_test \
-SPORTOS_OWNER_TEST_DATABASE_URL=postgres://sportos_app:sportos_app@localhost:5432/sportos_test \
+SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:5433/sportos_test \
+SPORTOS_OWNER_TEST_DATABASE_URL=postgres://sportos_app:sportos_app@localhost:5433/sportos_test \
   pnpm --filter @sportos/db test:integration
 
-SPORTOS_OWNER_TEST_DATABASE_URL=postgres://sportos_app:sportos_app@localhost:5432/sportos_test \
+SPORTOS_OWNER_TEST_DATABASE_URL=postgres://sportos_app:sportos_app@localhost:5433/sportos_test \
   pnpm --filter @sportos/api exec vitest run src/analysis/analysis.integration.test.ts --no-file-parallelism
 
-SPORTOS_TEST_DATABASE_URL=postgres://sportos_worker:sportos_worker@localhost:5432/sportos_test \
-SPORTOS_WORKER_DATA_DATABASE_URL=postgres://sportos_worker_data:sportos_worker_data@localhost:5432/sportos_test \
+SPORTOS_TEST_DATABASE_URL=postgres://sportos_worker:sportos_worker@localhost:5433/sportos_test \
+SPORTOS_WORKER_DATA_DATABASE_URL=postgres://sportos_worker_data:sportos_worker_data@localhost:5433/sportos_test \
   pnpm --filter @sportos/worker test:integration
 
-SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:5432/sportos_test \
+SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:5433/sportos_test \
   pnpm --filter @sportos/importers test:integration
 ```
 

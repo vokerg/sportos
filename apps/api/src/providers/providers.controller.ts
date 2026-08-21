@@ -49,7 +49,7 @@ export class ProvidersController {
       scope,
       providerError,
     });
-    const webOrigin = validWebOrigin(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4200');
+    const webOrigin = validWebOrigin(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4210');
     response.redirect(303, new URL(result.returnTo, webOrigin).toString());
   }
 

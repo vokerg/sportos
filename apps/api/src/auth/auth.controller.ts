@@ -28,7 +28,7 @@ export class AuthController {
   ) {
     const result = await this.auth.completeLogin(code, state, userAgent);
     response.setHeader('Set-Cookie', this.auth.sessionCookieHeaders(result));
-    const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4200').replace(/\/$/, '');
+    const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4210').replace(/\/$/, '');
     response.redirect(302, `${webOrigin}${result.returnTo}`);
   }
 

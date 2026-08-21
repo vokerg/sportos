@@ -5,6 +5,7 @@
   "description": "Personal sports data cockpit: spreadsheet import, deterministic scoring, and later AI analysis.",
   "packageManager": "pnpm@9.12.0",
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "dev:api": "pnpm --filter @sportos/api start:dev",
     "dev:web": "pnpm --filter @sportos/web start",
     "dev:worker": "pnpm --filter @sportos/worker dev",

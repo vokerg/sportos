@@ -1,4 +1,4 @@
-export const SPORTOS_API_ORIGIN = 'http://localhost:3000';
+export const SPORTOS_API_ORIGIN = 'http://localhost:3010';
 
 export function isSportosApiRequest(
   requestUrl: string,

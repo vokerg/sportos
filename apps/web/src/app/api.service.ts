@@ -254,7 +254,7 @@ export interface RuleChange {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  readonly apiBase = signal('http://localhost:3000');
+  readonly apiBase = signal('http://localhost:3010');
 
   constructor(private readonly http: HttpClient) {}
 

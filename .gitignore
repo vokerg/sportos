@@ -5,6 +5,7 @@ node_modules/
 # Build, test, and framework output
 dist/
 .dist/
+*.tsbuildinfo
 coverage/
 .angular/
 .cache/

@@ -11,7 +11,7 @@ export type BrowserAuthState = 'loading' | 'authenticated' | 'anonymous' | 'erro
 
 @Injectable({ providedIn: 'root' })
 export class WebAuthService {
-  readonly apiBase = signal('http://localhost:3000');
+  readonly apiBase = signal('http://localhost:3010');
   readonly state = signal<BrowserAuthState>('loading');
   readonly session = signal<BrowserSession | null>(null);
   readonly errorMessage = signal<string | null>(null);
