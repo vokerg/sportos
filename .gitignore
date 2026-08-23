@@ -29,6 +29,8 @@ data/imports/*
 !data/imports/.gitkeep
 data/uploads/*
 !data/uploads/.gitkeep
+apps/api/data/*
+!apps/api/data/.gitkeep
 
 # This repository uses pnpm exclusively
 package-lock.json

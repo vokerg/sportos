@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEnvFile } from 'node:process';
 
@@ -11,6 +11,9 @@ const children = new Map();
 let stopping = false;
 
 if (existsSync(envPath)) loadEnvFile(envPath);
+if (process.env.SPORTOS_UPLOAD_DIR && !isAbsolute(process.env.SPORTOS_UPLOAD_DIR)) {
+  process.env.SPORTOS_UPLOAD_DIR = resolve(repoRoot, process.env.SPORTOS_UPLOAD_DIR);
+}
 process.env.NODE_ENV ??= 'development';
 
 const required = apiOnly

@@ -21,8 +21,9 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
       [attr.aria-labelledby]="headingId">
       <header class="panel-header">
         <div>
-          <div class="eyebrow">Persisted score explanation</div>
+          <div class="eyebrow">Score explanation</div>
           <h3 [id]="headingId">{{ date() ? 'Daily score · ' + date() : 'Daily score breakdown' }}</h3>
+          <p class="panel-subtitle">A clear view of how this day's score was built.</p>
         </div>
         @if (date()) {
           <button type="button" class="secondary-button" aria-label="Close score breakdown" (click)="closed.emit()">
@@ -34,63 +35,78 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
       @let current = breakdown();
       @if (state() === 'idle') {
         <div class="state-box">
-          <strong>Select Explain on a daily row.</strong>
-          <span>The persisted totals, ledger contributions, activities, and source references will appear here.</span>
+          <span class="state-icon" aria-hidden="true">✦</span>
+          <div>
+            <strong>Select View details on a daily row.</strong>
+            <span>The score, contributing activities, and source will appear here.</span>
+          </div>
         </div>
       } @else if (state() === 'loading') {
         <div class="state-box" role="status">
-          <strong>Loading score breakdown…</strong>
-          <span>Reading the saved ledger and provenance for {{ date() }}.</span>
+          <span class="state-icon loading-icon" aria-hidden="true">…</span>
+          <div>
+            <strong>Loading score breakdown…</strong>
+            <span>Reading the saved score for {{ date() }}.</span>
+          </div>
         </div>
       } @else if (state() === 'error') {
         <div class="state-box error-box" role="alert">
-          <strong>Score breakdown could not be loaded.</strong>
-          <span>{{ errorMessage() || 'The API returned an unexpected error.' }}</span>
+          <span class="state-icon" aria-hidden="true">!</span>
+          <div>
+            <strong>Score breakdown could not be loaded.</strong>
+            <span>{{ errorMessage() || 'The API returned an unexpected error.' }}</span>
+          </div>
           <button type="button" (click)="retry.emit()">Try again</button>
         </div>
       } @else if (!current) {
         <div class="state-box">
-          <strong>No persisted score is available.</strong>
-          <span>This date has no breakdown to display.</span>
+          <span class="state-icon" aria-hidden="true">—</span>
+          <div>
+            <strong>No score is available for this date.</strong>
+            <span>There is no saved breakdown to display.</span>
+          </div>
         </div>
       } @else {
-        <div class="summary-grid" aria-label="Score reconciliation totals">
-          <div class="summary-item">
-            <span>App total</span>
+        <div class="score-overview" aria-label="Score summary">
+          <div class="total-card">
+            <span class="metric-label">Total score</span>
             <strong>{{ formatNumber(current.score.appTotal) }}</strong>
+            <span class="total-note">Saved in SportOS</span>
           </div>
-          <div class="summary-item" [class.unavailable]="current.score.excelTotal === null">
-            <span>Excel total</span>
-            <strong>{{ current.score.excelTotal === null ? 'Not available' : formatNumber(current.score.excelTotal) }}</strong>
-          </div>
-          <div class="summary-item delta-card" [attr.data-delta]="deltaKind(current.score.delta)">
-            <span>Delta vs Excel</span>
-            <strong>{{ deltaValue(current.score.delta) }}</strong>
-            <small>{{ deltaDescription(current.score.delta) }}</small>
-          </div>
-          <div class="summary-item">
-            <span>Base</span>
-            <strong>{{ formatNumber(current.score.baseTotal) }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>Bonus</span>
-            <strong>{{ formatSigned(current.score.bonusTotal) }}</strong>
-          </div>
-          <div class="summary-item" [class.mismatch]="!ledgerMatchesAppTotal(current)">
-            <span>Ledger sum</span>
-            <strong>{{ formatNumber(ledgerSum(current)) }}</strong>
-            <small>{{ ledgerMatchesAppTotal(current) ? 'Matches app total' : 'Does not match app total' }}</small>
+          <div class="metric-grid">
+            <div class="metric-card">
+              <span class="metric-label">Base</span>
+              <strong>{{ formatNumber(current.score.baseTotal) }}</strong>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Bonus</span>
+              <strong class="positive-points">{{ formatSigned(current.score.bonusTotal) }}</strong>
+            </div>
+            <div class="metric-card delta-card" [attr.data-delta]="deltaKind(current.score.delta)">
+              <span class="metric-label">Compared with Excel</span>
+              <strong>{{ deltaValue(current.score.delta) }}</strong>
+              <small>{{ deltaDescription(current.score.delta) }}</small>
+            </div>
           </div>
         </div>
 
-        <div class="provenance-banner">
+        <div class="consistency-row" [class.consistency-warning]="!ledgerMatchesAppTotal(current)">
+          <span class="consistency-icon" aria-hidden="true">{{ ledgerMatchesAppTotal(current) ? '✓' : '!' }}</span>
           <div>
-            <strong>Daily source</strong>
-            <span>{{ sourceSummary(current.sourceRecord) }}</span>
+            <strong>{{ ledgerMatchesAppTotal(current) ? 'Everything adds up' : 'Review the score details' }}</strong>
+            <span>Ledger total: {{ formatNumber(ledgerSum(current)) }} · {{ ledgerMatchesAppTotal(current) ? 'matches' : 'does not match' }} the app total.</span>
+          </div>
+        </div>
+
+        <div class="source-card">
+          <span class="source-icon" aria-hidden="true">↗</span>
+          <div class="source-copy">
+            <span class="section-label">Source</span>
+            <strong>{{ sourceSummary(current.sourceRecord) }}</strong>
           </div>
           @if (current.sourceRecord) {
-            <details>
-              <summary>Source details</summary>
+            <details class="quiet-details">
+              <summary>View details</summary>
               <dl>
                 <dt>Batch</dt><dd>{{ current.sourceRecord.batch.id }}</dd>
                 <dt>Workbook</dt><dd>{{ current.sourceRecord.batch.filename || current.sourceRecord.batch.source }}</dd>
@@ -103,66 +119,68 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
 
         <div class="ledger-heading">
           <div>
-            <h4>Ledger contributions</h4>
-            <p>{{ current.ledger.length }} persisted contribution{{ current.ledger.length === 1 ? '' : 's' }}</p>
+            <span class="section-label">Score details</span>
+            <h4>How the score was built</h4>
+            <p>{{ current.ledger.length }} contribution{{ current.ledger.length === 1 ? '' : 's' }} to this day's total</p>
           </div>
-          <span class="recomputed">Recomputed {{ current.recomputedAt }}</span>
+          <span class="recomputed">Saved {{ current.recomputedAt }}</span>
         </div>
 
         @if (current.ledger.length === 0) {
           <div class="state-box">
-            <strong>No ledger entries were persisted.</strong>
+            <strong>No contributions were saved.</strong>
             <span>The app total for this date is {{ formatNumber(current.score.appTotal) }}.</span>
           </div>
         } @else {
-          <div class="ledger-scroll" tabindex="0" aria-label="Score ledger table; scroll horizontally for more columns">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Rule</th>
-                  <th scope="col" class="points-column">Points</th>
-                  <th scope="col">Reason and inputs</th>
-                  <th scope="col">Related activity</th>
-                  <th scope="col">Provenance</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (entry of current.ledger; track entry.id) {
-                  <tr>
-                    <td>
+          <div class="ledger-list" aria-label="Score contributions">
+            @for (entry of current.ledger; track entry.id) {
+              <article class="ledger-entry">
+                <div class="entry-top">
+                  <div class="rule-copy">
+                    <span class="rule-dot" aria-hidden="true"></span>
+                    <div>
                       <strong>{{ entry.rule?.name || 'Rule unavailable' }}</strong>
                       <code>{{ entry.rule?.code || 'unlinked' }}</code>
-                      @if (entry.rule) {
-                        <small>Effective {{ entry.rule.validFrom }}{{ entry.rule.validTo ? ' – ' + entry.rule.validTo : ' onward' }}</small>
-                      }
-                    </td>
-                    <td class="points-column" [class.positive-points]="entry.points > 0" [class.negative-points]="entry.points < 0">
-                      {{ formatSigned(entry.points) }}
-                    </td>
-                    <td>
-                      <strong>{{ entry.reason }}</strong>
-                      <small>{{ calculationLabel(entry.calculation) }}</small>
-                    </td>
-                    <td>
-                      <span>{{ activityLabel(entry.activity) }}</span>
-                      @if (entry.activity?.notes) { <small>{{ entry.activity?.notes }}</small> }
-                    </td>
-                    <td>
-                      <span>{{ sourceSummary(entry.activity?.sourceRecord || null) }}</span>
-                      @if (entry.activity?.sourceRecord) {
-                        <details>
-                          <summary>Activity source</summary>
-                          <dl>
-                            <dt>Batch</dt><dd>{{ entry.activity?.sourceRecord?.batch?.id }}</dd>
-                            <dt>Row hash</dt><dd class="hash">{{ entry.activity?.sourceRecord?.rowHash }}</dd>
-                          </dl>
-                        </details>
-                      }
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                  <span class="points-pill" [class.positive-points]="entry.points > 0" [class.negative-points]="entry.points < 0">
+                    {{ formatSigned(entry.points) }}
+                  </span>
+                </div>
+                <p class="entry-reason">{{ entry.reason }}</p>
+                <div class="entry-context">
+                  <span><small>Activity</small>{{ activityLabel(entry.activity) }}</span>
+                  <span><small>Source</small>{{ sourceSummary(entry.activity?.sourceRecord || null) }}</span>
+                </div>
+                <details class="entry-details">
+                  <summary>Show calculation details</summary>
+                  <div class="detail-grid">
+                    <div>
+                      <span class="detail-label">Inputs</span>
+                      <p>{{ calculationLabel(entry.calculation) }}</p>
+                    </div>
+                    @if (entry.rule) {
+                      <div>
+                        <span class="detail-label">Rule active</span>
+                        <p>{{ entry.rule.validFrom }}{{ entry.rule.validTo ? ' – ' + entry.rule.validTo : ' onward' }}</p>
+                      </div>
+                    }
+                    @if (entry.activity?.notes) {
+                      <div>
+                        <span class="detail-label">Notes</span>
+                        <p>{{ entry.activity?.notes }}</p>
+                      </div>
+                    }
+                    @if (entry.activity?.sourceRecord) {
+                      <div>
+                        <span class="detail-label">Activity provenance</span>
+                        <p>Batch {{ entry.activity?.sourceRecord?.batch?.id }} · Row {{ entry.activity?.sourceRecord?.rowHash }}</p>
+                      </div>
+                    }
+                  </div>
+                </details>
+              </article>
+            }
           </div>
         }
       }
@@ -171,15 +189,17 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
   styles: [`
     .breakdown-panel {
       margin-top: 18px;
-      border: 1px solid #d8e1f0;
-      border-radius: 18px;
-      padding: 18px;
-      background: #f8faff;
+      border: 1px solid #dbe4f0;
+      border-left: 4px solid #8b9de8;
+      border-radius: 16px;
+      padding: 20px;
+      background: linear-gradient(145deg, #fbfcff 0%, #f4f7fc 100%);
+      box-shadow: 0 8px 24px rgba(36, 55, 95, .07);
     }
 
     .panel-header,
     .ledger-heading,
-    .provenance-banner {
+    .source-card {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
@@ -190,108 +210,211 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
     .ledger-heading h4,
     .ledger-heading p { margin: 0; }
 
-    .eyebrow {
-      margin-bottom: 4px;
-      color: #475467;
+    .panel-header h3 { color: #172b4d; font-size: 22px; }
+    .panel-subtitle { margin: 5px 0 0; color: #667085; font-size: 13px; }
+
+    .eyebrow,
+    .section-label,
+    .metric-label,
+    .detail-label {
+      color: #667085;
       font-size: 11px;
       font-weight: 750;
-      letter-spacing: .08em;
+      letter-spacing: .06em;
       text-transform: uppercase;
     }
 
+    .eyebrow { margin-bottom: 5px; color: #5b6cae; }
+
     .secondary-button {
       background: white;
-      color: #1d4ed8;
-      border: 1px solid #bfd0f6;
+      color: #40558f;
+      border: 1px solid #cbd6ed;
+      box-shadow: none;
     }
 
-    .summary-grid {
+    .score-overview {
       display: grid;
-      grid-template-columns: repeat(6, minmax(120px, 1fr));
-      gap: 10px;
-      margin: 18px 0;
+      grid-template-columns: minmax(170px, .75fr) minmax(0, 1.8fr);
+      gap: 12px;
+      margin: 20px 0 12px;
     }
 
-    .summary-item {
-      min-height: 82px;
+    .total-card {
+      display: flex;
+      min-height: 130px;
+      flex-direction: column;
+      justify-content: center;
+      padding: 18px;
+      border: 1px solid #cfdaf7;
       border-radius: 14px;
-      padding: 12px;
-      background: white;
-      border: 1px solid #e2e8f0;
+      background: linear-gradient(145deg, #eef3ff, #ffffff);
     }
 
-    .summary-item span,
-    .summary-item small,
-    td small,
-    td code,
+    .total-card strong {
+      margin: 4px 0 2px;
+      color: #243b73;
+      font-size: 38px;
+      font-weight: 750;
+      letter-spacing: -.04em;
+    }
+
+    .total-note,
+    .metric-card small,
     .ledger-heading p,
     .recomputed,
     .state-box span,
-    .provenance-banner span {
-      display: block;
+    .source-card span,
+    .entry-context small,
+    .detail-grid p {
       color: #667085;
       font-size: 12px;
     }
 
-    .summary-item strong {
-      display: block;
-      margin-top: 5px;
-      font-size: 22px;
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
     }
 
-    .delta-card[data-delta='positive'] { border-color: #86efac; background: #f0fdf4; }
-    .delta-card[data-delta='negative'] { border-color: #fca5a5; background: #fef2f2; }
-    .delta-card[data-delta='zero'] { border-color: #93c5fd; background: #eff6ff; }
-    .delta-card[data-delta='unavailable'], .summary-item.unavailable { border-style: dashed; background: #f9fafb; }
-    .summary-item.mismatch { border-color: #f59e0b; background: #fffbeb; }
-
-    .provenance-banner {
-      padding: 12px 14px;
+    .metric-card {
+      display: flex;
+      min-height: 96px;
+      flex-direction: column;
+      justify-content: center;
+      padding: 14px;
+      border: 1px solid #e1e7f0;
       border-radius: 14px;
-      background: #eef3ff;
+      background: rgba(255, 255, 255, .8);
     }
+
+    .metric-card strong {
+      margin-top: 6px;
+      color: #172b4d;
+      font-size: 23px;
+    }
+
+    .delta-card[data-delta='positive'] { border-color: #b8e5c5; background: #f4fbf6; }
+    .delta-card[data-delta='negative'] { border-color: #f2c7c7; background: #fff8f8; }
+    .delta-card[data-delta='zero'] { border-color: #c6d8f5; background: #f5f9ff; }
+    .delta-card[data-delta='unavailable'] { border-style: dashed; background: #fafbfc; }
+
+    .positive-points { color: #13795b !important; }
+    .negative-points { color: #b54747 !important; }
+
+    .consistency-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+      padding: 11px 13px;
+      border: 1px solid #cce8d5;
+      border-radius: 12px;
+      background: #f4fbf6;
+    }
+
+    .consistency-row strong,
+    .consistency-row span { display: block; }
+    .consistency-row > div > span { margin-top: 2px; color: #5e7666; font-size: 12px; }
+    .consistency-icon,
+    .source-icon,
+    .state-icon {
+      display: grid;
+      flex: 0 0 auto;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #dff4e5;
+      color: #13795b;
+      font-weight: 800;
+    }
+
+    .consistency-warning { border-color: #f3d39b; background: #fffaf0; }
+    .consistency-warning .consistency-icon { background: #ffedc7; color: #a15c00; }
+
+    .source-card {
+      align-items: center;
+      justify-content: flex-start;
+      margin: 14px 0 22px;
+      padding: 12px 14px;
+      border: 1px solid #e1e7f0;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .72);
+    }
+
+    .source-icon { background: #e9edff; color: #5368ae; }
+    .source-copy { min-width: 0; flex: 1; }
+    .source-copy strong { display: block; margin-top: 3px; color: #344054; font-size: 13px; }
 
     details { margin-top: 6px; }
-    summary { cursor: pointer; color: #1d4ed8; font-size: 12px; font-weight: 700; }
+    summary { cursor: pointer; color: #5267a8; font-size: 12px; font-weight: 700; }
+    summary:focus-visible { outline: 3px solid #a8b9ef; outline-offset: 3px; border-radius: 4px; }
     dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; margin: 8px 0 0; font-size: 11px; }
     dt { color: #667085; }
     dd { margin: 0; overflow-wrap: anywhere; }
-    .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .hash, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #667085; font-size: 11px; }
 
-    .ledger-heading { margin: 20px 0 10px; }
-    .recomputed { text-align: right; }
-    .ledger-scroll { overflow-x: auto; border-radius: 14px; background: white; }
-    .ledger-scroll:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
-    table { width: 100%; min-width: 960px; border-collapse: collapse; font-size: 13px; }
-    th, td { padding: 12px; border-bottom: 1px solid #e4e7ec; text-align: left; vertical-align: top; }
-    th { background: #f1f5fb; color: #344054; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-    td strong { display: block; margin-bottom: 4px; }
-    td code { margin-bottom: 4px; }
-    .points-column { width: 86px; text-align: right; font-weight: 750; }
-    .positive-points { color: #087443; }
-    .negative-points { color: #b42318; }
+    .ledger-heading { align-items: end; margin: 20px 0 10px; }
+    .ledger-heading h4 { margin-top: 3px; color: #172b4d; font-size: 17px; }
+    .ledger-heading p { margin-top: 4px; }
+    .recomputed { text-align: right; white-space: nowrap; }
+
+    .ledger-list { display: grid; gap: 10px; }
+    .ledger-entry {
+      padding: 15px;
+      border: 1px solid #e1e7f0;
+      border-radius: 14px;
+      background: white;
+      box-shadow: 0 2px 6px rgba(36, 55, 95, .03);
+    }
+
+    .entry-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .rule-copy { display: flex; align-items: flex-start; gap: 9px; min-width: 0; }
+    .rule-dot { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: #8b9de8; box-shadow: 0 0 0 4px #eef1ff; }
+    .rule-copy strong { display: block; color: #243b73; font-size: 14px; }
+    .rule-copy code { display: block; margin-top: 3px; }
+    .points-pill { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #e6f6eb; font-size: 15px; font-weight: 800; }
+    .entry-reason { margin: 13px 0 10px; color: #344054; font-size: 14px; line-height: 1.45; }
+    .entry-context { display: flex; flex-wrap: wrap; gap: 8px; }
+    .entry-context > span { padding: 7px 9px; border-radius: 8px; background: #f7f9fc; color: #475467; font-size: 12px; }
+    .entry-context small { display: block; margin-bottom: 2px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .entry-details { margin-top: 12px; padding-top: 10px; border-top: 1px solid #edf0f5; }
+    .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .detail-grid > div { padding: 9px; border-radius: 8px; background: #f8fafc; }
+    .detail-grid p { margin: 4px 0 0; overflow-wrap: anywhere; line-height: 1.45; }
 
     .state-box {
-      display: grid;
-      gap: 6px;
-      justify-items: start;
-      padding: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      padding: 18px;
       border: 1px dashed #c7d2e5;
       border-radius: 14px;
       background: white;
     }
 
-    .error-box { border-color: #fca5a5; background: #fff7f7; }
+    .state-box > div { display: grid; gap: 5px; }
+    .loading-icon { background: #e9edff; color: #5368ae; }
+    .error-box { border-color: #efb9b9; background: #fff8f8; }
+    .error-box .state-icon { background: #ffe2e2; color: #b54747; }
+    .error-box button { margin-left: auto; }
 
-    @media (max-width: 1180px) {
-      .summary-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
+    @media (max-width: 900px) {
+      .score-overview { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 680px) {
       .breakdown-panel { padding: 14px; }
-      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .panel-header, .ledger-heading, .provenance-banner { align-items: stretch; flex-direction: column; }
+      .metric-grid, .detail-grid { grid-template-columns: 1fr 1fr; }
+      .panel-header, .ledger-heading { align-items: stretch; flex-direction: column; }
       .recomputed { text-align: left; }
+    }
+
+    @media (max-width: 460px) {
+      .metric-grid, .detail-grid { grid-template-columns: 1fr; }
+      .entry-top { flex-direction: column; }
     }
   `],
 })

@@ -192,6 +192,12 @@ function achievementAuxiliaryConditions(
     const actual = activity.distanceM ?? 0;
     return [{ metric: 'distance_m', operator: 'within', expected: 5000, actual, passed: Math.abs(actual - 5000) <= 500 }];
   }
+  if (rule.code === 'run.10k.completed.bonus') {
+    const distanceM = activity.distanceM ?? 0;
+    const durationS = activity.durationS;
+    const actual = durationS !== undefined && distanceM > 0 ? durationS / (distanceM / 1000) : 0;
+    return [{ metric: 'pace_s_per_km', operator: 'lte', expected: 300, actual, passed: durationS !== undefined && distanceM > 0 && actual <= 300 }];
+  }
   return [];
 }
 
@@ -206,6 +212,7 @@ function metricUnit(metric: string): string {
     case 'distance_m': return 'm';
     case 'distance_km': return 'km';
     case 'duration_s': return 's';
+    case 'pace_s_per_km': return 's/km';
     case 'avg_speed_mps': return 'm/s';
     case 'avg_speed_kmh': return 'km/h';
     case 'effort_points': return 'points';

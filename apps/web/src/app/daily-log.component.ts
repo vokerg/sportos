@@ -33,7 +33,7 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
   template: `
     <section class="card" aria-labelledby="daily-log-title">
       <h2 id="daily-log-title">Daily Log</h2>
-      <p class="daily-log-help">Filter canonical daily facts, then use <strong>Explain</strong> to trace a total through ledger entries, activities, source rows, and import batches.</p>
+      <p class="daily-log-help">Filter canonical daily facts, then use <strong>View details</strong> to trace a total through ledger entries, activities, source rows, and import batches.</p>
 
       <form class="filter-bar" (submit)="applyFilters(); $event.preventDefault()" aria-label="Daily Log date range">
         <label>From <input type="date" [value]="from()" (input)="from.set($any($event.target).value)" /></label>
@@ -64,7 +64,7 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
         <ag-grid-angular
           class="ag-theme-quartz"
           style="width: 100%; height: 460px; margin-top: 16px;"
-          aria-label="Daily scores. Use the Explain action in a row to view canonical facts and source provenance."
+          aria-label="Daily scores. Use the View details action in a row to view canonical facts and source provenance."
           [rowData]="rows()"
           [columnDefs]="columnDefs"
           [context]="gridContext"

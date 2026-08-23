@@ -122,6 +122,26 @@ describe('scoreActivityWithRule', () => {
     )).toBeNull();
   });
 
+  it('requires a 10k run pace of five minutes per kilometer or faster', () => {
+    const rule = rules.find((candidate) => candidate.code === 'run.10k.completed.bonus')!;
+
+    expect(scoreActivityWithRule(
+      { activityDate: '2026-05-18', activityType: 'run', distanceM: 10_000, durationS: 3_000 },
+      rule,
+      '2026-05-18',
+    )?.points).toBe(2000);
+    expect(scoreActivityWithRule(
+      { activityDate: '2026-05-18', activityType: 'run', distanceM: 21_775.8, durationS: 8_223 },
+      rule,
+      '2026-05-18',
+    )).toBeNull();
+    expect(scoreActivityWithRule(
+      { activityDate: '2026-05-18', activityType: 'run', distanceM: 10_000, durationS: 3_001 },
+      rule,
+      '2026-05-18',
+    )).toBeNull();
+  });
+
   it('applies valid-from and valid-to dates inclusively', () => {
     const rule: ScoringRule = {
       code: 'steps.january',

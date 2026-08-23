@@ -13,24 +13,51 @@ export interface DailyBreakdownGridContext {
   template: `
     <button
       type="button"
-      class="explain-button"
+      class="details-link"
       [attr.aria-label]="'View score breakdown for ' + date"
       (click)="open()">
-      Explain
+      <span>View details</span>
+      <span class="details-arrow" aria-hidden="true">→</span>
     </button>
   `,
   styles: [`
-    .explain-button {
+    .details-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       min-height: 32px;
-      padding: 5px 10px;
-      border-radius: 9px;
+      padding: 4px 0;
+      border: 0;
+      background: transparent;
+      color: #5267a8;
       font-size: 12px;
-      line-height: 1;
+      font-weight: 650;
+      line-height: 1.2;
+      text-decoration: underline;
+      text-decoration-color: transparent;
+      text-underline-offset: 3px;
+      cursor: pointer;
+      white-space: nowrap;
     }
 
-    .explain-button:focus-visible {
-      outline: 3px solid #93c5fd;
-      outline-offset: 2px;
+    .details-link:hover {
+      color: #243b73;
+      text-decoration-color: currentColor;
+    }
+
+    .details-link:focus-visible {
+      outline: 3px solid #a8b9ef;
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    .details-arrow {
+      font-size: 14px;
+      transition: transform 150ms ease;
+    }
+
+    .details-link:hover .details-arrow {
+      transform: translateX(2px);
     }
   `],
 })
