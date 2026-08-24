@@ -29,7 +29,11 @@ export interface DailyMetricFacts {
   metricDate: string;
   steps: number;
   runM: number;
+  runIndoorM?: number;
+  runOutdoorM?: number;
   bikeM: number;
+  bikeIndoorM?: number;
+  bikeOutdoorM?: number;
   swimM: number;
   workoutPoints: number;
   powerPoints: number;
@@ -45,6 +49,7 @@ export interface ScoringRule {
   code: string;
   name: string;
   activityType: ActivityType;
+  activitySubtype?: ActivitySubtype;
   ruleKind: RuleKind;
   metric: string;
   coefficient?: number;

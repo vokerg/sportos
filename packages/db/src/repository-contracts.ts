@@ -4,7 +4,11 @@ export interface DailyMetricFactsInput {
   metricDate: string;
   steps: number;
   runM: number;
+  runIndoorM?: number;
+  runOutdoorM?: number;
   bikeM: number;
+  bikeIndoorM?: number;
+  bikeOutdoorM?: number;
   swimM: number;
   workoutPoints: number;
   powerPoints: number;
@@ -34,6 +38,7 @@ export interface EnabledScoringRule {
   code: string;
   name: string;
   activityType: ActivitiesTable['activity_type'];
+  activitySubtype?: Exclude<ActivitiesTable['subtype'], null>;
   ruleKind: 'coefficient' | 'achievement' | 'manual_points';
   metric: string;
   coefficient?: number;
@@ -63,6 +68,12 @@ export interface SourceRecordReferenceReadModel {
   rowHash: string;
   sheetName: string | null;
   rowIndex: number | null;
+  status: 'raw' | 'normalized' | 'skipped' | 'error';
+  rawJson: Json;
+  errors: Json;
+  warnings: Json;
+  normalizedEntityType: string | null;
+  normalizedEntityId: string | null;
   batch: ImportBatchReferenceReadModel;
 }
 
@@ -94,6 +105,7 @@ export interface ScoreBreakdownRuleReadModel {
   code: string;
   name: string;
   activityType: ActivitiesTable['activity_type'];
+  activitySubtype?: ActivitiesTable['subtype'];
   ruleKind: 'coefficient' | 'achievement' | 'manual_points';
   metric: string;
   coefficient: number | null;
@@ -125,7 +137,11 @@ export interface DailyScoreBreakdownReadModel {
   facts: {
     steps: number;
     runM: number;
+    runIndoorM?: number | null;
+    runOutdoorM?: number | null;
     bikeM: number;
+    bikeIndoorM?: number | null;
+    bikeOutdoorM?: number | null;
     swimM: number;
     workoutPoints: number;
     powerPoints: number;
@@ -139,5 +155,7 @@ export interface DailyScoreBreakdownReadModel {
     ledgerTotal: number;
   };
   sourceRecord: SourceRecordReferenceReadModel | null;
+  activities: ScoreBreakdownActivityReadModel[];
+  sourceRecords: SourceRecordReferenceReadModel[];
   ledger: ScoreBreakdownLedgerEntryReadModel[];
 }

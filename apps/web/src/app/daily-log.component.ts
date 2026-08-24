@@ -27,13 +27,12 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
     AgGridAngular,
     NgxEchartsDirective,
     DecimalPipe,
-    DailyBreakdownButtonComponent,
     ScoreBreakdownPanelComponent,
   ],
   template: `
     <section class="card" aria-labelledby="daily-log-title">
       <h2 id="daily-log-title">Daily Log</h2>
-      <p class="daily-log-help">Filter canonical daily facts, then use <strong>View details</strong> to trace a total through ledger entries, activities, source rows, and import batches.</p>
+      <p class="daily-log-help">SportOS recalculates the official total from canonical facts and active rules. Use <strong>View details</strong> to see the complete day: score inputs, all activities, raw source rows, and the Excel reference.</p>
 
       <form class="filter-bar" (submit)="applyFilters(); $event.preventDefault()" aria-label="Daily Log date range">
         <label>From <input type="date" [value]="from()" (input)="from.set($any($event.target).value)" /></label>
@@ -59,14 +58,14 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
           <div class="kpi"><div class="label">Excel delta</div><div class="value">{{ latest()?.points_delta_vs_excel ?? '—' }}</div></div>
         </div>
 
-        <div echarts [options]="chartOptions()" style="height: 320px;" role="img" aria-label="Daily total and 30 day average trend"></div>
+        <div class="daily-chart" echarts [options]="chartOptions()" role="img" aria-label="Daily total and 30 day average trend"></div>
 
         <ag-grid-angular
-          class="ag-theme-quartz"
-          style="width: 100%; height: 460px; margin-top: 16px;"
+          class="ag-theme-quartz daily-grid"
           aria-label="Daily scores. Use the View details action in a row to view canonical facts and source provenance."
           [rowData]="rows()"
           [columnDefs]="columnDefs"
+          [defaultColDef]="defaultColDef"
           [context]="gridContext"
           [pagination]="true"
           [paginationPageSize]="25">
@@ -84,6 +83,8 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
   `,
   styles: [`
     .daily-log-help { margin: -6px 0 16px; color: #667085; font-size: 13px; }
+    .daily-chart { width: 100%; height: min(44vh, 560px); min-height: 360px; }
+    .daily-grid { width: 100%; height: min(62vh, 720px); min-height: 480px; margin-top: 18px; }
   `],
 })
 export class DailyLogComponent implements OnInit, OnDestroy {
@@ -105,20 +106,28 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     openBreakdown: (row) => this.openBreakdown(row),
   };
 
+  readonly defaultColDef: ColDef<DailySummaryRow> = {
+    sortable: true,
+    resizable: true,
+    filter: true,
+    minWidth: 112,
+    flex: 1,
+  };
+
   readonly columnDefs: ColDef<DailySummaryRow>[] = [
-    { colId: 'scoreBreakdown', headerName: 'Details', cellRenderer: DailyBreakdownButtonComponent, pinned: 'left', width: 108, minWidth: 108, maxWidth: 108, sortable: false, filter: false, suppressHeaderMenuButton: true },
-    { field: 'metric_date', headerName: 'Date', pinned: 'left', filter: true },
-    { field: 'steps', filter: 'agNumberColumnFilter' },
-    { field: 'run_m', headerName: 'Run m', filter: 'agNumberColumnFilter' },
-    { field: 'bike_m', headerName: 'Bike m', filter: 'agNumberColumnFilter' },
-    { field: 'swim_m', headerName: 'Swim m', filter: 'agNumberColumnFilter' },
-    { field: 'workout_points', headerName: 'WO', filter: 'agNumberColumnFilter' },
-    { field: 'power_points', headerName: 'Pow', filter: 'agNumberColumnFilter' },
-    { field: 'base_points', headerName: 'Base', filter: 'agNumberColumnFilter' },
-    { field: 'bonus_points', headerName: 'Bonus', filter: 'agNumberColumnFilter' },
-    { field: 'total_points', headerName: 'Total', filter: 'agNumberColumnFilter' },
-    { field: 'excel_all_points', headerName: 'Excel total', filter: 'agNumberColumnFilter' },
-    { field: 'points_delta_vs_excel', headerName: 'Δ vs Excel', filter: 'agNumberColumnFilter' },
+    { colId: 'scoreBreakdown', headerName: 'Details', cellRenderer: DailyBreakdownButtonComponent, pinned: 'left', width: 124, minWidth: 124, maxWidth: 124, sortable: false, filter: false, suppressHeaderMenuButton: true },
+    { field: 'metric_date', headerName: 'Date', pinned: 'left', width: 130, minWidth: 130, flex: 0 },
+    { field: 'steps', headerName: 'Steps', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
+    { field: 'run_m', headerName: 'Run', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatMeters(params.value) },
+    { field: 'bike_m', headerName: 'Bike', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatMeters(params.value) },
+    { field: 'swim_m', headerName: 'Swim', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatMeters(params.value, 0) },
+    { field: 'workout_points', headerName: 'Workout', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
+    { field: 'power_points', headerName: 'Power', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
+    { field: 'base_points', headerName: 'Base', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
+    { field: 'bonus_points', headerName: 'Bonus', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
+    { field: 'total_points', headerName: 'SportOS total', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
+    { field: 'excel_all_points', headerName: 'Excel All', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
+    { field: 'points_delta_vs_excel', headerName: 'Δ vs Excel', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
   ];
 
   readonly chartOptions = computed<EChartsCoreOption>(() => {
@@ -234,5 +243,19 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   private apiErrorBody(value: unknown): ApiErrorBody | null {
     if (!value || typeof value !== 'object') return null;
     return value as ApiErrorBody;
+  }
+
+  private formatCellNumber(value: unknown): string {
+    if (value === null || value === undefined || value === '') return '—';
+    const number = Number(value);
+    return Number.isFinite(number) ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(number) : String(value);
+  }
+
+  private formatMeters(value: unknown, fractionDigits = 2): string {
+    if (value === null || value === undefined || value === '') return '—';
+    const meters = Number(value);
+    return Number.isFinite(meters)
+      ? `${(meters / 1000).toLocaleString('en-US', { maximumFractionDigits: fractionDigits })} km`
+      : String(value);
   }
 }

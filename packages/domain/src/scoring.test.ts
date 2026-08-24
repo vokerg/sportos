@@ -52,6 +52,41 @@ describe('scoreDay', () => {
     expect(result.ledger.map((entry) => entry.ruleCode)).toEqual(['run.km.default']);
   });
 
+  it('uses workbook activity-specific coefficients when subtype distances are present', () => {
+    const result = scoreDay(
+      {
+        metricDate: '2026-05-18',
+        steps: 0,
+        runM: 12_000,
+        runIndoorM: 5_000,
+        runOutdoorM: 7_000,
+        bikeM: 3_000,
+        bikeIndoorM: 1_000,
+        bikeOutdoorM: 2_000,
+        swimM: 0,
+        workoutPoints: 0,
+        powerPoints: 0,
+      },
+      [],
+      [
+        { code: 'run.km.default', name: 'Legacy run', activityType: 'run', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1000, validFrom: '1900-01-01', priority: 10, enabled: true },
+        { code: 'run.km.treadmill', name: 'Treadmill run', activityType: 'run', activitySubtype: 'treadmill', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1850, validFrom: '1900-01-01', priority: 20, enabled: true },
+        { code: 'run.km.outdoor', name: 'Outdoor run', activityType: 'run', activitySubtype: 'outdoor', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1700, validFrom: '1900-01-01', priority: 21, enabled: true },
+        { code: 'bike.km.default', name: 'Legacy bike', activityType: 'bike', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 650, validFrom: '1900-01-01', priority: 30, enabled: true },
+        { code: 'bike.km.indoor', name: 'Indoor bike', activityType: 'bike', activitySubtype: 'indoor', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 700, validFrom: '1900-01-01', priority: 40, enabled: true },
+        { code: 'bike.km.outdoor', name: 'Outdoor bike', activityType: 'bike', activitySubtype: 'outdoor', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 600, validFrom: '1900-01-01', priority: 41, enabled: true },
+      ],
+    );
+
+    expect(result).toMatchObject({ basePoints: 23_050, bonusPoints: 0, totalPoints: 23_050 });
+    expect(result.ledger.map((entry) => entry.ruleCode)).toEqual([
+      'run.km.treadmill',
+      'run.km.outdoor',
+      'bike.km.indoor',
+      'bike.km.outdoor',
+    ]);
+  });
+
   it('uses rule code as a deterministic tie-breaker when priorities match', () => {
     const tiedRules: ScoringRule[] = [
       { code: 'steps.z', name: 'Z', activityType: 'steps', ruleKind: 'coefficient', metric: 'steps', coefficient: 1, validFrom: '1900-01-01', priority: 10, enabled: true },

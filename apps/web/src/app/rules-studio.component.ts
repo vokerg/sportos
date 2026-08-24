@@ -179,6 +179,7 @@ export class RulesStudioComponent implements OnInit, OnDestroy {
       code: rule.code,
       name: rule.name,
       activityType: rule.activityType,
+      activitySubtype: rule.activitySubtype,
       ruleKind: rule.ruleKind,
       metric: rule.metric,
       coefficient: rule.coefficient,

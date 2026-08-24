@@ -23,7 +23,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
         <div>
           <div class="eyebrow">Score explanation</div>
           <h3 [id]="headingId">{{ date() ? 'Daily score · ' + date() : 'Daily score breakdown' }}</h3>
-          <p class="panel-subtitle">A clear view of how this day's score was built.</p>
+          <p class="panel-subtitle">SportOS recalculates the official score from canonical facts and active rules. Excel is kept as a reference.</p>
         </div>
         @if (date()) {
           <button type="button" class="secondary-button" aria-label="Close score breakdown" (click)="closed.emit()">
@@ -98,6 +98,28 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
           </div>
         </div>
 
+        <section class="facts-section" aria-labelledby="daily-facts-title">
+          <div class="section-heading">
+            <div>
+              <span class="section-label">Canonical facts</span>
+              <h4 id="daily-facts-title">Everything SportOS used for this day</h4>
+            </div>
+            <span class="muted-note">Raw source values stay below</span>
+          </div>
+          <div class="facts-grid">
+            <div><span>Steps</span><strong>{{ formatNumber(current.facts.steps) }}</strong></div>
+            <div><span>Run</span><strong>{{ formatDistance(current.facts.runM) }}</strong></div>
+            <div><span>Run · treadmill</span><strong>{{ formatDistance(current.facts.runIndoorM) }}</strong></div>
+            <div><span>Run · outdoor</span><strong>{{ formatDistance(current.facts.runOutdoorM) }}</strong></div>
+            <div><span>Bike</span><strong>{{ formatDistance(current.facts.bikeM) }}</strong></div>
+            <div><span>Bike · indoor</span><strong>{{ formatDistance(current.facts.bikeIndoorM) }}</strong></div>
+            <div><span>Bike · outdoor</span><strong>{{ formatDistance(current.facts.bikeOutdoorM) }}</strong></div>
+            <div><span>Swim</span><strong>{{ formatDistance(current.facts.swimM, 0) }}</strong></div>
+            <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong></div>
+            <div><span>Power points</span><strong>{{ formatNumber(current.facts.powerPoints) }}</strong></div>
+          </div>
+        </section>
+
         <div class="source-card">
           <span class="source-icon" aria-hidden="true">↗</span>
           <div class="source-copy">
@@ -116,6 +138,89 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
             </details>
           }
         </div>
+
+        <section class="data-section" aria-labelledby="day-activities-title">
+          <div class="section-heading">
+            <div>
+              <span class="section-label">All canonical activities</span>
+              <h4 id="day-activities-title">Activities recorded for {{ date() }}</h4>
+              <p class="section-help">Strava activities are shown here for context. They are not added again to the daily score when the spreadsheet already supplies the daily aggregate.</p>
+            </div>
+            <strong class="count-badge">{{ current.activities.length }}</strong>
+          </div>
+          @if (current.activities.length === 0) {
+            <div class="empty-inline">No canonical activities were recorded for this date.</div>
+          } @else {
+            <div class="table-scroll">
+              <table class="activity-table">
+                <thead>
+                  <tr><th>Source</th><th>Activity</th><th>Distance</th><th>Elapsed</th><th>Moving</th><th>Pace / speed</th><th>Score link</th><th>Provenance</th></tr>
+                </thead>
+                <tbody>
+                  @for (activity of current.activities; track activity.id) {
+                    <tr>
+                      <td><span class="source-badge" [attr.data-source]="activity.source">{{ sourceName(activity.source) }}</span></td>
+                      <td><strong>{{ activityName(activity) }}</strong><small>{{ activity.startTime || 'No start time' }}</small></td>
+                      <td>{{ activity.distanceM === null ? '—' : formatDistance(activity.distanceM) }}</td>
+                      <td>{{ activity.durationS === null ? '—' : formatDurationValue(activity.durationS) }}</td>
+                      <td>{{ activity.movingTimeS === null ? '—' : formatDurationValue(activity.movingTimeS) }}</td>
+                      <td>{{ activity.avgPaceSPerKm === null ? (activity.avgSpeedMps === null ? '—' : formatSpeed(activity.avgSpeedMps)) : formatPace(activity.avgPaceSPerKm) }}</td>
+                      <td><span class="score-link" [class.context-only]="activityScoreLabel(activity, current) === 'Context only'" [class.daily-fact]="activityScoreLabel(activity, current) === 'Daily fact'">{{ activityScoreLabel(activity, current) }}</span></td>
+                      <td>{{ sourceSummary(activity.sourceRecord) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+
+        <section class="data-section" aria-labelledby="day-source-title">
+          <div class="section-heading">
+            <div>
+              <span class="section-label">Raw provenance</span>
+              <h4 id="day-source-title">Every source record for this day</h4>
+              <p class="section-help">This is the unabridged source payload behind the daily row and the imported provider activities.</p>
+            </div>
+            <strong class="count-badge">{{ current.sourceRecords.length }}</strong>
+          </div>
+          @if (current.sourceRecords.length === 0) {
+            <div class="empty-inline">No source records are linked to this date.</div>
+          } @else {
+            <div class="source-record-list">
+              @for (record of current.sourceRecords; track record.id) {
+                <details class="source-record">
+                  <summary>
+                    <span class="source-badge" [attr.data-source]="record.batch.source">{{ sourceName(record.batch.source) }}</span>
+                    <strong>{{ sourceRecordTitle(record) }}</strong>
+                    <span class="source-record-meta">{{ record.status }} · {{ record.normalizedEntityType || 'raw only' }}</span>
+                  </summary>
+                  <div class="source-record-body">
+                    <dl class="source-meta">
+                      <dt>Batch</dt><dd>{{ record.batch.filename || record.batch.source }} · {{ record.batch.status }}</dd>
+                      <dt>Location</dt><dd>{{ record.sheetName || 'Provider payload' }}{{ record.rowIndex === null ? '' : ' · row ' + record.rowIndex }}</dd>
+                      <dt>Record key</dt><dd class="mono">{{ record.normalizedEntityId || record.id }}</dd>
+                    </dl>
+                    @if (hasWorkbookCells(record.rawJson)) {
+                      <div class="raw-table-wrap">
+                        <table class="raw-cell-table">
+                          <thead><tr><th>Column</th><th>Raw value</th></tr></thead>
+                          <tbody>
+                            @for (cell of workbookCells(record.rawJson); track $index) {
+                              <tr><th>{{ workbookHeader(record.rawJson, $index) }}</th><td>{{ rawValueLabel(cell) }}</td></tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    } @else {
+                      <pre class="raw-json">{{ jsonLabel(record.rawJson) }}</pre>
+                    }
+                  </div>
+                </details>
+              }
+            </div>
+          }
+        </section>
 
         <div class="ledger-heading">
           <div>
@@ -347,6 +452,71 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
     .source-copy { min-width: 0; flex: 1; }
     .source-copy strong { display: block; margin-top: 3px; color: #344054; font-size: 13px; }
 
+    .section-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
+    .muted-note, .section-help { color: #667085; font-size: 12px; }
+    .section-help { max-width: 760px; margin: 5px 0 0; line-height: 1.45; }
+    .facts-section, .data-section { margin: 22px 0; }
+
+    .facts-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(100px, 1fr));
+      gap: 8px;
+    }
+
+    .facts-grid > div {
+      display: grid;
+      gap: 5px;
+      padding: 11px 12px;
+      border: 1px solid #e1e7f0;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .facts-grid span { color: #667085; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .facts-grid strong { color: #172b4d; font-size: 16px; }
+    .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 12px; }
+    .empty-inline { padding: 14px; border: 1px dashed #c7d2e5; border-radius: 10px; color: #667085; background: #fff; }
+
+    .table-scroll, .raw-table-wrap { overflow-x: auto; border: 1px solid #e1e7f0; border-radius: 10px; background: #fff; }
+    .activity-table, .raw-cell-table { width: 100%; min-width: 980px; border-collapse: collapse; font-size: 12px; }
+    .activity-table th, .activity-table td, .raw-cell-table th, .raw-cell-table td { padding: 10px 11px; border-bottom: 1px solid #edf0f5; text-align: left; vertical-align: top; }
+    .activity-table th, .raw-cell-table thead th { color: #667085; background: #f8fafc; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+    .activity-table tbody tr:last-child td, .raw-cell-table tbody tr:last-child th, .raw-cell-table tbody tr:last-child td { border-bottom: 0; }
+    .activity-table td strong { display: block; color: #243b73; }
+    .activity-table td small { display: block; margin-top: 3px; color: #667085; }
+    .source-badge, .score-link { display: inline-block; padding: 4px 7px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .source-badge[data-source='strava'] { background: #fff0e8; color: #b54708; }
+    .source-badge[data-source='my_sport_xlsx'] { background: #eaf7ee; color: #13795b; }
+    .score-link.daily-fact { background: #eaf7ee; color: #13795b; }
+    .score-link.context-only { background: #f2f4f7; color: #667085; }
+
+    .source-record-list { display: grid; gap: 8px; }
+    .source-record { border: 1px solid #e1e7f0; border-radius: 10px; background: #fff; }
+    .source-record summary { display: flex; align-items: center; gap: 9px; padding: 11px 12px; list-style: none; }
+    .source-record summary::-webkit-details-marker { display: none; }
+    .source-record summary::before { content: '›'; color: #667085; font-size: 17px; transition: transform .15s ease; }
+    .source-record[open] summary::before { transform: rotate(90deg); }
+    .source-record summary strong { min-width: 0; color: #344054; overflow-wrap: anywhere; }
+    .source-record-meta { margin-left: auto; color: #667085; font-size: 11px; white-space: nowrap; }
+    .source-record-body { padding: 0 12px 12px; }
+    .source-meta { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 12px; margin: 0 0 10px; font-size: 11px; }
+    .source-meta dt { color: #667085; }
+    .source-meta dd { margin: 0; overflow-wrap: anywhere; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .raw-cell-table { min-width: 520px; }
+    .raw-cell-table th:first-child { width: 260px; }
+    .raw-cell-table tbody th { color: #667085; font-weight: 650; background: #fbfcfe; }
+    .raw-cell-table td { max-width: 680px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .raw-json { max-height: 420px; margin: 0; padding: 12px; overflow: auto; border-radius: 8px; background: #111827; color: #e5e7eb; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+
     details { margin-top: 6px; }
     summary { cursor: pointer; color: #5267a8; font-size: 12px; font-weight: 700; }
     summary:focus-visible { outline: 3px solid #a8b9ef; outline-offset: 3px; border-radius: 4px; }
@@ -403,6 +573,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
 
     @media (max-width: 900px) {
       .score-overview { grid-template-columns: 1fr; }
+      .facts-grid { grid-template-columns: repeat(3, minmax(100px, 1fr)); }
     }
 
     @media (max-width: 680px) {
@@ -410,6 +581,9 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
       .metric-grid, .detail-grid { grid-template-columns: 1fr 1fr; }
       .panel-header, .ledger-heading { align-items: stretch; flex-direction: column; }
       .recomputed { text-align: left; }
+      .facts-grid { grid-template-columns: repeat(2, minmax(100px, 1fr)); }
+      .section-heading { flex-direction: column; }
+      .source-record-meta { margin-left: 0; }
     }
 
     @media (max-width: 460px) {
@@ -454,6 +628,24 @@ export class ScoreBreakdownPanelComponent {
     return this.numberFormatter.format(value);
   }
 
+  formatDistance(meters: number | null | undefined, fractionDigits = 2): string {
+    if (meters === null || meters === undefined) return '—';
+    return `${(meters / 1000).toLocaleString('en-US', { maximumFractionDigits: fractionDigits })} km`;
+  }
+
+  formatDurationValue(seconds: number): string {
+    return this.formatDuration(seconds);
+  }
+
+  formatPace(secondsPerKm: number): string {
+    const rounded = Math.max(0, Math.round(secondsPerKm));
+    return `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, '0')}/km`;
+  }
+
+  formatSpeed(metersPerSecond: number): string {
+    return `${(metersPerSecond * 3.6).toLocaleString('en-US', { maximumFractionDigits: 2 })} km/h`;
+  }
+
   formatSigned(value: number): string {
     if (value > 0) return `+${this.formatNumber(value)}`;
     if (value < 0) return `−${this.formatNumber(Math.abs(value))}`;
@@ -490,6 +682,60 @@ export class ScoreBreakdownPanelComponent {
     return parts.filter((part): part is string => Boolean(part)).join(' · ');
   }
 
+  activityName(activity: ScoreBreakdownActivity): string {
+    const parts = [this.humanize(activity.activityType), activity.subtype ? this.humanize(activity.subtype) : null];
+    return parts.filter((part): part is string => Boolean(part)).join(' · ');
+  }
+
+  sourceName(source: string): string {
+    if (source === 'my_sport_xlsx') return 'Excel';
+    if (source === 'strava' || source === 'strava_api') return 'Strava';
+    if (source === 'run_db_xlsx') return 'Run DB';
+    return this.humanize(source);
+  }
+
+  activityIsInLedger(activity: ScoreBreakdownActivity, breakdown: DailyScoreBreakdown): boolean {
+    return breakdown.ledger.some((entry) => entry.activity?.id === activity.id);
+  }
+
+  activityScoreLabel(activity: ScoreBreakdownActivity, breakdown: DailyScoreBreakdown): string {
+    if (this.activityIsInLedger(activity, breakdown)) return 'In ledger';
+    if (activity.source === 'my_sport_xlsx') return 'Daily fact';
+    return 'Context only';
+  }
+
+  sourceRecordTitle(record: SourceRecordReference): string {
+    const location = record.sheetName
+      ? `${record.sheetName}${record.rowIndex === null ? '' : ` row ${record.rowIndex}`}`
+      : record.normalizedEntityId || 'provider activity';
+    return `${record.batch.filename || this.sourceName(record.batch.source)} · ${location}`;
+  }
+
+  hasWorkbookCells(value: JsonValue): boolean {
+    return this.workbookCells(value).length > 0;
+  }
+
+  workbookCells(value: JsonValue): JsonValue[] {
+    const record = this.jsonRecord(value);
+    return Array.isArray(record?.cells) ? record.cells : [];
+  }
+
+  workbookHeader(value: JsonValue, index: number): string {
+    const record = this.jsonRecord(value);
+    const headers = Array.isArray(record?.headers) ? record.headers : [];
+    const header = headers[index];
+    return header === null || header === undefined || header === '' ? `Column ${index + 1}` : String(header).replace(/\n/g, ' ');
+  }
+
+  rawValueLabel(value: JsonValue): string {
+    if (value !== null && typeof value === 'object') return this.jsonLabel(value);
+    return value === null ? 'null' : String(value);
+  }
+
+  jsonLabel(value: JsonValue): string {
+    return JSON.stringify(value, null, 2) ?? String(value);
+  }
+
   sourceSummary(source: SourceRecordReference | null): string {
     if (!source) return 'Source link unavailable';
     const workbook = source.batch.filename || source.batch.source;
@@ -515,5 +761,11 @@ export class ScoreBreakdownPanelComponent {
 
   private humanize(value: string): string {
     return value.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  }
+
+  private jsonRecord(value: JsonValue): { [key: string]: JsonValue } | null {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? value as { [key: string]: JsonValue }
+      : null;
   }
 }

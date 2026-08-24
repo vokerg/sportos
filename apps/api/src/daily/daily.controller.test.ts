@@ -10,6 +10,8 @@ const response = {
   facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
   score: { appTotal: 0, excelTotal: null, delta: null, baseTotal: 0, bonusTotal: 0, ledgerTotal: 0 },
   sourceRecord: null,
+  activities: [],
+  sourceRecords: [],
   ledger: [],
 };
 

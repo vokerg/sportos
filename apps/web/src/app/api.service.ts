@@ -179,6 +179,7 @@ export interface RuleProposal {
   code: string;
   name: string;
   activityType: ActivityType;
+  activitySubtype?: 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown';
   ruleKind: RuleKind;
   metric: string;
   coefficient?: number;

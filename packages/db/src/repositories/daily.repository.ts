@@ -34,6 +34,12 @@ export interface DailyScoreBreakdownHeaderRow {
   sourceBatchStatus: ImportBatchesTable['status'] | null;
   sourceBatchStartedAt: unknown | null;
   sourceBatchCompletedAt: unknown | null;
+  sourceStatus?: 'raw' | 'normalized' | 'skipped' | 'error' | null;
+  sourceRawJson?: Json | null;
+  sourceErrors?: Json | null;
+  sourceWarnings?: Json | null;
+  sourceNormalizedEntityType?: string | null;
+  sourceNormalizedEntityId?: string | null;
 }
 
 export interface DailyScoreBreakdownLedgerRow {
@@ -89,6 +95,12 @@ export interface DailyScoreBreakdownLedgerRow {
   activitySourceBatchStatus: ImportBatchesTable['status'] | null;
   activitySourceBatchStartedAt: unknown | null;
   activitySourceBatchCompletedAt: unknown | null;
+  activitySourceStatus?: 'raw' | 'normalized' | 'skipped' | 'error' | null;
+  activitySourceRawJson?: Json | null;
+  activitySourceErrors?: Json | null;
+  activitySourceWarnings?: Json | null;
+  activitySourceNormalizedEntityType?: string | null;
+  activitySourceNormalizedEntityId?: string | null;
 }
 
 export class DailyRepository {
@@ -239,6 +251,12 @@ export class DailyRepository {
         'dib.status as sourceBatchStatus',
         'dib.started_at as sourceBatchStartedAt',
         'dib.completed_at as sourceBatchCompletedAt',
+        'dsr.status as sourceStatus',
+        'dsr.raw_json as sourceRawJson',
+        'dsr.errors as sourceErrors',
+        'dsr.warnings as sourceWarnings',
+        'dsr.normalized_entity_type as sourceNormalizedEntityType',
+        'dsr.normalized_entity_id as sourceNormalizedEntityId',
       ])
       .where('dm.metric_date', '=', metricDate)
       .executeTakeFirst() as unknown as DailyScoreBreakdownHeaderRow | undefined;
@@ -304,6 +322,12 @@ export class DailyRepository {
         'aib.status as activitySourceBatchStatus',
         'aib.started_at as activitySourceBatchStartedAt',
         'aib.completed_at as activitySourceBatchCompletedAt',
+        'asr.status as activitySourceStatus',
+        'asr.raw_json as activitySourceRawJson',
+        'asr.errors as activitySourceErrors',
+        'asr.warnings as activitySourceWarnings',
+        'asr.normalized_entity_type as activitySourceNormalizedEntityType',
+        'asr.normalized_entity_id as activitySourceNormalizedEntityId',
       ])
       .where('sl.metric_date', '=', metricDate)
       .orderBy('sr.priority', 'asc')
@@ -311,15 +335,81 @@ export class DailyRepository {
       .orderBy('sl.id', 'asc')
       .execute() as unknown as DailyScoreBreakdownLedgerRow[];
 
-    return assembleDailyScoreBreakdown(header, ledgerRows);
+    const activityRows = await this.db
+      .selectFrom('activities as a')
+      .leftJoin('source_records as asr', 'asr.id', 'a.source_record_id')
+      .leftJoin('import_batches as aib', 'aib.id', 'asr.import_batch_id')
+      .select([
+        'a.id as activityId',
+        'a.source as activitySource',
+        'a.source_activity_id as activitySourceActivityId',
+        'a.activity_date as activityDate',
+        'a.start_time as activityStartTime',
+        'a.activity_type as activityType',
+        'a.subtype as activitySubtype',
+        'a.distance_m as activityDistanceM',
+        'a.duration_s as activityDurationS',
+        'a.moving_time_s as activityMovingTimeS',
+        'a.steps as activitySteps',
+        'a.calories as activityCalories',
+        'a.avg_hr as activityAvgHr',
+        'a.max_hr as activityMaxHr',
+        'a.elevation_gain_m as activityElevationGainM',
+        'a.avg_speed_mps as activityAvgSpeedMps',
+        'a.avg_pace_s_per_km as activityAvgPaceSPerKm',
+        'a.effort_points as activityEffortPoints',
+        'a.notes as activityNotes',
+        'asr.id as activitySourceRecordId',
+        'asr.row_hash as activitySourceRowHash',
+        'asr.sheet_name as activitySourceSheetName',
+        'asr.row_index as activitySourceRowIndex',
+        'aib.id as activitySourceBatchId',
+        'aib.source as activitySourceBatchSource',
+        'aib.filename as activitySourceBatchFilename',
+        'aib.original_sha256 as activitySourceBatchOriginalSha256',
+        'aib.status as activitySourceBatchStatus',
+        'aib.started_at as activitySourceBatchStartedAt',
+        'aib.completed_at as activitySourceBatchCompletedAt',
+        'asr.status as activitySourceStatus',
+        'asr.raw_json as activitySourceRawJson',
+        'asr.errors as activitySourceErrors',
+        'asr.warnings as activitySourceWarnings',
+        'asr.normalized_entity_type as activitySourceNormalizedEntityType',
+        'asr.normalized_entity_id as activitySourceNormalizedEntityId',
+      ])
+      .where('a.activity_date', '=', metricDate)
+      .orderBy('a.source', 'asc')
+      .orderBy('a.activity_type', 'asc')
+      .orderBy('a.id', 'asc')
+      .execute() as unknown as DailyScoreBreakdownLedgerRow[];
+
+    return assembleDailyScoreBreakdown(header, ledgerRows, activityRows);
   }
 }
 
 export function assembleDailyScoreBreakdown(
   header: DailyScoreBreakdownHeaderRow,
   ledgerRows: DailyScoreBreakdownLedgerRow[],
+  activityRows: DailyScoreBreakdownLedgerRow[] = [],
 ): DailyScoreBreakdownReadModel {
   const ledger = ledgerRows.map(mapLedgerEntry);
+  const activities = activityRows.map(mapActivity).filter((activity): activity is NonNullable<typeof activity> => activity !== null);
+  const subtypeFacts = activities.reduce(
+    (facts, activity) => {
+      if (activity.source !== 'my_sport_xlsx') return facts;
+      const distanceM = Number(activity.distanceM ?? 0);
+      if (activity.activityType === 'run' && activity.subtype === 'treadmill') facts.runIndoorM += distanceM;
+      if (activity.activityType === 'run' && activity.subtype === 'outdoor') facts.runOutdoorM += distanceM;
+      if (activity.activityType === 'bike' && activity.subtype === 'indoor') facts.bikeIndoorM += distanceM;
+      if (activity.activityType === 'bike' && activity.subtype === 'outdoor') facts.bikeOutdoorM += distanceM;
+      return facts;
+    },
+    { runIndoorM: 0, runOutdoorM: 0, bikeIndoorM: 0, bikeOutdoorM: 0 },
+  );
+  const sourceRecords = dedupeSourceRecords([
+    mapHeaderSourceRecord(header),
+    ...activities.map((activity) => activity.sourceRecord),
+  ]);
   const ledgerTotal = ledger.reduce((sum, entry) => sum + entry.points, 0);
   return {
     date: header.date,
@@ -329,6 +419,7 @@ export function assembleDailyScoreBreakdown(
       runM: header.runM,
       bikeM: header.bikeM,
       swimM: header.swimM,
+      ...subtypeFacts,
       workoutPoints: header.workoutPoints,
       powerPoints: header.powerPoints,
     },
@@ -341,6 +432,8 @@ export function assembleDailyScoreBreakdown(
       ledgerTotal,
     },
     sourceRecord: mapHeaderSourceRecord(header),
+    activities,
+    sourceRecords,
     ledger,
   };
 }
@@ -437,6 +530,12 @@ function mapHeaderSourceRecord(row: DailyScoreBreakdownHeaderRow): SourceRecordR
     rowHash: row.sourceRowHash,
     sheetName: row.sourceSheetName,
     rowIndex: row.sourceRowIndex,
+    status: row.sourceStatus ?? 'raw',
+    rawJson: row.sourceRawJson ?? null,
+    errors: row.sourceErrors ?? [],
+    warnings: row.sourceWarnings ?? [],
+    normalizedEntityType: row.sourceNormalizedEntityType ?? null,
+    normalizedEntityId: row.sourceNormalizedEntityId ?? null,
     batch: {
       id: row.sourceBatchId,
       source: row.sourceBatchSource,
@@ -465,6 +564,12 @@ function mapActivitySourceRecord(row: DailyScoreBreakdownLedgerRow): SourceRecor
     rowHash: row.activitySourceRowHash,
     sheetName: row.activitySourceSheetName,
     rowIndex: row.activitySourceRowIndex,
+    status: row.activitySourceStatus ?? 'raw',
+    rawJson: row.activitySourceRawJson ?? null,
+    errors: row.activitySourceErrors ?? [],
+    warnings: row.activitySourceWarnings ?? [],
+    normalizedEntityType: row.activitySourceNormalizedEntityType ?? null,
+    normalizedEntityId: row.activitySourceNormalizedEntityId ?? null,
     batch: {
       id: row.activitySourceBatchId,
       source: row.activitySourceBatchSource,
@@ -475,6 +580,14 @@ function mapActivitySourceRecord(row: DailyScoreBreakdownLedgerRow): SourceRecor
       completedAt: toNullableIsoTimestamp(row.activitySourceBatchCompletedAt),
     },
   };
+}
+
+function dedupeSourceRecords(records: Array<SourceRecordReferenceReadModel | null>): SourceRecordReferenceReadModel[] {
+  const byId = new Map<string, SourceRecordReferenceReadModel>();
+  for (const record of records) {
+    if (record) byId.set(record.id, record);
+  }
+  return [...byId.values()];
 }
 
 function toIsoTimestamp(value: unknown): string {

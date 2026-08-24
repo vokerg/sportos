@@ -20,6 +20,8 @@ const breakdown: DailyScoreBreakdown = {
   facts: { steps: row.steps, runM: row.run_m, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
   score: { appTotal: 25, excelTotal: 24, delta: 1, baseTotal: 20, bonusTotal: 5, ledgerTotal: 25 },
   sourceRecord: null,
+  activities: [],
+  sourceRecords: [],
   ledger: [],
 };
 

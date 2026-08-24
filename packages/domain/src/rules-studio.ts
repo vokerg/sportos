@@ -1,6 +1,7 @@
 import { scoreDay } from './scoring.js';
 import type {
   ActivityFact,
+  ActivitySubtype,
   ActivityType,
   DailyMetricFacts,
   RuleKind,
@@ -13,6 +14,7 @@ export interface RuleProposal {
   code: string;
   name: string;
   activityType: ActivityType;
+  activitySubtype?: ActivitySubtype;
   ruleKind: RuleKind;
   metric: string;
   coefficient?: number;
@@ -192,6 +194,7 @@ export function proposalAsRule(proposal: RuleProposal, id?: string): ScoringRule
     code: normalized.code,
     name: normalized.name,
     activityType: normalized.activityType,
+    activitySubtype: normalized.activitySubtype,
     ruleKind: normalized.ruleKind,
     metric: normalized.metric,
     coefficient: normalized.coefficient,

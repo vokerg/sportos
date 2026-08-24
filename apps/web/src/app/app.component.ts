@@ -53,7 +53,7 @@ import { WebAuthService } from './web-auth.service';
           </div>
         </header>
 
-        <div class="grid two">
+        <div class="grid two cockpit-layout">
           <section class="grid" aria-label="Training review">
             <div id="analysis"><sportos-analysis-panel /></div>
             <div id="daily-log"><sportos-daily-log #dailyLog /></div>
@@ -75,6 +75,7 @@ import { WebAuthService } from './web-auth.service';
   `,
   styles: [`
     .auth-card { max-width: 560px; margin: 10vh auto 0; text-align: center; }
+    .cockpit-layout { align-items: start; }
     .header-actions { display: grid; justify-items: end; gap: 12px; }
     .session-label { margin: 8px 0 0; color: #475467; font-size: 13px; }
     @media (max-width: 760px) { .header-actions { justify-items: start; } }

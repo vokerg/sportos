@@ -15,6 +15,12 @@ export interface SourceRecordReference {
   rowHash: string;
   sheetName: string | null;
   rowIndex: number | null;
+  status: 'raw' | 'normalized' | 'skipped' | 'error';
+  rawJson: JsonValue;
+  errors: JsonValue;
+  warnings: JsonValue;
+  normalizedEntityType: string | null;
+  normalizedEntityId: string | null;
   batch: ImportBatchReference;
 }
 
@@ -48,6 +54,7 @@ export interface ScoreBreakdownRule {
   code: string;
   name: string;
   activityType: ActivityType;
+  activitySubtype?: 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown' | null;
   ruleKind: 'coefficient' | 'achievement' | 'manual_points';
   metric: string;
   coefficient: number | null;
@@ -79,7 +86,11 @@ export interface DailyScoreBreakdown {
   facts: {
     steps: number;
     runM: number;
+    runIndoorM?: number | null;
+    runOutdoorM?: number | null;
     bikeM: number;
+    bikeIndoorM?: number | null;
+    bikeOutdoorM?: number | null;
     swimM: number;
     workoutPoints: number;
     powerPoints: number;
@@ -93,6 +104,8 @@ export interface DailyScoreBreakdown {
     ledgerTotal: number;
   };
   sourceRecord: SourceRecordReference | null;
+  activities: ScoreBreakdownActivity[];
+  sourceRecords: SourceRecordReference[];
   ledger: ScoreBreakdownLedgerEntry[];
 }
 

@@ -9,31 +9,54 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
     .sort((a, b) => a.priority - b.priority || a.code.localeCompare(b.code));
 
   const ledger: ScoreLedgerEntry[] = [];
+  const datedActivities = activities.filter((candidate) => candidate.activityDate === facts.metricDate);
+  const workbookActivities = datedActivities.filter(
+    (candidate) => candidate.source === 'my_sport_xlsx' && (candidate.activityType === 'run' || candidate.activityType === 'bike'),
+  );
+  const workbookBackedTypes = new Set(
+    (['run', 'bike'] as const).filter((activityType) => workbookActivityMatchesAggregate(workbookActivities, activityType, facts)),
+  );
 
-  const syntheticDailyActivities: ActivityFact[] = [
+  const syntheticDailyActivities = ([
     { activityDate: facts.metricDate, activityType: 'steps', steps: facts.steps },
-    { activityDate: facts.metricDate, activityType: 'run', distanceM: facts.runM },
-    { activityDate: facts.metricDate, activityType: 'bike', distanceM: facts.bikeM },
+    ...splitDistanceActivities(facts, 'run', facts.runM, facts.runIndoorM, facts.runOutdoorM, activeRules),
+    ...splitDistanceActivities(facts, 'bike', facts.bikeM, facts.bikeIndoorM, facts.bikeOutdoorM, activeRules),
     { activityDate: facts.metricDate, activityType: 'swim', distanceM: facts.swimM },
     { activityDate: facts.metricDate, activityType: 'workout', effortPoints: facts.workoutPoints },
     { activityDate: facts.metricDate, activityType: 'power_bonus', effortPoints: facts.powerPoints },
-  ];
+  ] as ActivityFact[]).filter((activity) => !workbookBackedTypes.has(activity.activityType as 'run' | 'bike'));
 
   // Daily aggregates drive coefficient/manual rules only. Achievement rules must
   // evaluate one canonical activity so separate sessions are never combined into
   // a synthetic threshold achievement.
   for (const activity of syntheticDailyActivities) {
     for (const rule of activeRules.filter(
-      (candidate) => candidate.activityType === activity.activityType && candidate.ruleKind !== 'achievement',
+      (candidate) => candidate.activityType === activity.activityType
+        && candidate.ruleKind !== 'achievement'
+        && syntheticRuleApplies(candidate, activity, facts, activeRules),
     )) {
       const entry = scoreActivityWithRule(activity, rule, facts.metricDate);
       if (entry) ledger.push(entry);
     }
   }
 
-  for (const activity of activities.filter((candidate) => candidate.activityDate === facts.metricDate)) {
+  for (const activity of workbookActivities) {
+    if (!workbookBackedTypes.has(activity.activityType as 'run' | 'bike')) continue;
     for (const rule of activeRules.filter(
-      (candidate) => candidate.activityType === activity.activityType && candidate.ruleKind === 'achievement',
+      (candidate) => candidate.activityType === activity.activityType
+        && candidate.ruleKind !== 'achievement'
+        && (!candidate.activitySubtype || candidate.activitySubtype === activity.subtype),
+    )) {
+      const entry = scoreWorkbookActivity(activity, rule, facts.metricDate);
+      if (entry) ledger.push(entry);
+    }
+  }
+
+  for (const activity of datedActivities) {
+    for (const rule of activeRules.filter(
+      (candidate) => candidate.activityType === activity.activityType
+        && candidate.ruleKind === 'achievement'
+        && (!candidate.activitySubtype || candidate.activitySubtype === activity.subtype),
     )) {
       const entry = scoreActivityWithRule(activity, rule, facts.metricDate);
       if (entry) ledger.push(entry);
@@ -58,6 +81,7 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
 
 export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule, metricDate: string): ScoreLedgerEntry | null {
   if (!rule.enabled || !isRuleActiveForDate(rule, metricDate)) return null;
+  if (rule.activitySubtype && rule.activitySubtype !== activity.subtype) return null;
 
   const classification = classifyRule(rule);
 
@@ -218,6 +242,96 @@ function metricUnit(metric: string): string {
     case 'effort_points': return 'points';
     default: return 'units';
   }
+}
+
+function splitDistanceActivities(
+  facts: DailyMetricFacts,
+  activityType: 'run' | 'bike',
+  aggregateM: number,
+  indoorM: number | undefined,
+  outdoorM: number | undefined,
+  activeRules: ScoringRule[],
+): ActivityFact[] {
+  if ((indoorM === undefined && outdoorM === undefined) || !hasSubtypeRules(activeRules, activityType)) {
+    return [{ activityDate: facts.metricDate, activityType, distanceM: aggregateM }];
+  }
+  const indoorSubtype = activityType === 'run' ? 'treadmill' : 'indoor';
+  return [
+    { activityDate: facts.metricDate, activityType, subtype: indoorSubtype, distanceM: indoorM ?? 0 },
+    { activityDate: facts.metricDate, activityType, subtype: 'outdoor', distanceM: outdoorM ?? 0 },
+  ];
+}
+
+function syntheticRuleApplies(
+  rule: ScoringRule,
+  activity: ActivityFact,
+  facts: DailyMetricFacts,
+  activeRules: ScoringRule[],
+): boolean {
+  if (rule.activitySubtype && rule.activitySubtype !== activity.subtype) return false;
+  if (rule.code === 'run.km.default' && hasSubtypeBreakdown(facts.runIndoorM, facts.runOutdoorM)
+    && hasSubtypeRules(activeRules, 'run')) return false;
+  if (rule.code === 'bike.km.default' && hasSubtypeBreakdown(facts.bikeIndoorM, facts.bikeOutdoorM)
+    && hasSubtypeRules(activeRules, 'bike')) return false;
+  return true;
+}
+
+function hasSubtypeBreakdown(indoorM: number | undefined, outdoorM: number | undefined): boolean {
+  return indoorM !== undefined || outdoorM !== undefined;
+}
+
+function hasSubtypeRules(rules: ScoringRule[], activityType: 'run' | 'bike'): boolean {
+  return rules.some((rule) => rule.activityType === activityType && rule.activitySubtype && rule.ruleKind !== 'achievement');
+}
+
+function workbookActivityMatchesAggregate(
+  activities: ActivityFact[],
+  activityType: 'run' | 'bike',
+  facts: DailyMetricFacts,
+): boolean {
+  // Only override the configured SportOS coefficient when the workbook also
+  // supplied its row total. A partial row without an Excel total is not enough
+  // evidence to replace the active SportOS rule.
+  if (facts.excelAllPoints === undefined) return false;
+  const sourceDistanceM = activities
+    .filter((activity) => activity.activityType === activityType)
+    .reduce((sum, activity) => sum + (activity.distanceM ?? 0), 0);
+  const aggregateM = activityType === 'run' ? facts.runM : facts.bikeM;
+  return sourceDistanceM > 0 && Math.abs(sourceDistanceM - aggregateM) < 0.001;
+}
+
+function scoreWorkbookActivity(activity: ActivityFact, rule: ScoringRule, metricDate: string): ScoreLedgerEntry | null {
+  const coefficient = workbookCoefficient(rule, activity);
+  if (coefficient === undefined) return scoreActivityWithRule(activity, rule, metricDate);
+  const entry = scoreActivityWithRule(activity, { ...rule, coefficient }, metricDate);
+  if (!entry) return null;
+  entry.calculationJson = {
+    ...entry.calculationJson,
+    workbookFormula: workbookFormula(activity),
+    configuredCoefficient: rule.coefficient ?? null,
+    workbookCoefficient: coefficient,
+  };
+  return entry;
+}
+
+function workbookCoefficient(rule: ScoringRule, activity: ActivityFact): number | undefined {
+  if (rule.code === 'run.km.default') {
+    if (activity.subtype === 'treadmill') return 1850;
+    if (activity.subtype === 'outdoor') return 1700;
+  }
+  if (rule.code === 'bike.km.default') {
+    if (activity.subtype === 'indoor') return 700;
+    if (activity.subtype === 'outdoor') return 600;
+  }
+  return undefined;
+}
+
+function workbookFormula(activity: ActivityFact): string {
+  if (activity.activityType === 'run' && activity.subtype === 'treadmill') return 'Excel: treadmill run km × 1850';
+  if (activity.activityType === 'run' && activity.subtype === 'outdoor') return 'Excel: outdoor run km × 1700';
+  if (activity.activityType === 'bike' && activity.subtype === 'indoor') return 'Excel: indoor bike km × 700';
+  if (activity.activityType === 'bike' && activity.subtype === 'outdoor') return 'Excel: outdoor bike km × 600';
+  return 'Excel activity coefficient';
 }
 
 function getMetricValue(activity: ActivityFact, metric: string): number | undefined {
