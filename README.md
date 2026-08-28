@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the prioritized implementation roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16). The current schema is validated through Flyway V110, and the authoritative work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the prioritized implementation roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16). The current schema is validated through Flyway V112, and the authoritative work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -31,6 +31,8 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 ### Review, score, and export canonical records
 
 - Browse daily summaries and inspect exact score-ledger, immutable rule-version, activity, source-record, and import-batch provenance.
+- Treat imported workbook `All` totals as authoritative until an explicit recalculation; each daily row shows whether its current score is imported or calculated.
+- Recalculate a selected date from canonical activities, including a Strava-only date when no daily ledger row exists, without changing scores implicitly during synchronization.
 - Explore running performance, personal-best views, event detail, and source attribution in Run Lab.
 - Preview scoring-rule changes without writes.
 - Publish immutable rule versions with non-overlapping account-scoped effective ranges.
@@ -105,7 +107,10 @@ browser XLSX -> upload storage       Strava OAuth -> encrypted credentials
           |                               |
           +---------------+---------------+
                           v
-        daily_metrics + scoring_rules + score_ledger
+                    scoring_rules
+                          |
+                          v
+        daily_metrics + score_ledger + score_snapshots
                           |
                           v
        owner-scoped read repositories + deterministic analysis tools
@@ -122,7 +127,7 @@ browser XLSX -> upload storage       Strava OAuth -> encrypted credentials
                    canonical export + Angular cockpit
 ```
 
-Postgres is authoritative for accounts, external identities, sessions, ownership, provider metadata, encrypted credential envelopes, synchronization cursors, job leases, audit history, provenance, canonical facts, rule versions, official scores, and analysis-run metadata. Uploaded workbook bytes remain outside Postgres. Generated guidance is non-authoritative and cannot calculate or persist official scores.
+Postgres is authoritative for accounts, external identities, sessions, ownership, provider metadata, encrypted credential envelopes, synchronization cursors, job leases, audit history, provenance, canonical facts, rule versions, official current scores, append-only score snapshots, and analysis-run metadata. Uploaded workbook bytes remain outside Postgres. Generated guidance is non-authoritative and cannot calculate or persist official scores.
 
 The runtime uses separate non-superuser database identities:
 
@@ -283,6 +288,7 @@ POST /auth/logout
 
 GET  /daily/summary?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=365
 GET  /daily/:date/score-breakdown
+POST /daily/:date/recalculate
 
 GET  /performance/best?distanceM=5000&limit=50
 GET  /performance/events?distanceM=5000&from=YYYY-MM-DD&to=YYYY-MM-DD&limit=100
@@ -371,7 +377,7 @@ SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:543
   pnpm --filter @sportos/importers test:integration
 ```
 
-CI covers frozen installation, fresh migration through V110, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
+CI covers frozen installation, fresh migration through V112, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, imported-ledger authority, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
 
 ## Current limitations
 

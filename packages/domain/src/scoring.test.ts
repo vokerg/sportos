@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { scoreActivityWithRule, scoreDay } from './scoring.js';
+import { scoreActivityWithRule, scoreDay, scoreFromImportedLedger } from './scoring.js';
 import type { ScoringRule } from './types.js';
 
 const rules: ScoringRule[] = [
@@ -11,6 +11,36 @@ const rules: ScoringRule[] = [
 ];
 
 describe('scoreDay', () => {
+  it('keeps an imported workbook ledger total intact without calculated bonuses', () => {
+    const result = scoreFromImportedLedger({
+      metricDate: '2026-05-18',
+      steps: 1000,
+      runM: 5000,
+      bikeM: 0,
+      swimM: 0,
+      workoutPoints: 0,
+      powerPoints: 0,
+      excelAllPoints: 6000,
+    });
+
+    expect(result).toMatchObject({ basePoints: 6000, bonusPoints: 0, totalPoints: 6000 });
+    expect(result.ledger).toEqual([{
+      metricDate: '2026-05-18',
+      points: 6000,
+      reason: 'Imported workbook ledger total',
+      calculationJson: { scoreStatus: 'imported', source: 'my_sport_xlsx', field: 'All', importedPoints: 6000 },
+    }]);
+  });
+
+  it('rejects a fractional or negative imported workbook total instead of changing it silently', () => {
+    expect(() => scoreFromImportedLedger({
+      metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 1.5,
+    })).toThrow(/finite, non-negative integer/);
+    expect(() => scoreFromImportedLedger({
+      metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: -1,
+    })).toThrow(/finite, non-negative integer/);
+  });
+
   it('scores deterministic base points and classifies power and achievement entries as bonuses', () => {
     const result = scoreDay(
       { metricDate: '2026-05-18', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 250 },

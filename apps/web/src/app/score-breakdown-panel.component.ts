@@ -23,7 +23,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
         <div>
           <div class="eyebrow">Score explanation</div>
           <h3 [id]="headingId">{{ date() ? 'Daily score · ' + date() : 'Daily score breakdown' }}</h3>
-          <p class="panel-subtitle">SportOS recalculates the official score from canonical facts and active rules. Excel is kept as a reference.</p>
+          <p class="panel-subtitle">Imported workbook ledgers stay authoritative until explicitly recalculated. Calculated rows use canonical activities and active rules.</p>
         </div>
         @if (date()) {
           <button type="button" class="secondary-button" aria-label="Close score breakdown" (click)="closed.emit()">
@@ -71,16 +71,23 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
           <div class="total-card">
             <span class="metric-label">Total score</span>
             <strong>{{ formatNumber(current.score.appTotal) }}</strong>
-            <span class="total-note">Saved in SportOS</span>
+            <span class="status-badge" [attr.data-status]="current.scoreStatus">{{ scoreStatusLabel(current.scoreStatus) }}</span>
+            <span class="total-note">{{ current.scoreStatus === 'imported' ? 'Imported ledger is authoritative' : 'Calculated from canonical activities' }}</span>
+            <button type="button" class="secondary-button recalculation-action" (click)="recalculate.emit()" [disabled]="recalculating()">
+              {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
+            </button>
+            @if (recalculationError()) {
+              <span class="recalculation-error" role="alert">{{ recalculationError() }}</span>
+            }
           </div>
           <div class="metric-grid">
             <div class="metric-card">
-              <span class="metric-label">Base</span>
+              <span class="metric-label">{{ current.scoreStatus === 'imported' ? 'Imported ledger total' : 'Base' }}</span>
               <strong>{{ formatNumber(current.score.baseTotal) }}</strong>
             </div>
             <div class="metric-card">
-              <span class="metric-label">Bonus</span>
-              <strong class="positive-points">{{ formatSigned(current.score.bonusTotal) }}</strong>
+              <span class="metric-label">{{ current.scoreStatus === 'imported' ? 'Calculated bonus' : 'Bonus' }}</span>
+              <strong class="positive-points">{{ current.scoreStatus === 'imported' ? 'Not applied' : formatSigned(current.score.bonusTotal) }}</strong>
             </div>
             <div class="metric-card delta-card" [attr.data-delta]="deltaKind(current.score.delta)">
               <span class="metric-label">Compared with Excel</span>
@@ -144,7 +151,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
             <div>
               <span class="section-label">All canonical activities</span>
               <h4 id="day-activities-title">Activities recorded for {{ date() }}</h4>
-              <p class="section-help">Strava activities are shown here for context. They are not added again to the daily score when the spreadsheet already supplies the daily aggregate.</p>
+              <p class="section-help">Imported rows use the saved workbook ledger. Recalculated rows use the canonical activities shown here, including Strava records.</p>
             </div>
             <strong class="count-badge">{{ current.activities.length }}</strong>
           </div>
@@ -244,8 +251,8 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
                   <div class="rule-copy">
                     <span class="rule-dot" aria-hidden="true"></span>
                     <div>
-                      <strong>{{ entry.rule?.name || 'Rule unavailable' }}</strong>
-                      <code>{{ entry.rule?.code || 'unlinked' }}</code>
+                      <strong>{{ entry.rule?.name || (current.scoreStatus === 'imported' ? 'Imported workbook ledger' : 'Rule unavailable') }}</strong>
+                      <code>{{ entry.rule?.code || (current.scoreStatus === 'imported' ? 'imported.all' : 'unlinked') }}</code>
                     </div>
                   </div>
                   <span class="points-pill" [class.positive-points]="entry.points > 0" [class.negative-points]="entry.points < 0">
@@ -363,6 +370,11 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
       font-weight: 750;
       letter-spacing: -.04em;
     }
+
+    .status-badge { align-self: flex-start; padding: 4px 8px; border-radius: 999px; background: #eaf7ee; color: #13795b; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .status-badge[data-status='calculated'] { background: #eef3ff; color: #40558f; }
+    .recalculation-action { align-self: flex-start; margin-top: 10px; font-size: 12px; }
+    .total-card .recalculation-error { margin-top: 6px; color: #b54747; font-size: 12px; }
 
     .total-note,
     .metric-card small,
@@ -597,7 +609,10 @@ export class ScoreBreakdownPanelComponent {
   readonly date = input<string | null>(null);
   readonly breakdown = input<DailyScoreBreakdown | null>(null);
   readonly errorMessage = input<string | null>(null);
+  readonly recalculating = input(false);
+  readonly recalculationError = input<string | null>(null);
   readonly retry = output<void>();
+  readonly recalculate = output<void>();
   readonly closed = output<void>();
 
   readonly headingId = 'daily-score-breakdown-heading';
@@ -622,6 +637,10 @@ export class ScoreBreakdownPanelComponent {
     if (delta > 0) return 'App total is above Excel';
     if (delta < 0) return 'App total is below Excel';
     return 'App and Excel totals match';
+  }
+
+  scoreStatusLabel(status: 'imported' | 'calculated'): string {
+    return status === 'imported' ? 'Imported ledger' : 'Calculated';
   }
 
   formatNumber(value: number): string {

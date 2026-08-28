@@ -66,6 +66,32 @@ The default tolerance is **zero**. SportOS never introduces a generic percentage
 
 Synthetic evidence proves deterministic application behavior and report shape. It does not prove that a personal historical workbook used the same bike or swim coefficients.
 
+## Imported ledger authority and explicit recalculation
+
+When a `my_sport_xlsx` row has a numeric cached `All` value, that imported
+total is the current authoritative score. Import does not apply SportOS
+achievement bonuses or reinterpret the workbook's internal formula. The row
+is marked `score_status = imported`, stored as `base = All`, `bonus = 0`, and
+`total = All`, and its live ledger contains a clearly labeled workbook-total
+entry without a rule or activity link. A zero imported total has an empty live
+ledger, whose sum is still zero. Imported totals must be finite,
+non-negative integers because score and ledger points are integer values.
+
+Rows without `All` continue to use the deterministic rules above. Strava sync
+does not recalculate existing rows. `POST /daily/:date/recalculate` is the
+explicit transition to a calculated row: it requires Strava activity, uses all
+canonical activities for an existing row (or Strava activities only when no
+daily row exists), clears `All` from the scoring input, and persists a normal
+base/bonus ledger. A missing Strava activity produces a bounded conflict and
+leaves the current score unchanged.
+
+Every score write appends an immutable score snapshot before replacing the
+current daily row and live ledger. Migration V112 preserves the pre-change
+state as a legacy snapshot and promotes existing rows with `All` to imported
+authority. Rule previews show imported rows as unchanged, and rule activation
+skips them until the explicit recalculation is requested. Calculated rows are
+recomputed normally and receive their own snapshot.
+
 ## Historical recomputation and migration V102
 
 V102 does not alter any coefficient, threshold, configured points, or effective period. It:

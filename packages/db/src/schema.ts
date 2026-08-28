@@ -1,4 +1,5 @@
 import type { ColumnType, Generated, Insertable, Selectable } from 'kysely';
+import type { DailyScoreStatus } from '@sportos/domain';
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
@@ -170,7 +171,24 @@ export interface DailyMetricsTable {
   total_points: number;
   excel_all_points: number | null;
   excel_row_hash: string | null;
+  score_status: Generated<DailyScoreStatus>;
+  score_snapshot_id: Generated<string | null>;
   recomputed_at: GeneratedTimestamp;
+}
+
+export interface DailyScoreSnapshotsTable {
+  id: Generated<string>;
+  owner_id: OwnerId;
+  metric_date: DateString;
+  score_status: DailyScoreStatus;
+  base_points: number;
+  bonus_points: number;
+  total_points: number;
+  facts_json: Json;
+  ledger_json: Json;
+  source_record_id: string | null;
+  trigger: 'workbook_import' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration';
+  created_at: GeneratedTimestamp;
 }
 
 export interface ScoringRulesTable {
@@ -371,6 +389,7 @@ export interface Database {
   source_records: SourceRecordsTable;
   activities: ActivitiesTable;
   daily_metrics: DailyMetricsTable;
+  daily_score_snapshots: DailyScoreSnapshotsTable;
   scoring_rules: ScoringRulesTable;
   scoring_rule_changes: ScoringRuleChangesTable;
   score_ledger: ScoreLedgerTable;
@@ -381,7 +400,7 @@ export interface Database {
   provider_sync_jobs: ProviderSyncJobsTable;
   provider_activity_links: ProviderActivityLinksTable;
   provider_webhook_events: ProviderWebhookEventsTable;
-  v_daily_summary: Omit<DailyMetricsTable, 'owner_id' | 'source_record_id'> & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
+  v_daily_summary: Omit<DailyMetricsTable, 'owner_id' | 'source_record_id' | 'score_snapshot_id'> & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
   v_performance_events: Omit<PerformanceEventsTable, 'owner_id' | 'source_record_hash'> & { all_time_rank: number; is_pr_by_time: boolean };
 }
 
@@ -401,6 +420,8 @@ export type Activity = Selectable<ActivitiesTable>;
 export type NewActivity = Insertable<ActivitiesTable>;
 export type DailyMetric = Selectable<DailyMetricsTable>;
 export type NewDailyMetric = Insertable<DailyMetricsTable>;
+export type DailyScoreSnapshot = Selectable<DailyScoreSnapshotsTable>;
+export type NewDailyScoreSnapshot = Insertable<DailyScoreSnapshotsTable>;
 export type ScoringRuleRow = Selectable<ScoringRulesTable>;
 export type NewScoringRule = Insertable<ScoringRulesTable>;
 export type ScoringRuleChange = Selectable<ScoringRuleChangesTable>;

@@ -43,13 +43,13 @@ Unknown headers are preserved in the extracted raw row but are not normalized. T
 | `Pow` | power-bonus activity and daily power total | rounded points |
 | `Bike` | daily aggregate bike distance | kilometers converted to meters; falls back to `Bike IN + Bike OUT` when absent |
 | `Run` | daily aggregate run distance | kilometers converted to meters; falls back to `R IN + R Out` when absent |
-| `All` | imported spreadsheet total | numeric cached value when available; not recalculated by the XLSX parser |
+| `All` | imported spreadsheet ledger total | numeric cached value when available; when present it becomes the current authoritative score and is not replaced by SportOS bonuses during import |
 
 `A10`, `A20d`, `30(All)`, `A60d`, and `A365` are recognized historical/formula columns but are not normalized into canonical facts. They remain available in the raw payload.
 
 Rows with data but without a positive numeric `Date` are retained by raw extraction, skipped by normalization, and reported with a deterministic row warning.
 
-Formula cells are read with formulas preserved in the workbook object and cached numeric values exposed to row normalization. The parser consumes the cached value for `Bike`, `Run`, and `All`; authoritative SportOS scoring remains deterministic application logic rather than spreadsheet formula execution.
+Formula cells are read with formulas preserved in the workbook object and cached numeric values exposed to row normalization. The parser consumes the cached value for `Bike`, `Run`, and `All`. A valid integer `All` is retained as the imported ledger authority; a user-triggered recalculation explicitly switches that row to deterministic SportOS scoring from canonical activities. Fractional or negative imported totals are retained as raw input but rejected from official integer score storage.
 
 ### Scoring evidence columns
 

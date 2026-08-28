@@ -57,6 +57,7 @@ const activity: ScoreBreakdownActivity = {
 const breakdown: DailyScoreBreakdown = {
   date: '2026-05-18',
   recomputedAt: '2026-05-18T12:00:00.000Z',
+  scoreStatus: 'calculated',
   facts: { steps: 12_345, runM: 5_000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
   score: { appTotal: 25, excelTotal: 24, delta: 1, baseTotal: 20, bonusTotal: 5, ledgerTotal: 25 },
   sourceRecord: source,

@@ -4,6 +4,7 @@ import type {
   ActivitySubtype,
   ActivityType,
   DailyMetricFacts,
+  DailyScoreStatus,
   RuleKind,
   ScoringRule,
   ThresholdOperator,
@@ -44,6 +45,7 @@ export class RuleProposalValidationError extends Error {
 export interface RulePreviewDay {
   facts: DailyMetricFacts;
   activities: ActivityFact[];
+  scoreStatus?: DailyScoreStatus;
   currentBasePoints: number;
   currentBonusPoints: number;
   currentTotalPoints: number;
@@ -225,7 +227,20 @@ export function previewRuleChange(
     .filter((day) => day.facts.metricDate >= proposal.validFrom && (!proposal.validTo || day.facts.metricDate <= proposal.validTo))
     .sort((a, b) => a.facts.metricDate.localeCompare(b.facts.metricDate))
     .map((day): RulePreviewRow => {
-      const proposed = scoreDay(day.facts, day.activities, proposedRules);
+      if (day.scoreStatus === 'imported') {
+        return {
+          metricDate: day.facts.metricDate,
+          currentBasePoints: day.currentBasePoints,
+          proposedBasePoints: day.currentBasePoints,
+          currentBonusPoints: day.currentBonusPoints,
+          proposedBonusPoints: day.currentBonusPoints,
+          currentTotalPoints: day.currentTotalPoints,
+          proposedTotalPoints: day.currentTotalPoints,
+          delta: 0,
+        };
+      }
+
+      const proposed = scoreDay({ ...day.facts, excelAllPoints: undefined }, day.activities, proposedRules);
       return {
         metricDate: day.facts.metricDate,
         currentBasePoints: day.currentBasePoints,

@@ -54,6 +54,7 @@ describe('AnalysisToolService evidence envelopes', () => {
     dailyService.scoreBreakdown.mockResolvedValue({
       date: '2026-05-18',
       recomputedAt: '2026-05-18T12:00:00.000Z',
+      scoreStatus: 'calculated',
       facts: { steps: 0, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
       score: { appTotal: 5, excelTotal: 4, delta: 1, baseTotal: 5, bonusTotal: 0, ledgerTotal: 5 },
       sourceRecord: {
@@ -143,6 +144,7 @@ describe('AnalysisToolService evidence envelopes', () => {
     dailyService.scoreBreakdown.mockResolvedValue({
       date: '2026-05-18',
       recomputedAt: '2026-05-18T12:00:00.000Z',
+      scoreStatus: 'calculated',
       facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
       score: { appTotal: 501, excelTotal: null, delta: null, baseTotal: 501, bonusTotal: 0, ledgerTotal: 501 },
       sourceRecord: null,
@@ -188,5 +190,6 @@ function dailyRow(date: string, total: number) {
     avg_30d: null,
     avg_60d: null,
     avg_365d: null,
+    score_status: 'calculated',
   };
 }

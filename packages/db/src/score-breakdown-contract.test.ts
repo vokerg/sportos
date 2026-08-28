@@ -5,6 +5,7 @@ import type { DailyScoreBreakdownReadModel } from './repository-contracts.js';
 const validResponse: DailyScoreBreakdownReadModel = {
   date: '2026-05-18',
   recomputedAt: '2026-05-18T12:00:00.000Z',
+  scoreStatus: 'calculated',
   facts: {
     steps: 12_345,
     runM: 13_000,

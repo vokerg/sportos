@@ -8,6 +8,7 @@ import {
 const header: DailyScoreBreakdownHeaderRow = {
   date: '2026-05-18',
   recomputedAt: new Date('2026-05-18T12:00:00.000Z'),
+  scoreStatus: 'calculated',
   steps: 12_345,
   runM: 13_000,
   bikeM: 35_000,
@@ -84,6 +85,7 @@ describe('assembleDailyScoreBreakdown', () => {
       bonusTotal: 5,
       ledgerTotal: 25,
     });
+    expect(result.scoreStatus).toBe('calculated');
     expect(result.sourceRecord).toMatchObject({
       id: header.sourceRecordId,
       batch: { id: header.sourceBatchId, status: 'scored' },

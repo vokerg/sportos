@@ -1,4 +1,9 @@
+import type { DailyScoreStatus } from '@sportos/domain';
 import type { ActivitiesTable, Json } from './schema.js';
+
+export type { DailyScoreStatus };
+
+export type DailyScoreSnapshotTrigger = 'workbook_import' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration';
 
 export interface DailyMetricFactsInput {
   metricDate: string;
@@ -134,6 +139,7 @@ export interface ScoreBreakdownLedgerEntryReadModel {
 export interface DailyScoreBreakdownReadModel {
   date: string;
   recomputedAt: string;
+  scoreStatus: DailyScoreStatus;
   facts: {
     steps: number;
     runM: number;

@@ -147,4 +147,21 @@ describe('Rules Studio domain contract', () => {
 
     expect(preview.rows.map((row) => row.metricDate)).toEqual(['2026-05-18']);
   });
+
+  it('leaves imported ledger rows unchanged during a rule preview', () => {
+    const preview = previewRuleChange([
+      {
+        facts: { metricDate: '2026-05-18', steps: 0, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 6000 },
+        activities: [],
+        scoreStatus: 'imported',
+        currentBasePoints: 6000,
+        currentBonusPoints: 0,
+        currentTotalPoints: 6000,
+        recomputedAt: '2026-07-31T08:00:00.000Z',
+      },
+    ], [existingRule], proposal);
+
+    expect(preview).toMatchObject({ totalDates: 1, changedDates: 0, aggregateDelta: 0 });
+    expect(preview.rows[0]).toMatchObject({ proposedTotalPoints: 6000, delta: 0 });
+  });
 });

@@ -3,6 +3,8 @@ import type {
   DailyMetricFactsInput,
   DailyScoreBreakdownReadModel,
   DailyScoreInput,
+  DailyScoreSnapshotTrigger,
+  DailyScoreStatus,
   ScoreBreakdownActivityReadModel,
   ScoreBreakdownLedgerEntryReadModel,
   ScoreBreakdownRuleReadModel,
@@ -13,6 +15,7 @@ import type { Activity, ActivitiesTable, Database, ImportBatchesTable, Json, New
 export interface DailyScoreBreakdownHeaderRow {
   date: string;
   recomputedAt: unknown;
+  scoreStatus: DailyScoreStatus;
   steps: number;
   runM: number;
   bikeM: number;
@@ -103,6 +106,11 @@ export interface DailyScoreBreakdownLedgerRow {
   activitySourceNormalizedEntityId?: string | null;
 }
 
+export interface DailyScorePersistenceOptions {
+  scoreStatus: DailyScoreStatus;
+  trigger: DailyScoreSnapshotTrigger;
+}
+
 export class DailyRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
@@ -158,7 +166,31 @@ export class DailyRepository {
       .execute();
   }
 
-  async upsertDailyMetric(facts: DailyMetricFactsInput, score: DailyScoreInput, sourceRecordId?: string): Promise<void> {
+  async upsertDailyMetric(
+    facts: DailyMetricFactsInput,
+    score: DailyScoreInput,
+    sourceRecordId?: string,
+    options: DailyScorePersistenceOptions = {
+      scoreStatus: facts.excelAllPoints === undefined ? 'calculated' : 'imported',
+      trigger: facts.excelAllPoints === undefined ? 'rule_recomputation' : 'workbook_import',
+    },
+  ): Promise<void> {
+    const snapshot = await this.db
+      .insertInto('daily_score_snapshots')
+      .values({
+        metric_date: facts.metricDate,
+        score_status: options.scoreStatus,
+        base_points: score.basePoints,
+        bonus_points: score.bonusPoints,
+        total_points: score.totalPoints,
+        facts_json: jsonValue(facts),
+        ledger_json: jsonValue(score.ledger),
+        source_record_id: sourceRecordId ?? null,
+        trigger: options.trigger,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+
     await this.db
       .insertInto('daily_metrics')
       .values({
@@ -175,10 +207,15 @@ export class DailyRepository {
         total_points: score.totalPoints,
         excel_all_points: facts.excelAllPoints ?? null,
         excel_row_hash: facts.excelRowHash ?? null,
+        score_status: options.scoreStatus,
+        score_snapshot_id: snapshot.id,
       })
       .onConflict((oc) =>
         oc.columns(['owner_id', 'metric_date']).doUpdateSet({
-          source_record_id: sourceRecordId ?? null,
+          // An activity-based recalculation has no new workbook row. Keep the
+          // existing daily provenance unless this write explicitly supplies a
+          // replacement source record.
+          source_record_id: sourceRecordId === undefined ? sql`daily_metrics.source_record_id` : sourceRecordId,
           steps: facts.steps,
           run_m: facts.runM,
           bike_m: facts.bikeM,
@@ -190,10 +227,22 @@ export class DailyRepository {
           total_points: score.totalPoints,
           excel_all_points: facts.excelAllPoints ?? null,
           excel_row_hash: facts.excelRowHash ?? null,
+          score_status: options.scoreStatus,
+          score_snapshot_id: snapshot.id,
           recomputed_at: new Date(),
         }),
       )
       .execute();
+  }
+
+  async persistDailyScore(
+    facts: DailyMetricFactsInput,
+    score: DailyScoreInput,
+    sourceRecordId: string | undefined,
+    options: DailyScorePersistenceOptions,
+  ): Promise<void> {
+    await this.upsertDailyMetric(facts, score, sourceRecordId, options);
+    await this.replaceScoreLedger(facts.metricDate, score.ledger);
   }
 
   async replaceScoreLedger(metricDate: string, entries: DailyScoreInput['ledger']): Promise<void> {
@@ -230,6 +279,7 @@ export class DailyRepository {
       .select([
         'dm.metric_date as date',
         'dm.recomputed_at as recomputedAt',
+        'dm.score_status as scoreStatus',
         'dm.steps as steps',
         'dm.run_m as runM',
         'dm.bike_m as bikeM',
@@ -394,9 +444,11 @@ export function assembleDailyScoreBreakdown(
 ): DailyScoreBreakdownReadModel {
   const ledger = ledgerRows.map(mapLedgerEntry);
   const activities = activityRows.map(mapActivity).filter((activity): activity is NonNullable<typeof activity> => activity !== null);
-  const subtypeFacts = activities.reduce(
+  const scoringActivities = header.scoreStatus === 'imported'
+    ? activities.filter((activity) => activity.source === 'my_sport_xlsx')
+    : activities;
+  const subtypeFacts = scoringActivities.reduce(
     (facts, activity) => {
-      if (activity.source !== 'my_sport_xlsx') return facts;
       const distanceM = Number(activity.distanceM ?? 0);
       if (activity.activityType === 'run' && activity.subtype === 'treadmill') facts.runIndoorM += distanceM;
       if (activity.activityType === 'run' && activity.subtype === 'outdoor') facts.runOutdoorM += distanceM;
@@ -414,6 +466,7 @@ export function assembleDailyScoreBreakdown(
   return {
     date: header.date,
     recomputedAt: toIsoTimestamp(header.recomputedAt),
+    scoreStatus: header.scoreStatus,
     facts: {
       steps: header.steps,
       runM: header.runM,
@@ -598,4 +651,10 @@ function toIsoTimestamp(value: unknown): string {
 
 function toNullableIsoTimestamp(value: unknown | null): string | null {
   return value === null ? null : toIsoTimestamp(value);
+}
+
+function jsonValue(value: unknown): Json {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) return null;
+  return JSON.parse(serialized) as Json;
 }

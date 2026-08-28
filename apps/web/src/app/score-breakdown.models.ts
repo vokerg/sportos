@@ -83,6 +83,7 @@ export interface ScoreBreakdownLedgerEntry {
 export interface DailyScoreBreakdown {
   date: string;
   recomputedAt: string;
+  scoreStatus: 'imported' | 'calculated';
   facts: {
     steps: number;
     runM: number;

@@ -1,4 +1,4 @@
-import { scoreDay, type ActivityFact } from '@sportos/domain';
+import { scoreDay, scoreFromImportedLedger, type ActivityFact } from '@sportos/domain';
 import { rowHash } from '@sportos/shared';
 import {
   DailyRepository,
@@ -187,14 +187,23 @@ export class ImportService {
           const dailyActivities: ActivityFact[] = canonicalActivities
             .filter((activity) => activity.activity_date === facts.metricDate)
             .map(toActivityFact);
-          const score = scoreDay(facts, dailyActivities, rules);
           const sourceRecord = facts.excelRowHash ? recordsByHash.get(facts.excelRowHash) : undefined;
           if (!sourceRecord) {
             throw new Error(`No source record found for daily metric ${facts.metricDate}.`);
           }
 
-          await dailyRepo.upsertDailyMetric(facts, score, sourceRecord.id);
-          await dailyRepo.replaceScoreLedger(facts.metricDate, score.ledger);
+          const score = facts.excelAllPoints === undefined
+            ? scoreDay(facts, dailyActivities, rules)
+            : scoreFromImportedLedger(facts);
+          await dailyRepo.persistDailyScore(
+            facts,
+            score,
+            sourceRecord.id,
+            {
+              scoreStatus: facts.excelAllPoints === undefined ? 'calculated' : 'imported',
+              trigger: 'workbook_import',
+            },
+          );
           normalizedLinks.push({ sourceRecordId: sourceRecord.id, entityType: 'daily_metric', entityId: facts.metricDate });
         }
 

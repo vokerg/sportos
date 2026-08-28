@@ -1,6 +1,7 @@
 import { scoreDay, type ActivityFact, type RuleChangePreview, type RulePreviewDay, type RuleProposal, type ScoringRule } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Activity, Database, Json, ScoringRuleChange, ScoringRuleRow } from '../schema.js';
+import { DailyRepository } from './daily.repository.js';
 
 export type RuleChangeStatus = ScoringRuleChange['status'];
 
@@ -152,6 +153,7 @@ export class RuleChangesRepository {
           excelRowHash: row.excel_row_hash ?? undefined,
         },
         activities: byDate.get(metricDate) ?? [],
+        scoreStatus: row.score_status,
         currentBasePoints: requiredNumber(row.base_points),
         currentBonusPoints: requiredNumber(row.bonus_points),
         currentTotalPoints: requiredNumber(row.total_points),
@@ -371,7 +373,7 @@ export class RuleChangesRepository {
     return row.cancellation_requested_at !== null;
   }
 
-  async activateAndRecompute(changeId: string, workerId: string): Promise<{ datesRecomputed: number; proposedRuleId: string }> {
+  async activateAndRecompute(changeId: string, workerId: string): Promise<{ datesRecomputed: number; datesSkippedImported: number; proposedRuleId: string }> {
     return this.db.transaction().execute(async (transaction) => {
       const change = await transaction
         .selectFrom('scoring_rule_changes')
@@ -444,7 +446,14 @@ export class RuleChangesRepository {
         activitiesByDate.set(activity.activityDate, activities);
       }
 
+      let datesSkippedImported = 0;
+      const dailyRepository = new DailyRepository(transaction);
       for (const row of dailyRows) {
+        if (row.score_status === 'imported') {
+          datesSkippedImported += 1;
+          continue;
+        }
+
         const metricDate = dateString(row.metric_date);
         const facts = {
           metricDate,
@@ -457,34 +466,20 @@ export class RuleChangesRepository {
           excelAllPoints: optionalNumber(row.excel_all_points),
           excelRowHash: row.excel_row_hash ?? undefined,
         };
-        const score = scoreDay(facts, activitiesByDate.get(metricDate) ?? [], rules);
-        await transaction
-          .updateTable('daily_metrics')
-          .set({
-            base_points: score.basePoints,
-            bonus_points: score.bonusPoints,
-            total_points: score.totalPoints,
-            recomputed_at: new Date(),
-          })
-          .where('metric_date', '=', metricDate)
-          .execute();
-        await transaction.deleteFrom('score_ledger').where('metric_date', '=', metricDate).execute();
-        if (score.ledger.length > 0) {
-          await transaction
-            .insertInto('score_ledger')
-            .values(score.ledger.map((entry) => ({
-              metric_date: entry.metricDate,
-              activity_id: entry.activityId ?? null,
-              rule_id: entry.ruleId ?? null,
-              points: entry.points,
-              reason: entry.reason,
-              calculation_json: entry.calculationJson as Json,
-            })))
-            .execute();
-        }
+        const score = scoreDay(
+          { ...facts, excelAllPoints: undefined, excelRowHash: undefined },
+          activitiesByDate.get(metricDate) ?? [],
+          rules,
+        );
+        await dailyRepository.persistDailyScore(
+          facts,
+          score,
+          row.source_record_id ?? undefined,
+          { scoreStatus: 'calculated', trigger: 'rule_recomputation' },
+        );
       }
 
-      const result = { datesRecomputed: dailyRows.length, proposedRuleId: proposed.id };
+      const result = { datesRecomputed: dailyRows.length - datesSkippedImported, datesSkippedImported, proposedRuleId: proposed.id };
       await transaction
         .updateTable('scoring_rule_changes')
         .set({

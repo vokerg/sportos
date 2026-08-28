@@ -3,6 +3,31 @@ import { metersToKm, mpsToKmh } from './units.js';
 
 const ROUNDING_POLICY = 'nearest_integer_per_rule';
 
+export function scoreFromImportedLedger(facts: DailyMetricFacts): DailyScoreResult {
+  const importedPoints = facts.excelAllPoints;
+  if (importedPoints === undefined || !Number.isFinite(importedPoints) || !Number.isInteger(importedPoints) || importedPoints < 0) {
+    throw new Error('Imported workbook All must be a finite, non-negative integer.');
+  }
+
+  return {
+    metricDate: facts.metricDate,
+    basePoints: importedPoints,
+    bonusPoints: 0,
+    totalPoints: importedPoints,
+    ledger: importedPoints === 0 ? [] : [{
+      metricDate: facts.metricDate,
+      points: importedPoints,
+      reason: 'Imported workbook ledger total',
+      calculationJson: {
+        scoreStatus: 'imported',
+        source: 'my_sport_xlsx',
+        field: 'All',
+        importedPoints,
+      },
+    }],
+  };
+}
+
 export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], rules: ScoringRule[]): DailyScoreResult {
   const activeRules = rules
     .filter((rule) => rule.enabled && isRuleActiveForDate(rule, facts.metricDate))
