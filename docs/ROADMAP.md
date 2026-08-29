@@ -14,11 +14,11 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Validated through V110 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Validated through V112 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
-| Deterministic scoring | Validated and account scoped | additional semantics only when evidence justifies them |
+| Deterministic scoring | Validated and account scoped; imported workbook ledgers are authoritative until explicit recalculation | additional semantics only when evidence justifies them |
 | Rules Studio | Validated with authenticated actor identity | hosted-scale recomputation |
 | Score reconciliation | Validated on sanitized evidence | permitted historical evidence for unresolved workbook semantics |
 | Cockpit review and export | Validated and account scoped | larger export delivery |
@@ -40,6 +40,7 @@ Delivered:
 - score breakdown and reconciliation;
 - import history and row diagnostics;
 - explicit scoring units, rounding, thresholds, priorities, effective dates, and base/bonus semantics;
+- imported workbook `All` authority with visible imported/calculated row status, append-only score snapshots, and explicit Strava-backed recalculation;
 - machine-readable exact/explained/unresolved evidence.
 
 The detailed evidence is maintained in [FIRST_MILESTONE.md](FIRST_MILESTONE.md).
@@ -130,5 +131,7 @@ Each PR must identify the milestone or operational exit criterion it advances an
 - [ADR 0006](adr/0006-provider-ingestion-and-strava.md) — provider adapters, encrypted credentials, durable synchronization, provenance, and cross-source identity.
 - [ADR 0007](adr/0007-read-only-ai-analysis.md) — read tools, deterministic calculations, generated-answer validation, audit, and UI separation.
 - [Canonical export v1](CANONICAL_EXPORT.md) — versioned canonical datasets, stable ordering, reconciliation, provenance states, and privacy exclusions.
+
+See [ADR 0008](adr/0008-imported-ledger-authority-and-explicit-recalculation.md) for imported ledger authority, append-only score history, and explicit activity-based recalculation.
 
 Future decisions still required include provider webhook operations, time-zone/locale policy, hosted observability, backup/restoration, key lifecycle, deletion, hosted model-gateway operations, broader semantic evaluation, and any expansion of the analysis tool surface.

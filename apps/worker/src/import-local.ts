@@ -1,4 +1,4 @@
-import { createDb } from '@sportos/db';
+import { createDb, LEGACY_ACCOUNT_ID, withAccountContext } from '@sportos/db';
 import { ImportService } from '@sportos/importers';
 
 const args = new Map<string, string>();
@@ -17,8 +17,10 @@ if (!mySportPath && !runDbPath) {
 
 const db = createDb(process.env.SPORTOS_LEGACY_DATABASE_URL ?? process.env.DATABASE_URL);
 try {
-  const service = new ImportService(db);
-  const result = await service.importLocalFiles({ mySportPath, runDbPath });
+  const result = await withAccountContext(db, LEGACY_ACCOUNT_ID, async (legacyDb) => {
+    const service = new ImportService(legacyDb);
+    return service.importLocalFiles({ mySportPath, runDbPath });
+  });
   console.log(JSON.stringify(result, null, 2));
 } finally {
   await db.destroy();

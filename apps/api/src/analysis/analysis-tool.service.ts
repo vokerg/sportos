@@ -49,6 +49,7 @@ export class AnalysisToolService {
         powerPoints: Number(row.power_points),
       },
       score: {
+        scoreStatus: row.score_status,
         officialTotal: Number(row.total_points),
         baseTotal: Number(row.base_points),
         bonusTotal: Number(row.bonus_points),
@@ -108,7 +109,7 @@ export class AnalysisToolService {
         label: 'Official score-ledger contribution',
       });
       if (entry.rule === null) {
-        flags.add('RULE_REFERENCE_MISSING');
+        if (record.scoreStatus !== 'imported') flags.add('RULE_REFERENCE_MISSING');
       } else {
         addCitation(citations, {
           key: `scoring_rule:${entry.rule.id}`,
@@ -169,6 +170,7 @@ export class AnalysisToolService {
     return envelope('daily_score_breakdown', {
       date: record.date,
       recomputedAt: record.recomputedAt,
+      scoreStatus: record.scoreStatus,
       metrics: record.facts,
       score: record.score,
       source: sanitizeSource(record.sourceRecord),

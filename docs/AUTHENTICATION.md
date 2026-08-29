@@ -36,7 +36,7 @@ Migration V106:
 
 Migration V107 keeps owner/private identity fields out of the public performance view. Migration V108 separates cross-owner queue dispatch from owner-scoped worker data access, removes authentication-table access from the shared privilege role, makes future table grants explicit, and makes every `owner_id` immutable. Migration V109 applies the same owner/RLS/least-privilege model to provider connections, encrypted credentials, OAuth state, sync jobs, and activity links.
 
-Migration V110 adds `analysis_runs`. It is forced-RLS account data, but it is intentionally append-only for `sportos_app`: the role may `SELECT` and `INSERT`, not `UPDATE` or `DELETE`. Dispatcher, worker-data, legacy, and shared roles cannot read it. The migration asserts those privileges.
+Migration V110 adds `analysis_runs`. It is forced-RLS account data, but it is intentionally append-only for `sportos_app`: the role may `SELECT` and `INSERT`, not `UPDATE` or `DELETE`. Dispatcher, worker-data, legacy, and shared roles cannot read it. V112 adds the same owner-scoped append-only boundary for `daily_score_snapshots`; the API and worker-data roles may append/read their account's score history, while the queue dispatcher cannot access it. The migration asserts those privileges.
 
 Account-owned repository work reserves one connection from the Kysely pool and sets `sportos.account_id` on that connection with `set_config(..., false)`. Repository-owned transactions can run on the same reserved connection. A `finally` block clears the setting before the connection returns to the pool. Without a selected account, API and worker-data roles see no account-owned rows. Valid foreign UUIDs therefore resolve through the same generic result as nonexistent UUIDs.
 
@@ -107,11 +107,16 @@ POST /auth/dev-session       optional local-only bootstrap
 
 `GET /health`, login, callback, and the explicitly configured development bootstrap are public. All other application routes require an active session. Unsafe protected routes additionally require CSRF validation.
 
+The daily score authority transition is a protected unsafe route:
+`POST /daily/:date/recalculate`. It derives the account from the authenticated
+session, requires the normal CSRF header, and never accepts an owner ID in the
+request body.
+
 ## Deployment checklist
 
 1. Provision a PostgreSQL schema-owner/Flyway identity separately from runtime identities.
 2. Provision distinct API, queue-dispatch, worker-data, and legacy identities.
-3. Run migrations through V110 before starting the new runtime.
+3. Run migrations through V112 before starting the new runtime.
 4. Configure both `SPORTOS_WORKER_DATABASE_URL` and `SPORTOS_WORKER_DATA_DATABASE_URL`; never point either at the schema owner.
 5. Configure a trusted OIDC issuer and exact API callback URL.
 6. Set exact HTTPS web/API origins and `SPORTOS_COOKIE_SECURE=true`.

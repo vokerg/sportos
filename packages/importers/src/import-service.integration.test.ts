@@ -70,33 +70,36 @@ databaseDescribe('ImportService database integration', () => {
 
     const reconciledDay = await db
       .selectFrom('daily_metrics')
-      .select(['base_points', 'bonus_points', 'total_points', 'excel_all_points'])
+      .select(['base_points', 'bonus_points', 'total_points', 'excel_all_points', 'score_status'])
       .where('metric_date', '=', '2026-05-18')
       .executeTakeFirstOrThrow();
     expect({
       ...reconciledDay,
       excel_all_points: Number(reconciledDay.excel_all_points),
     }).toEqual({
-      base_points: 55_603,
-      bonus_points: 7,
+      base_points: 55_610,
+      bonus_points: 0,
       total_points: 55_610,
       excel_all_points: 55_610,
+      score_status: 'imported',
     });
 
-    const powerLedger = await db
+    const importedLedger = await db
       .selectFrom('score_ledger as sl')
-      .innerJoin('scoring_rules as sr', 'sr.id', 'sl.rule_id')
-      .select(['sl.points', 'sl.calculation_json', 'sr.priority', 'sr.description'])
+      .select(['sl.points', 'sl.rule_id', 'sl.activity_id', 'sl.calculation_json', 'sl.reason'])
       .where('sl.metric_date', '=', '2026-05-18')
-      .where('sr.code', '=', 'power.manual')
       .executeTakeFirstOrThrow();
-    expect(powerLedger).toMatchObject({ points: 7, priority: 60 });
-    expect(powerLedger.description).toContain('Bonus rule');
-    expect(powerLedger.calculation_json).toMatchObject({
-      classification: 'bonus',
-      ruleKind: 'manual_points',
-      activityType: 'power_bonus',
-      rounding: 'nearest_integer_per_rule',
+    expect(importedLedger).toMatchObject({
+      points: 55_610,
+      rule_id: null,
+      activity_id: null,
+      reason: 'Imported workbook ledger total',
+      calculation_json: {
+        scoreStatus: 'imported',
+        source: 'my_sport_xlsx',
+        field: 'All',
+        importedPoints: 55_610,
+      },
     });
 
     const activitylessAchievements = await db

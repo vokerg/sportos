@@ -72,7 +72,7 @@ The adapter is provider-neutral. Provider-specific SDKs and credentials do not e
 
 ### 7. Audit persistence
 
-Migration V110 adds append-only, owner-scoped `analysis_runs`. The runtime API may only `SELECT` and `INSERT`; it cannot update or delete audit rows. Worker, worker-data, legacy, and shared data roles cannot read the table.
+Migration V110 adds append-only, owner-scoped `analysis_runs`. The runtime API may only `SELECT` and `INSERT`; it cannot update or delete audit rows. Worker, worker-data, legacy, and shared data roles cannot read the table. V112 also exposes the current daily score authority (`imported` or `calculated`) to analysis read models; analysis remains read-only and does not trigger recalculation.
 
 Audit rows contain only:
 

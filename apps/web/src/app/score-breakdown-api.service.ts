@@ -15,4 +15,11 @@ export class ScoreBreakdownApiService {
       `${this.api.apiBase()}/daily/${encodeURIComponent(date)}/score-breakdown`,
     );
   }
+
+  recalculate(date: string) {
+    return this.http.post<DailyScoreBreakdown>(
+      `${this.api.apiBase()}/daily/${encodeURIComponent(date)}/recalculate`,
+      {},
+    );
+  }
 }

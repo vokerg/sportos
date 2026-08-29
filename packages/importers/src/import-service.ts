@@ -1,4 +1,4 @@
-import { scoreDay, type ActivityFact } from '@sportos/domain';
+import { scoreDay, scoreFromImportedLedger, type ActivityFact } from '@sportos/domain';
 import { rowHash } from '@sportos/shared';
 import {
   DailyRepository,
@@ -187,14 +187,23 @@ export class ImportService {
           const dailyActivities: ActivityFact[] = canonicalActivities
             .filter((activity) => activity.activity_date === facts.metricDate)
             .map(toActivityFact);
-          const score = scoreDay(facts, dailyActivities, rules);
           const sourceRecord = facts.excelRowHash ? recordsByHash.get(facts.excelRowHash) : undefined;
           if (!sourceRecord) {
             throw new Error(`No source record found for daily metric ${facts.metricDate}.`);
           }
 
-          await dailyRepo.upsertDailyMetric(facts, score, sourceRecord.id);
-          await dailyRepo.replaceScoreLedger(facts.metricDate, score.ledger);
+          const score = facts.excelAllPoints === undefined
+            ? scoreDay(facts, dailyActivities, rules)
+            : scoreFromImportedLedger(facts);
+          await dailyRepo.persistDailyScore(
+            facts,
+            score,
+            sourceRecord.id,
+            {
+              scoreStatus: facts.excelAllPoints === undefined ? 'calculated' : 'imported',
+              trigger: 'workbook_import',
+            },
+          );
           normalizedLinks.push({ sourceRecordId: sourceRecord.id, entityType: 'daily_metric', entityId: facts.metricDate });
         }
 
@@ -361,7 +370,7 @@ export class ImportService {
       row_index: row.rowIndex,
       source_record_key: sourceRecordLocationKey(row.sheetName, row.rowIndex),
       row_hash: row.hash,
-      raw_json: toJson({ cells: row.cells }),
+      raw_json: toJson({ headers: row.headers, cells: row.cells }),
       status: 'raw',
       errors: [],
       warnings: [],
@@ -444,6 +453,7 @@ function toActivityFact(activity: Awaited<ReturnType<DailyRepository['listActivi
     activityDate: activity.activity_date,
     activityType: activity.activity_type,
     subtype: activity.subtype ?? 'unknown',
+    source: activity.source,
     distanceM: activity.distance_m ?? undefined,
     durationS: activity.duration_s ?? undefined,
     steps: activity.steps ?? undefined,

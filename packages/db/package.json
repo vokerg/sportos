@@ -9,7 +9,7 @@
     "build": "tsc -b tsconfig.json --pretty false",
     "typecheck": "tsc -b tsconfig.json --pretty false",
     "test": "vitest run --passWithNoTests",
-    "test:integration": "vitest run src/repositories/import-jobs.repository.integration.test.ts src/repositories/rule-changes.repository.integration.test.ts src/repositories/canonical-export.repository.integration.test.ts src/repositories/ownership.repository.integration.test.ts --no-file-parallelism"
+    "test:integration": "vitest run src/repositories/import-jobs.repository.integration.test.ts src/repositories/rule-changes.repository.integration.test.ts src/repositories/daily-scoring.repository.integration.test.ts src/repositories/canonical-export.repository.integration.test.ts src/repositories/ownership.repository.integration.test.ts --no-file-parallelism"
   },
   "dependencies": {
     "@sportos/domain": "workspace:*",

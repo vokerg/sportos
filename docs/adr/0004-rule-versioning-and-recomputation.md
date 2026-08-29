@@ -75,6 +75,13 @@ If any insert or validation fails, neither row is committed.
 
 The proposed version is deliberately non-authoritative while the audit job is queued or running.
 
+Imported daily rows are an explicit exception to automatic score replacement.
+When `daily_metrics.score_status = 'imported'`, activation leaves the current
+total and live ledger untouched and reports the row in `datesSkippedImported`.
+The user must use the explicit activity-based recalculation workflow before a
+new rule version can affect that date. Calculated rows continue through the
+atomic recomputation path and append a score-history snapshot.
+
 ### Worker recomputation
 
 `scoring_rule_changes` uses the same durable lifecycle invariants as import jobs: queued/running/succeeded/failed/cancelled states, bounded attempts, `FOR UPDATE SKIP LOCKED` claims, lease owner, lease expiry, heartbeat, monotonic progress, explicit retry, queued cancellation, and stale recovery.
@@ -116,6 +123,7 @@ No storage path, workbook cell payload, or other source-private data is included
 - A failed worker attempt leaves the new row disabled and authoritative scores unchanged.
 - The local implementation uses one transaction for at most 5,000 persisted dates; larger hosted workloads require a new ADR for chunking and publication semantics.
 - Authentication will replace the temporary `local-user` actor in issue #14 without changing audit identity.
+- Imported workbook ledgers remain stable across rule publication, so rule changes may require a separate explicit recalculation action for those dates. See [ADR 0008](0008-imported-ledger-authority-and-explicit-recalculation.md).
 
 ## Evidence
 

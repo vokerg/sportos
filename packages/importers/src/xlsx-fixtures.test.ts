@@ -5,9 +5,16 @@ import { describe, expect, it } from 'vitest';
 import { parseMySportWorkbook } from './my-sport.importer.js';
 import { parseRunDbWorkbook } from './run-db.importer.js';
 import { writeMySportFixture, writeRunDbFixture } from './test-fixtures/xlsx-fixtures.js';
-import { readWorkbook, readWorkbookBuffer } from './xlsx-reader.js';
+import { readWorkbook, readWorkbookBuffer, rowObjectFromHeaders } from './xlsx-reader.js';
 
 describe('sanitized XLSX fixture harness', () => {
+  it('keeps the primary value when a workbook repeats a normalized header', () => {
+    expect(rowObjectFromHeaders(['Run', 'Run', 'Bike', 'Bike'], [15.6, 22, 0, 3])).toEqual({
+      run: 15.6,
+      bike: 0,
+    });
+  });
+
   it('extracts hidden/helper sheets, cached formulas, and stable row hashes', () => {
     const directory = mkdtempSync(join(tmpdir(), 'sportos-xlsx-fixture-'));
 
@@ -51,7 +58,11 @@ describe('sanitized XLSX fixture harness', () => {
         metricDate: '2026-05-18',
         steps: 12_345,
         runM: 13_000,
+        runIndoorM: 5_000,
+        runOutdoorM: 7_500,
         bikeM: 35_000,
+        bikeIndoorM: 10_000,
+        bikeOutdoorM: 20_000,
         swimM: 1_000,
         workoutPoints: 8,
         powerPoints: 7,

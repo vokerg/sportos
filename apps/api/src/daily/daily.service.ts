@@ -2,6 +2,7 @@ import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common
 import {
   CockpitRepository,
   DailyRepository,
+  DailyScoringRepository,
   LEGACY_ACCOUNT_ID,
   ScoreBreakdownContractError,
   parseDailyScoreBreakdown,
@@ -33,6 +34,26 @@ export class DailyService {
         throw new InternalServerErrorException({
           code: 'SCORE_BREAKDOWN_INCONSISTENT',
           message: 'The persisted score breakdown failed consistency checks.',
+          date: metricDate,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async recalculateFromActivities(metricDate: string, accountId = LEGACY_ACCOUNT_ID): Promise<DailyScoreBreakdown> {
+    const result: DailyScoreBreakdownReadModel = await this.dbProvider.withAccount(
+      accountId,
+      (db) => new DailyScoringRepository(db).recalculateFromActivities(metricDate),
+    );
+
+    try {
+      return parseDailyScoreBreakdown(result);
+    } catch (error) {
+      if (error instanceof ScoreBreakdownContractError) {
+        throw new InternalServerErrorException({
+          code: 'SCORE_BREAKDOWN_INCONSISTENT',
+          message: 'The recalculated score breakdown failed consistency checks.',
           date: metricDate,
         });
       }

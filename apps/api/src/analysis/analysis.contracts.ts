@@ -83,6 +83,7 @@ export interface DailySummaryFact {
     powerPoints: number;
   };
   score: {
+    scoreStatus: 'imported' | 'calculated';
     officialTotal: number;
     baseTotal: number;
     bonusTotal: number;
@@ -124,6 +125,7 @@ export interface AnalysisSourceReference {
 export interface DailyScoreBreakdownFacts {
   date: string;
   recomputedAt: string;
+  scoreStatus: 'imported' | 'calculated';
   metrics: {
     steps: number;
     runM: number;

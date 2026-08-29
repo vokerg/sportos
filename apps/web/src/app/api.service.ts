@@ -25,6 +25,7 @@ export interface DailySummaryRow {
   avg_30d: number | null;
   avg_60d: number | null;
   avg_365d: number | null;
+  score_status: 'imported' | 'calculated';
 }
 
 export interface PerformanceRow {
@@ -179,6 +180,7 @@ export interface RuleProposal {
   code: string;
   name: string;
   activityType: ActivityType;
+  activitySubtype?: 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown';
   ruleKind: RuleKind;
   metric: string;
   coefficient?: number;

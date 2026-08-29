@@ -9,9 +9,12 @@ import type { DailyScoreBreakdown } from './score-breakdown.models';
 const response: DailyScoreBreakdown = {
   date: '2026-05-18',
   recomputedAt: '2026-05-18T12:00:00.000Z',
+  scoreStatus: 'calculated',
   facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
   score: { appTotal: 0, excelTotal: null, delta: null, baseTotal: 0, bonusTotal: 0, ledgerTotal: 0 },
   sourceRecord: null,
+  activities: [],
+  sourceRecords: [],
   ledger: [],
 };
 
@@ -27,5 +30,16 @@ describe('ScoreBreakdownApiService', () => {
 
     expect(get).toHaveBeenCalledWith('http://sportos.test/daily/2026%2F05%3F18/score-breakdown');
     expect(received).toEqual(response);
+  });
+
+  it('posts an explicit recalculation request for the encoded date', () => {
+    const post = vi.fn().mockReturnValue(of(response));
+    const http = { post } as unknown as HttpClient;
+    const api = { apiBase: signal('http://sportos.test') } as unknown as ApiService;
+    const service = new ScoreBreakdownApiService(http, api);
+
+    service.recalculate('2026/05?18').subscribe();
+
+    expect(post).toHaveBeenCalledWith('http://sportos.test/daily/2026%2F05%3F18/recalculate', {});
   });
 });

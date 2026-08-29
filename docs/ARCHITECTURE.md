@@ -35,7 +35,10 @@ browser XLSX -> upload storage       Strava OAuth -> encrypted credential envelo
           |                               |
           +---------------+---------------+
                           v
-        daily_metrics + scoring_rules + score_ledger
+                    scoring_rules
+                          |
+                          v
+        daily_metrics + score_ledger + daily_score_snapshots
                           |
                           v
        owner-scoped read repositories + deterministic analysis tools
@@ -54,7 +57,7 @@ browser XLSX -> upload storage       Strava OAuth -> encrypted credential envelo
 
 ## System boundary
 
-SportOS is an authenticated account-scoped monorepo. Postgres is authoritative for accounts, external identities, sessions, ownership, provider connection metadata, encrypted credential envelopes, OAuth state, sync cursors, job leases, audit history, provenance, canonical facts, rule versions, official scores, and append-only analysis-run metadata. Workbook bytes remain outside Postgres behind a replaceable storage contract. Generated guidance is not authoritative state.
+SportOS is an authenticated account-scoped monorepo. Postgres is authoritative for accounts, external identities, sessions, ownership, provider connection metadata, encrypted credential envelopes, OAuth state, sync cursors, job leases, audit history, provenance, canonical facts, rule versions, official current scores, append-only score snapshots, and append-only analysis-run metadata. Workbook bytes remain outside Postgres behind a replaceable storage contract. Generated guidance is not authoritative state.
 
 The API authenticates an opaque server-side session, validates CSRF for unsafe methods, reserves one pooled connection, establishes the authenticated account on that connection, runs repository-owned transactions, and clears the context before release. Angular renders API truth and explicitly separates generated guidance from official records.
 
@@ -129,6 +132,7 @@ See [ADR 0005](adr/0005-authentication-and-data-ownership.md), [ADR 0007](adr/00
 - V108 separates dispatcher and worker-data authorization, restricts authentication-table grants, removes broad future grants, and makes ownership immutable.
 - V109 creates provider connections, encrypted credential envelopes, OAuth transactions, sync jobs, activity links, and a bounded webhook inbox; it applies forced RLS, direct least-privilege grants, and migration-time privilege assertions.
 - V110 creates append-only owner-scoped `analysis_runs`, grants only `SELECT, INSERT` to `sportos_app`, denies worker/legacy access, and asserts those privileges during migration.
+- V112 promotes imported workbook `All` totals to the current authoritative score, adds append-only `daily_score_snapshots`, exposes `score_status`, and adds the explicit account-scoped Strava recalculation path. Snapshot privileges keep the queue dispatcher out of score history.
 
 Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance. Analysis adds audit metadata only and does not rewrite canonical or scoring rows.
 
@@ -180,13 +184,37 @@ A rule family is `(owner_id, code)` and a version is `(owner_id, code, version)`
 
 Activation records the authenticated account as actor. The dispatcher claims the audit job; the worker-data executor establishes the owner and atomically closes the superseded range, enables the proposed UUID, recomputes affected totals, replaces ledger rows, and completes the audit.
 
+### Imported score authority and explicit recalculation
+
+When a workbook row has a valid numeric `All`, the import transaction stores
+that total as the current score with `score_status = 'imported'`. It does not
+apply SportOS achievement bonuses. The live ledger uses one clearly labeled
+workbook-total entry without a rule or activity link, while the source record
+and raw workbook row remain available for provenance. Rows without `All` keep
+the normal deterministic calculation path.
+
+Every score write appends an owner-scoped `daily_score_snapshots` row before
+updating the fast `daily_metrics` read model and live ledger. The migration
+seeds the prior state as `legacy_migration`; later workbook imports, manual
+recalculations, and rule recomputations record their trigger. Snapshots are
+append-only for runtime roles, and the current row remains the normal read
+path.
+
+`POST /daily/:date/recalculate` is the explicit authority transition. In one
+account-scoped transaction it requires Strava data, uses all canonical
+activities for an existing daily row (or Strava activities only for a missing
+row), removes workbook `All` from the scoring input, and persists a calculated
+score. No Strava data returns a bounded conflict without changing the current
+score. Rule publication skips imported rows and reports them instead of
+silently replacing their ledgers.
+
 ### Read models, analysis, and export
 
 Invoker-security views operate over RLS-filtered tables and partition window functions by owner before omitting owner fields from public shapes.
 
 Repositories provide narrow boundaries for daily score explanations, bounded cockpit summaries, performance/provenance reads, rule workflows, import/provider diagnostics, and strict canonical export. Provider credentials and raw payloads are never part of public read models or canonical export.
 
-The analysis tool service reuses the daily read service under the authenticated account. It emits fixed-shape facts, deterministic statistics, exact source/rule/activity identifiers, and data-quality flags. It excludes filenames, notes, sheet names, hashes, rule codes/names/descriptions, and rule-name-derived ledger reason text before any external generation.
+The analysis tool service reuses the daily read service under the authenticated account. It emits fixed-shape facts, deterministic statistics, exact source/rule/activity identifiers, score authority status, and data-quality flags. It excludes filenames, notes, sheet names, hashes, rule codes/names/descriptions, and rule-name-derived ledger reason text before any external generation.
 
 The generator boundary is provider-neutral. The deterministic fallback is the default. An explicitly configured HTTPS JSON endpoint may receive the bounded question plus sanitized official record and citation allowlist. Its output is accepted only when it matches the exact three-section schema and every observation cites returned evidence. Otherwise the fallback is used.
 

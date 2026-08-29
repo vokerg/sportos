@@ -7,6 +7,7 @@ import { rowHash, sha256 } from '@sportos/shared';
 export interface WorkbookRow {
   sheetName: string;
   rowIndex: number;
+  headers: unknown[];
   cells: unknown[];
   object?: Record<string, unknown>;
   hash: string;
@@ -38,10 +39,11 @@ export function readWorkbookBuffer(bytes: Uint8Array, filename: string): Workboo
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
     const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: true, defval: null, blankrows: false });
+    const headers = matrix[0] ?? [];
     for (let i = 0; i < matrix.length; i += 1) {
       const cells = matrix[i] ?? [];
       if (cells.every((cell) => cell === null || cell === undefined || cell === '')) continue;
-      rows.push({ sheetName, rowIndex: i + 1, cells, hash: rowHash({ sheetName, rowIndex: i + 1, cells }) });
+      rows.push({ sheetName, rowIndex: i + 1, headers, cells, hash: rowHash({ sheetName, rowIndex: i + 1, cells }) });
     }
   }
 
@@ -76,6 +78,10 @@ export function rowObjectFromHeaders(headers: unknown[], cells: unknown[]): Reco
   headers.forEach((header, idx) => {
     const normalized = normalizeHeader(header);
     if (!normalized) return;
+    // Some exports repeat summary headers later in the same row (for example
+    // Run/Bike in the rolling-statistics section). Keep the first occurrence,
+    // which is the primary daily value, instead of silently overwriting it.
+    if (Object.prototype.hasOwnProperty.call(obj, normalized)) return;
     obj[normalized] = cells[idx] ?? null;
   });
   return obj;

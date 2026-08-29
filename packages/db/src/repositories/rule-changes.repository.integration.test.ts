@@ -156,6 +156,52 @@ databaseDescribe('RuleChangesRepository database integration', () => {
       .executeTakeFirstOrThrow();
     expect(Number(current.total_points)).toBe(5000);
   });
+
+  it('does not overwrite an imported ledger when a rule version is activated', async () => {
+    await db
+      .updateTable('daily_metrics')
+      .set({
+        score_status: 'imported',
+        base_points: 5000,
+        bonus_points: 0,
+        total_points: 5000,
+        excel_all_points: 5000,
+      })
+      .where('metric_date', '=', metricDate)
+      .execute();
+    await db.insertInto('score_ledger').values({
+      metric_date: metricDate,
+      activity_id: null,
+      rule_id: null,
+      points: 5000,
+      reason: 'Imported workbook ledger total',
+      calculation_json: { scoreStatus: 'imported', source: 'my_sport_xlsx', field: 'All', importedPoints: 5000 },
+    }).execute();
+
+    const repo = new RuleChangesRepository(db);
+    const previous = await db
+      .selectFrom('scoring_rules')
+      .selectAll()
+      .where('code', '=', ruleCode)
+      .where('version', '=', 1)
+      .executeTakeFirstOrThrow();
+    const queued = await repo.enqueueChange({
+      proposal: replacementProposal(previous.id),
+      preview: preview(),
+      previewFingerprint: 'e'.repeat(64),
+      initiatedBy: 'integration-test',
+      reason: 'Imported ledgers require explicit recalculation first.',
+    });
+
+    await repo.claimNext('worker-imported', 60);
+    const result = await repo.activateAndRecompute(queued.id, 'worker-imported');
+    expect(result).toMatchObject({ datesRecomputed: 0, datesSkippedImported: 1 });
+
+    const daily = await db.selectFrom('daily_metrics').select(['score_status', 'total_points']).where('metric_date', '=', metricDate).executeTakeFirstOrThrow();
+    const ledger = await db.selectFrom('score_ledger').select(['rule_id', 'points', 'reason']).where('metric_date', '=', metricDate).executeTakeFirstOrThrow();
+    expect(daily).toMatchObject({ score_status: 'imported', total_points: 5000 });
+    expect(ledger).toMatchObject({ rule_id: null, points: 5000, reason: 'Imported workbook ledger total' });
+  });
 });
 
 function replacementProposal(previousRuleId: string): RuleProposal {

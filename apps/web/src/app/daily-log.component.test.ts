@@ -11,15 +11,18 @@ const row: DailySummaryRow = {
   metric_date: '2026-05-18', steps: 12_345, run_m: 5_000, bike_m: 0, swim_m: 0,
   workout_points: 0, power_points: 0, base_points: 20, bonus_points: 5, total_points: 25,
   excel_all_points: 24, points_delta_vs_excel: 1, avg_10d: 20, avg_20d: 19, avg_30d: 18,
-  avg_60d: 17, avg_365d: 16,
+  avg_60d: 17, avg_365d: 16, score_status: 'calculated',
 };
 
 const breakdown: DailyScoreBreakdown = {
   date: row.metric_date,
   recomputedAt: '2026-05-18T12:00:00.000Z',
+  scoreStatus: 'calculated',
   facts: { steps: row.steps, runM: row.run_m, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
   score: { appTotal: 25, excelTotal: 24, delta: 1, baseTotal: 20, bonusTotal: 5, ledgerTotal: 25 },
   sourceRecord: null,
+  activities: [],
+  sourceRecords: [],
   ledger: [],
 };
 
@@ -75,6 +78,82 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(component.breakdown()?.score.delta).toBeNull();
   });
 
+  it('explicitly recalculates the selected date and refreshes the summary', () => {
+    const recalculated = {
+      ...breakdown,
+      scoreStatus: 'calculated' as const,
+      score: { ...breakdown.score, appTotal: 6000, delta: 5976, baseTotal: 5000, bonusTotal: 1000, ledgerTotal: 6000 },
+    };
+    const scoreApi = {
+      getForDate: vi.fn().mockReturnValue(of(breakdown)),
+      recalculate: vi.fn().mockReturnValue(of(recalculated)),
+    };
+    const api = { dailySummary: vi.fn().mockReturnValue(of([row])) };
+    const component = createComponent(scoreApi, api);
+    component.openBreakdown(row);
+
+    component.recalculateSelectedDate();
+
+    expect(scoreApi.recalculate).toHaveBeenCalledWith(row.metric_date);
+    expect(component.breakdown()).toEqual(recalculated);
+    expect(component.recalculationState()).toBe('idle');
+    expect(api.dailySummary).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the imported breakdown visible when Strava recalculation is unavailable', () => {
+    const scoreApi = {
+      getForDate: vi.fn().mockReturnValue(of({ ...breakdown, scoreStatus: 'imported' as const })),
+      recalculate: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({
+        status: 409,
+        error: { code: 'STRAVA_DATA_UNAVAILABLE', message: 'No Strava activity is available for the selected date.' },
+      }))),
+    };
+    const component = createComponent(scoreApi);
+    component.openBreakdown(row);
+
+    component.recalculateSelectedDate();
+
+    expect(component.breakdownState()).toBe('loaded');
+    expect(component.breakdown()?.scoreStatus).toBe('imported');
+    expect(component.recalculationError()).toContain('No Strava activity');
+  });
+
+  it('shows a recalculation failure when the selected date has no saved breakdown', () => {
+    const message = 'No Strava activity is available for the selected date.';
+    const scoreApi = {
+      getForDate: vi.fn(),
+      recalculate: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({
+        status: 409,
+        error: { code: 'STRAVA_DATA_UNAVAILABLE', message },
+      }))),
+    };
+    const component = createComponent(scoreApi);
+
+    component.recalculateSelectedDate('2026-05-19');
+
+    expect(component.breakdownState()).toBe('error');
+    expect(component.breakdownError()).toBe(message);
+    expect(component.recalculationError()).toBe(message);
+  });
+
+  it('cancels an in-flight recalculation when the breakdown is closed', () => {
+    const recalculation = new Subject<DailyScoreBreakdown>();
+    const scoreApi = {
+      getForDate: vi.fn().mockReturnValue(of(breakdown)),
+      recalculate: vi.fn().mockReturnValue(recalculation),
+    };
+    const component = createComponent(scoreApi);
+    component.openBreakdown(row);
+    component.recalculateSelectedDate();
+
+    component.closeBreakdown();
+    recalculation.next({ ...breakdown, scoreStatus: 'calculated' });
+
+    expect(component.selectedDate()).toBeNull();
+    expect(component.breakdown()).toBeNull();
+    expect(component.recalculationState()).toBe('idle');
+  });
+
   it('renders an actionable API consistency error and supports retry', () => {
     const scoreApi = {
       getForDate: vi.fn()
@@ -115,7 +194,7 @@ describe('DailyLogComponent cockpit workflow', () => {
 });
 
 function createComponent(
-  scoreApi: { getForDate: ReturnType<typeof vi.fn> },
+  scoreApi: { getForDate: ReturnType<typeof vi.fn>; recalculate?: ReturnType<typeof vi.fn> },
   api: { dailySummary: ReturnType<typeof vi.fn> } = { dailySummary: vi.fn().mockReturnValue(of([])) },
 ): DailyLogComponent {
   return new DailyLogComponent(api as unknown as ApiService, scoreApi as unknown as ScoreBreakdownApiService);

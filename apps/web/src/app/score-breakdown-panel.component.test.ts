@@ -14,6 +14,12 @@ const source: SourceRecordReference = {
   rowHash: 'row-hash',
   sheetName: 'Sheet1',
   rowIndex: 2,
+  status: 'normalized',
+  rawJson: { headers: ['Date'], cells: [46130] },
+  errors: [],
+  warnings: [],
+  normalizedEntityType: 'daily_metric',
+  normalizedEntityId: '2026-05-18',
   batch: {
     id: '20000000-0000-4000-8000-000000000001',
     source: 'my_sport_xlsx',
@@ -51,9 +57,12 @@ const activity: ScoreBreakdownActivity = {
 const breakdown: DailyScoreBreakdown = {
   date: '2026-05-18',
   recomputedAt: '2026-05-18T12:00:00.000Z',
+  scoreStatus: 'calculated',
   facts: { steps: 12_345, runM: 5_000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
   score: { appTotal: 25, excelTotal: 24, delta: 1, baseTotal: 20, bonusTotal: 5, ledgerTotal: 25 },
   sourceRecord: source,
+  activities: [activity],
+  sourceRecords: [source],
   ledger: [
     {
       id: '40000000-0000-4000-8000-000000000001',
