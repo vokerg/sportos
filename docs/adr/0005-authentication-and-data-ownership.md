@@ -108,7 +108,7 @@ Controllers validate dates, ranges, limits, numbers, and UUID shapes before repo
 - V107 removes owner/private identity fields from the public performance view.
 - V108 separates dispatcher and worker-data authorization, restricts authentication tables, removes broad future default grants, and makes ownership immutable.
 
-Local Docker initialization creates development login roles. Production deployments provision equivalent identities and deployment-managed credentials separately.
+Neon provisioning creates the deployment login roles and credentials separately from the schema-owner identity. Runtime processes never use the migration identity.
 
 ## Threat and ownership matrix
 

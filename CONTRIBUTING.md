@@ -8,14 +8,14 @@ Use:
 
 - Node.js 22
 - pnpm 9.12.0
-- Docker with Docker Compose
+- a Neon PostgreSQL project and branch
+- Flyway CLI 10 or newer on `PATH`
 
 Install and validate from the repository root:
 
 ```bash
 pnpm install --frozen-lockfile
 cp .env.example .env
-pnpm db:up
 pnpm db:migrate
 pnpm typecheck
 pnpm test
