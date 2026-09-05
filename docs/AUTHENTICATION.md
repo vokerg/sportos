@@ -20,7 +20,7 @@ SportOS uses these non-superuser roles:
 
 The worker requires both dispatcher and data connections and fails closed if either is absent. A single broad worker connection is not supported.
 
-The Docker init script creates local-development login roles with development-only credentials. Never reuse those credentials in a deployment. Existing database volumes receive `NOLOGIN` placeholders through migration V105.1; provision deployment-managed login identities before starting runtime processes.
+Neon must provision the runtime login roles with deployment-managed credentials. Never reuse runtime credentials for migrations. Migration V105.1 creates upgrade-safe `NOLOGIN` placeholders when a role is absent; the Neon schema-owner identity must provision login capability before starting runtime processes.
 
 ## Ownership model
 

@@ -25,7 +25,7 @@ The repository now contains:
 
 ## MVP-0 exit criteria and evidence
 
-1. **Repeatable setup**: the documented setup uses pinned Node/pnpm versions, the committed lockfile, Docker Compose, and append-only migrations.
+1. **Repeatable setup**: the documented setup uses pinned Node/pnpm versions, the committed lockfile, a disposable Neon branch/database, and append-only migrations.
 2. **Reproducible CI**: CI performs frozen installation, fresh migration, typecheck, all unit/UI tests, database importer integration, production build, and cleanup.
 3. **Fixture coverage**: synthetic XLSX files represent every supported daily-ledger header and confirmed performance-sheet mapping, including hidden/helper and ambiguous data.
 4. **Import traceability**: canonical rows retain source-record and import-batch references where applicable; privacy-safe read models omit raw payloads and paths.

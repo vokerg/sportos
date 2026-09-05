@@ -1,7 +1,7 @@
 -- Authentication and account ownership boundary for issue #14.
--- Flyway continues to run as the schema owner. Runtime connections use the
--- non-superuser roles provisioned by docker/postgres/init/001-runtime-roles.sql
--- (or equivalent deployment-managed roles).
+-- Flyway continues to run as the Neon schema owner. Runtime connections use
+-- the non-superuser roles provisioned by Neon (or equivalent deployment-managed
+-- role provisioning).
 
 DO $$
 BEGIN

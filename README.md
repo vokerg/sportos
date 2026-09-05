@@ -145,7 +145,8 @@ For the complete invariants and data flows, read [docs/ARCHITECTURE.md](docs/ARC
 
 - Node.js 22
 - pnpm 9.12.0
-- Docker with Docker Compose
+- a Neon PostgreSQL project and branch
+- Flyway CLI 10 or newer on `PATH`
 - an OIDC provider for normal sign-in
 - optionally, a Strava API application
 - optionally, an operator-controlled HTTPS JSON model endpoint
@@ -160,13 +161,12 @@ cd sportos
 corepack enable
 pnpm install --frozen-lockfile
 cp .env.example .env
-pnpm db:up
 pnpm db:migrate
 ```
 
-The local Docker setup creates development-only non-superuser database roles. Existing database volumes should follow the provisioning and migration guidance in [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
+Before `pnpm db:migrate`, set the three Neon migration variables from `.env.example`: `SPORTOS_FLYWAY_URL`, `SPORTOS_FLYWAY_USER`, and `SPORTOS_FLYWAY_PASSWORD`, plus the runtime URLs for `sportos_app`, `sportos_worker`, `sportos_worker_data`, and `sportos_legacy`. The migration identity is separate from every runtime identity. `pnpm db:migrate` applies the append-only SQL in `flyway/sql` to that Neon branch.
 
-SportOS uses API/web ports `3010`/`4210` and Docker host ports `5433`/`6380` by default, leaving the usual `3000`/`4200`/`5432`/`6379` ports available for Chess Trainer or other local services. Container-to-container database connections continue to use Postgres port `5432`.
+SportOS uses API/web ports `3010`/`4210` by default. Neon is the only PostgreSQL service; all connections use the Neon URLs configured in `.env`.
 
 ### Configure local development auth
 
@@ -238,12 +238,6 @@ Open `http://localhost:4210` and sign in.
 
 For focused work, `pnpm dev:api` starts only the compiled/watch API, while
 `pnpm dev:web` and `pnpm dev:worker` remain available for separate processes.
-
-Stop local services with:
-
-```bash
-pnpm db:down
-```
 
 ## Cockpit workflows
 
@@ -353,31 +347,39 @@ pnpm test
 pnpm build
 ```
 
-For database integration, create and migrate a disposable database whose name ends in `_test` or `-test`, then run the suites through their intended non-owner roles:
+For database integration, create a disposable Neon branch/database whose name ends in `_test` or `-test`, apply the migrations with a separate schema-owner connection, and run the suites through their intended non-owner roles:
 
 ```bash
-pnpm db:up
-docker compose exec postgres createdb -U sportos sportos_test
-docker compose run --rm \
-  -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_test \
-  flyway migrate
+SPORTOS_FLYWAY_URL=postgresql://<schema-owner>:<password>@<test-project>.neon.tech/sportos_test?sslmode=require \
+SPORTOS_FLYWAY_USER=<schema-owner> \
+SPORTOS_FLYWAY_PASSWORD=<password> \
+  pnpm db:migrate
 
-SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:5433/sportos_test \
-SPORTOS_OWNER_TEST_DATABASE_URL=postgres://sportos_app:sportos_app@localhost:5433/sportos_test \
+SPORTOS_TEST_DATABASE_URL=postgresql://sportos_legacy:<password>@<test-project>.neon.tech/sportos_test?sslmode=require \
+SPORTOS_OWNER_TEST_DATABASE_URL=postgresql://sportos_app:<password>@<test-project>.neon.tech/sportos_test?sslmode=require \
   pnpm --filter @sportos/db test:integration
 
-SPORTOS_OWNER_TEST_DATABASE_URL=postgres://sportos_app:sportos_app@localhost:5433/sportos_test \
+SPORTOS_OWNER_TEST_DATABASE_URL=postgresql://sportos_app:<password>@<test-project>.neon.tech/sportos_test?sslmode=require \
   pnpm --filter @sportos/api exec vitest run src/analysis/analysis.integration.test.ts --no-file-parallelism
 
-SPORTOS_TEST_DATABASE_URL=postgres://sportos_worker:sportos_worker@localhost:5433/sportos_test \
-SPORTOS_WORKER_DATA_DATABASE_URL=postgres://sportos_worker_data:sportos_worker_data@localhost:5433/sportos_test \
+SPORTOS_TEST_DATABASE_URL=postgresql://sportos_worker:<password>@<test-project>.neon.tech/sportos_test?sslmode=require \
+SPORTOS_WORKER_DATA_DATABASE_URL=postgresql://sportos_worker_data:<password>@<test-project>.neon.tech/sportos_test?sslmode=require \
   pnpm --filter @sportos/worker test:integration
 
-SPORTOS_TEST_DATABASE_URL=postgres://sportos_legacy:sportos_legacy@localhost:5433/sportos_test \
+SPORTOS_TEST_DATABASE_URL=postgresql://sportos_legacy:<password>@<test-project>.neon.tech/sportos_test?sslmode=require \
   pnpm --filter @sportos/importers test:integration
 ```
 
 CI covers frozen installation, fresh migration through V112, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, imported-ledger authority, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
+
+The CI workflow expects dedicated Neon test branches and these repository secrets:
+`SPORTOS_CI_FLYWAY_URL`, `SPORTOS_CI_FLYWAY_USER`,
+`SPORTOS_CI_FLYWAY_PASSWORD`, `SPORTOS_CI_UPGRADE_FLYWAY_URL`,
+`SPORTOS_CI_UPGRADE_FLYWAY_USER`, `SPORTOS_CI_UPGRADE_FLYWAY_PASSWORD`,
+`SPORTOS_CI_UPGRADE_DATABASE_URL`, `SPORTOS_CI_LEGACY_DATABASE_URL`,
+`SPORTOS_CI_APP_DATABASE_URL`, `SPORTOS_CI_WORKER_DATABASE_URL`, and
+`SPORTOS_CI_WORKER_DATA_DATABASE_URL`. Keep these branches separate from user data;
+the runtime roles remain non-owner and the Flyway role is migration-only.
 
 ## Current limitations
 

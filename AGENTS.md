@@ -67,7 +67,7 @@ The ordered queue in issue #3 is complete through #16. Do not invent the next pr
 ### Root and operations
 
 - `.env.example` — API, dispatcher, worker-data, legacy, OIDC, session, provider, encryption-key, optional AI-generator, and storage settings.
-- `docker-compose.yml` and `docker/postgres/init/` — local Postgres and non-owner runtime-role initialization.
+- `scripts/flyway.mjs` — Neon schema-owner migration configuration and Flyway CLI bridge.
 - `.github/workflows/ci.yml` — fresh/populated migration and non-owner API/analysis/dispatcher/worker-data/legacy integration gates.
 - `docs/AUTHENTICATION.md` — deployment, role, OIDC, session, CSRF, legacy claim, and migration guidance.
 - `docs/AI_ANALYSIS.md` — read-only analysis API, generator contract, privacy boundary, audit, and operations.
@@ -199,7 +199,6 @@ The dispatcher is a narrow trusted-system exception. It may inspect queue lifecy
 ```bash
 pnpm install --frozen-lockfile
 cp .env.example .env
-pnpm db:up
 pnpm db:migrate
 pnpm typecheck
 pnpm test

@@ -1,6 +1,6 @@
--- Existing installations may not have run the local Docker init scripts. Create
--- non-login placeholders so ownership migrations remain repeatable. A deployer
--- must provision login capability and deployment-managed credentials before
+-- Existing Neon installations may not have provisioned every runtime role.
+-- Create non-login placeholders so ownership migrations remain repeatable. The
+-- Neon deployer must provision login capability and managed credentials before
 -- starting runtime processes.
 DO $$
 BEGIN
