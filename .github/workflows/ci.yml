@@ -15,9 +15,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       CI: true
+      SPORTOS_FLYWAY_URL: ${{ secrets.SPORTOS_CI_FLYWAY_URL }}
+      SPORTOS_FLYWAY_USER: ${{ secrets.SPORTOS_CI_FLYWAY_USER }}
+      SPORTOS_FLYWAY_PASSWORD: ${{ secrets.SPORTOS_CI_FLYWAY_PASSWORD }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -36,26 +39,32 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Start and migrate fresh test database
+      - name: Install Neon migration tools
+        env:
+          FLYWAY_VERSION: 10.20.1
         run: |
-          docker compose up -d postgres
-          docker compose exec -T postgres sh -c 'until pg_isready -h 127.0.0.1 -U sportos -d sportos; do sleep 1; done'
-          docker compose exec -T postgres createdb -h 127.0.0.1 -U sportos sportos_test
-          docker compose run --rm \
-            -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_test \
-            flyway migrate
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+          curl --fail --silent --show-error --location \
+            "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+            --output "$RUNNER_TEMP/flyway.tar.gz"
+          tar --extract --gzip --file "$RUNNER_TEMP/flyway.tar.gz" --directory "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
+
+      - name: Migrate fresh Neon test branch
+        run: pnpm db:migrate
 
       - name: Verify populated V105 ownership upgrade
+        env:
+          SPORTOS_FLYWAY_URL: ${{ secrets.SPORTOS_CI_UPGRADE_FLYWAY_URL }}
+          SPORTOS_FLYWAY_USER: ${{ secrets.SPORTOS_CI_UPGRADE_FLYWAY_USER }}
+          SPORTOS_FLYWAY_PASSWORD: ${{ secrets.SPORTOS_CI_UPGRADE_FLYWAY_PASSWORD }}
+          SPORTOS_UPGRADE_DATABASE_URL: ${{ secrets.SPORTOS_CI_UPGRADE_DATABASE_URL }}
         run: |
-          docker compose exec -T postgres createdb -h 127.0.0.1 -U sportos sportos_upgrade_test
-          docker compose run --rm \
-            -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_upgrade_test \
-            flyway -target=105 migrate
-          docker compose exec -T postgres psql -h 127.0.0.1 -U sportos -d sportos_upgrade_test < scripts/ownership-upgrade-fixture.sql
-          docker compose run --rm \
-            -e FLYWAY_URL=jdbc:postgresql://postgres:5432/sportos_upgrade_test \
-            flyway migrate
-          docker compose exec -T postgres psql -h 127.0.0.1 -U sportos -d sportos_upgrade_test < scripts/verify-ownership-upgrade.sql
+          pnpm db:migrate -- -target=105
+          psql "$SPORTOS_UPGRADE_DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/ownership-upgrade-fixture.sql
+          pnpm db:migrate
+          psql "$SPORTOS_UPGRADE_DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-ownership-upgrade.sql
 
       - name: Typecheck
         run: pnpm typecheck
@@ -65,13 +74,13 @@ jobs:
 
       - name: Database job and ownership integration
         env:
-          SPORTOS_TEST_DATABASE_URL: postgres://sportos_legacy:sportos_legacy@localhost:5433/sportos_test
-          SPORTOS_OWNER_TEST_DATABASE_URL: postgres://sportos_app:sportos_app@localhost:5433/sportos_test
+          SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_LEGACY_DATABASE_URL }}
+          SPORTOS_OWNER_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_APP_DATABASE_URL }}
         run: pnpm --filter @sportos/db test:integration
 
       - name: API analysis ownership integration
         env:
-          SPORTOS_OWNER_TEST_DATABASE_URL: postgres://sportos_app:sportos_app@localhost:5433/sportos_test
+          SPORTOS_OWNER_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_APP_DATABASE_URL }}
         run: >-
           pnpm --filter @sportos/api exec vitest run
           src/analysis/analysis.integration.test.ts
@@ -81,8 +90,8 @@ jobs:
         id: worker_import
         continue-on-error: true
         env:
-          SPORTOS_TEST_DATABASE_URL: postgres://sportos_worker:sportos_worker@localhost:5433/sportos_test
-          SPORTOS_WORKER_DATA_DATABASE_URL: postgres://sportos_worker_data:sportos_worker_data@localhost:5433/sportos_test
+          SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATABASE_URL }}
+          SPORTOS_WORKER_DATA_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATA_DATABASE_URL }}
         run: >-
           pnpm --filter @sportos/worker exec vitest run
           src/import-job-runner.integration.test.ts
@@ -92,8 +101,8 @@ jobs:
         id: worker_rule
         continue-on-error: true
         env:
-          SPORTOS_TEST_DATABASE_URL: postgres://sportos_worker:sportos_worker@localhost:5433/sportos_test
-          SPORTOS_WORKER_DATA_DATABASE_URL: postgres://sportos_worker_data:sportos_worker_data@localhost:5433/sportos_test
+          SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATABASE_URL }}
+          SPORTOS_WORKER_DATA_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATA_DATABASE_URL }}
         run: >-
           pnpm --filter @sportos/worker exec vitest run
           src/rule-change-runner.integration.test.ts
@@ -103,8 +112,8 @@ jobs:
         id: worker_provider
         continue-on-error: true
         env:
-          SPORTOS_TEST_DATABASE_URL: postgres://sportos_worker:sportos_worker@localhost:5433/sportos_test
-          SPORTOS_WORKER_DATA_DATABASE_URL: postgres://sportos_worker_data:sportos_worker_data@localhost:5433/sportos_test
+          SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATABASE_URL }}
+          SPORTOS_WORKER_DATA_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATA_DATABASE_URL }}
         run: >-
           pnpm --filter @sportos/worker exec vitest run
           src/provider-sync-runner.integration.test.ts
@@ -128,12 +137,8 @@ jobs:
 
       - name: Database import integration
         env:
-          SPORTOS_TEST_DATABASE_URL: postgres://sportos_legacy:sportos_legacy@localhost:5433/sportos_test
+          SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_LEGACY_DATABASE_URL }}
         run: pnpm --filter @sportos/importers test:integration
 
       - name: Build
         run: pnpm build
-
-      - name: Stop test services
-        if: always()
-        run: docker compose down -v
