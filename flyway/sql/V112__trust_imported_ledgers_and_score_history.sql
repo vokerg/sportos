@@ -41,12 +41,9 @@ BEGIN
     SELECT 1
     FROM daily_metrics
     WHERE excel_all_points IS NOT NULL
-      AND (
-        excel_all_points < 0
-        OR excel_all_points <> trunc(excel_all_points)
-      )
+      AND excel_all_points < 0
   ) THEN
-    RAISE EXCEPTION 'Cannot promote negative or fractional workbook All values to integer score ledgers';
+    RAISE EXCEPTION 'Cannot promote negative workbook All values to integer score ledgers';
   END IF;
 END $$;
 
@@ -164,6 +161,8 @@ WITH imported AS (
     'workbook_import'
   FROM daily_metrics dm
   WHERE dm.excel_all_points IS NOT NULL
+    AND dm.excel_all_points >= 0
+    AND dm.excel_all_points = trunc(dm.excel_all_points)
   RETURNING owner_id, metric_date, id
 )
 UPDATE daily_metrics dm

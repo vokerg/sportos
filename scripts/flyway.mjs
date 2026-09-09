@@ -37,6 +37,7 @@ const executable = process.platform === 'win32' ? 'flyway.cmd' : 'flyway';
 const result = spawnSync(executable, [command, ...arguments_], {
   cwd: repoRoot,
   env: environment,
+  shell: process.platform === 'win32',
   stdio: 'inherit',
 });
 

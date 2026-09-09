@@ -76,6 +76,9 @@ is marked `score_status = imported`, stored as `base = All`, `bonus = 0`, and
 entry without a rule or activity link. A zero imported total has an empty live
 ledger, whose sum is still zero. Imported totals must be finite,
 non-negative integers because score and ledger points are integer values.
+During V112, historical rows with non-negative fractional `All` values remain
+calculated rather than being silently rounded; their exact workbook totals
+remain available as reconciliation evidence.
 
 Rows without `All` continue to use the deterministic rules above. Strava sync
 does not recalculate existing rows. `POST /daily/:date/recalculate` is the

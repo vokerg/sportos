@@ -32,8 +32,18 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM scoring_rule_changes WHERE id = '10000000-0000-4000-8000-000000000007' AND owner_id = legacy AND proposed_rule_id = '10000000-0000-4000-8000-000000000006') THEN
     RAISE EXCEPTION 'rule-change ownership/link was not preserved';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM score_ledger WHERE id = '10000000-0000-4000-8000-000000000008' AND owner_id = legacy AND activity_id = '10000000-0000-4000-8000-000000000005' AND rule_id = '10000000-0000-4000-8000-000000000006') THEN
-    RAISE EXCEPTION 'ledger ownership/activity/rule links were not preserved';
+  IF NOT EXISTS (
+    SELECT 1
+    FROM daily_score_snapshots snapshot
+    CROSS JOIN LATERAL jsonb_array_elements(snapshot.ledger_json) ledger
+    WHERE snapshot.metric_date = '2096-08-01'
+      AND snapshot.owner_id = legacy
+      AND snapshot.score_status = 'calculated'
+      AND ledger->>'id' = '10000000-0000-4000-8000-000000000008'
+      AND ledger->>'activityId' = '10000000-0000-4000-8000-000000000005'
+      AND ledger->>'ruleId' = '10000000-0000-4000-8000-000000000006'
+  ) THEN
+    RAISE EXCEPTION 'ledger ownership/activity/rule links were not preserved in score history';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM performance_events WHERE id = '10000000-0000-4000-8000-000000000009' AND owner_id = legacy AND activity_id = '10000000-0000-4000-8000-000000000005' AND source_record_id = '10000000-0000-4000-8000-000000000004') THEN
     RAISE EXCEPTION 'performance ownership/provenance links were not preserved';
@@ -49,7 +59,7 @@ BEGIN
       UNION ALL SELECT owner_id FROM daily_metrics WHERE metric_date = '2096-08-01'
       UNION ALL SELECT owner_id FROM scoring_rules WHERE id = '10000000-0000-4000-8000-000000000006'
       UNION ALL SELECT owner_id FROM scoring_rule_changes WHERE id = '10000000-0000-4000-8000-000000000007'
-      UNION ALL SELECT owner_id FROM score_ledger WHERE id = '10000000-0000-4000-8000-000000000008'
+      UNION ALL SELECT owner_id FROM daily_score_snapshots WHERE metric_date = '2096-08-01'
       UNION ALL SELECT owner_id FROM performance_events WHERE id = '10000000-0000-4000-8000-000000000009'
     ) owned
     WHERE owner_id IS DISTINCT FROM legacy
