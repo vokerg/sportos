@@ -43,6 +43,18 @@ export interface DailyMetricFacts {
   excelRowHash?: string;
 }
 
+export interface ImportedLedgerFormulaInput {
+  sourceColumn: string;
+  cellReference: string;
+  value: number;
+}
+
+export interface ImportedLedgerEvidence {
+  allFormula?: string;
+  formulaInputs?: ImportedLedgerFormulaInput[];
+  formulaIsAdditive?: boolean;
+}
+
 export type RuleKind = 'coefficient' | 'achievement' | 'manual_points';
 export type ThresholdOperator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'exists';
 

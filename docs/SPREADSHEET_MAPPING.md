@@ -49,7 +49,7 @@ Unknown headers are preserved in the extracted raw row but are not normalized. T
 
 Rows with data but without a positive numeric `Date` are retained by raw extraction, skipped by normalization, and reported with a deterministic row warning.
 
-Formula cells are read with formulas preserved in the workbook object and cached numeric values exposed to row normalization. The parser consumes the cached value for `Bike`, `Run`, and `All`. A valid integer `All` is retained as the imported ledger authority; a user-triggered recalculation explicitly switches that row to deterministic SportOS scoring from canonical activities. Fractional or negative imported totals are retained as raw input but rejected from official integer score storage.
+Formula cells are read with formulas preserved in the workbook object and cached numeric values exposed to row normalization. The parser consumes the cached value for `Bike`, `Run`, and `All`. Formula text is also retained in the private raw source row, and the imported ledger records the `All` formula plus numeric same-row cell references when available. This is explanation evidence only: SportOS does not evaluate or reinterpret the workbook formula. A valid integer `All` is retained as the imported ledger authority; a user-triggered recalculation explicitly switches that row to deterministic SportOS scoring from canonical activities. Fractional or negative imported totals are retained as raw input but rejected from official integer score storage.
 
 ### Scoring evidence columns
 
@@ -60,7 +60,7 @@ Formula cells are read with formulas preserved in the workbook object and cached
 - the imported numeric points;
 - the workbook sheet and row location.
 
-These values are not canonical facts and are not automatically persisted as new rules. They are inputs to the pure reconciliation report described in [SCORING_RULES.md](SCORING_RULES.md).
+These values are not canonical facts and are not automatically persisted as new rules. They are inputs to the pure reconciliation report described in [SCORING_RULES.md](SCORING_RULES.md), and remain available as source evidence in an imported score's calculation details.
 
 Current mapping status:
 

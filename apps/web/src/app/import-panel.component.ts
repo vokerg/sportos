@@ -10,6 +10,7 @@ import {
   type ImportJob,
   type UploadWorkbookKind,
 } from './api.service';
+import { formatDate, formatDateTime } from './date-time';
 
 type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -177,7 +178,7 @@ type RequestState = 'idle' | 'loading' | 'loaded' | 'error';
               } @else {
                 <div class="date-links">
                   @for (date of selected.batch.affectedDates; track date) {
-                    <a href="#daily-log" class="date-link" (click)="openReconciliation(date)">{{ date }} · reconcile</a>
+                    <a href="#daily-log" class="date-link" (click)="openReconciliation(date)">{{ formatDate(date) }} · reconcile</a>
                   }
                 </div>
               }
@@ -451,8 +452,11 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
   }
 
   formatTimestamp(value: string): string {
-    const date = new Date(value);
-    return Number.isNaN(date.valueOf()) ? value : date.toLocaleString();
+    return formatDateTime(value);
+  }
+
+  formatDate(value: string): string {
+    return formatDate(value);
   }
 
   diagnosticLocation(diagnostic: ImportDiagnostic): string {

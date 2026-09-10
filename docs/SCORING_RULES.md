@@ -73,8 +73,12 @@ total is the current authoritative score. Import does not apply SportOS
 achievement bonuses or reinterpret the workbook's internal formula. The row
 is marked `score_status = imported`, stored as `base = All`, `bonus = 0`, and
 `total = All`, and its live ledger contains a clearly labeled workbook-total
-entry without a rule or activity link. A zero imported total has an empty live
-ledger, whose sum is still zero. Imported totals must be finite,
+entry without a rule or activity link. When the source workbook exposes the
+`All` formula, the ledger entry also retains that formula and its numeric
+same-row inputs for a readable `this + this + this` explanation. These values
+are source evidence only; SportOS does not evaluate or replace the workbook
+formula. A zero imported total has an empty live ledger, whose sum is still
+zero. Imported totals must be finite,
 non-negative integers because score and ledger points are integer values.
 During V112, historical rows with non-negative fractional `All` values remain
 calculated rather than being silently rounded; their exact workbook totals

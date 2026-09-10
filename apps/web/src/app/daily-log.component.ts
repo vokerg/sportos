@@ -17,6 +17,7 @@ import {
   type ScoreBreakdownViewState,
 } from './score-breakdown-panel.component';
 import type { ApiErrorBody, DailyScoreBreakdown } from './score-breakdown.models';
+import { formatDate } from './date-time';
 
 type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
 
@@ -145,7 +146,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
 
   readonly columnDefs: ColDef<DailySummaryRow>[] = [
     { colId: 'scoreBreakdown', headerName: 'Details', cellRenderer: DailyBreakdownButtonComponent, pinned: 'left', width: 124, minWidth: 124, maxWidth: 124, sortable: false, filter: false, suppressHeaderMenuButton: true },
-    { field: 'metric_date', headerName: 'Date', pinned: 'left', width: 130, minWidth: 130, flex: 0 },
+    { field: 'metric_date', headerName: 'Date', pinned: 'left', width: 150, minWidth: 150, flex: 0, valueFormatter: (params) => this.formatDate(params.value) },
     { field: 'score_status', headerName: 'Authority', valueFormatter: (params) => this.scoreStatusLabel(params.value) },
     { field: 'steps', headerName: 'Steps', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
     { field: 'run_m', headerName: 'Run', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatMeters(params.value) },
@@ -166,7 +167,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
       tooltip: { trigger: 'axis' },
       legend: { bottom: 0 },
       grid: { left: 45, right: 20, top: 20, bottom: 55 },
-      xAxis: { type: 'category', data: chronological.map((r) => r.metric_date) },
+      xAxis: { type: 'category', data: chronological.map((r) => this.formatDate(r.metric_date)) },
       yAxis: { type: 'value' },
       series: [
         { name: 'Total points', type: 'bar', data: chronological.map((r) => r.total_points) },
@@ -351,5 +352,9 @@ export class DailyLogComponent implements OnInit, OnDestroy {
 
   scoreStatusLabel(value: unknown): string {
     return value === 'imported' ? 'Imported ledger' : value === 'calculated' ? 'Calculated' : String(value ?? '—');
+  }
+
+  formatDate(value: string | null | undefined): string {
+    return formatDate(value);
   }
 }

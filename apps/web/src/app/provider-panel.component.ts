@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { formatDateTime } from './date-time';
 import { ProviderApiService, type ProviderConnection, type ProviderSyncJob } from './provider-api.service';
 
 type PanelState = 'loading' | 'ready' | 'working' | 'error';
@@ -27,7 +28,7 @@ type PanelState = 'loading' | 'ready' | 'working' | 'error';
           <span class="status" [attr.data-status]="connection()!.status">{{ connection()!.status }}</span>
         </div>
         <p class="meta">Scopes: {{ connection()!.scopes.join(', ') || 'none' }}</p>
-        <p class="meta">Last successful sync: {{ connection()!.lastSyncAt || 'not yet synced' }}</p>
+        <p class="meta">Last successful sync: {{ formatTimestamp(connection()!.lastSyncAt) }}</p>
         @if (connection()!.error) { <p class="state-message error" role="alert">{{ connection()!.error!.message }}</p> }
 
         <div class="actions">
@@ -94,6 +95,10 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
   busy(): boolean {
     const status = this.job()?.status;
     return this.state() === 'working' || status === 'queued' || status === 'running';
+  }
+
+  formatTimestamp(value: string | null): string {
+    return formatDateTime(value, 'not yet synced');
   }
 
   load(): void {

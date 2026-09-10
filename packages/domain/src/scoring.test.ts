@@ -32,6 +32,38 @@ describe('scoreDay', () => {
     }]);
   });
 
+  it('retains the workbook formula inputs alongside an imported total', () => {
+    const result = scoreFromImportedLedger(
+      {
+        metricDate: '2026-05-18',
+        steps: 1000,
+        runM: 5000,
+        bikeM: 0,
+        swimM: 0,
+        workoutPoints: 0,
+        powerPoints: 0,
+        excelAllPoints: 6000,
+      },
+      {
+        allFormula: 'B2+O2',
+        formulaInputs: [
+          { sourceColumn: 'steps', cellReference: 'B2', value: 1000 },
+          { sourceColumn: 'run_to_s', cellReference: 'O2', value: 5000 },
+        ],
+        formulaIsAdditive: true,
+      },
+    );
+
+    expect(result.ledger[0]?.calculationJson).toMatchObject({
+      workbookFormula: 'B2+O2',
+      workbookFormulaInputs: [
+        { sourceColumn: 'steps', cellReference: 'B2', value: 1000 },
+        { sourceColumn: 'run_to_s', cellReference: 'O2', value: 5000 },
+      ],
+      workbookFormulaIsAdditive: true,
+    });
+  });
+
   it('rejects a fractional or negative imported workbook total instead of changing it silently', () => {
     expect(() => scoreFromImportedLedger({
       metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 1.5,

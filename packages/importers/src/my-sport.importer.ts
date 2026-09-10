@@ -1,4 +1,4 @@
-import type { SpreadsheetScoreComponentEvidence } from '@sportos/domain';
+import type { ImportedLedgerEvidence, ImportedLedgerFormulaInput, SpreadsheetScoreComponentEvidence } from '@sportos/domain';
 import { excelSerialDateToIsoDate } from '@sportos/shared';
 import type { CanonicalActivityInput, DailyMetricInput } from '@sportos/shared';
 import { asNumber, normalizeHeader, rowObjectFromHeaders, sheetMatrix, type WorkbookExtract } from './xlsx-reader.js';
@@ -33,7 +33,7 @@ const MY_SPORT_KNOWN_HEADERS = new Set([
 
 const MY_SPORT_AUXILIARY_SHEETS = new Set(['Sheet2', 'Sheet8']);
 
-export interface SpreadsheetScoreEvidence {
+export interface SpreadsheetScoreEvidence extends ImportedLedgerEvidence {
   metricDate: string;
   excelAllPoints?: number;
   components: SpreadsheetScoreComponentEvidence[];
@@ -66,6 +66,11 @@ export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Shee
 
   const matrix = sheetMatrix(extract.workbook, sheetName);
   const headers = matrix[0] ?? [];
+  const extractedRows = new Map(
+    extract.rows
+      .filter((record) => record.sheetName === sheetName)
+      .map((record) => [record.rowIndex, record]),
+  );
   const warnedHeaders = new Set<string>();
 
   headers.forEach((header) => {
@@ -101,6 +106,9 @@ export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Shee
     const aggregateBikeKm = asNumber(row.bike) ?? bikeInKm + bikeOutKm;
     const aggregateRunKm = asNumber(row.run) ?? runInKm + runOutKm;
     const excelAllPoints = asNumber(row.all);
+    const extractedRow = extractedRows.get(i + 1);
+    const allFormula = extractedRow?.formulas?.all;
+    const formulaInputs = allFormula ? formulaInputsForRow(allFormula, headers, cells, i + 1) : [];
 
     const basePayload = { sheetName, rowIndex: i + 1, row };
 
@@ -120,13 +128,17 @@ export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Shee
       excelRowHash: extract.rows.find((record) => record.sheetName === sheetName && record.rowIndex === i + 1)?.hash,
     });
 
-    scoreEvidence.push({
+    const evidence: SpreadsheetScoreEvidence = {
       metricDate: activityDate,
       excelAllPoints,
       components: scoreComponents(row),
       sheetName,
       rowIndex: i + 1,
-    });
+      ...(allFormula ? { allFormula } : {}),
+      ...(formulaInputs.length > 0 ? { formulaInputs } : {}),
+      ...(allFormula ? { formulaIsAdditive: isAdditiveFormula(allFormula) } : {}),
+    };
+    scoreEvidence.push(evidence);
 
     if (steps > 0) activities.push({ source: 'my_sport_xlsx', activityDate, activityType: 'steps', subtype: 'manual', steps, rawPayloadJson: basePayload });
     if (runInKm > 0) activities.push({ source: 'my_sport_xlsx', activityDate, activityType: 'run', subtype: 'treadmill', distanceM: runInKm * 1000, rawPayloadJson: basePayload });
@@ -166,6 +178,46 @@ function scoreComponent(
 ): SpreadsheetScoreComponentEvidence | null {
   const importedPoints = asNumber(value);
   return importedPoints === undefined ? null : { activityType, sourceColumn, importedPoints };
+}
+
+function formulaInputsForRow(
+  formula: string,
+  headers: unknown[],
+  cells: unknown[],
+  rowIndex: number,
+): ImportedLedgerFormulaInput[] {
+  const inputs: ImportedLedgerFormulaInput[] = [];
+  const seen = new Set<string>();
+  const referencePattern = /\$?([A-Z]{1,3})\$?(\d+)/gi;
+
+  for (const match of formula.matchAll(referencePattern)) {
+    const columnLetters = match[1];
+    const referencedRow = Number(match[2]);
+    if (!columnLetters || referencedRow !== rowIndex) continue;
+
+    const columnIndex = excelColumnIndex(columnLetters);
+    const sourceColumn = normalizeHeader(headers[columnIndex]);
+    const value = asNumber(cells[columnIndex]);
+    const cellReference = match[0].replaceAll('$', '').toUpperCase();
+    if (!sourceColumn || value === undefined || seen.has(cellReference)) continue;
+
+    seen.add(cellReference);
+    inputs.push({ sourceColumn, cellReference, value });
+  }
+
+  return inputs;
+}
+
+function excelColumnIndex(columnLetters: string): number {
+  let value = 0;
+  for (const character of columnLetters.toUpperCase()) {
+    value = value * 26 + character.charCodeAt(0) - 64;
+  }
+  return value - 1;
+}
+
+function isAdditiveFormula(formula: string): boolean {
+  return /^\s*=?\s*\$?[A-Z]{1,3}\$?\d+(?:\s*\+\s*\$?[A-Z]{1,3}\$?\d+)*\s*$/i.test(formula);
 }
 
 function isBlankCell(value: unknown): boolean {

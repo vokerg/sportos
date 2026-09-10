@@ -1,12 +1,33 @@
-import type { ActivityFact, DailyMetricFacts, DailyScoreResult, ScoringRule, ScoreLedgerEntry } from './types.js';
+import type {
+  ActivityFact,
+  DailyMetricFacts,
+  DailyScoreResult,
+  ImportedLedgerEvidence,
+  ScoringRule,
+  ScoreLedgerEntry,
+} from './types.js';
 import { metersToKm, mpsToKmh } from './units.js';
 
 const ROUNDING_POLICY = 'nearest_integer_per_rule';
 
-export function scoreFromImportedLedger(facts: DailyMetricFacts): DailyScoreResult {
+export function scoreFromImportedLedger(facts: DailyMetricFacts, evidence?: ImportedLedgerEvidence): DailyScoreResult {
   const importedPoints = facts.excelAllPoints;
   if (importedPoints === undefined || !Number.isFinite(importedPoints) || !Number.isInteger(importedPoints) || importedPoints < 0) {
     throw new Error('Imported workbook All must be a finite, non-negative integer.');
+  }
+
+  const calculationJson: Record<string, unknown> = {
+    scoreStatus: 'imported',
+    source: 'my_sport_xlsx',
+    field: 'All',
+    importedPoints,
+  };
+  if (evidence?.allFormula) calculationJson.workbookFormula = evidence.allFormula;
+  if (evidence?.formulaInputs && evidence.formulaInputs.length > 0) {
+    calculationJson.workbookFormulaInputs = evidence.formulaInputs;
+  }
+  if (evidence?.formulaIsAdditive !== undefined) {
+    calculationJson.workbookFormulaIsAdditive = evidence.formulaIsAdditive;
   }
 
   return {
@@ -18,12 +39,7 @@ export function scoreFromImportedLedger(facts: DailyMetricFacts): DailyScoreResu
       metricDate: facts.metricDate,
       points: importedPoints,
       reason: 'Imported workbook ledger total',
-      calculationJson: {
-        scoreStatus: 'imported',
-        source: 'my_sport_xlsx',
-        field: 'All',
-        importedPoints,
-      },
+      calculationJson,
     }],
   };
 }

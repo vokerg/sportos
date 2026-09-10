@@ -6,6 +6,7 @@ import {
   type AnalysisAnswer,
   type AnalysisAnswerRequest,
 } from './analysis-api.service';
+import { formatDateText } from './date-time';
 
 type AnalysisState = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -54,20 +55,20 @@ type AnalysisState = 'idle' | 'loading' | 'ready' | 'error';
                 <h4>Observations</h4>
                 @if (answer.generatedGuidance.observations.length === 0) { <p>No supported observations.</p> }
                 <ul>@for (item of answer.generatedGuidance.observations; track item.text) {
-                  <li>{{ item.text }} <small>{{ citationSummary(item.citationKeys) }}</small></li>
+                  <li>{{ formatText(item.text) }} <small>{{ citationSummary(item.citationKeys) }}</small></li>
                 }</ul>
               </div>
               <div>
                 <h4>Uncertainty</h4>
                 @if (answer.generatedGuidance.uncertainty.length === 0) { <p>No additional uncertainty was generated.</p> }
                 <ul>@for (item of answer.generatedGuidance.uncertainty; track item.text) {
-                  <li>{{ item.text }} <small>{{ citationSummary(item.citationKeys) }}</small></li>
+                  <li>{{ formatText(item.text) }} <small>{{ citationSummary(item.citationKeys) }}</small></li>
                 }</ul>
               </div>
               <div>
                 <h4>Suggestions</h4>
                 <ul>@for (item of answer.generatedGuidance.suggestions; track item.text) {
-                  <li>{{ item.text }} <small>{{ citationSummary(item.citationKeys) }}</small></li>
+                  <li>{{ formatText(item.text) }} <small>{{ citationSummary(item.citationKeys) }}</small></li>
                 }</ul>
               </div>
             </div>
@@ -87,7 +88,7 @@ type AnalysisState = 'idle' | 'loading' | 'ready' | 'error';
               <h4>Evidence identifiers</h4>
               <ul class="citations">
                 @for (citation of record.citations; track citation.key) {
-                  <li><code>{{ citation.key }}</code> — {{ citation.label }}</li>
+                  <li><code>{{ citation.key }}</code> — {{ formatText(citation.label) }}</li>
                 }
               </ul>
             } @else {
@@ -162,7 +163,11 @@ export class AnalysisPanelComponent implements OnDestroy {
   }
 
   formatFacts(facts: unknown): string {
-    return JSON.stringify(facts, null, 2);
+    return formatDateText(JSON.stringify(facts, null, 2) ?? String(facts));
+  }
+
+  formatText(value: string): string {
+    return formatDateText(value);
   }
 
   private buildRequest(): AnalysisAnswerRequest | null {

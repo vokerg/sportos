@@ -117,6 +117,50 @@ describe('ScoreBreakdownPanelComponent', () => {
     injector.destroy();
   });
 
+  it('explains an imported workbook total from retained cached source values', () => {
+    const { component, injector } = createComponent();
+    const importedSource: SourceRecordReference = {
+      ...source,
+      rawJson: {
+        headers: ['Date', 'Steps', 'Run to S', 'Bike to S', 'WOtotal', 'Pow', 'All'],
+        cells: [46130, 1000, 2000, 2991, 4, 5, 6000],
+      },
+    };
+    const importedBreakdown: DailyScoreBreakdown = {
+      ...breakdown,
+      scoreStatus: 'imported',
+      sourceRecord: importedSource,
+      score: { appTotal: 6000, excelTotal: 6000, delta: 0, baseTotal: 6000, bonusTotal: 0, ledgerTotal: 6000 },
+      ledger: [{
+        id: '40000000-0000-4000-8000-000000000003',
+        points: 6000,
+        reason: 'Imported workbook ledger total',
+        calculation: { scoreStatus: 'imported', source: 'my_sport_xlsx', field: 'All', importedPoints: 6000 },
+        createdAt: '2026-05-18T12:00:00.000Z',
+        rule: null,
+        activity: null,
+      }],
+    };
+
+    const details = component.importedLedgerDetails(importedBreakdown.ledger[0]!, importedBreakdown);
+    expect(details).toMatchObject({
+      formula: null,
+      showEquation: true,
+      inputTotal: 6000,
+      matchesTotal: true,
+    });
+    expect(details?.inputs.map((input) => [input.label, input.value])).toEqual([
+      ['Steps', 1000],
+      ['Run to S', 2000],
+      ['Bike to S', 2991],
+      ['WOtotal', 4],
+      ['Pow', 5],
+    ]);
+    expect(component.importedEquationLabel(details!, 6000)).toContain('Available cached workbook values');
+
+    injector.destroy();
+  });
+
   it('defaults to the accessible idle and empty state and presents unavailable Excel data explicitly', () => {
     const { component, injector } = createComponent();
     const noExcel = { ...breakdown, score: { ...breakdown.score, excelTotal: null, delta: null } };

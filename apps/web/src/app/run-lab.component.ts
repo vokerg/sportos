@@ -8,6 +8,7 @@ import {
   type PerformanceEventDetail,
   type PerformanceEventRow,
 } from './api.service';
+import { formatDate } from './date-time';
 
 type ViewState = 'loading' | 'loaded' | 'empty' | 'error';
 type DetailState = 'idle' | 'loading' | 'loaded' | 'error';
@@ -51,12 +52,12 @@ type DetailState = 'idle' | 'loading' | 'loaded' | 'error';
             <tbody>
               @for (row of rows(); track row.id) {
                 <tr>
-                  <td>{{ row.eventDate }}</td>
+                  <td>{{ formatDate(row.eventDate) }}</td>
                   <td>{{ formatDuration(row.durationS) }}</td>
                   <td>{{ formatPace(row.paceSPerKm) }}/km</td>
                   <td>{{ markers(row) }}</td>
                   <td>{{ row.allTimeRank }}</td>
-                  <td><button type="button" (click)="openEvent(row.id)" [attr.aria-label]="'Inspect performance event on ' + row.eventDate">Inspect</button></td>
+                  <td><button type="button" (click)="openEvent(row.id)" [attr.aria-label]="'Inspect performance event on ' + formatDate(row.eventDate)">Inspect</button></td>
                 </tr>
               }
             </tbody>
@@ -73,7 +74,7 @@ type DetailState = 'idle' | 'loading' | 'loaded' | 'error';
             <p role="alert">{{ detailError() }}</p>
           } @else if (detail()) {
             <dl>
-              <div><dt>Date</dt><dd>{{ detail()!.eventDate }}</dd></div>
+              <div><dt>Date</dt><dd>{{ formatDate(detail()!.eventDate) }}</dd></div>
               <div><dt>Distance</dt><dd>{{ detail()!.distanceM }} m</dd></div>
               <div><dt>Time</dt><dd>{{ formatDuration(detail()!.durationS) }}</dd></div>
               <div><dt>Markers</dt><dd>{{ markers(detail()!) }}</dd></div>
@@ -119,7 +120,7 @@ export class RunLabComponent implements OnInit, OnDestroy {
     return {
       tooltip: { trigger: 'axis' },
       grid: { left: 55, right: 20, top: 20, bottom: 45 },
-      xAxis: { type: 'category', data: chronological.map((row) => row.eventDate) },
+      xAxis: { type: 'category', data: chronological.map((row) => this.formatDate(row.eventDate)) },
       yAxis: { type: 'value', name: 'Minutes' },
       series: [{ name: 'Duration', type: 'line', data: chronological.map((row) => Number((row.durationS / 60).toFixed(2))), smooth: false }],
     };
@@ -197,6 +198,10 @@ export class RunLabComponent implements OnInit, OnDestroy {
   formatPace(seconds: number): string {
     const minutes = Math.floor(seconds / 60);
     return `${minutes}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
+  }
+
+  formatDate(value: string | null | undefined): string {
+    return formatDate(value);
   }
 
   markers(row: PerformanceEventRow): string {

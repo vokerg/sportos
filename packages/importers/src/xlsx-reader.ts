@@ -1,5 +1,5 @@
 import XLSX from 'xlsx';
-import type { WorkBook } from 'xlsx';
+import type { WorkBook, WorkSheet } from 'xlsx';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { rowHash, sha256 } from '@sportos/shared';
@@ -9,6 +9,7 @@ export interface WorkbookRow {
   rowIndex: number;
   headers: unknown[];
   cells: unknown[];
+  formulas?: Record<string, string>;
   object?: Record<string, unknown>;
   hash: string;
 }
@@ -43,7 +44,15 @@ export function readWorkbookBuffer(bytes: Uint8Array, filename: string): Workboo
     for (let i = 0; i < matrix.length; i += 1) {
       const cells = matrix[i] ?? [];
       if (cells.every((cell) => cell === null || cell === undefined || cell === '')) continue;
-      rows.push({ sheetName, rowIndex: i + 1, headers, cells, hash: rowHash({ sheetName, rowIndex: i + 1, cells }) });
+      const formulas = formulasForRow(sheet, headers, i);
+      rows.push({
+        sheetName,
+        rowIndex: i + 1,
+        headers,
+        cells,
+        ...(Object.keys(formulas).length > 0 ? { formulas } : {}),
+        hash: rowHash({ sheetName, rowIndex: i + 1, cells }),
+      });
     }
   }
 
@@ -100,6 +109,20 @@ export function asString(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
   const text = String(value).trim();
   return text === '' ? undefined : text;
+}
+
+function formulasForRow(sheet: WorkSheet, headers: unknown[], rowIndex: number): Record<string, string> {
+  const formulas: Record<string, string> = {};
+  headers.forEach((header, columnIndex) => {
+    const key = normalizeHeader(header);
+    if (!key || Object.prototype.hasOwnProperty.call(formulas, key)) return;
+    const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+    const cell = sheet[address] as { f?: unknown } | undefined;
+    if (typeof cell?.f !== 'string') return;
+    const formula = cell.f.trim().slice(0, 2_000);
+    if (formula) formulas[key] = formula;
+  });
+  return formulas;
 }
 
 function safeFilename(filename: string): string {

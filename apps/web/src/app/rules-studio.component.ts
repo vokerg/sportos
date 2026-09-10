@@ -11,6 +11,7 @@ import {
   type RuleProposal,
   type RuleVersion,
 } from './api.service';
+import { formatDate, formatDateTime } from './date-time';
 
 @Component({
   selector: 'sportos-rules-studio',
@@ -35,7 +36,7 @@ import {
             <tr *ngFor="let rule of rules(); trackBy: trackRule">
               <td><strong>{{ rule.code }}</strong><br><small>{{ rule.name }}</small></td>
               <td>v{{ rule.version }}</td>
-              <td>{{ rule.validFrom }} → {{ rule.validTo || 'open' }}</td>
+              <td>{{ formatDate(rule.validFrom) }} → {{ rule.validTo ? formatDate(rule.validTo) : 'open' }}</td>
               <td>{{ rule.metric }} · {{ formula(rule) }}</td>
               <td>{{ rule.enabled ? 'active' : 'pending/history' }}</td>
               <td><button type="button" [disabled]="!rule.enabled" (click)="editRule(rule)">Supersede</button></td>
@@ -94,12 +95,12 @@ import {
         <h3>Preview</h3>
         <p><strong>{{ result.preview.changedDates }}</strong> of {{ result.preview.totalDates }} dates change; aggregate delta
           <strong>{{ signed(result.preview.aggregateDelta) }}</strong> points.</p>
-        <p>Range recomputed: {{ result.preview.affectedFrom }} → {{ result.preview.affectedTo }}. No authoritative score has changed yet.</p>
+        <p>Range recomputed: {{ formatDate(result.preview.affectedFrom) }} → {{ formatDate(result.preview.affectedTo) }}. No authoritative score has changed yet.</p>
         <div class="table-wrap" *ngIf="result.preview.rows.length">
           <table>
             <thead><tr><th>Date</th><th>Current</th><th>Proposed</th><th>Delta</th></tr></thead>
             <tbody><tr *ngFor="let row of result.preview.rows">
-              <td>{{ row.metricDate }}</td><td>{{ row.currentTotalPoints }}</td><td>{{ row.proposedTotalPoints }}</td><td>{{ signed(row.delta) }}</td>
+              <td>{{ formatDate(row.metricDate) }}</td><td>{{ row.currentTotalPoints }}</td><td>{{ row.proposedTotalPoints }}</td><td>{{ signed(row.delta) }}</td>
             </tr></tbody>
           </table>
         </div>
@@ -120,8 +121,8 @@ import {
         <div class="table-wrap" *ngIf="changes().length; else noChanges">
           <table><thead><tr><th>Created</th><th>Rule</th><th>Reason</th><th>Range</th><th>Status</th><th>Result</th></tr></thead>
           <tbody><tr *ngFor="let change of changes(); trackBy: trackChange">
-            <td>{{ change.createdAt | date:'medium' }}</td><td>{{ change.ruleCode }}</td><td>{{ change.reason }}</td>
-            <td>{{ change.affectedFrom }} → {{ change.affectedTo }}</td><td>{{ change.status }} · {{ change.phase }}</td>
+            <td>{{ formatTimestamp(change.createdAt) }}</td><td>{{ change.ruleCode }}</td><td>{{ change.reason }}</td>
+            <td>{{ formatDate(change.affectedFrom) }} → {{ formatDate(change.affectedTo) }}</td><td>{{ change.status }} · {{ change.phase }}</td>
             <td>{{ change.error?.message || resultSummary(change) }}</td>
           </tr></tbody></table>
         </div>
@@ -194,7 +195,7 @@ export class RulesStudioComponent implements OnInit, OnDestroy {
     };
     this.previewResult.set(null);
     this.reason = '';
-    this.message.set(`Preparing a new version of ${rule.code}. Choose a cutover after ${rule.validFrom}.`);
+    this.message.set(`Preparing a new version of ${rule.code}. Choose a cutover after ${this.formatDate(rule.validFrom)}.`);
   }
 
   activityChanged(): void {
@@ -290,6 +291,14 @@ export class RulesStudioComponent implements OnInit, OnDestroy {
 
   signed(value: number): string {
     return value > 0 ? `+${value}` : String(value);
+  }
+
+  formatDate(value: string | null | undefined): string {
+    return formatDate(value);
+  }
+
+  formatTimestamp(value: string | null | undefined): string {
+    return formatDateTime(value);
   }
 
   resultSummary(change: RuleChange): string {

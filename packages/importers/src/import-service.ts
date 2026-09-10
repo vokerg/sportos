@@ -194,7 +194,10 @@ export class ImportService {
 
           const score = facts.excelAllPoints === undefined
             ? scoreDay(facts, dailyActivities, rules)
-            : scoreFromImportedLedger(facts);
+            : scoreFromImportedLedger(
+              facts,
+              parsed.scoreEvidence.find((evidence) => evidence.metricDate === facts.metricDate && evidence.rowIndex === sourceRecord.row_index),
+            );
           await dailyRepo.persistDailyScore(
             facts,
             score,
@@ -370,7 +373,11 @@ export class ImportService {
       row_index: row.rowIndex,
       source_record_key: sourceRecordLocationKey(row.sheetName, row.rowIndex),
       row_hash: row.hash,
-      raw_json: toJson({ headers: row.headers, cells: row.cells }),
+      raw_json: toJson({
+        headers: row.headers,
+        cells: row.cells,
+        ...(row.formulas && Object.keys(row.formulas).length > 0 ? { formulas: row.formulas } : {}),
+      }),
       status: 'raw',
       errors: [],
       warnings: [],

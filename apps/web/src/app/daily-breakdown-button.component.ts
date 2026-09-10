@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import type { ICellRendererAngularComp } from 'ag-grid-angular';
 import type { ICellRendererParams } from 'ag-grid-community';
 import type { DailySummaryRow } from './api.service';
+import { formatDate } from './date-time';
 
 export interface DailyBreakdownGridContext {
   openBreakdown: (row: DailySummaryRow) => void;
@@ -14,7 +15,7 @@ export interface DailyBreakdownGridContext {
     <button
       type="button"
       class="details-link"
-      [attr.aria-label]="'View score breakdown for ' + date"
+      [attr.aria-label]="'View score breakdown for ' + formatDate(date)"
       (click)="open()">
       <span>View details</span>
       <span class="details-arrow" aria-hidden="true">→</span>
@@ -77,6 +78,10 @@ export class DailyBreakdownButtonComponent implements ICellRendererAngularComp {
   open(): void {
     const row = this.params?.data;
     if (row) this.params?.context.openBreakdown(row);
+  }
+
+  formatDate(value: string): string {
+    return formatDate(value);
   }
 
   private setParams(params: ICellRendererParams<DailySummaryRow, unknown, DailyBreakdownGridContext>): void {

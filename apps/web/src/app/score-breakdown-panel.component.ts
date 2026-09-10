@@ -6,9 +6,26 @@ import type {
   ScoreBreakdownLedgerEntry,
   SourceRecordReference,
 } from './score-breakdown.models';
+import { formatDate, formatDateTime } from './date-time';
 
 export type ScoreBreakdownViewState = 'idle' | 'loading' | 'loaded' | 'error';
 export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
+
+interface ImportedLedgerInput {
+  key: string;
+  label: string;
+  reference: string | null;
+  value: number;
+}
+
+interface ImportedLedgerDetails {
+  formula: string | null;
+  inputs: ImportedLedgerInput[];
+  additiveFormula: boolean;
+  showEquation: boolean;
+  inputTotal: number | null;
+  matchesTotal: boolean;
+}
 
 @Component({
   selector: 'sportos-score-breakdown-panel',
@@ -22,7 +39,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
       <header class="panel-header">
         <div>
           <div class="eyebrow">Score explanation</div>
-          <h3 [id]="headingId">{{ date() ? 'Daily score · ' + date() : 'Daily score breakdown' }}</h3>
+          <h3 [id]="headingId">{{ date() ? 'Daily score · ' + formatDate(date()) : 'Daily score breakdown' }}</h3>
           <p class="panel-subtitle">Imported workbook ledgers stay authoritative until explicitly recalculated. Calculated rows use canonical activities and active rules.</p>
         </div>
         @if (date()) {
@@ -46,7 +63,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
           <span class="state-icon loading-icon" aria-hidden="true">…</span>
           <div>
             <strong>Loading score breakdown…</strong>
-            <span>Reading the saved score for {{ date() }}.</span>
+            <span>Reading the saved score for {{ formatDate(date()) }}.</span>
           </div>
         </div>
       } @else if (state() === 'error') {
@@ -150,7 +167,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
           <div class="section-heading">
             <div>
               <span class="section-label">All canonical activities</span>
-              <h4 id="day-activities-title">Activities recorded for {{ date() }}</h4>
+              <h4 id="day-activities-title">Activities recorded for {{ formatDate(date()) }}</h4>
               <p class="section-help">Imported rows use the saved workbook ledger. Recalculated rows use the canonical activities shown here, including Strava records.</p>
             </div>
             <strong class="count-badge">{{ current.activities.length }}</strong>
@@ -167,7 +184,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
                   @for (activity of current.activities; track activity.id) {
                     <tr>
                       <td><span class="source-badge" [attr.data-source]="activity.source">{{ sourceName(activity.source) }}</span></td>
-                      <td><strong>{{ activityName(activity) }}</strong><small>{{ activity.startTime || 'No start time' }}</small></td>
+                      <td><strong>{{ activityName(activity) }}</strong><small>{{ formatTimestamp(activity.startTime, 'No start time') }}</small></td>
                       <td>{{ activity.distanceM === null ? '—' : formatDistance(activity.distanceM) }}</td>
                       <td>{{ activity.durationS === null ? '—' : formatDurationValue(activity.durationS) }}</td>
                       <td>{{ activity.movingTimeS === null ? '—' : formatDurationValue(activity.movingTimeS) }}</td>
@@ -235,7 +252,7 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
             <h4>How the score was built</h4>
             <p>{{ current.ledger.length }} contribution{{ current.ledger.length === 1 ? '' : 's' }} to this day's total</p>
           </div>
-          <span class="recomputed">Saved {{ current.recomputedAt }}</span>
+          <span class="recomputed">Saved {{ formatTimestamp(current.recomputedAt) }}</span>
         </div>
 
         @if (current.ledger.length === 0) {
@@ -266,15 +283,71 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
                 </div>
                 <details class="entry-details">
                   <summary>Show calculation details</summary>
+                  @let imported = importedLedgerDetails(entry, current);
                   <div class="detail-grid">
-                    <div>
-                      <span class="detail-label">Inputs</span>
-                      <p>{{ calculationLabel(entry.calculation) }}</p>
-                    </div>
+                    @if (imported) {
+                      <div class="imported-calculation">
+                        <span class="detail-label">Workbook calculation</span>
+                        @if (imported.formula) {
+                          <div class="formula-line">
+                            <span>Formula for All</span>
+                            <code>{{ formatWorkbookFormula(imported.formula) }}</code>
+                          </div>
+                        } @else {
+                          <p class="calculation-note">The workbook supplied <code>All</code>, but its original formula was not retained in this import.</p>
+                        }
+                        @if (imported.inputs.length > 0) {
+                          @if (imported.showEquation) {
+                            <div
+                              class="calculation-equation"
+                              [class.source-evidence-equation]="!imported.formula"
+                              [attr.aria-label]="importedEquationLabel(imported, entry.points)">
+                              @for (input of imported.inputs; track input.key) {
+                                <span class="equation-term">
+                                  <span>{{ input.label }}{{ input.reference ? ' · ' + input.reference : '' }}</span>
+                                  <strong>{{ formatNumber(input.value) }}</strong>
+                                </span>
+                                @if (!$last) {
+                                  <span class="equation-operator" aria-hidden="true">+</span>
+                                }
+                              }
+                              <span class="equation-operator" aria-hidden="true">=</span>
+                              <strong class="equation-total">{{ formatNumber(imported.inputTotal ?? entry.points) }}</strong>
+                              @if (!imported.matchesTotal) {
+                                <span class="equation-arrow" aria-hidden="true">→ All</span>
+                                <strong class="equation-total">{{ formatNumber(entry.points) }}</strong>
+                              }
+                            </div>
+                          } @else {
+                            <div class="formula-input-grid">
+                              @for (input of imported.inputs; track input.key) {
+                                <span>
+                                  <small>{{ input.label }}{{ input.reference ? ' · ' + input.reference : '' }}</small>
+                                  <strong>{{ formatNumber(input.value) }}</strong>
+                                </span>
+                              }
+                            </div>
+                          }
+                          @if (!imported.formula) {
+                            <p class="calculation-note">{{ imported.matchesTotal ? 'These cached workbook values are an evidence check, not a reconstructed formula.' : 'The available cached workbook fields do not fully explain All; the original formula was not retained.' }}</p>
+                          } @else if (!imported.matchesTotal) {
+                            <p class="calculation-note">The visible formula inputs total {{ formatNumber(imported.inputTotal ?? 0) }}; the cached workbook <code>All</code> value is {{ formatNumber(entry.points) }}.</p>
+                          }
+                        } @else if (imported.formula) {
+                          <p class="calculation-note">The formula was retained, but it has no numeric row inputs that SportOS can display.</p>
+                        }
+                        <p class="calculation-note">This imported <code>All</code> value is authoritative; SportOS does not recalculate or replace the workbook formula during import.</p>
+                      </div>
+                    } @else {
+                      <div>
+                        <span class="detail-label">Inputs</span>
+                        <p>{{ calculationLabel(entry.calculation) }}</p>
+                      </div>
+                    }
                     @if (entry.rule) {
                       <div>
                         <span class="detail-label">Rule active</span>
-                        <p>{{ entry.rule.validFrom }}{{ entry.rule.validTo ? ' – ' + entry.rule.validTo : ' onward' }}</p>
+                        <p>{{ formatDate(entry.rule.validFrom) }}{{ entry.rule.validTo ? ' – ' + formatDate(entry.rule.validTo) : ' onward' }}</p>
                       </div>
                     }
                     @if (entry.activity?.notes) {
@@ -566,6 +639,22 @@ export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
     .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
     .detail-grid > div { padding: 9px; border-radius: 8px; background: #f8fafc; }
     .detail-grid p { margin: 4px 0 0; overflow-wrap: anywhere; line-height: 1.45; }
+    .imported-calculation { grid-column: 1 / -1; }
+    .formula-line { display: grid; gap: 5px; margin-top: 6px; }
+    .formula-line > span { color: #667085; font-size: 11px; }
+    .formula-line code { display: block; padding: 8px 9px; border: 1px solid #d8e0f1; border-radius: 7px; background: #eef3ff; color: #344b8a; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .calculation-equation { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 9px; padding: 10px; border: 1px solid #cddaf4; border-radius: 9px; background: #f5f8ff; }
+    .source-evidence-equation { border-style: dashed; background: #fbfcfe; }
+    .equation-term { display: grid; gap: 2px; min-width: 76px; }
+    .equation-term > span { color: #667085; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .equation-term strong { color: #243b73; font-size: 14px; }
+    .equation-operator, .equation-arrow { color: #667085; font-weight: 800; }
+    .equation-total { color: #172b4d; font-size: 16px; }
+    .formula-input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 7px; margin-top: 9px; }
+    .formula-input-grid > span { display: grid; gap: 2px; padding: 7px 8px; border: 1px solid #e1e7f0; border-radius: 7px; background: white; }
+    .formula-input-grid small { color: #667085; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .formula-input-grid strong { color: #243b73; font-size: 14px; }
+    .calculation-note { color: #667085; font-size: 11px; }
 
     .state-box {
       display: flex;
@@ -647,6 +736,14 @@ export class ScoreBreakdownPanelComponent {
     return this.numberFormatter.format(value);
   }
 
+  formatDate(value: string | null | undefined): string {
+    return formatDate(value);
+  }
+
+  formatTimestamp(value: string | null | undefined, fallback = 'Not available'): string {
+    return formatDateTime(value, fallback);
+  }
+
   formatDistance(meters: number | null | undefined, fractionDigits = 2): string {
     if (meters === null || meters === undefined) return '—';
     return `${(meters / 1000).toLocaleString('en-US', { maximumFractionDigits: fractionDigits })} km`;
@@ -677,6 +774,192 @@ export class ScoreBreakdownPanelComponent {
 
   ledgerMatchesAppTotal(breakdown: DailyScoreBreakdown): boolean {
     return this.ledgerSum(breakdown) === breakdown.score.appTotal;
+  }
+
+  importedLedgerDetails(
+    entry: ScoreBreakdownLedgerEntry,
+    breakdown: DailyScoreBreakdown,
+  ): ImportedLedgerDetails | null {
+    if (breakdown.scoreStatus !== 'imported' || entry.rule !== null || entry.activity !== null) return null;
+
+    const calculation = this.jsonRecord(entry.calculation);
+    const formula = this.jsonString(calculation?.workbookFormula) ?? this.sourceWorkbookFormula(breakdown.sourceRecord);
+    const persistedInputs = this.formulaInputsFromJson(calculation?.workbookFormulaInputs);
+    const inputs = persistedInputs.length > 0
+      ? persistedInputs
+      : formula
+        ? this.formulaInputsFromSource(formula, breakdown.sourceRecord)
+        : this.candidateWorkbookInputs(breakdown.sourceRecord);
+    const persistedAdditive = this.jsonBoolean(calculation?.workbookFormulaIsAdditive);
+    const additiveFormula = persistedAdditive ?? (formula !== null && this.isAdditiveWorkbookFormula(formula));
+    const inputTotal = inputs.length > 0 ? inputs.reduce((sum, input) => sum + input.value, 0) : null;
+    const matchesTotal = inputTotal !== null && Math.abs(inputTotal - entry.points) < 1e-9;
+
+    return {
+      formula,
+      inputs,
+      additiveFormula,
+      showEquation: inputs.length > 0 && (additiveFormula || (formula === null && matchesTotal)),
+      inputTotal,
+      matchesTotal,
+    };
+  }
+
+  formatWorkbookFormula(value: string): string {
+    const formula = value.trim();
+    return formula.startsWith('=') ? formula : `=${formula}`;
+  }
+
+  importedEquationLabel(details: ImportedLedgerDetails, importedTotal: number): string {
+    const terms = details.inputs
+      .map((input) => `${input.label} ${this.formatNumber(input.value)}`)
+      .join(' plus ');
+    const inputTotal = details.inputTotal === null ? 'unavailable' : this.formatNumber(details.inputTotal);
+    return `${details.formula ? 'Workbook formula inputs' : 'Available cached workbook values'}: ${terms} equals ${inputTotal}; imported All ${this.formatNumber(importedTotal)}`;
+  }
+
+  private formulaInputsFromJson(value: JsonValue | undefined): ImportedLedgerInput[] {
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((item, index) => {
+      const record = this.jsonRecord(item);
+      const sourceColumn = this.jsonString(record?.sourceColumn);
+      const numericValue = this.jsonNumber(record?.value);
+      if (!sourceColumn || numericValue === null) return [];
+      const reference = this.jsonString(record?.cellReference);
+      return [{
+        key: `persisted:${sourceColumn}:${reference ?? index}`,
+        label: this.workbookColumnLabel(sourceColumn),
+        reference,
+        value: numericValue,
+      }];
+    });
+  }
+
+  private sourceWorkbookFormula(source: SourceRecordReference | null): string | null {
+    const sourceRecord = this.jsonRecord(source?.rawJson);
+    const formulas = this.jsonRecord(sourceRecord?.formulas);
+    return this.jsonString(formulas?.all);
+  }
+
+  private formulaInputsFromSource(formula: string, source: SourceRecordReference | null): ImportedLedgerInput[] {
+    const workbook = this.workbookSourceData(source);
+    const rowIndex = source?.rowIndex;
+    if (!workbook || rowIndex === null || rowIndex === undefined) return [];
+
+    const inputs: ImportedLedgerInput[] = [];
+    const seen = new Set<string>();
+    const referencePattern = /\$?([A-Z]{1,3})\$?(\d+)/gi;
+    for (const match of formula.matchAll(referencePattern)) {
+      const columnLetters = match[1];
+      const referencedRow = Number(match[2]);
+      if (!columnLetters || referencedRow !== rowIndex) continue;
+
+      const columnIndex = this.excelColumnIndex(columnLetters);
+      const sourceColumn = this.workbookKey(workbook.headers[columnIndex]);
+      const numericValue = this.sourceNumber(workbook.cells[columnIndex]);
+      const reference = match[0].replaceAll('$', '').toUpperCase();
+      if (!sourceColumn || numericValue === null || seen.has(reference)) continue;
+
+      seen.add(reference);
+      inputs.push({
+        key: `source:${sourceColumn}:${reference}`,
+        label: this.workbookColumnLabel(sourceColumn),
+        reference,
+        value: numericValue,
+      });
+    }
+    return inputs;
+  }
+
+  private candidateWorkbookInputs(source: SourceRecordReference | null): ImportedLedgerInput[] {
+    const workbook = this.workbookSourceData(source);
+    if (!workbook) return [];
+
+    const scoreColumns = new Set(['steps', 'run_to_s', 'bike_to_s', 'sup_to_s', 'raw_to_s', 'swim_to_s', 'wototal', 'pow']);
+    const seen = new Set<string>();
+    return workbook.headers.flatMap((header, index) => {
+      const sourceColumn = this.workbookKey(header);
+      const numericValue = this.sourceNumber(workbook.cells[index]);
+      if (!scoreColumns.has(sourceColumn) || numericValue === null || numericValue === 0 || seen.has(sourceColumn)) return [];
+      seen.add(sourceColumn);
+      return [{
+        key: `candidate:${sourceColumn}:${index}`,
+        label: this.workbookColumnLabel(sourceColumn),
+        reference: null,
+        value: numericValue,
+      }];
+    });
+  }
+
+  private workbookSourceData(source: SourceRecordReference | null): { headers: JsonValue[]; cells: JsonValue[] } | null {
+    const record = this.jsonRecord(source?.rawJson);
+    const headers = record?.headers;
+    const cells = record?.cells;
+    return Array.isArray(headers) && Array.isArray(cells) ? { headers, cells } : null;
+  }
+
+  private workbookKey(value: JsonValue | undefined): string {
+    if (value === null || value === undefined || typeof value === 'object') return '';
+    return String(value)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]+/g, '')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+  }
+
+  private workbookColumnLabel(sourceColumn: string): string {
+    const labels: Record<string, string> = {
+      steps: 'Steps',
+      run: 'Run',
+      bike: 'Bike',
+      swim: 'Swim',
+      run_to_s: 'Run to S',
+      bike_to_s: 'Bike to S',
+      sup_to_s: 'SUP to S',
+      raw_to_s: 'Rowing to S',
+      swim_to_s: 'Swim to S',
+      wototal: 'WOtotal',
+      hiit: 'HIIT',
+      raw: 'Rowing',
+      sup: 'SUP',
+      pow: 'Pow',
+    };
+    return labels[sourceColumn] ?? this.humanize(sourceColumn);
+  }
+
+  private sourceNumber(value: JsonValue | undefined): number | null {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value !== 'string') return null;
+    const normalized = value.trim().replace(',', '.');
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private excelColumnIndex(columnLetters: string): number {
+    let value = 0;
+    for (const character of columnLetters.toUpperCase()) {
+      value = value * 26 + character.charCodeAt(0) - 64;
+    }
+    return value - 1;
+  }
+
+  private isAdditiveWorkbookFormula(formula: string): boolean {
+    return /^\s*=?\s*\$?[A-Z]{1,3}\$?\d+(?:\s*\+\s*\$?[A-Z]{1,3}\$?\d+)*\s*$/i.test(formula);
+  }
+
+  private jsonString(value: JsonValue | undefined): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  }
+
+  private jsonNumber(value: JsonValue | undefined): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  private jsonBoolean(value: JsonValue | undefined): boolean | null {
+    return typeof value === 'boolean' ? value : null;
   }
 
   calculationLabel(value: JsonValue): string {
@@ -782,7 +1065,7 @@ export class ScoreBreakdownPanelComponent {
     return value.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
   }
 
-  private jsonRecord(value: JsonValue): { [key: string]: JsonValue } | null {
+  private jsonRecord(value: JsonValue | undefined): { [key: string]: JsonValue } | null {
     return value !== null && typeof value === 'object' && !Array.isArray(value)
       ? value as { [key: string]: JsonValue }
       : null;

@@ -31,6 +31,11 @@ describe('sanitized XLSX fixture harness', () => {
       expect(first.sheetNames).toEqual(['Sheet1', 'Sheet8', 'Sheet2', 'Unexpected Notes']);
       expect(first.workbook.Workbook?.Sheets?.find((sheet) => sheet.name === 'Sheet2')?.Hidden).toBe(1);
       expect(first.rows.find((row) => row.sheetName === 'Sheet1' && row.rowIndex === 2)?.cells[19]).toBe(55_610);
+      expect(first.rows.find((row) => row.sheetName === 'Sheet1' && row.rowIndex === 2)?.formulas).toMatchObject({
+        bike: 'E2+I2',
+        run: 'C2+D2',
+        all: 'B2+O2+P2+S2+J2+L2',
+      });
       expect(first.rows.some((row) => row.sheetName === 'Sheet2')).toBe(true);
       expect(first.rows.some((row) => row.sheetName === 'Unexpected Notes')).toBe(true);
 
@@ -86,6 +91,16 @@ describe('sanitized XLSX fixture harness', () => {
           excelAllPoints: 55_610,
           sheetName: 'Sheet1',
           rowIndex: 2,
+          allFormula: 'B2+O2+P2+S2+J2+L2',
+          formulaInputs: [
+            { sourceColumn: 'steps', cellReference: 'B2', value: 12_345 },
+            { sourceColumn: 'run_to_s', cellReference: 'O2', value: 13_000 },
+            { sourceColumn: 'bike_to_s', cellReference: 'P2', value: 22_750 },
+            { sourceColumn: 'swim_to_s', cellReference: 'S2', value: 7_500 },
+            { sourceColumn: 'wototal', cellReference: 'J2', value: 8.4 },
+            { sourceColumn: 'pow', cellReference: 'L2', value: 6.6 },
+          ],
+          formulaIsAdditive: true,
           components: [
             { activityType: 'run', sourceColumn: 'run_to_s', importedPoints: 13_000 },
             { activityType: 'bike', sourceColumn: 'bike_to_s', importedPoints: 22_750 },
