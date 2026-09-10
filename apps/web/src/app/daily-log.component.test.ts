@@ -100,6 +100,29 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(api.dailySummary).toHaveBeenCalledTimes(1);
   });
 
+  it('creates or replaces manual facts and refreshes the summary', () => {
+    const manual = { ...breakdown, scoreStatus: 'manual' as const };
+    const scoreApi = {
+      getForDate: vi.fn().mockReturnValue(of(breakdown)),
+      saveManualFacts: vi.fn().mockReturnValue(of(manual)),
+    };
+    const api = { dailySummary: vi.fn().mockReturnValue(of([row])) };
+    const component = createComponent(scoreApi, api);
+    component.openManualEntry(row.metric_date);
+    const input = {
+      steps: 1000, runM: 5000, runIndoorM: 1000, runOutdoorM: 3000,
+      bikeM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, swimM: 0,
+      workoutPoints: 10, powerPoints: 5,
+    };
+
+    component.saveManualFacts(input);
+
+    expect(scoreApi.saveManualFacts).toHaveBeenCalledWith(row.metric_date, input);
+    expect(component.breakdown()).toEqual(manual);
+    expect(component.manualSaveState()).toBe('idle');
+    expect(api.dailySummary).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the imported breakdown visible when Strava recalculation is unavailable', () => {
     const scoreApi = {
       getForDate: vi.fn().mockReturnValue(of({ ...breakdown, scoreStatus: 'imported' as const })),
@@ -194,7 +217,7 @@ describe('DailyLogComponent cockpit workflow', () => {
 });
 
 function createComponent(
-  scoreApi: { getForDate: ReturnType<typeof vi.fn>; recalculate?: ReturnType<typeof vi.fn> },
+  scoreApi: { getForDate: ReturnType<typeof vi.fn>; recalculate?: ReturnType<typeof vi.fn>; saveManualFacts?: ReturnType<typeof vi.fn> },
   api: { dailySummary: ReturnType<typeof vi.fn> } = { dailySummary: vi.fn().mockReturnValue(of([])) },
 ): DailyLogComponent {
   return new DailyLogComponent(api as unknown as ApiService, scoreApi as unknown as ScoreBreakdownApiService);

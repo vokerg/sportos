@@ -23,6 +23,7 @@ function bundle() {
     rowCounts: { dailySummaries: 1, activities: 1, performanceEvents: 1 },
     dailySummaries: [{
       metricDate: '2026-05-18',
+      scoreStatus: 'imported' as const,
       steps: 1000,
       runM: 5000,
       bikeM: 0,
@@ -96,7 +97,7 @@ function bundle() {
 describe('canonical export v1 contract', () => {
   it('accepts canonical rows and represents missing provenance explicitly', () => {
     const parsed = CanonicalExportBundleSchema.parse(bundle());
-    expect(parsed.schemaVersion).toBe('sportos.canonical-export.v1');
+    expect(parsed.schemaVersion).toBe('sportos.canonical-export.v2');
     expect(parsed.performanceEvents[0]?.provenance.status).toBe('missing');
   });
 

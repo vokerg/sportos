@@ -42,4 +42,20 @@ describe('ScoreBreakdownApiService', () => {
 
     expect(post).toHaveBeenCalledWith('http://sportos.test/daily/2026%2F05%3F18/recalculate', {});
   });
+
+  it('puts validated manual facts for the encoded date', () => {
+    const put = vi.fn().mockReturnValue(of({ ...response, scoreStatus: 'manual' }));
+    const http = { put } as unknown as HttpClient;
+    const api = { apiBase: signal('http://sportos.test') } as unknown as ApiService;
+    const service = new ScoreBreakdownApiService(http, api);
+    const input = {
+      steps: 1000, runM: 5000, runIndoorM: 1000, runOutdoorM: 3000,
+      bikeM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, swimM: 0,
+      workoutPoints: 10, powerPoints: 5,
+    };
+
+    service.saveManualFacts('2026/05?18', input).subscribe();
+
+    expect(put).toHaveBeenCalledWith('http://sportos.test/daily/2026%2F05%3F18/facts', input);
+  });
 });

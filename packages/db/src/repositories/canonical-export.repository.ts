@@ -9,6 +9,7 @@ import {
 } from '@sportos/shared';
 import type { Kysely } from 'kysely';
 import type { ActivitiesTable, Database, PerformanceEventsTable } from '../schema.js';
+import type { DailyScoreStatus } from '../repository-contracts.js';
 
 interface ProvenanceColumns {
   sourceRecordId: string | null;
@@ -23,6 +24,7 @@ interface ProvenanceColumns {
 
 interface DailyExportDbRow extends ProvenanceColumns {
   metricDate: unknown;
+  scoreStatus: DailyScoreStatus;
   steps: number;
   runM: number;
   bikeM: number;
@@ -116,6 +118,7 @@ export class CanonicalExportRepository {
       .leftJoin('import_batches as import_batch', 'import_batch.id', 'source_record.import_batch_id')
       .select([
         'summary.metric_date as metricDate',
+        'summary.score_status as scoreStatus',
         'summary.steps as steps',
         'summary.run_m as runM',
         'summary.bike_m as bikeM',
@@ -228,6 +231,7 @@ export class CanonicalExportRepository {
 function mapDailyRow(row: DailyExportDbRow): CanonicalDailyExportRow {
   return {
     metricDate: toIsoDate(row.metricDate),
+    scoreStatus: row.scoreStatus,
     steps: Number(row.steps),
     runM: Number(row.runM),
     bikeM: Number(row.bikeM),

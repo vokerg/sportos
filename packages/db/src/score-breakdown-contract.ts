@@ -13,8 +13,8 @@ export function parseDailyScoreBreakdown(value: DailyScoreBreakdownReadModel): D
   const issues: string[] = [];
   if (!isIsoDate(value.date)) issues.push('date must be a real calendar date in YYYY-MM-DD format');
   if (!isIsoTimestamp(value.recomputedAt)) issues.push('recomputedAt must be an ISO timestamp');
-  if (value.scoreStatus !== 'imported' && value.scoreStatus !== 'calculated') {
-    issues.push('scoreStatus must be imported or calculated');
+  if (value.scoreStatus !== 'imported' && value.scoreStatus !== 'calculated' && value.scoreStatus !== 'manual') {
+    issues.push('scoreStatus must be imported, calculated, or manual');
   }
 
   const ledgerSum = value.ledger.reduce((sum, entry) => sum + entry.points, 0);

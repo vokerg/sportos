@@ -240,7 +240,11 @@ export function previewRuleChange(
         };
       }
 
-      const proposed = scoreDay({ ...day.facts, excelAllPoints: undefined }, day.activities, proposedRules);
+      const proposed = scoreDay(
+        { ...day.facts, excelAllPoints: undefined },
+        day.scoreStatus === 'manual' ? [] : day.activities,
+        proposedRules,
+      );
       return {
         metricDate: day.facts.metricDate,
         currentBasePoints: day.currentBasePoints,

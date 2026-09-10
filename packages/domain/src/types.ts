@@ -11,7 +11,7 @@ export type ActivityType =
 
 export type ActivitySubtype = 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown';
 
-export type DailyScoreStatus = 'imported' | 'calculated';
+export type DailyScoreStatus = 'imported' | 'calculated' | 'manual';
 
 export interface ActivityFact {
   id?: string;

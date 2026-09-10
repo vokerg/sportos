@@ -5,7 +5,7 @@ import type { ApiService, CanonicalExportBundle } from './api.service';
 import { ExportPanelComponent } from './export-panel.component';
 
 const bundle: CanonicalExportBundle = {
-  schemaVersion: 'sportos.canonical-export.v1',
+  schemaVersion: 'sportos.canonical-export.v2',
   generatedAt: '2026-08-01T00:00:00.000Z',
   dateRange: { from: '2026-05-01', to: '2026-05-31' },
   rowCounts: { dailySummaries: 1, activities: 2, performanceEvents: 3 },

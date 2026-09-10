@@ -117,6 +117,7 @@ databaseDescribe('CanonicalExportRepository database integration', () => {
     expect(bundle.rowCounts).toEqual({ dailySummaries: 1, activities: 1, performanceEvents: 1 });
     expect(bundle.dailySummaries[0]).toMatchObject({
       metricDate,
+      scoreStatus: 'calculated',
       reconciliationStatus: 'exact',
       provenance: { status: 'available', sourceRecordId: sourceRecord.id, importBatchId: batch.id, filename: 'sanitized.xlsx' },
     });

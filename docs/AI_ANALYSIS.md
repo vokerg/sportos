@@ -1,6 +1,6 @@
 # Read-only analysis operations
 
-SportOS analysis is an authenticated, account-scoped explanation layer over canonical read models. It cannot edit activities, activate rules, persist scores, connect providers, or operate jobs. Official calculations remain deterministic application output, and each daily result identifies whether its current authority is an imported workbook ledger or a calculated activity ledger.
+SportOS analysis is an authenticated, account-scoped explanation layer over canonical read models. It cannot edit activities, activate rules, persist scores, connect providers, or operate jobs. Official calculations remain deterministic application output, and each daily result identifies whether its current authority is an imported workbook ledger, a calculated activity ledger, or saved manual facts.
 
 See [ADR 0007](adr/0007-read-only-ai-analysis.md) for the accepted security and architecture decision.
 

@@ -25,7 +25,7 @@ export interface DailySummaryRow {
   avg_30d: number | null;
   avg_60d: number | null;
   avg_365d: number | null;
-  score_status: 'imported' | 'calculated';
+  score_status: 'imported' | 'calculated' | 'manual';
 }
 
 export interface PerformanceRow {
@@ -74,7 +74,7 @@ export interface PerformanceEventDetail extends PerformanceEventRow {
 }
 
 export interface CanonicalExportBundle {
-  schemaVersion: 'sportos.canonical-export.v1';
+  schemaVersion: 'sportos.canonical-export.v2';
   generatedAt: string;
   dateRange: { from: string; to: string };
   rowCounts: { dailySummaries: number; activities: number; performanceEvents: number };

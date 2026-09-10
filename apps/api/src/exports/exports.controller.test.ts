@@ -6,11 +6,11 @@ import type { ExportsService } from './exports.service.js';
 
 describe('ExportsController', () => {
   it('requires and forwards an inclusive bounded range with owner context', async () => {
-    const service = { canonical: vi.fn().mockResolvedValue({ schemaVersion: 'sportos.canonical-export.v1' }) };
+    const service = { canonical: vi.fn().mockResolvedValue({ schemaVersion: 'sportos.canonical-export.v2' }) };
     const controller = new ExportsController(service as unknown as ExportsService);
 
     await expect(controller.canonical('2026-01-01', '2026-12-31')).resolves.toMatchObject({
-      schemaVersion: 'sportos.canonical-export.v1',
+      schemaVersion: 'sportos.canonical-export.v2',
     });
     expect(service.canonical).toHaveBeenCalledWith('2026-01-01', '2026-12-31', LEGACY_ACCOUNT_ID);
   });

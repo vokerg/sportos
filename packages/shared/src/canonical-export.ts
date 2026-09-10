@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { isRealIsoDate } from './dates.js';
 import { ActivitySubtypeSchema, ActivityTypeSchema } from './schemas.js';
 
-export const CANONICAL_EXPORT_SCHEMA_VERSION = 'sportos.canonical-export.v1' as const;
+export const CANONICAL_EXPORT_SCHEMA_VERSION = 'sportos.canonical-export.v2' as const;
 
 export const ExportDateSchema = z.string().refine(isRealIsoDate, {
   message: 'Expected a real calendar date in YYYY-MM-DD format.',
@@ -48,6 +48,7 @@ export const ExportReconciliationStatusSchema = z.enum([
 
 export const CanonicalDailyExportRowSchema = z.object({
   metricDate: ExportDateSchema,
+  scoreStatus: z.enum(['imported', 'calculated', 'manual']),
   steps: z.number().int().nonnegative(),
   runM: z.number().nonnegative(),
   bikeM: z.number().nonnegative(),

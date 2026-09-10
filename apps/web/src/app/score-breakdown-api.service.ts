@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import type { DailyScoreBreakdown } from './score-breakdown.models';
+import type { DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
 
 @Injectable({ providedIn: 'root' })
 export class ScoreBreakdownApiService {
@@ -20,6 +20,13 @@ export class ScoreBreakdownApiService {
     return this.http.post<DailyScoreBreakdown>(
       `${this.api.apiBase()}/daily/${encodeURIComponent(date)}/recalculate`,
       {},
+    );
+  }
+
+  saveManualFacts(date: string, input: ManualDailyFactsInput) {
+    return this.http.put<DailyScoreBreakdown>(
+      `${this.api.apiBase()}/daily/${encodeURIComponent(date)}/facts`,
+      input,
     );
   }
 }

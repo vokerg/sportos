@@ -83,7 +83,7 @@ export interface ScoreBreakdownLedgerEntry {
 export interface DailyScoreBreakdown {
   date: string;
   recomputedAt: string;
-  scoreStatus: 'imported' | 'calculated';
+  scoreStatus: 'imported' | 'calculated' | 'manual';
   facts: {
     steps: number;
     runM: number;
@@ -108,6 +108,19 @@ export interface DailyScoreBreakdown {
   activities: ScoreBreakdownActivity[];
   sourceRecords: SourceRecordReference[];
   ledger: ScoreBreakdownLedgerEntry[];
+}
+
+export interface ManualDailyFactsInput {
+  steps: number;
+  runM: number;
+  runIndoorM: number;
+  runOutdoorM: number;
+  bikeM: number;
+  bikeIndoorM: number;
+  bikeOutdoorM: number;
+  swimM: number;
+  workoutPoints: number;
+  powerPoints: number;
 }
 
 export interface ApiErrorBody {

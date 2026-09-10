@@ -446,7 +446,9 @@ export function assembleDailyScoreBreakdown(
   const activities = activityRows.map(mapActivity).filter((activity): activity is NonNullable<typeof activity> => activity !== null);
   const scoringActivities = header.scoreStatus === 'imported'
     ? activities.filter((activity) => activity.source === 'my_sport_xlsx')
-    : activities;
+    : header.scoreStatus === 'manual'
+      ? activities.filter((activity) => activity.source === 'manual')
+      : activities;
   const subtypeFacts = scoringActivities.reduce(
     (facts, activity) => {
       const distanceM = Number(activity.distanceM ?? 0);

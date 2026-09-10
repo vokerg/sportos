@@ -3,7 +3,20 @@ import type { ActivitiesTable, Json } from './schema.js';
 
 export type { DailyScoreStatus };
 
-export type DailyScoreSnapshotTrigger = 'workbook_import' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration';
+export type DailyScoreSnapshotTrigger = 'workbook_import' | 'manual_edit' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration';
+
+export interface ManualDailyFactsInput {
+  steps: number;
+  runM: number;
+  runIndoorM: number;
+  runOutdoorM: number;
+  bikeM: number;
+  bikeIndoorM: number;
+  bikeOutdoorM: number;
+  swimM: number;
+  workoutPoints: number;
+  powerPoints: number;
+}
 
 export interface DailyMetricFactsInput {
   metricDate: string;

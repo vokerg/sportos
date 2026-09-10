@@ -40,7 +40,7 @@ Delivered:
 - score breakdown and reconciliation;
 - import history and row diagnostics;
 - explicit scoring units, rounding, thresholds, priorities, effective dates, and base/bonus semantics;
-- imported workbook `All` authority with visible imported/calculated row status, append-only score snapshots, and explicit Strava-backed recalculation;
+- imported workbook `All` authority with visible imported/calculated/manual row status, append-only score snapshots, explicit Strava-backed recalculation, and manual canonical fact entry;
 - machine-readable exact/explained/unresolved evidence.
 
 The detailed evidence is maintained in [FIRST_MILESTONE.md](FIRST_MILESTONE.md).

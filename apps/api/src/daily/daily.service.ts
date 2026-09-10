@@ -9,6 +9,7 @@ import {
   type DailyScoreBreakdown,
   type DailyScoreBreakdownReadModel,
   type DailySummaryQuery,
+  type ManualDailyFactsInput,
 } from '@sportos/db';
 import { DbProvider } from '../db.provider.js';
 
@@ -54,6 +55,29 @@ export class DailyService {
         throw new InternalServerErrorException({
           code: 'SCORE_BREAKDOWN_INCONSISTENT',
           message: 'The recalculated score breakdown failed consistency checks.',
+          date: metricDate,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async saveManualFacts(
+    metricDate: string,
+    input: ManualDailyFactsInput,
+    accountId = LEGACY_ACCOUNT_ID,
+  ): Promise<DailyScoreBreakdown> {
+    const result = await this.dbProvider.withAccount(
+      accountId,
+      (db) => new DailyScoringRepository(db).saveManualFacts(metricDate, input),
+    );
+    try {
+      return parseDailyScoreBreakdown(result);
+    } catch (error) {
+      if (error instanceof ScoreBreakdownContractError) {
+        throw new InternalServerErrorException({
+          code: 'SCORE_BREAKDOWN_INCONSISTENT',
+          message: 'The manually saved score breakdown failed consistency checks.',
           date: metricDate,
         });
       }

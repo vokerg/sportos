@@ -133,6 +133,7 @@ See [ADR 0005](adr/0005-authentication-and-data-ownership.md), [ADR 0007](adr/00
 - V109 creates provider connections, encrypted credential envelopes, OAuth transactions, sync jobs, activity links, and a bounded webhook inbox; it applies forced RLS, direct least-privilege grants, and migration-time privilege assertions.
 - V110 creates append-only owner-scoped `analysis_runs`, grants only `SELECT, INSERT` to `sportos_app`, denies worker/legacy access, and asserts those privileges during migration.
 - V112 promotes imported workbook `All` totals to the current authoritative score, adds append-only `daily_score_snapshots`, exposes `score_status`, and adds the explicit account-scoped Strava recalculation path. Snapshot privileges keep the queue dispatcher out of score history.
+- V113 adds `manual` daily-score authority and the `manual_edit` snapshot trigger. Manual fact writes retain a private source record, expose current authority in canonical export v2, and preserve prior versions in append-only score history.
 
 Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance. Analysis adds audit metadata only and does not rewrite canonical or scoring rows.
 
@@ -207,6 +208,16 @@ row), removes workbook `All` from the scoring input, and persists a calculated
 score. No Strava data returns a bounded conflict without changing the current
 score. Rule publication skips imported rows and reports them instead of
 silently replacing their ledgers.
+
+`PUT /daily/:date/facts` is the manual authority transition. It accepts only
+bounded canonical daily facts, creates a private manual source batch and source
+record, and replaces only prior manual activities for that date. Workbook and
+provider activities remain intact as source-owned context. Run and bike totals
+are retained exactly; indoor and outdoor splits become manual activities, with
+any remainder marked unknown. The write appends a `manual_edit` snapshot,
+recomputes through deterministic rules, and sets `score_status = 'manual'`.
+Rule publication recomputes those facts without granting source activities
+authority and preserves the manual status.
 
 ### Read models, analysis, and export
 

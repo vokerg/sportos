@@ -140,6 +140,7 @@ export class RuleChangesRepository {
 
     return dailyRows.map((row) => {
       const metricDate = dateString(row.metric_date);
+      const dayActivities = byDate.get(metricDate) ?? [];
       return {
         facts: {
           metricDate,
@@ -149,10 +150,11 @@ export class RuleChangesRepository {
           swimM: requiredNumber(row.swim_m),
           workoutPoints: requiredNumber(row.workout_points),
           powerPoints: requiredNumber(row.power_points),
+          ...(row.score_status === 'manual' ? manualSubtypeFacts(dayActivities) : {}),
           excelAllPoints: optionalNumber(row.excel_all_points),
           excelRowHash: row.excel_row_hash ?? undefined,
         },
-        activities: byDate.get(metricDate) ?? [],
+        activities: dayActivities,
         scoreStatus: row.score_status,
         currentBasePoints: requiredNumber(row.base_points),
         currentBonusPoints: requiredNumber(row.bonus_points),
@@ -463,19 +465,20 @@ export class RuleChangesRepository {
           swimM: requiredNumber(row.swim_m),
           workoutPoints: requiredNumber(row.workout_points),
           powerPoints: requiredNumber(row.power_points),
+          ...(row.score_status === 'manual' ? manualSubtypeFacts(activitiesByDate.get(metricDate) ?? []) : {}),
           excelAllPoints: optionalNumber(row.excel_all_points),
           excelRowHash: row.excel_row_hash ?? undefined,
         };
         const score = scoreDay(
           { ...facts, excelAllPoints: undefined, excelRowHash: undefined },
-          activitiesByDate.get(metricDate) ?? [],
+          row.score_status === 'manual' ? [] : activitiesByDate.get(metricDate) ?? [],
           rules,
         );
         await dailyRepository.persistDailyScore(
           facts,
           score,
           row.source_record_id ?? undefined,
-          { scoreStatus: 'calculated', trigger: 'rule_recomputation' },
+          { scoreStatus: row.score_status === 'manual' ? 'manual' : 'calculated', trigger: 'rule_recomputation' },
         );
       }
 
@@ -679,6 +682,23 @@ export class RuleChangesRepository {
       .executeTakeFirst();
     return row ? toRuleChange(row) : null;
   }
+}
+
+function manualSubtypeFacts(activities: ActivityFact[]): {
+  runIndoorM: number;
+  runOutdoorM: number;
+  bikeIndoorM: number;
+  bikeOutdoorM: number;
+} {
+  return activities.reduce((facts, activity) => {
+    if (activity.source !== 'manual') return facts;
+    const distanceM = activity.distanceM ?? 0;
+    if (activity.activityType === 'run' && activity.subtype === 'treadmill') facts.runIndoorM += distanceM;
+    if (activity.activityType === 'run' && activity.subtype === 'outdoor') facts.runOutdoorM += distanceM;
+    if (activity.activityType === 'bike' && activity.subtype === 'indoor') facts.bikeIndoorM += distanceM;
+    if (activity.activityType === 'bike' && activity.subtype === 'outdoor') facts.bikeOutdoorM += distanceM;
+    return facts;
+  }, { runIndoorM: 0, runOutdoorM: 0, bikeIndoorM: 0, bikeOutdoorM: 0 });
 }
 
 export class RuleChangeCancelledError extends Error {

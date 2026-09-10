@@ -16,7 +16,7 @@ import {
   ScoreBreakdownPanelComponent,
   type ScoreBreakdownViewState,
 } from './score-breakdown-panel.component';
-import type { ApiErrorBody, DailyScoreBreakdown } from './score-breakdown.models';
+import type { ApiErrorBody, DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
 import { formatDate } from './date-time';
 
 type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
@@ -33,7 +33,7 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
   template: `
     <section class="card" aria-labelledby="daily-log-title">
       <h2 id="daily-log-title">Daily Log</h2>
-      <p class="daily-log-help">Imported workbook ledger totals are authoritative until you explicitly recalculate a day. Use <strong>View details</strong> to inspect the score, activities, raw source rows, and the Excel reference.</p>
+      <p class="daily-log-help">A day can be authoritative from an imported workbook ledger, calculated activities, or saved manual facts. Use <strong>View details</strong> to inspect and edit it without losing prior provenance.</p>
 
       <form class="filter-bar" (submit)="applyFilters(); $event.preventDefault()" aria-label="Daily Log date range">
         <label>From <input type="date" [value]="from()" (input)="from.set($any($event.target).value)" /></label>
@@ -51,6 +51,9 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
         <label>Date <input type="date" [value]="activityDate()" (input)="activityDate.set($any($event.target).value)" /></label>
         <button type="button" [disabled]="recalculationState() === 'working' || !activityDate()" (click)="recalculateSelectedDate(activityDate())">
           Calculate from Strava
+        </button>
+        <button type="button" class="secondary" [disabled]="!activityDate()" (click)="openManualEntry(activityDate())">
+          Enter facts manually
         </button>
         @if (recalculationError()) {
           <p class="recalculation-error" role="alert">{{ recalculationError() }}</p>
@@ -95,8 +98,11 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
         [errorMessage]="breakdownError()"
         [recalculating]="recalculationState() === 'working'"
         [recalculationError]="recalculationError()"
+        [savingManual]="manualSaveState() === 'working'"
+        [manualSaveError]="manualSaveError()"
         (retry)="retryBreakdown()"
         (recalculate)="recalculateSelectedDate()"
+        (saveManualFacts)="saveManualFacts($event)"
         (closed)="closeBreakdown()" />
     </section>
   `,
@@ -127,10 +133,13 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   readonly breakdownError = signal<string | null>(null);
   readonly recalculationState = signal<'idle' | 'working'>('idle');
   readonly recalculationError = signal<string | null>(null);
+  readonly manualSaveState = signal<'idle' | 'working'>('idle');
+  readonly manualSaveError = signal<string | null>(null);
 
   private summarySubscription?: Subscription;
   private breakdownSubscription?: Subscription;
   private recalculationSubscription?: Subscription;
+  private manualSaveSubscription?: Subscription;
 
   readonly gridContext: DailyBreakdownGridContext = {
     openBreakdown: (row) => this.openBreakdown(row),
@@ -187,6 +196,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.summarySubscription?.unsubscribe();
     this.breakdownSubscription?.unsubscribe();
     this.recalculationSubscription?.unsubscribe();
+    this.manualSaveSubscription?.unsubscribe();
   }
 
   applyFilters(): void {
@@ -233,6 +243,36 @@ export class DailyLogComponent implements OnInit, OnDestroy {
 
   openBreakdown(row: DailySummaryRow): void { this.openBreakdownForDate(row.metric_date); }
   openBreakdownForDate(date: string): void { this.loadBreakdown(date); }
+
+  openManualEntry(date: string): void {
+    if (!date) return;
+    this.breakdownSubscription?.unsubscribe();
+    this.selectedDate.set(date);
+    this.breakdown.set(null);
+    this.breakdownError.set(null);
+    this.breakdownState.set('loaded');
+    this.manualSaveError.set(null);
+  }
+
+  saveManualFacts(input: ManualDailyFactsInput): void {
+    const date = this.selectedDate();
+    if (!date) return;
+    this.manualSaveSubscription?.unsubscribe();
+    this.manualSaveState.set('working');
+    this.manualSaveError.set(null);
+    this.manualSaveSubscription = this.scoreBreakdownApi.saveManualFacts(date, input).subscribe({
+      next: (result) => {
+        this.breakdown.set(result);
+        this.breakdownState.set('loaded');
+        this.manualSaveState.set('idle');
+        this.loadSummaryRows();
+      },
+      error: (error: unknown) => {
+        this.manualSaveState.set('idle');
+        this.manualSaveError.set(this.describeManualSaveError(error));
+      },
+    });
+  }
 
   recalculateSelectedDate(date?: string): void {
     const targetDate = (date ?? this.selectedDate() ?? '').trim();
@@ -281,11 +321,14 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   closeBreakdown(): void {
     this.breakdownSubscription?.unsubscribe();
     this.recalculationSubscription?.unsubscribe();
+    this.manualSaveSubscription?.unsubscribe();
     this.recalculationState.set('idle');
+    this.manualSaveState.set('idle');
     this.selectedDate.set(null);
     this.breakdown.set(null);
     this.breakdownError.set(null);
     this.recalculationError.set(null);
+    this.manualSaveError.set(null);
     this.breakdownState.set('idle');
   }
 
@@ -331,6 +374,17 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     return body?.message || `The recalculation API returned HTTP ${error.status}.`;
   }
 
+  private describeManualSaveError(error: unknown): string {
+    if (!(error instanceof HttpErrorResponse)) return 'The manual facts request failed unexpectedly.';
+    const body = this.apiErrorBody(error.error);
+    if (body?.code === 'INVALID_MANUAL_DAILY_FACTS' || body?.code === 'INVALID_DATE' || error.status === 400) {
+      return body?.message || 'The manual facts are invalid.';
+    }
+    if (body?.code === 'SCORE_BREAKDOWN_INCONSISTENT') return 'The manually saved score failed consistency checks.';
+    if (error.status === 0) return 'The SportOS API is unavailable. Check that the local API is running.';
+    return body?.message || `The manual facts API returned HTTP ${error.status}.`;
+  }
+
   private apiErrorBody(value: unknown): ApiErrorBody | null {
     if (!value || typeof value !== 'object') return null;
     return value as ApiErrorBody;
@@ -351,7 +405,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   }
 
   scoreStatusLabel(value: unknown): string {
-    return value === 'imported' ? 'Imported ledger' : value === 'calculated' ? 'Calculated' : String(value ?? '—');
+    return value === 'imported' ? 'Imported ledger' : value === 'calculated' ? 'Calculated' : value === 'manual' ? 'Manual edit' : String(value ?? '—');
   }
 
   formatDate(value: string | null | undefined): string {

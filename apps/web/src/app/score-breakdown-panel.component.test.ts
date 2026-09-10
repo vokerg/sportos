@@ -174,6 +174,25 @@ describe('ScoreBreakdownPanelComponent', () => {
 
     injector.destroy();
   });
+
+  it('emits complete manual facts and rejects splits above their totals', () => {
+    const { component, injector } = createComponent();
+    const emitted: unknown[] = [];
+    component.saveManualFacts.subscribe((value) => emitted.push(value));
+    component.startManualEdit(null);
+    component.manualRunKm.set(5);
+    component.manualRunIndoorKm.set(4);
+    component.manualRunOutdoorKm.set(2);
+    component.submitManualFacts();
+    expect(component.manualValidationError()).toContain('cannot exceed');
+    expect(emitted).toEqual([]);
+
+    component.manualRunOutdoorKm.set(1);
+    component.submitManualFacts();
+    expect(emitted).toEqual([expect.objectContaining({ runM: 5000, runIndoorM: 4000, runOutdoorM: 1000 })]);
+
+    injector.destroy();
+  });
 });
 
 function createComponent(): { component: ScoreBreakdownPanelComponent; injector: EnvironmentInjector } {

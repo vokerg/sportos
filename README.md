@@ -31,14 +31,15 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 ### Review, score, and export canonical records
 
 - Browse daily summaries and inspect exact score-ledger, immutable rule-version, activity, source-record, and import-batch provenance.
-- Treat imported workbook `All` totals as authoritative until an explicit recalculation; each daily row shows whether its current score is imported or calculated.
+- Treat imported workbook `All` totals as authoritative until an explicit recalculation or manual edit; each daily row shows whether its current score is imported, calculated, or manual.
+- Create or edit a date's canonical daily facts with Excel-style run/bike totals and splits; manual edits retain provenance, replace only prior manual activities, and append immutable score history.
 - Recalculate a selected date from canonical activities, including a Strava-only date when no daily ledger row exists, without changing scores implicitly during synchronization.
 - Explore running performance, personal-best views, event detail, and source attribution in Run Lab.
 - Preview scoring-rule changes without writes.
 - Publish immutable rule versions with non-overlapping account-scoped effective ranges.
 - Recompute affected scores atomically through audited background jobs.
 - Reconcile persisted score totals against deterministic domain calculations.
-- Export bounded, versioned `sportos.canonical-export.v1` JSON from one repeatable-read snapshot.
+- Export bounded, versioned `sportos.canonical-export.v2` JSON from one repeatable-read snapshot, including each daily score's authority status.
 - Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.
 
 ### Ask cited, read-only questions

@@ -11,6 +11,7 @@ type TestDatabase = ReturnType<typeof createDb>;
 
 const noLedgerDate = '2097-05-18';
 const importedDate = '2097-05-19';
+const manualDate = '2097-05-20';
 
 databaseDescribe('DailyScoringRepository database integration', () => {
   let db: TestDatabase;
@@ -87,6 +88,50 @@ databaseDescribe('DailyScoringRepository database integration', () => {
       { status: 'calculated', trigger: 'manual_recalculation', total: 6000 },
     ]);
   });
+
+  it('stores manual facts, provenance, activities, and immutable score history', async () => {
+    const input = {
+      steps: 1000,
+      runM: 5000,
+      runIndoorM: 1000,
+      runOutdoorM: 3000,
+      bikeM: 2000,
+      bikeIndoorM: 500,
+      bikeOutdoorM: 1000,
+      swimM: 100,
+      workoutPoints: 10,
+      powerPoints: 5,
+    };
+    const first = await withAccountContext(
+      db,
+      LEGACY_ACCOUNT_ID,
+      (ownerDb) => new DailyScoringRepository(ownerDb).saveManualFacts(manualDate, input),
+    );
+    const second = await withAccountContext(
+      db,
+      LEGACY_ACCOUNT_ID,
+      (ownerDb) => new DailyScoringRepository(ownerDb).saveManualFacts(manualDate, { ...input, steps: 2000 }),
+    );
+
+    expect(first).toMatchObject({ scoreStatus: 'manual', facts: { runIndoorM: 1000, runOutdoorM: 3000 } });
+    expect(second).toMatchObject({ scoreStatus: 'manual', facts: { steps: 2000 } });
+    const evidence = await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => ({
+      daily: await ownerDb.selectFrom('daily_metrics').select(['score_status', 'source_record_id']).where('metric_date', '=', manualDate).executeTakeFirstOrThrow(),
+      activities: await ownerDb.selectFrom('activities').select(['source', 'source_record_id']).where('activity_date', '=', manualDate).where('source', '=', 'manual').execute(),
+      snapshots: await ownerDb.selectFrom('daily_score_snapshots').select(['score_status', 'trigger']).where('metric_date', '=', manualDate).execute(),
+      batches: await ownerDb.selectFrom('import_batches').select(['source_kind', 'status']).where('source', '=', 'manual_daily_edit').execute(),
+    }));
+    expect(evidence.daily.score_status).toBe('manual');
+    expect(evidence.daily.source_record_id).toEqual(expect.any(String));
+    expect(evidence.activities.length).toBeGreaterThan(0);
+    expect(evidence.activities.every((activity) => activity.source_record_id === evidence.daily.source_record_id)).toBe(true);
+    expect(evidence.snapshots).toEqual(expect.arrayContaining([
+      expect.objectContaining({ score_status: 'manual', trigger: 'manual_edit' }),
+    ]));
+    expect(evidence.batches).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source_kind: 'manual', status: 'scored' }),
+    ]));
+  });
 });
 
 async function insertStravaRun(db: TestDatabase, activityDate: string, sourceActivityId: string, sourceRecordHash: string): Promise<void> {
@@ -117,9 +162,15 @@ async function insertStravaRun(db: TestDatabase, activityDate: string, sourceAct
 
 async function reset(db: TestDatabase): Promise<void> {
   await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
-    await ownerDb.deleteFrom('score_ledger').where('metric_date', 'in', [noLedgerDate, importedDate]).execute();
-    await ownerDb.deleteFrom('daily_metrics').where('metric_date', 'in', [noLedgerDate, importedDate]).execute();
-    await ownerDb.deleteFrom('activities').where('activity_date', 'in', [noLedgerDate, importedDate]).execute();
+    await ownerDb.deleteFrom('score_ledger').where('metric_date', 'in', [noLedgerDate, importedDate, manualDate]).execute();
+    await ownerDb.deleteFrom('daily_metrics').where('metric_date', 'in', [noLedgerDate, importedDate, manualDate]).execute();
+    await ownerDb.deleteFrom('activities').where('activity_date', 'in', [noLedgerDate, importedDate, manualDate]).execute();
+    const batches = await ownerDb.selectFrom('import_batches').select('id').where('source', '=', 'manual_daily_edit').execute();
+    if (batches.length > 0) {
+      const ids = batches.map((batch) => batch.id);
+      await ownerDb.deleteFrom('source_records').where('import_batch_id', 'in', ids).execute();
+      await ownerDb.deleteFrom('import_batches').where('id', 'in', ids).execute();
+    }
   });
 }
 

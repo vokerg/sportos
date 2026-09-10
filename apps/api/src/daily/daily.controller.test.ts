@@ -17,11 +17,11 @@ const response = {
 };
 
 describe('DailyController cockpit contracts', () => {
-  let service: { summary: ReturnType<typeof vi.fn>; scoreBreakdown: ReturnType<typeof vi.fn>; recalculateFromActivities: ReturnType<typeof vi.fn> };
+  let service: { summary: ReturnType<typeof vi.fn>; scoreBreakdown: ReturnType<typeof vi.fn>; recalculateFromActivities: ReturnType<typeof vi.fn>; saveManualFacts: ReturnType<typeof vi.fn> };
   let controller: DailyController;
 
   beforeEach(() => {
-    service = { summary: vi.fn(), scoreBreakdown: vi.fn(), recalculateFromActivities: vi.fn() };
+    service = { summary: vi.fn(), scoreBreakdown: vi.fn(), recalculateFromActivities: vi.fn(), saveManualFacts: vi.fn() };
     controller = new DailyController(service as unknown as DailyService);
   });
 
@@ -89,5 +89,34 @@ describe('DailyController cockpit contracts', () => {
   it('rejects an invalid recalculation date before querying the service', async () => {
     await expect(controller.recalculate('2026-02-29')).rejects.toBeInstanceOf(BadRequestException);
     expect(service.recalculateFromActivities).not.toHaveBeenCalled();
+  });
+
+  it('saves a complete manual fact set in the authenticated account context', async () => {
+    const input = {
+      steps: 1000, runM: 5000, runIndoorM: 1000, runOutdoorM: 3000,
+      bikeM: 2000, bikeIndoorM: 500, bikeOutdoorM: 1000, swimM: 750,
+      workoutPoints: 10, powerPoints: 5,
+    };
+    service.saveManualFacts.mockResolvedValue({ ...response, scoreStatus: 'manual' });
+
+    await expect(controller.saveManualFacts('2026-05-18', input)).resolves.toMatchObject({ scoreStatus: 'manual' });
+    expect(service.saveManualFacts).toHaveBeenCalledWith('2026-05-18', input, LEGACY_ACCOUNT_ID);
+  });
+
+  it('rejects incomplete, unknown, fractional integer, and inconsistent manual facts', async () => {
+    const valid = {
+      steps: 1000, runM: 5000, runIndoorM: 1000, runOutdoorM: 3000,
+      bikeM: 2000, bikeIndoorM: 500, bikeOutdoorM: 1000, swimM: 750,
+      workoutPoints: 10, powerPoints: 5,
+    };
+    for (const input of [
+      { ...valid, powerPoints: undefined },
+      { ...valid, ownerId: 'foreign' },
+      { ...valid, steps: 1.5 },
+      { ...valid, runIndoorM: 4000, runOutdoorM: 2000 },
+    ]) {
+      await expect(controller.saveManualFacts('2026-05-18', input)).rejects.toBeInstanceOf(BadRequestException);
+    }
+    expect(service.saveManualFacts).not.toHaveBeenCalled();
   });
 });

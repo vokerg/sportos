@@ -2,7 +2,10 @@
 
 ## Version
 
-The first stable export contract is `sportos.canonical-export.v1`.
+The current export contract is `sportos.canonical-export.v2`. Version 2 adds
+the required daily `scoreStatus` field (`imported`, `calculated`, or `manual`)
+so a portable row identifies its current authority. Version 1 did not carry
+that field.
 
 The primary format is one UTF-8 JSON document validated by `CanonicalExportBundleSchema` in `packages/shared/src/canonical-export.ts`. A future CSV or archive representation must preserve the same field meanings and declare a separate format/version when it cannot represent the JSON contract losslessly.
 
@@ -27,7 +30,7 @@ Both dates are required, real calendar dates, inclusive, and ordered. The local 
 
 ```json
 {
-  "schemaVersion": "sportos.canonical-export.v1",
+  "schemaVersion": "sportos.canonical-export.v2",
   "generatedAt": "2026-08-01T08:00:00.000Z",
   "dateRange": {
     "from": "2026-05-01",
@@ -61,7 +64,7 @@ Every exported row has one strict provenance object:
 | `rowIndex` | one-based source row when applicable, or `null` |
 | `filename` | sanitized source filename, or `null` |
 
-`available` requires both a source-record UUID and import-batch UUID. `missing` means SportOS expected provenance but cannot currently resolve a complete source-record/batch chain. `unsupported` means the source type, such as a manual record, does not provide that provenance concept. Non-available provenance cannot claim traceable source-record or batch UUIDs. Values are never silently inferred.
+`available` requires both a source-record UUID and import-batch UUID. `missing` means SportOS expected provenance but cannot currently resolve a complete source-record/batch chain. `unsupported` covers legacy/manual records created without a source-record concept; manual daily fact edits now create normal traceable provenance and export as `available`. Non-available provenance cannot claim traceable source-record or batch UUIDs. Values are never silently inferred.
 
 ## Daily summaries
 
@@ -71,12 +74,12 @@ Each daily row contains:
 - persisted official totals: `basePoints`, `bonusPoints`, `totalPoints`;
 - spreadsheet comparison: `excelAllPoints`, `pointsDeltaVsExcel`, and `reconciliationStatus`;
 - persisted rolling summaries: `avg10d`, `avg20d`, `avg30d`, `avg60d`, `avg365d`;
-- `recomputedAt` and source provenance.
+- `scoreStatus`, `recomputedAt`, and source provenance.
 
 Reconciliation status is one of:
 
 - `exact` — app and spreadsheet totals match;
-- `explained` — reserved in v1 for a future persisted explanation classification;
+- `explained` — reserved for a future persisted explanation classification;
 - `unresolved` — totals differ without a persisted explanation classification;
 - `not_comparable` — no numeric spreadsheet total is available.
 

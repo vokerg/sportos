@@ -187,7 +187,7 @@ export interface DailyScoreSnapshotsTable {
   facts_json: Json;
   ledger_json: Json;
   source_record_id: string | null;
-  trigger: 'workbook_import' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration';
+  trigger: 'workbook_import' | 'manual_edit' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration';
   created_at: GeneratedTimestamp;
 }
 

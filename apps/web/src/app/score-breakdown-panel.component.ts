@@ -1,7 +1,8 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import type {
   DailyScoreBreakdown,
   JsonValue,
+  ManualDailyFactsInput,
   ScoreBreakdownActivity,
   ScoreBreakdownLedgerEntry,
   SourceRecordReference,
@@ -40,7 +41,7 @@ interface ImportedLedgerDetails {
         <div>
           <div class="eyebrow">Score explanation</div>
           <h3 [id]="headingId">{{ date() ? 'Daily score · ' + formatDate(date()) : 'Daily score breakdown' }}</h3>
-          <p class="panel-subtitle">Imported workbook ledgers stay authoritative until explicitly recalculated. Calculated rows use canonical activities and active rules.</p>
+          <p class="panel-subtitle">Imported workbook ledgers, calculated activity totals, and manual fact sets are kept as explicit authority states.</p>
         </div>
         @if (date()) {
           <button type="button" class="secondary-button" aria-label="Close score breakdown" (click)="closed.emit()">
@@ -82,6 +83,7 @@ interface ImportedLedgerDetails {
             <strong>No score is available for this date.</strong>
             <span>There is no saved breakdown to display.</span>
           </div>
+          <button type="button" (click)="startManualEdit(null)">Enter facts manually</button>
         </div>
       } @else {
         <div class="score-overview" aria-label="Score summary">
@@ -89,7 +91,7 @@ interface ImportedLedgerDetails {
             <span class="metric-label">Total score</span>
             <strong>{{ formatNumber(current.score.appTotal) }}</strong>
             <span class="status-badge" [attr.data-status]="current.scoreStatus">{{ scoreStatusLabel(current.scoreStatus) }}</span>
-            <span class="total-note">{{ current.scoreStatus === 'imported' ? 'Imported ledger is authoritative' : 'Calculated from canonical activities' }}</span>
+            <span class="total-note">{{ scoreAuthorityNote(current.scoreStatus) }}</span>
             <button type="button" class="secondary-button recalculation-action" (click)="recalculate.emit()" [disabled]="recalculating()">
               {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
             </button>
@@ -128,7 +130,7 @@ interface ImportedLedgerDetails {
               <span class="section-label">Canonical facts</span>
               <h4 id="daily-facts-title">Everything SportOS used for this day</h4>
             </div>
-            <span class="muted-note">Raw source values stay below</span>
+            <button type="button" class="secondary-button" (click)="startManualEdit(current)">Edit facts</button>
           </div>
           <div class="facts-grid">
             <div><span>Steps</span><strong>{{ formatNumber(current.facts.steps) }}</strong></div>
@@ -369,6 +371,36 @@ interface ImportedLedgerDetails {
           </div>
         }
       }
+
+      @if (editingManual() || (state() === 'loaded' && date() && !breakdown())) {
+        <form class="manual-facts-form" (submit)="submitManualFacts(); $event.preventDefault()">
+          <div class="section-heading">
+            <div>
+              <span class="section-label">Manual canonical entry</span>
+              <h4>{{ breakdown() ? 'Replace the current daily facts' : 'Create daily facts for ' + formatDate(date()) }}</h4>
+              <p class="section-help">Totals drive scoring. Indoor/outdoor splits are retained as manual activities; any remainder stays unspecified.</p>
+            </div>
+          </div>
+          <div class="manual-facts-grid">
+            <label>Steps <input type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set($any($event.target).valueAsNumber)" /></label>
+            <label>Run total (km) <input type="number" min="0" step="0.01" [value]="manualRunKm()" (input)="manualRunKm.set($any($event.target).valueAsNumber)" /></label>
+            <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set($any($event.target).valueAsNumber)" /></label>
+            <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set($any($event.target).valueAsNumber)" /></label>
+            <label>Bike total (km) <input type="number" min="0" step="0.01" [value]="manualBikeKm()" (input)="manualBikeKm.set($any($event.target).valueAsNumber)" /></label>
+            <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set($any($event.target).valueAsNumber)" /></label>
+            <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set($any($event.target).valueAsNumber)" /></label>
+            <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set($any($event.target).valueAsNumber)" /></label>
+            <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set($any($event.target).valueAsNumber)" /></label>
+            <label>Power points <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set($any($event.target).valueAsNumber)" /></label>
+          </div>
+          @if (manualValidationError()) { <p class="recalculation-error" role="alert">{{ manualValidationError() }}</p> }
+          @if (manualSaveError()) { <p class="recalculation-error" role="alert">{{ manualSaveError() }}</p> }
+          <div class="manual-form-actions">
+            <button type="submit" [disabled]="savingManual()">{{ savingManual() ? 'Savingâ€¦' : 'Save manual facts' }}</button>
+            <button type="button" class="secondary-button" [disabled]="savingManual()" (click)="editingManual.set(false)">Cancel</button>
+          </div>
+        </form>
+      }
     </section>
   `,
   styles: [`
@@ -446,6 +478,7 @@ interface ImportedLedgerDetails {
 
     .status-badge { align-self: flex-start; padding: 4px 8px; border-radius: 999px; background: #eaf7ee; color: #13795b; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
     .status-badge[data-status='calculated'] { background: #eef3ff; color: #40558f; }
+    .status-badge[data-status='manual'] { background: #fff4dd; color: #945c00; }
     .recalculation-action { align-self: flex-start; margin-top: 10px; font-size: 12px; }
     .total-card .recalculation-error { margin-top: 6px; color: #b54747; font-size: 12px; }
 
@@ -567,6 +600,12 @@ interface ImportedLedgerDetails {
 
     .facts-grid span { color: #667085; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
     .facts-grid strong { color: #172b4d; font-size: 16px; }
+    .manual-facts-form { margin: 22px 0 0; padding: 16px; border: 1px solid #d8c68f; border-radius: 12px; background: #fffaf0; }
+    .manual-facts-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 10px; }
+    .manual-facts-grid label { display: grid; gap: 5px; color: #475467; font-size: 11px; font-weight: 700; }
+    .manual-facts-grid input { min-width: 0; padding: 8px; border: 1px solid #cbd6ed; border-radius: 7px; background: white; }
+    .manual-form-actions { display: flex; gap: 8px; margin-top: 14px; }
+    .manual-facts-form .recalculation-error { color: #b54747; font-size: 12px; }
     .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 12px; }
     .empty-inline { padding: 14px; border: 1px dashed #c7d2e5; border-radius: 10px; color: #667085; background: #fff; }
 
@@ -675,6 +714,7 @@ interface ImportedLedgerDetails {
     @media (max-width: 900px) {
       .score-overview { grid-template-columns: 1fr; }
       .facts-grid { grid-template-columns: repeat(3, minmax(100px, 1fr)); }
+      .manual-facts-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
     }
 
     @media (max-width: 680px) {
@@ -683,6 +723,7 @@ interface ImportedLedgerDetails {
       .panel-header, .ledger-heading { align-items: stretch; flex-direction: column; }
       .recomputed { text-align: left; }
       .facts-grid { grid-template-columns: repeat(2, minmax(100px, 1fr)); }
+      .manual-facts-grid { grid-template-columns: 1fr; }
       .section-heading { flex-direction: column; }
       .source-record-meta { margin-left: 0; }
     }
@@ -700,9 +741,25 @@ export class ScoreBreakdownPanelComponent {
   readonly errorMessage = input<string | null>(null);
   readonly recalculating = input(false);
   readonly recalculationError = input<string | null>(null);
+  readonly savingManual = input(false);
+  readonly manualSaveError = input<string | null>(null);
   readonly retry = output<void>();
   readonly recalculate = output<void>();
+  readonly saveManualFacts = output<ManualDailyFactsInput>();
   readonly closed = output<void>();
+
+  readonly editingManual = signal(false);
+  readonly manualValidationError = signal<string | null>(null);
+  readonly manualSteps = signal(0);
+  readonly manualRunKm = signal(0);
+  readonly manualRunIndoorKm = signal(0);
+  readonly manualRunOutdoorKm = signal(0);
+  readonly manualBikeKm = signal(0);
+  readonly manualBikeIndoorKm = signal(0);
+  readonly manualBikeOutdoorKm = signal(0);
+  readonly manualSwimM = signal(0);
+  readonly manualWorkoutPoints = signal(0);
+  readonly manualPowerPoints = signal(0);
 
   readonly headingId = 'daily-score-breakdown-heading';
   private readonly numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
@@ -728,8 +785,67 @@ export class ScoreBreakdownPanelComponent {
     return 'App and Excel totals match';
   }
 
-  scoreStatusLabel(status: 'imported' | 'calculated'): string {
-    return status === 'imported' ? 'Imported ledger' : 'Calculated';
+  scoreStatusLabel(status: DailyScoreBreakdown['scoreStatus']): string {
+    return status === 'imported' ? 'Imported ledger' : status === 'manual' ? 'Manual edit' : 'Calculated';
+  }
+
+  scoreAuthorityNote(status: DailyScoreBreakdown['scoreStatus']): string {
+    if (status === 'imported') return 'Imported ledger is authoritative';
+    if (status === 'manual') return 'Saved manual facts are authoritative';
+    return 'Calculated from canonical activities';
+  }
+
+  startManualEdit(current: DailyScoreBreakdown | null): void {
+    const facts = current?.facts;
+    this.manualSteps.set(facts?.steps ?? 0);
+    this.manualRunKm.set((facts?.runM ?? 0) / 1000);
+    this.manualRunIndoorKm.set((facts?.runIndoorM ?? 0) / 1000);
+    this.manualRunOutdoorKm.set((facts?.runOutdoorM ?? 0) / 1000);
+    this.manualBikeKm.set((facts?.bikeM ?? 0) / 1000);
+    this.manualBikeIndoorKm.set((facts?.bikeIndoorM ?? 0) / 1000);
+    this.manualBikeOutdoorKm.set((facts?.bikeOutdoorM ?? 0) / 1000);
+    this.manualSwimM.set(facts?.swimM ?? 0);
+    this.manualWorkoutPoints.set(facts?.workoutPoints ?? 0);
+    this.manualPowerPoints.set(facts?.powerPoints ?? 0);
+    this.manualValidationError.set(null);
+    this.editingManual.set(true);
+  }
+
+  submitManualFacts(): void {
+    const values = [
+      this.manualSteps(), this.manualRunKm(), this.manualRunIndoorKm(), this.manualRunOutdoorKm(),
+      this.manualBikeKm(), this.manualBikeIndoorKm(), this.manualBikeOutdoorKm(), this.manualSwimM(),
+      this.manualWorkoutPoints(), this.manualPowerPoints(),
+    ];
+    if (values.some((value) => !Number.isFinite(value) || value < 0)) {
+      this.manualValidationError.set('Every value must be a non-negative number.');
+      return;
+    }
+    if (![this.manualSteps(), this.manualWorkoutPoints(), this.manualPowerPoints()].every(Number.isInteger)) {
+      this.manualValidationError.set('Steps, workout points, and power points must be whole numbers.');
+      return;
+    }
+    if (this.manualRunIndoorKm() + this.manualRunOutdoorKm() > this.manualRunKm() + 1e-9) {
+      this.manualValidationError.set('Run treadmill and outdoor distances cannot exceed the run total.');
+      return;
+    }
+    if (this.manualBikeIndoorKm() + this.manualBikeOutdoorKm() > this.manualBikeKm() + 1e-9) {
+      this.manualValidationError.set('Bike indoor and outdoor distances cannot exceed the bike total.');
+      return;
+    }
+    this.manualValidationError.set(null);
+    this.saveManualFacts.emit({
+      steps: this.manualSteps(),
+      runM: this.manualRunKm() * 1000,
+      runIndoorM: this.manualRunIndoorKm() * 1000,
+      runOutdoorM: this.manualRunOutdoorKm() * 1000,
+      bikeM: this.manualBikeKm() * 1000,
+      bikeIndoorM: this.manualBikeIndoorKm() * 1000,
+      bikeOutdoorM: this.manualBikeOutdoorKm() * 1000,
+      swimM: this.manualSwimM(),
+      workoutPoints: this.manualWorkoutPoints(),
+      powerPoints: this.manualPowerPoints(),
+    });
   }
 
   formatNumber(value: number): string {
@@ -993,6 +1109,7 @@ export class ScoreBreakdownPanelComponent {
     if (source === 'my_sport_xlsx') return 'Excel';
     if (source === 'strava' || source === 'strava_api') return 'Strava';
     if (source === 'run_db_xlsx') return 'Run DB';
+    if (source === 'manual' || source === 'manual_daily_edit') return 'Manual';
     return this.humanize(source);
   }
 
@@ -1002,6 +1119,7 @@ export class ScoreBreakdownPanelComponent {
 
   activityScoreLabel(activity: ScoreBreakdownActivity, breakdown: DailyScoreBreakdown): string {
     if (this.activityIsInLedger(activity, breakdown)) return 'In ledger';
+    if (breakdown.scoreStatus === 'manual' && activity.source === 'manual') return 'Daily fact';
     if (activity.source === 'my_sport_xlsx') return 'Daily fact';
     return 'Context only';
   }
@@ -1040,6 +1158,7 @@ export class ScoreBreakdownPanelComponent {
 
   sourceSummary(source: SourceRecordReference | null): string {
     if (!source) return 'Source link unavailable';
+    if (source.batch.source === 'manual_daily_edit') return 'Manual daily facts';
     const workbook = source.batch.filename || source.batch.source;
     const location = source.sheetName
       ? `${source.sheetName}${source.rowIndex === null ? '' : ` row ${source.rowIndex}`}`
