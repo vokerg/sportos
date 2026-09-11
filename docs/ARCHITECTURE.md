@@ -213,8 +213,9 @@ silently replacing their ledgers.
 bounded canonical daily facts, creates a private manual source batch and source
 record, and replaces only prior manual activities for that date. Workbook and
 provider activities remain intact as source-owned context. Run and bike totals
-are retained exactly; indoor and outdoor splits become manual activities, with
-any remainder marked unknown. The write appends a `manual_edit` snapshot,
+are calculated from entered indoor, outdoor, and unspecified distances; each
+component becomes a manual activity, with an unspecified remainder kept as the
+`unknown` subtype. The write appends a `manual_edit` snapshot,
 recomputes through deterministic rules, and sets `score_status = 'manual'`.
 Rule publication recomputes those facts without granting source activities
 authority and preserves the manual status.

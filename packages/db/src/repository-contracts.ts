@@ -7,12 +7,12 @@ export type DailyScoreSnapshotTrigger = 'workbook_import' | 'manual_edit' | 'man
 
 export interface ManualDailyFactsInput {
   steps: number;
-  runM: number;
   runIndoorM: number;
   runOutdoorM: number;
-  bikeM: number;
+  runUnspecifiedM?: number;
   bikeIndoorM: number;
   bikeOutdoorM: number;
+  bikeUnspecifiedM?: number;
   swimM: number;
   workoutPoints: number;
   powerPoints: number;
@@ -24,9 +24,11 @@ export interface DailyMetricFactsInput {
   runM: number;
   runIndoorM?: number;
   runOutdoorM?: number;
+  runUnspecifiedM?: number;
   bikeM: number;
   bikeIndoorM?: number;
   bikeOutdoorM?: number;
+  bikeUnspecifiedM?: number;
   swimM: number;
   workoutPoints: number;
   powerPoints: number;
@@ -158,9 +160,11 @@ export interface DailyScoreBreakdownReadModel {
     runM: number;
     runIndoorM?: number | null;
     runOutdoorM?: number | null;
+    runUnspecifiedM?: number | null;
     bikeM: number;
     bikeIndoorM?: number | null;
     bikeOutdoorM?: number | null;
+    bikeUnspecifiedM?: number | null;
     swimM: number;
     workoutPoints: number;
     powerPoints: number;

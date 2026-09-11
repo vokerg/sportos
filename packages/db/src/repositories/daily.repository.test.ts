@@ -121,6 +121,32 @@ describe('assembleDailyScoreBreakdown', () => {
     expect(result.score.delta).toBeNull();
     expect(result.sourceRecord).toBeNull();
   });
+
+  it('normalizes PostgreSQL decimal strings to JSON numbers', () => {
+    const result = assembleDailyScoreBreakdown(
+      {
+        ...header,
+        runM: '13000.00',
+        bikeM: '35000.00',
+        swimM: '0.00',
+        excelTotal: '24.00',
+      } as unknown as DailyScoreBreakdownHeaderRow,
+      [ledgerRow({ ledgerPoints: 25 })],
+      [ledgerRow({
+        activityId: '60000000-0000-4000-8000-000000000001',
+        activitySource: 'my_sport_xlsx',
+        activityDate: '2026-05-18',
+        activityType: 'run',
+        activitySubtype: 'outdoor',
+        activityDistanceM: '13000.00',
+      } as unknown as Partial<DailyScoreBreakdownLedgerRow>)],
+    );
+
+    expect(result.facts).toMatchObject({ runM: 13_000, bikeM: 35_000, swimM: 0 });
+    expect(result.score.excelTotal).toBe(24);
+    expect(result.activities[0]?.distanceM).toBe(13_000);
+    expect(typeof result.facts.swimM).toBe('number');
+  });
 });
 
 function ledgerRow(overrides: Partial<DailyScoreBreakdownLedgerRow>): DailyScoreBreakdownLedgerRow {

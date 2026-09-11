@@ -60,8 +60,8 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
 
   const syntheticDailyActivities = ([
     { activityDate: facts.metricDate, activityType: 'steps', steps: facts.steps },
-    ...splitDistanceActivities(facts, 'run', facts.runM, facts.runIndoorM, facts.runOutdoorM, activeRules),
-    ...splitDistanceActivities(facts, 'bike', facts.bikeM, facts.bikeIndoorM, facts.bikeOutdoorM, activeRules),
+    ...splitDistanceActivities(facts, 'run', facts.runM, facts.runIndoorM, facts.runOutdoorM, facts.runUnspecifiedM, activeRules),
+    ...splitDistanceActivities(facts, 'bike', facts.bikeM, facts.bikeIndoorM, facts.bikeOutdoorM, facts.bikeUnspecifiedM, activeRules),
     { activityDate: facts.metricDate, activityType: 'swim', distanceM: facts.swimM },
     { activityDate: facts.metricDate, activityType: 'workout', effortPoints: facts.workoutPoints },
     { activityDate: facts.metricDate, activityType: 'power_bonus', effortPoints: facts.powerPoints },
@@ -291,16 +291,21 @@ function splitDistanceActivities(
   aggregateM: number,
   indoorM: number | undefined,
   outdoorM: number | undefined,
+  unspecifiedM: number | undefined,
   activeRules: ScoringRule[],
 ): ActivityFact[] {
-  if ((indoorM === undefined && outdoorM === undefined) || !hasSubtypeRules(activeRules, activityType)) {
+  if ((indoorM === undefined && outdoorM === undefined && unspecifiedM === undefined) || !hasSubtypeRules(activeRules, activityType)) {
     return [{ activityDate: facts.metricDate, activityType, distanceM: aggregateM }];
   }
   const indoorSubtype = activityType === 'run' ? 'treadmill' : 'indoor';
-  return [
+  const classifiedM = (indoorM ?? 0) + (outdoorM ?? 0);
+  const remainderM = unspecifiedM ?? Math.max(aggregateM - classifiedM, 0);
+  const activities: ActivityFact[] = [
     { activityDate: facts.metricDate, activityType, subtype: indoorSubtype, distanceM: indoorM ?? 0 },
     { activityDate: facts.metricDate, activityType, subtype: 'outdoor', distanceM: outdoorM ?? 0 },
   ];
+  if (remainderM > 0) activities.push({ activityDate: facts.metricDate, activityType, subtype: 'unknown', distanceM: remainderM });
+  return activities;
 }
 
 function syntheticRuleApplies(
@@ -310,15 +315,15 @@ function syntheticRuleApplies(
   activeRules: ScoringRule[],
 ): boolean {
   if (rule.activitySubtype && rule.activitySubtype !== activity.subtype) return false;
-  if (rule.code === 'run.km.default' && hasSubtypeBreakdown(facts.runIndoorM, facts.runOutdoorM)
+  if (rule.code === 'run.km.default' && activity.subtype !== 'unknown' && hasSubtypeBreakdown(facts.runIndoorM, facts.runOutdoorM, facts.runUnspecifiedM)
     && hasSubtypeRules(activeRules, 'run')) return false;
-  if (rule.code === 'bike.km.default' && hasSubtypeBreakdown(facts.bikeIndoorM, facts.bikeOutdoorM)
+  if (rule.code === 'bike.km.default' && activity.subtype !== 'unknown' && hasSubtypeBreakdown(facts.bikeIndoorM, facts.bikeOutdoorM, facts.bikeUnspecifiedM)
     && hasSubtypeRules(activeRules, 'bike')) return false;
   return true;
 }
 
-function hasSubtypeBreakdown(indoorM: number | undefined, outdoorM: number | undefined): boolean {
-  return indoorM !== undefined || outdoorM !== undefined;
+function hasSubtypeBreakdown(indoorM: number | undefined, outdoorM: number | undefined, unspecifiedM: number | undefined): boolean {
+  return indoorM !== undefined || outdoorM !== undefined || unspecifiedM !== undefined;
 }
 
 function hasSubtypeRules(rules: ScoringRule[], activityType: 'run' | 'bike'): boolean {

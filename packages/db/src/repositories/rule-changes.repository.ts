@@ -687,18 +687,22 @@ export class RuleChangesRepository {
 function manualSubtypeFacts(activities: ActivityFact[]): {
   runIndoorM: number;
   runOutdoorM: number;
+  runUnspecifiedM: number;
   bikeIndoorM: number;
   bikeOutdoorM: number;
+  bikeUnspecifiedM: number;
 } {
   return activities.reduce((facts, activity) => {
     if (activity.source !== 'manual') return facts;
     const distanceM = activity.distanceM ?? 0;
     if (activity.activityType === 'run' && activity.subtype === 'treadmill') facts.runIndoorM += distanceM;
     if (activity.activityType === 'run' && activity.subtype === 'outdoor') facts.runOutdoorM += distanceM;
+    if (activity.activityType === 'run' && activity.subtype === 'unknown') facts.runUnspecifiedM += distanceM;
     if (activity.activityType === 'bike' && activity.subtype === 'indoor') facts.bikeIndoorM += distanceM;
     if (activity.activityType === 'bike' && activity.subtype === 'outdoor') facts.bikeOutdoorM += distanceM;
+    if (activity.activityType === 'bike' && activity.subtype === 'unknown') facts.bikeUnspecifiedM += distanceM;
     return facts;
-  }, { runIndoorM: 0, runOutdoorM: 0, bikeIndoorM: 0, bikeOutdoorM: 0 });
+  }, { runIndoorM: 0, runOutdoorM: 0, runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0 });
 }
 
 export class RuleChangeCancelledError extends Error {

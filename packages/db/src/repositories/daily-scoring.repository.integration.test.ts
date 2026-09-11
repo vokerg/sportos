@@ -92,12 +92,12 @@ databaseDescribe('DailyScoringRepository database integration', () => {
   it('stores manual facts, provenance, activities, and immutable score history', async () => {
     const input = {
       steps: 1000,
-      runM: 5000,
       runIndoorM: 1000,
       runOutdoorM: 3000,
-      bikeM: 2000,
+      runUnspecifiedM: 1000,
       bikeIndoorM: 500,
       bikeOutdoorM: 1000,
+      bikeUnspecifiedM: 500,
       swimM: 100,
       workoutPoints: 10,
       powerPoints: 5,
@@ -113,7 +113,10 @@ databaseDescribe('DailyScoringRepository database integration', () => {
       (ownerDb) => new DailyScoringRepository(ownerDb).saveManualFacts(manualDate, { ...input, steps: 2000 }),
     );
 
-    expect(first).toMatchObject({ scoreStatus: 'manual', facts: { runIndoorM: 1000, runOutdoorM: 3000 } });
+    expect(first).toMatchObject({
+      scoreStatus: 'manual',
+      facts: { runM: 5000, runIndoorM: 1000, runOutdoorM: 3000, runUnspecifiedM: 1000, bikeM: 2000, bikeIndoorM: 500, bikeOutdoorM: 1000, bikeUnspecifiedM: 500 },
+    });
     expect(second).toMatchObject({ scoreStatus: 'manual', facts: { steps: 2000 } });
     const evidence = await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => ({
       daily: await ownerDb.selectFrom('daily_metrics').select(['score_status', 'source_record_id']).where('metric_date', '=', manualDate).executeTakeFirstOrThrow(),

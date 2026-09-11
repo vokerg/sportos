@@ -149,6 +149,39 @@ describe('scoreDay', () => {
     ]);
   });
 
+  it('scores an unspecified distance remainder with the aggregate rule', () => {
+    const result = scoreDay(
+      {
+        metricDate: '2026-05-18',
+        steps: 0,
+        runM: 10_000,
+        runIndoorM: 2_000,
+        runOutdoorM: 3_000,
+        runUnspecifiedM: 5_000,
+        bikeM: 0,
+        swimM: 0,
+        workoutPoints: 0,
+        powerPoints: 0,
+      },
+      [],
+      [
+        { code: 'run.km.default', name: 'Legacy run', activityType: 'run', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1000, validFrom: '1900-01-01', priority: 10, enabled: true },
+        { code: 'run.km.treadmill', name: 'Treadmill run', activityType: 'run', activitySubtype: 'treadmill', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1850, validFrom: '1900-01-01', priority: 20, enabled: true },
+        { code: 'run.km.outdoor', name: 'Outdoor run', activityType: 'run', activitySubtype: 'outdoor', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1700, validFrom: '1900-01-01', priority: 21, enabled: true },
+      ],
+    );
+
+    expect(result).toMatchObject({ basePoints: 13_800, totalPoints: 13_800 });
+    expect(result.ledger.map((entry) => entry.ruleCode)).toEqual([
+      'run.km.treadmill',
+      'run.km.outdoor',
+      'run.km.default',
+    ]);
+    expect(result.ledger.find((entry) => entry.ruleCode === 'run.km.default')?.calculationJson).toMatchObject({
+      metricValue: 5,
+    });
+  });
+
   it('uses rule code as a deterministic tie-breaker when priorities match', () => {
     const tiedRules: ScoringRule[] = [
       { code: 'steps.z', name: 'Z', activityType: 'steps', ruleKind: 'coefficient', metric: 'steps', coefficient: 1, validFrom: '1900-01-01', priority: 10, enabled: true },

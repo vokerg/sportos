@@ -86,7 +86,7 @@ export class DailyController {
 }
 
 const MANUAL_FACT_FIELDS = [
-  'steps', 'runM', 'runIndoorM', 'runOutdoorM', 'bikeM', 'bikeIndoorM', 'bikeOutdoorM',
+  'steps', 'runIndoorM', 'runOutdoorM', 'runUnspecifiedM', 'bikeIndoorM', 'bikeOutdoorM', 'bikeUnspecifiedM',
   'swimM', 'workoutPoints', 'powerPoints',
 ] as const;
 
@@ -96,15 +96,13 @@ function parseManualDailyFacts(value: unknown): ManualDailyFactsInput {
   const unknownFields = Object.keys(record).filter((key) => !MANUAL_FACT_FIELDS.includes(key as typeof MANUAL_FACT_FIELDS[number]));
   if (unknownFields.length > 0) invalidManualFacts(`Unknown field: ${unknownFields[0]}.`);
 
-  const input = Object.fromEntries(MANUAL_FACT_FIELDS.map((field) => [field, boundedNumber(record[field], field)])) as unknown as ManualDailyFactsInput;
+  const input = Object.fromEntries(MANUAL_FACT_FIELDS.map((field) => {
+    const rawValue = record[field];
+    const value = rawValue === undefined && (field === 'runUnspecifiedM' || field === 'bikeUnspecifiedM') ? 0 : rawValue;
+    return [field, boundedNumber(value, field)];
+  })) as Record<typeof MANUAL_FACT_FIELDS[number], number>;
   for (const field of ['steps', 'workoutPoints', 'powerPoints'] as const) {
     if (!Number.isInteger(input[field])) invalidManualFacts(`${field} must be a whole number.`);
-  }
-  if (input.runIndoorM + input.runOutdoorM > input.runM + 1e-9) {
-    invalidManualFacts('Run indoor and outdoor distances cannot exceed the run total.');
-  }
-  if (input.bikeIndoorM + input.bikeOutdoorM > input.bikeM + 1e-9) {
-    invalidManualFacts('Bike indoor and outdoor distances cannot exceed the bike total.');
   }
   return input;
 }

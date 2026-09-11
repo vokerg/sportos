@@ -110,8 +110,8 @@ describe('DailyLogComponent cockpit workflow', () => {
     const component = createComponent(scoreApi, api);
     component.openManualEntry(row.metric_date);
     const input = {
-      steps: 1000, runM: 5000, runIndoorM: 1000, runOutdoorM: 3000,
-      bikeM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, swimM: 0,
+      steps: 1000, runIndoorM: 1000, runOutdoorM: 3000,
+      runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0, swimM: 0,
       workoutPoints: 10, powerPoints: 5,
     };
 
@@ -121,6 +121,35 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(component.breakdown()).toEqual(manual);
     expect(component.manualSaveState()).toBe('idle');
     expect(api.dailySummary).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads existing facts before opening manual entry for a date', () => {
+    const scoreApi = { getForDate: vi.fn().mockReturnValue(of(breakdown)) };
+    const component = createComponent(scoreApi);
+
+    component.openManualEntry(row.metric_date);
+
+    expect(scoreApi.getForDate).toHaveBeenCalledWith(row.metric_date);
+    expect(component.breakdown()).toEqual(breakdown);
+    expect(component.breakdownState()).toBe('loaded');
+    expect(component.manualEditRequestId()).toBe(1);
+  });
+
+  it('opens a blank manual entry only when the selected date has no facts', () => {
+    const scoreApi = {
+      getForDate: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({
+        status: 404,
+        error: { code: 'DAILY_SCORE_NOT_FOUND' },
+      }))),
+    };
+    const component = createComponent(scoreApi);
+
+    component.openManualEntry('2026-05-19');
+
+    expect(component.selectedDate()).toBe('2026-05-19');
+    expect(component.breakdown()).toBeNull();
+    expect(component.breakdownError()).toBeNull();
+    expect(component.breakdownState()).toBe('loaded');
   });
 
   it('keeps the imported breakdown visible when Strava recalculation is unavailable', () => {

@@ -93,8 +93,8 @@ describe('DailyController cockpit contracts', () => {
 
   it('saves a complete manual fact set in the authenticated account context', async () => {
     const input = {
-      steps: 1000, runM: 5000, runIndoorM: 1000, runOutdoorM: 3000,
-      bikeM: 2000, bikeIndoorM: 500, bikeOutdoorM: 1000, swimM: 750,
+      steps: 1000, runIndoorM: 1000, runOutdoorM: 3000,
+      runUnspecifiedM: 1000, bikeIndoorM: 500, bikeOutdoorM: 1000, bikeUnspecifiedM: 500, swimM: 750,
       workoutPoints: 10, powerPoints: 5,
     };
     service.saveManualFacts.mockResolvedValue({ ...response, scoreStatus: 'manual' });
@@ -103,17 +103,17 @@ describe('DailyController cockpit contracts', () => {
     expect(service.saveManualFacts).toHaveBeenCalledWith('2026-05-18', input, LEGACY_ACCOUNT_ID);
   });
 
-  it('rejects incomplete, unknown, fractional integer, and inconsistent manual facts', async () => {
+  it('rejects incomplete, unknown, and fractional integer manual facts', async () => {
     const valid = {
-      steps: 1000, runM: 5000, runIndoorM: 1000, runOutdoorM: 3000,
-      bikeM: 2000, bikeIndoorM: 500, bikeOutdoorM: 1000, swimM: 750,
+      steps: 1000, runIndoorM: 1000, runOutdoorM: 3000,
+      runUnspecifiedM: 1000, bikeIndoorM: 500, bikeOutdoorM: 1000, bikeUnspecifiedM: 500, swimM: 750,
       workoutPoints: 10, powerPoints: 5,
     };
     for (const input of [
       { ...valid, powerPoints: undefined },
       { ...valid, ownerId: 'foreign' },
       { ...valid, steps: 1.5 },
-      { ...valid, runIndoorM: 4000, runOutdoorM: 2000 },
+      { ...valid, runM: 5000 },
     ]) {
       await expect(controller.saveManualFacts('2026-05-18', input)).rejects.toBeInstanceOf(BadRequestException);
     }

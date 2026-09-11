@@ -100,6 +100,7 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
         [recalculationError]="recalculationError()"
         [savingManual]="manualSaveState() === 'working'"
         [manualSaveError]="manualSaveError()"
+        [manualEditRequestId]="manualEditRequestId()"
         (retry)="retryBreakdown()"
         (recalculate)="recalculateSelectedDate()"
         (saveManualFacts)="saveManualFacts($event)"
@@ -135,6 +136,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   readonly recalculationError = signal<string | null>(null);
   readonly manualSaveState = signal<'idle' | 'working'>('idle');
   readonly manualSaveError = signal<string | null>(null);
+  readonly manualEditRequestId = signal(0);
 
   private summarySubscription?: Subscription;
   private breakdownSubscription?: Subscription;
@@ -246,12 +248,9 @@ export class DailyLogComponent implements OnInit, OnDestroy {
 
   openManualEntry(date: string): void {
     if (!date) return;
-    this.breakdownSubscription?.unsubscribe();
-    this.selectedDate.set(date);
-    this.breakdown.set(null);
-    this.breakdownError.set(null);
-    this.breakdownState.set('loaded');
     this.manualSaveError.set(null);
+    this.manualEditRequestId.update((requestId) => requestId + 1);
+    this.loadBreakdown(date, true);
   }
 
   saveManualFacts(input: ManualDailyFactsInput): void {
@@ -332,7 +331,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.breakdownState.set('idle');
   }
 
-  private loadBreakdown(date: string): void {
+  private loadBreakdown(date: string, allowMissing = false): void {
     this.breakdownSubscription?.unsubscribe();
     this.recalculationSubscription?.unsubscribe();
     this.recalculationState.set('idle');
@@ -343,8 +342,22 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.breakdownState.set('loading');
     this.breakdownSubscription = this.scoreBreakdownApi.getForDate(date).subscribe({
       next: (result) => { this.breakdown.set(result); this.breakdownState.set('loaded'); },
-      error: (error: unknown) => { this.breakdownError.set(this.describeBreakdownError(error)); this.breakdownState.set('error'); },
+      error: (error: unknown) => {
+        if (allowMissing && this.isMissingBreakdown(error)) {
+          this.breakdown.set(null);
+          this.breakdownError.set(null);
+          this.breakdownState.set('loaded');
+          return;
+        }
+        this.breakdownError.set(this.describeBreakdownError(error));
+        this.breakdownState.set('error');
+      },
     });
+  }
+
+  private isMissingBreakdown(error: unknown): boolean {
+    if (!(error instanceof HttpErrorResponse)) return false;
+    return error.status === 404 || this.apiErrorBody(error.error)?.code === 'DAILY_SCORE_NOT_FOUND';
   }
 
   private describeSummaryError(error: unknown): string {

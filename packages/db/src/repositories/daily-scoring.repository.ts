@@ -23,6 +23,9 @@ export class DailyScoringRepository {
     return this.db.transaction().execute(async (transaction) => {
       await lockDailyScore(transaction, metricDate);
 
+      const runUnspecifiedM = input.runUnspecifiedM ?? 0;
+      const bikeUnspecifiedM = input.bikeUnspecifiedM ?? 0;
+
       const existing = await transaction
         .selectFrom('daily_metrics')
         .selectAll()
@@ -32,6 +35,8 @@ export class DailyScoringRepository {
       const facts: DailyMetricFactsInput = {
         metricDate,
         ...input,
+        runM: input.runIndoorM + input.runOutdoorM + runUnspecifiedM,
+        bikeM: input.bikeIndoorM + input.bikeOutdoorM + bikeUnspecifiedM,
         excelAllPoints: optionalNumber(existing?.excel_all_points),
         excelRowHash: existing?.excel_row_hash ?? undefined,
       };
@@ -70,7 +75,7 @@ export class DailyScoringRepository {
         .where('source', '=', 'manual')
         .execute();
       const dailyRepository = new DailyRepository(transaction);
-      await dailyRepository.upsertActivities(manualActivities(metricDate, input, sourceRecord.id, rowHash));
+      await dailyRepository.upsertActivities(manualActivities(metricDate, { ...input, runUnspecifiedM, bikeUnspecifiedM }, sourceRecord.id, rowHash));
       await dailyRepository.persistDailyScore(
         facts,
         score,
@@ -165,10 +170,10 @@ function manualActivities(
   if (input.steps > 0) rows.push({ activityType: 'steps', subtype: 'manual', steps: input.steps });
   appendDistance(rows, 'run', 'treadmill', input.runIndoorM);
   appendDistance(rows, 'run', 'outdoor', input.runOutdoorM);
-  appendDistance(rows, 'run', 'unknown', input.runM - input.runIndoorM - input.runOutdoorM);
+  appendDistance(rows, 'run', 'unknown', input.runUnspecifiedM ?? 0);
   appendDistance(rows, 'bike', 'indoor', input.bikeIndoorM);
   appendDistance(rows, 'bike', 'outdoor', input.bikeOutdoorM);
-  appendDistance(rows, 'bike', 'unknown', input.bikeM - input.bikeIndoorM - input.bikeOutdoorM);
+  appendDistance(rows, 'bike', 'unknown', input.bikeUnspecifiedM ?? 0);
   appendDistance(rows, 'swim', 'manual', input.swimM);
   if (input.workoutPoints > 0) rows.push({ activityType: 'workout', subtype: 'manual', effortPoints: input.workoutPoints });
   if (input.powerPoints > 0) rows.push({ activityType: 'power_bonus', subtype: 'manual', effortPoints: input.powerPoints });

@@ -89,9 +89,11 @@ export interface DailyScoreBreakdown {
     runM: number;
     runIndoorM?: number | null;
     runOutdoorM?: number | null;
+    runUnspecifiedM?: number | null;
     bikeM: number;
     bikeIndoorM?: number | null;
     bikeOutdoorM?: number | null;
+    bikeUnspecifiedM?: number | null;
     swimM: number;
     workoutPoints: number;
     powerPoints: number;
@@ -112,12 +114,12 @@ export interface DailyScoreBreakdown {
 
 export interface ManualDailyFactsInput {
   steps: number;
-  runM: number;
   runIndoorM: number;
   runOutdoorM: number;
-  bikeM: number;
+  runUnspecifiedM?: number;
   bikeIndoorM: number;
   bikeOutdoorM: number;
+  bikeUnspecifiedM?: number;
   swimM: number;
   workoutPoints: number;
   powerPoints: number;

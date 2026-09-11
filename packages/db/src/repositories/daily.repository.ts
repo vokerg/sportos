@@ -183,8 +183,8 @@ export class DailyRepository {
         base_points: score.basePoints,
         bonus_points: score.bonusPoints,
         total_points: score.totalPoints,
-        facts_json: jsonValue(facts),
-        ledger_json: jsonValue(score.ledger),
+        facts_json: jsonb(jsonValue(facts)),
+        ledger_json: jsonb(jsonValue(score.ledger)),
         source_record_id: sourceRecordId ?? null,
         trigger: options.trigger,
       })
@@ -454,11 +454,13 @@ export function assembleDailyScoreBreakdown(
       const distanceM = Number(activity.distanceM ?? 0);
       if (activity.activityType === 'run' && activity.subtype === 'treadmill') facts.runIndoorM += distanceM;
       if (activity.activityType === 'run' && activity.subtype === 'outdoor') facts.runOutdoorM += distanceM;
+      if (activity.activityType === 'run' && activity.subtype === 'unknown') facts.runUnspecifiedM += distanceM;
       if (activity.activityType === 'bike' && activity.subtype === 'indoor') facts.bikeIndoorM += distanceM;
       if (activity.activityType === 'bike' && activity.subtype === 'outdoor') facts.bikeOutdoorM += distanceM;
+      if (activity.activityType === 'bike' && activity.subtype === 'unknown') facts.bikeUnspecifiedM += distanceM;
       return facts;
     },
-    { runIndoorM: 0, runOutdoorM: 0, bikeIndoorM: 0, bikeOutdoorM: 0 },
+    { runIndoorM: 0, runOutdoorM: 0, runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0 },
   );
   const sourceRecords = dedupeSourceRecords([
     mapHeaderSourceRecord(header),
@@ -470,20 +472,22 @@ export function assembleDailyScoreBreakdown(
     recomputedAt: toIsoTimestamp(header.recomputedAt),
     scoreStatus: header.scoreStatus,
     facts: {
-      steps: header.steps,
-      runM: header.runM,
-      bikeM: header.bikeM,
-      swimM: header.swimM,
+      steps: databaseNumber(header.steps, 'daily steps'),
+      runM: databaseNumber(header.runM, 'daily run distance'),
+      bikeM: databaseNumber(header.bikeM, 'daily bike distance'),
+      swimM: databaseNumber(header.swimM, 'daily swim distance'),
       ...subtypeFacts,
-      workoutPoints: header.workoutPoints,
-      powerPoints: header.powerPoints,
+      workoutPoints: databaseNumber(header.workoutPoints, 'daily workout points'),
+      powerPoints: databaseNumber(header.powerPoints, 'daily power points'),
     },
     score: {
-      appTotal: header.appTotal,
-      excelTotal: header.excelTotal,
-      delta: header.excelTotal === null ? null : header.appTotal - header.excelTotal,
-      baseTotal: header.baseTotal,
-      bonusTotal: header.bonusTotal,
+      appTotal: databaseNumber(header.appTotal, 'daily app total'),
+      excelTotal: nullableDatabaseNumber(header.excelTotal, 'daily Excel total'),
+      delta: header.excelTotal === null
+        ? null
+        : databaseNumber(header.appTotal, 'daily app total') - databaseNumber(header.excelTotal, 'daily Excel total'),
+      baseTotal: databaseNumber(header.baseTotal, 'daily base total'),
+      bonusTotal: databaseNumber(header.bonusTotal, 'daily bonus total'),
       ledgerTotal,
     },
     sourceRecord: mapHeaderSourceRecord(header),
@@ -496,7 +500,7 @@ export function assembleDailyScoreBreakdown(
 function mapLedgerEntry(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownLedgerEntryReadModel {
   return {
     id: row.ledgerId,
-    points: row.ledgerPoints,
+    points: databaseNumber(row.ledgerPoints, 'ledger points'),
     reason: row.ledgerReason,
     calculation: row.ledgerCalculation,
     createdAt: toIsoTimestamp(row.ledgerCreatedAt),
@@ -527,11 +531,11 @@ function mapRule(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownRuleReadModel
     activityType: row.ruleActivityType,
     ruleKind: row.ruleKind,
     metric: row.ruleMetric,
-    coefficient: row.ruleCoefficient,
+    coefficient: nullableDatabaseNumber(row.ruleCoefficient, 'rule coefficient'),
     thresholdOperator: row.ruleThresholdOperator,
-    thresholdValue: row.ruleThresholdValue,
+    thresholdValue: nullableDatabaseNumber(row.ruleThresholdValue, 'rule threshold value'),
     thresholdUnit: row.ruleThresholdUnit,
-    configuredPoints: row.ruleConfiguredPoints,
+    configuredPoints: nullableDatabaseNumber(row.ruleConfiguredPoints, 'rule configured points'),
     validFrom: row.ruleValidFrom,
     validTo: row.ruleValidTo,
     priority: row.rulePriority,
@@ -553,17 +557,17 @@ function mapActivity(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownActivityR
     startTime: toNullableIsoTimestamp(row.activityStartTime),
     activityType: row.activityType,
     subtype: row.activitySubtype,
-    distanceM: row.activityDistanceM,
-    durationS: row.activityDurationS,
-    movingTimeS: row.activityMovingTimeS,
-    steps: row.activitySteps,
-    calories: row.activityCalories,
-    avgHr: row.activityAvgHr,
-    maxHr: row.activityMaxHr,
-    elevationGainM: row.activityElevationGainM,
-    avgSpeedMps: row.activityAvgSpeedMps,
-    avgPaceSPerKm: row.activityAvgPaceSPerKm,
-    effortPoints: row.activityEffortPoints,
+    distanceM: nullableDatabaseNumber(row.activityDistanceM, 'activity distance'),
+    durationS: nullableDatabaseNumber(row.activityDurationS, 'activity duration'),
+    movingTimeS: nullableDatabaseNumber(row.activityMovingTimeS, 'activity moving time'),
+    steps: nullableDatabaseNumber(row.activitySteps, 'activity steps'),
+    calories: nullableDatabaseNumber(row.activityCalories, 'activity calories'),
+    avgHr: nullableDatabaseNumber(row.activityAvgHr, 'activity average heart rate'),
+    maxHr: nullableDatabaseNumber(row.activityMaxHr, 'activity maximum heart rate'),
+    elevationGainM: nullableDatabaseNumber(row.activityElevationGainM, 'activity elevation gain'),
+    avgSpeedMps: nullableDatabaseNumber(row.activityAvgSpeedMps, 'activity average speed'),
+    avgPaceSPerKm: nullableDatabaseNumber(row.activityAvgPaceSPerKm, 'activity average pace'),
+    effortPoints: nullableDatabaseNumber(row.activityEffortPoints, 'activity effort points'),
     notes: row.activityNotes,
     sourceRecord: mapActivitySourceRecord(row),
   };
@@ -653,6 +657,20 @@ function toIsoTimestamp(value: unknown): string {
 
 function toNullableIsoTimestamp(value: unknown | null): string | null {
   return value === null ? null : toIsoTimestamp(value);
+}
+
+function databaseNumber(value: unknown, field: string): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) throw new TypeError(`Expected a finite numeric value for ${field}.`);
+  return parsed;
+}
+
+function nullableDatabaseNumber(value: unknown | null, field: string): number | null {
+  return value === null ? null : databaseNumber(value, field);
+}
+
+function jsonb(value: Json) {
+  return sql<Json>`${JSON.stringify(value)}::jsonb`;
 }
 
 function jsonValue(value: unknown): Json {
