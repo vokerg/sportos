@@ -103,9 +103,9 @@ A save through `PUT /daily/:date/facts` is a separate manual authority
 transition. It accepts the daily fields represented by the workbook, retains
 the last imported `All` as comparison evidence when one exists, scores the
 manually entered facts without source-owned achievement activities, and marks
-the current row `manual`. Indoor/outdoor inputs are retained as manual
-canonical activities; a difference between their sum and the entered total is
-kept as an unknown-subtype remainder. Each save creates traceable private
+the current row `manual`. Indoor/outdoor/unspecified inputs are retained as
+manual canonical activities, and run/bike totals are derived from those split
+activities. Each save creates traceable private
 source provenance and an immutable `manual_edit` snapshot. A later workbook
 import, explicit activity recalculation, or manual edit can become current
 authority without deleting earlier score versions.

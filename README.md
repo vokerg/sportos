@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the prioritized implementation roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16). The current schema is validated through Flyway V112, and the authoritative work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the prioritized implementation roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16). The current schema is validated through Flyway V113, and the authoritative work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -32,7 +32,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 
 - Browse daily summaries and inspect exact score-ledger, immutable rule-version, activity, source-record, and import-batch provenance.
 - Treat imported workbook `All` totals as authoritative until an explicit recalculation or manual edit; each daily row shows whether its current score is imported, calculated, or manual.
-- Create or edit a date's canonical daily facts with Excel-style run/bike totals and splits; manual edits retain provenance, replace only prior manual activities, and append immutable score history.
+- Create or edit a date's canonical daily facts with derived run/bike totals from treadmill/indoor, outdoor, and unspecified splits; manual edits retain provenance, replace only prior manual activities, and append immutable score history.
 - Recalculate a selected date from canonical activities, including a Strava-only date when no daily ledger row exists, without changing scores implicitly during synchronization.
 - Explore running performance, personal-best views, event detail, and source attribution in Run Lab.
 - Preview scoring-rule changes without writes.
@@ -371,7 +371,7 @@ SPORTOS_TEST_DATABASE_URL=postgresql://sportos_legacy:<password>@<test-project>.
   pnpm --filter @sportos/importers test:integration
 ```
 
-CI covers frozen installation, fresh migration through V112, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, imported-ledger authority, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
+CI covers frozen installation, fresh migration through V113, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, imported-ledger authority, manual canonical facts, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
 
 The CI workflow expects dedicated Neon test branches and these repository secrets:
 `SPORTOS_CI_FLYWAY_URL`, `SPORTOS_CI_FLYWAY_USER`,

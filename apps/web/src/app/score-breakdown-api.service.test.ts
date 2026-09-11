@@ -49,8 +49,8 @@ describe('ScoreBreakdownApiService', () => {
     const api = { apiBase: signal('http://sportos.test') } as unknown as ApiService;
     const service = new ScoreBreakdownApiService(http, api);
     const input = {
-      steps: 1000, runM: 5000, runIndoorM: 1000, runOutdoorM: 3000,
-      bikeM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, swimM: 0,
+      steps: 1000, runIndoorM: 1000, runOutdoorM: 3000,
+      runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0, swimM: 0,
       workoutPoints: 10, powerPoints: 5,
     };
 

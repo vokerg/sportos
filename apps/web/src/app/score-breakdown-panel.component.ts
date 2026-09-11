@@ -1,4 +1,4 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, input, output, signal, type OnChanges } from '@angular/core';
 import type {
   DailyScoreBreakdown,
   JsonValue,
@@ -137,9 +137,11 @@ interface ImportedLedgerDetails {
             <div><span>Run</span><strong>{{ formatDistance(current.facts.runM) }}</strong></div>
             <div><span>Run · treadmill</span><strong>{{ formatDistance(current.facts.runIndoorM) }}</strong></div>
             <div><span>Run · outdoor</span><strong>{{ formatDistance(current.facts.runOutdoorM) }}</strong></div>
+            <div><span>Run · unspecified</span><strong>{{ formatDistance(current.facts.runUnspecifiedM) }}</strong></div>
             <div><span>Bike</span><strong>{{ formatDistance(current.facts.bikeM) }}</strong></div>
             <div><span>Bike · indoor</span><strong>{{ formatDistance(current.facts.bikeIndoorM) }}</strong></div>
             <div><span>Bike · outdoor</span><strong>{{ formatDistance(current.facts.bikeOutdoorM) }}</strong></div>
+            <div><span>Bike · unspecified</span><strong>{{ formatDistance(current.facts.bikeUnspecifiedM) }}</strong></div>
             <div><span>Swim</span><strong>{{ formatDistance(current.facts.swimM, 0) }}</strong></div>
             <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong></div>
             <div><span>Power points</span><strong>{{ formatNumber(current.facts.powerPoints) }}</strong></div>
@@ -378,20 +380,22 @@ interface ImportedLedgerDetails {
             <div>
               <span class="section-label">Manual canonical entry</span>
               <h4>{{ breakdown() ? 'Replace the current daily facts' : 'Create daily facts for ' + formatDate(date()) }}</h4>
-              <p class="section-help">Totals drive scoring. Indoor/outdoor splits are retained as manual activities; any remainder stays unspecified.</p>
+              <p class="section-help">Run and bike totals are calculated from the editable indoor, outdoor, and unspecified distances. Each component is retained as a manual activity.</p>
             </div>
           </div>
           <div class="manual-facts-grid">
-            <label>Steps <input type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set($any($event.target).valueAsNumber)" /></label>
-            <label>Run total (km) <input type="number" min="0" step="0.01" [value]="manualRunKm()" (input)="manualRunKm.set($any($event.target).valueAsNumber)" /></label>
-            <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set($any($event.target).valueAsNumber)" /></label>
-            <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set($any($event.target).valueAsNumber)" /></label>
-            <label>Bike total (km) <input type="number" min="0" step="0.01" [value]="manualBikeKm()" (input)="manualBikeKm.set($any($event.target).valueAsNumber)" /></label>
-            <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set($any($event.target).valueAsNumber)" /></label>
-            <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set($any($event.target).valueAsNumber)" /></label>
-            <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set($any($event.target).valueAsNumber)" /></label>
-            <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set($any($event.target).valueAsNumber)" /></label>
-            <label>Power points <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set($any($event.target).valueAsNumber)" /></label>
+            <label>Steps <input type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
+            <div class="manual-derived-field" aria-readonly="true"><span>Run total (km)</span><strong>{{ formatNumber(manualRunTotalKm()) }}</strong><small>Calculated from treadmill + outdoor + unspecified</small></div>
+            <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
+            <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
+            <label>Run unspecified (km) <input type="number" min="0" step="0.01" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
+            <div class="manual-derived-field" aria-readonly="true"><span>Bike total (km)</span><strong>{{ formatNumber(manualBikeTotalKm()) }}</strong><small>Calculated from indoor + outdoor + unspecified</small></div>
+            <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
+            <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
+            <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
+            <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
+            <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
+            <label>Power points <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set(numberInputValue($event))" /></label>
           </div>
           @if (manualValidationError()) { <p class="recalculation-error" role="alert">{{ manualValidationError() }}</p> }
           @if (manualSaveError()) { <p class="recalculation-error" role="alert">{{ manualSaveError() }}</p> }
@@ -604,6 +608,9 @@ interface ImportedLedgerDetails {
     .manual-facts-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 10px; }
     .manual-facts-grid label { display: grid; gap: 5px; color: #475467; font-size: 11px; font-weight: 700; }
     .manual-facts-grid input { min-width: 0; padding: 8px; border: 1px solid #cbd6ed; border-radius: 7px; background: white; }
+    .manual-derived-field { display: grid; gap: 4px; align-content: start; padding: 8px; border: 1px solid #d8dfed; border-radius: 7px; background: #f4f6fb; color: #475467; font-size: 11px; font-weight: 700; }
+    .manual-derived-field strong { color: #1d2939; font-size: 14px; }
+    .manual-derived-field small { color: #667085; font-size: 10px; font-weight: 500; }
     .manual-form-actions { display: flex; gap: 8px; margin-top: 14px; }
     .manual-facts-form .recalculation-error { color: #b54747; font-size: 12px; }
     .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 12px; }
@@ -734,7 +741,7 @@ interface ImportedLedgerDetails {
     }
   `],
 })
-export class ScoreBreakdownPanelComponent {
+export class ScoreBreakdownPanelComponent implements OnChanges {
   readonly state = input<ScoreBreakdownViewState>('idle');
   readonly date = input<string | null>(null);
   readonly breakdown = input<DailyScoreBreakdown | null>(null);
@@ -743,6 +750,7 @@ export class ScoreBreakdownPanelComponent {
   readonly recalculationError = input<string | null>(null);
   readonly savingManual = input(false);
   readonly manualSaveError = input<string | null>(null);
+  readonly manualEditRequestId = input(0);
   readonly retry = output<void>();
   readonly recalculate = output<void>();
   readonly saveManualFacts = output<ManualDailyFactsInput>();
@@ -751,18 +759,31 @@ export class ScoreBreakdownPanelComponent {
   readonly editingManual = signal(false);
   readonly manualValidationError = signal<string | null>(null);
   readonly manualSteps = signal(0);
-  readonly manualRunKm = signal(0);
   readonly manualRunIndoorKm = signal(0);
   readonly manualRunOutdoorKm = signal(0);
-  readonly manualBikeKm = signal(0);
+  readonly manualRunUnspecifiedKm = signal(0);
   readonly manualBikeIndoorKm = signal(0);
   readonly manualBikeOutdoorKm = signal(0);
+  readonly manualBikeUnspecifiedKm = signal(0);
   readonly manualSwimM = signal(0);
   readonly manualWorkoutPoints = signal(0);
   readonly manualPowerPoints = signal(0);
 
   readonly headingId = 'daily-score-breakdown-heading';
   private readonly numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+  private handledManualEditRequestId = 0;
+
+  ngOnChanges(): void {
+    const requestId = this.manualEditRequestId();
+    if (this.state() !== 'loaded') {
+      this.editingManual.set(false);
+      return;
+    }
+    if (requestId <= this.handledManualEditRequestId) return;
+
+    this.handledManualEditRequestId = requestId;
+    this.startManualEdit(this.breakdown());
+  }
 
   deltaKind(delta: number | null): DeltaKind {
     if (delta === null) return 'unavailable';
@@ -798,12 +819,16 @@ export class ScoreBreakdownPanelComponent {
   startManualEdit(current: DailyScoreBreakdown | null): void {
     const facts = current?.facts;
     this.manualSteps.set(facts?.steps ?? 0);
-    this.manualRunKm.set((facts?.runM ?? 0) / 1000);
-    this.manualRunIndoorKm.set((facts?.runIndoorM ?? 0) / 1000);
-    this.manualRunOutdoorKm.set((facts?.runOutdoorM ?? 0) / 1000);
-    this.manualBikeKm.set((facts?.bikeM ?? 0) / 1000);
-    this.manualBikeIndoorKm.set((facts?.bikeIndoorM ?? 0) / 1000);
-    this.manualBikeOutdoorKm.set((facts?.bikeOutdoorM ?? 0) / 1000);
+    const runIndoorM = facts?.runIndoorM ?? 0;
+    const runOutdoorM = facts?.runOutdoorM ?? 0;
+    const bikeIndoorM = facts?.bikeIndoorM ?? 0;
+    const bikeOutdoorM = facts?.bikeOutdoorM ?? 0;
+    this.manualRunIndoorKm.set(runIndoorM / 1000);
+    this.manualRunOutdoorKm.set(runOutdoorM / 1000);
+    this.manualRunUnspecifiedKm.set(this.remainderDistanceKm(facts?.runM, runIndoorM, runOutdoorM, facts?.runUnspecifiedM));
+    this.manualBikeIndoorKm.set(bikeIndoorM / 1000);
+    this.manualBikeOutdoorKm.set(bikeOutdoorM / 1000);
+    this.manualBikeUnspecifiedKm.set(this.remainderDistanceKm(facts?.bikeM, bikeIndoorM, bikeOutdoorM, facts?.bikeUnspecifiedM));
     this.manualSwimM.set(facts?.swimM ?? 0);
     this.manualWorkoutPoints.set(facts?.workoutPoints ?? 0);
     this.manualPowerPoints.set(facts?.powerPoints ?? 0);
@@ -812,40 +837,58 @@ export class ScoreBreakdownPanelComponent {
   }
 
   submitManualFacts(): void {
-    const values = [
-      this.manualSteps(), this.manualRunKm(), this.manualRunIndoorKm(), this.manualRunOutdoorKm(),
-      this.manualBikeKm(), this.manualBikeIndoorKm(), this.manualBikeOutdoorKm(), this.manualSwimM(),
-      this.manualWorkoutPoints(), this.manualPowerPoints(),
+    const fields: Array<readonly [label: string, value: number]> = [
+      ['Steps', this.manualSteps()],
+      ['Run treadmill', this.manualRunIndoorKm()],
+      ['Run outdoor', this.manualRunOutdoorKm()],
+      ['Run unspecified', this.manualRunUnspecifiedKm()],
+      ['Bike indoor', this.manualBikeIndoorKm()],
+      ['Bike outdoor', this.manualBikeOutdoorKm()],
+      ['Bike unspecified', this.manualBikeUnspecifiedKm()],
+      ['Swim', this.manualSwimM()],
+      ['Workout points', this.manualWorkoutPoints()],
+      ['Power points', this.manualPowerPoints()],
     ];
-    if (values.some((value) => !Number.isFinite(value) || value < 0)) {
-      this.manualValidationError.set('Every value must be a non-negative number.');
+    const invalidField = fields.find(([, value]) => !Number.isFinite(value) || value < 0);
+    if (invalidField) {
+      this.manualValidationError.set(`${invalidField[0]} must be a non-negative number.`);
       return;
     }
     if (![this.manualSteps(), this.manualWorkoutPoints(), this.manualPowerPoints()].every(Number.isInteger)) {
       this.manualValidationError.set('Steps, workout points, and power points must be whole numbers.');
       return;
     }
-    if (this.manualRunIndoorKm() + this.manualRunOutdoorKm() > this.manualRunKm() + 1e-9) {
-      this.manualValidationError.set('Run treadmill and outdoor distances cannot exceed the run total.');
-      return;
-    }
-    if (this.manualBikeIndoorKm() + this.manualBikeOutdoorKm() > this.manualBikeKm() + 1e-9) {
-      this.manualValidationError.set('Bike indoor and outdoor distances cannot exceed the bike total.');
-      return;
-    }
     this.manualValidationError.set(null);
     this.saveManualFacts.emit({
       steps: this.manualSteps(),
-      runM: this.manualRunKm() * 1000,
       runIndoorM: this.manualRunIndoorKm() * 1000,
       runOutdoorM: this.manualRunOutdoorKm() * 1000,
-      bikeM: this.manualBikeKm() * 1000,
+      runUnspecifiedM: this.manualRunUnspecifiedKm() * 1000,
       bikeIndoorM: this.manualBikeIndoorKm() * 1000,
       bikeOutdoorM: this.manualBikeOutdoorKm() * 1000,
+      bikeUnspecifiedM: this.manualBikeUnspecifiedKm() * 1000,
       swimM: this.manualSwimM(),
       workoutPoints: this.manualWorkoutPoints(),
       powerPoints: this.manualPowerPoints(),
     });
+  }
+
+  manualRunTotalKm(): number {
+    return this.manualRunIndoorKm() + this.manualRunOutdoorKm() + this.manualRunUnspecifiedKm();
+  }
+
+  manualBikeTotalKm(): number {
+    return this.manualBikeIndoorKm() + this.manualBikeOutdoorKm() + this.manualBikeUnspecifiedKm();
+  }
+
+  private remainderDistanceKm(totalM: number | null | undefined, indoorM: number, outdoorM: number, unspecifiedM: number | null | undefined): number {
+    if (unspecifiedM !== null && unspecifiedM !== undefined && unspecifiedM > 0) return unspecifiedM / 1000;
+    return Math.max((totalM ?? 0) - indoorM - outdoorM, 0) / 1000;
+  }
+
+  numberInputValue(event: Event): number {
+    const input = event.target as HTMLInputElement;
+    return input.value.trim() === '' ? 0 : input.valueAsNumber;
   }
 
   formatNumber(value: number): string {

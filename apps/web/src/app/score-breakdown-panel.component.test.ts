@@ -175,25 +175,120 @@ describe('ScoreBreakdownPanelComponent', () => {
     injector.destroy();
   });
 
-  it('emits complete manual facts and rejects splits above their totals', () => {
+  it('emits manual facts with run and bike totals derived from their splits', () => {
     const { component, injector } = createComponent();
     const emitted: unknown[] = [];
     component.saveManualFacts.subscribe((value) => emitted.push(value));
     component.startManualEdit(null);
-    component.manualRunKm.set(5);
     component.manualRunIndoorKm.set(4);
     component.manualRunOutdoorKm.set(2);
+    component.manualRunUnspecifiedKm.set(1);
+    component.manualBikeIndoorKm.set(10);
+    component.manualBikeOutdoorKm.set(2);
+    component.manualBikeUnspecifiedKm.set(1);
     component.submitManualFacts();
-    expect(component.manualValidationError()).toContain('cannot exceed');
-    expect(emitted).toEqual([]);
+    expect(component.manualValidationError()).toBeNull();
+    expect(component.manualRunTotalKm()).toBe(7);
+    expect(component.manualBikeTotalKm()).toBe(13);
+    expect(emitted).toEqual([expect.objectContaining({
+      runIndoorM: 4000,
+      runOutdoorM: 2000,
+      runUnspecifiedM: 1000,
+      bikeIndoorM: 10000,
+      bikeOutdoorM: 2000,
+      bikeUnspecifiedM: 1000,
+    })]);
+    expect(emitted[0]).not.toHaveProperty('runM');
+    expect(emitted[0]).not.toHaveProperty('bikeM');
 
-    component.manualRunOutdoorKm.set(1);
+    injector.destroy();
+  });
+
+  it('prefills manual editing from the current canonical facts', () => {
+    const { component, injector } = createComponent();
+    const current = {
+      ...breakdown,
+      facts: {
+        steps: 12_345,
+        runM: 8_500,
+        runIndoorM: 2_500,
+        runOutdoorM: 5_000,
+        runUnspecifiedM: 1_000,
+        bikeM: 21_250,
+        bikeIndoorM: 10_000,
+        bikeOutdoorM: 8_250,
+        bikeUnspecifiedM: 3_000,
+        swimM: 750,
+        workoutPoints: 12,
+        powerPoints: 4,
+      },
+    } satisfies DailyScoreBreakdown;
+
+    component.startManualEdit(current);
+
+    expect({
+      steps: component.manualSteps(),
+      runKm: component.manualRunTotalKm(),
+      runIndoorKm: component.manualRunIndoorKm(),
+      runOutdoorKm: component.manualRunOutdoorKm(),
+      runUnspecifiedKm: component.manualRunUnspecifiedKm(),
+      bikeKm: component.manualBikeTotalKm(),
+      bikeIndoorKm: component.manualBikeIndoorKm(),
+      bikeOutdoorKm: component.manualBikeOutdoorKm(),
+      bikeUnspecifiedKm: component.manualBikeUnspecifiedKm(),
+      swimM: component.manualSwimM(),
+      workoutPoints: component.manualWorkoutPoints(),
+      powerPoints: component.manualPowerPoints(),
+    }).toEqual({
+      steps: 12_345,
+      runKm: 8.5,
+      runIndoorKm: 2.5,
+      runOutdoorKm: 5,
+      runUnspecifiedKm: 1,
+      bikeKm: 21.25,
+      bikeIndoorKm: 10,
+      bikeOutdoorKm: 8.25,
+      bikeUnspecifiedKm: 3,
+      swimM: 750,
+      workoutPoints: 12,
+      powerPoints: 4,
+    });
+    expect(component.editingManual()).toBe(true);
+
+    injector.destroy();
+  });
+
+  it('saves a steps-only entry while treating cleared fields as zero', () => {
+    const { component, injector } = createComponent();
+    const emitted: unknown[] = [];
+    component.saveManualFacts.subscribe((value) => emitted.push(value));
+    component.startManualEdit(null);
+
+    component.manualSteps.set(component.numberInputValue(numberInputEvent('5056', 5056)));
+    component.manualSwimM.set(component.numberInputValue(numberInputEvent('', Number.NaN)));
     component.submitManualFacts();
-    expect(emitted).toEqual([expect.objectContaining({ runM: 5000, runIndoorM: 4000, runOutdoorM: 1000 })]);
+
+    expect(component.manualValidationError()).toBeNull();
+    expect(emitted).toEqual([{
+      steps: 5056,
+      runIndoorM: 0,
+      runOutdoorM: 0,
+      runUnspecifiedM: 0,
+      bikeIndoorM: 0,
+      bikeOutdoorM: 0,
+      bikeUnspecifiedM: 0,
+      swimM: 0,
+      workoutPoints: 0,
+      powerPoints: 0,
+    }]);
 
     injector.destroy();
   });
 });
+
+function numberInputEvent(value: string, valueAsNumber: number): Event {
+  return { target: { value, valueAsNumber } } as unknown as Event;
+}
 
 function createComponent(): { component: ScoreBreakdownPanelComponent; injector: EnvironmentInjector } {
   const injector = createEnvironmentInjector([], Injector.NULL as unknown as EnvironmentInjector);

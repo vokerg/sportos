@@ -33,9 +33,11 @@ export interface DailyMetricFacts {
   runM: number;
   runIndoorM?: number;
   runOutdoorM?: number;
+  runUnspecifiedM?: number;
   bikeM: number;
   bikeIndoorM?: number;
   bikeOutdoorM?: number;
+  bikeUnspecifiedM?: number;
   swimM: number;
   workoutPoints: number;
   powerPoints: number;
