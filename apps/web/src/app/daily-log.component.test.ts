@@ -27,6 +27,24 @@ const breakdown: DailyScoreBreakdown = {
 };
 
 describe('DailyLogComponent cockpit workflow', () => {
+  it('defaults to the last three calendar months', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-11T12:00:00.000Z'));
+    try {
+      const api = { dailySummary: vi.fn().mockReturnValue(of([])) };
+      const component = createComponent({ getForDate: vi.fn() }, api);
+
+      component.ngOnInit();
+
+      expect(component.quickRange()).toBe('3m');
+      expect(component.from()).toBe('2026-06-11');
+      expect(component.to()).toBe('2026-09-11');
+      expect(api.dailySummary).toHaveBeenCalledWith({ from: '2026-06-11', to: '2026-09-11', limit: 10_000 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('loads filtered rows and represents empty/error states explicitly', () => {
     const api = { dailySummary: vi.fn().mockReturnValueOnce(of([row])).mockReturnValueOnce(of([])) };
     const component = createComponent({ getForDate: vi.fn() }, api);
@@ -50,6 +68,56 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(component.summaryState()).toBe('error');
     expect(component.summaryError()).toContain('on or before');
     expect(api.dailySummary).not.toHaveBeenCalled();
+  });
+
+  it('applies calendar-aware quick ranges and keeps all time available', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-11T12:00:00.000Z'));
+    try {
+      const api = { dailySummary: vi.fn().mockReturnValue(of([])) };
+      const component = createComponent({ getForDate: vi.fn() }, api);
+
+      component.setQuickRange('1m');
+      expect(component.from()).toBe('2026-08-11');
+      expect(component.to()).toBe('2026-09-11');
+      expect(api.dailySummary).toHaveBeenLastCalledWith({ from: '2026-08-11', to: '2026-09-11', limit: 10_000 });
+
+      component.setQuickRange('ytd');
+      expect(component.from()).toBe('2026-01-01');
+      expect(component.to()).toBe('2026-09-11');
+
+      component.setQuickRange('all');
+      expect(component.from()).toBe('');
+      expect(component.to()).toBe('');
+      expect(component.quickRange()).toBe('all');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('switches back to a custom range when a date is edited', () => {
+    const component = createComponent({ getForDate: vi.fn() });
+    component.setQuickRange('3m');
+
+    component.setFrom('2026-05-01');
+
+    expect(component.quickRange()).toBe('custom');
+    expect(component.from()).toBe('2026-05-01');
+  });
+
+  it('plots every row in the selected range instead of truncating the chart', () => {
+    const component = createComponent({ getForDate: vi.fn() });
+    const rows = Array.from({ length: 121 }, (_, index) => ({
+      ...row,
+      metric_date: new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10),
+    }));
+    component.rows.set(rows.reverse());
+
+    const options = component.chartOptions();
+    const xAxis = options.xAxis as { data?: string[] };
+
+    expect(xAxis.data).toHaveLength(121);
+    expect(xAxis.data?.[0]).toBe(component.formatDate(rows[120].metric_date));
   });
 
   it('renders an actionable summary API failure', () => {

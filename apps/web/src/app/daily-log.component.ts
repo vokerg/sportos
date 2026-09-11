@@ -20,6 +20,9 @@ import type { ApiErrorBody, DailyScoreBreakdown, ManualDailyFactsInput } from '.
 import { formatDate } from './date-time';
 
 type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
+const QUICK_RANGE_VALUES = ['custom', '1m', '3m', '6m', 'ytd', '1y', '3y', 'all'] as const;
+type QuickRange = typeof QUICK_RANGE_VALUES[number];
+const DEFAULT_QUICK_RANGE = '3m' as const;
 
 @Component({
   selector: 'sportos-daily-log',
@@ -36,8 +39,20 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
       <p class="daily-log-help">A day can be authoritative from an imported workbook ledger, calculated activities, or saved manual facts. Use <strong>View details</strong> to inspect and edit it without losing prior provenance.</p>
 
       <form class="filter-bar" (submit)="applyFilters(); $event.preventDefault()" aria-label="Daily Log date range">
-        <label>From <input type="date" [value]="from()" (input)="from.set($any($event.target).value)" /></label>
-        <label>To <input type="date" [value]="to()" (input)="to.set($any($event.target).value)" /></label>
+        <label>Quick range
+          <select [value]="quickRange()" (change)="setQuickRange($any($event.target).value)">
+            <option value="custom">Custom range</option>
+            <option value="1m">1 month</option>
+            <option value="3m">3 months</option>
+            <option value="6m">6 months</option>
+            <option value="ytd">YTD</option>
+            <option value="1y">1 year</option>
+            <option value="3y">3 years</option>
+            <option value="all">All time</option>
+          </select>
+        </label>
+        <label>From <input type="date" [value]="from()" (input)="setFrom($any($event.target).value)" /></label>
+        <label>To <input type="date" [value]="to()" (input)="setTo($any($event.target).value)" /></label>
         <button type="submit" [disabled]="summaryState() === 'loading'">Apply range</button>
         <button type="button" class="secondary" (click)="resetFilters()">Reset</button>
       </form>
@@ -123,8 +138,9 @@ type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
 export class DailyLogComponent implements OnInit, OnDestroy {
   readonly rows = signal<DailySummaryRow[]>([]);
   readonly latest = computed(() => this.rows()[0]);
-  readonly from = signal('');
-  readonly to = signal('');
+  readonly from = signal(quickRangeDates(DEFAULT_QUICK_RANGE).from);
+  readonly to = signal(quickRangeDates(DEFAULT_QUICK_RANGE).to);
+  readonly quickRange = signal<QuickRange>(DEFAULT_QUICK_RANGE);
   readonly summaryState = signal<SummaryState>('loading');
   readonly summaryError = signal<string | null>(null);
   readonly selectedDate = signal<string | null>(null);
@@ -173,12 +189,12 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   ];
 
   readonly chartOptions = computed<EChartsCoreOption>(() => {
-    const chronological = [...this.rows()].reverse().slice(-120);
+    const chronological = [...this.rows()].reverse();
     return {
       tooltip: { trigger: 'axis' },
       legend: { bottom: 0 },
       grid: { left: 45, right: 20, top: 20, bottom: 55 },
-      xAxis: { type: 'category', data: chronological.map((r) => this.formatDate(r.metric_date)) },
+      xAxis: { type: 'category', data: chronological.map((r) => this.formatDate(r.metric_date)), axisLabel: { hideOverlap: true } },
       yAxis: { type: 'value' },
       series: [
         { name: 'Total points', type: 'bar', data: chronological.map((r) => r.total_points) },
@@ -211,9 +227,33 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.loadRows();
   }
 
+  setFrom(value: string): void {
+    this.from.set(value);
+    this.quickRange.set('custom');
+  }
+
+  setTo(value: string): void {
+    this.to.set(value);
+    this.quickRange.set('custom');
+  }
+
+  setQuickRange(value: string): void {
+    if (!QUICK_RANGE_VALUES.includes(value as QuickRange)) return;
+    const range = value as QuickRange;
+    this.quickRange.set(range);
+    if (range === 'custom') return;
+
+    const dates = quickRangeDates(range);
+    this.from.set(dates.from);
+    this.to.set(dates.to);
+    this.applyFilters();
+  }
+
   resetFilters(): void {
-    this.from.set('');
-    this.to.set('');
+    const dates = quickRangeDates(DEFAULT_QUICK_RANGE);
+    this.from.set(dates.from);
+    this.to.set(dates.to);
+    this.quickRange.set(DEFAULT_QUICK_RANGE);
     this.loadRows();
   }
 
@@ -229,7 +269,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.summarySubscription = this.api.dailySummary({
       from: this.from() || undefined,
       to: this.to() || undefined,
-      limit: 2000,
+      limit: 10_000,
     }).subscribe({
       next: (rows) => {
         this.rows.set(rows);
@@ -424,4 +464,24 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   formatDate(value: string | null | undefined): string {
     return formatDate(value);
   }
+}
+
+function quickRangeDates(range: Exclude<QuickRange, 'custom'>, today = new Date()): { from: string; to: string } {
+  const to = today.toISOString().slice(0, 10);
+  if (range === 'all') return { from: '', to: '' };
+  if (range === 'ytd') return { from: `${to.slice(0, 4)}-01-01`, to };
+
+  const months = range === '1m' ? 1 : range === '3m' ? 3 : range === '6m' ? 6 : range === '1y' ? 12 : 36;
+  return { from: shiftCalendarMonths(to, months), to };
+}
+
+function shiftCalendarMonths(value: string, months: number): string {
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7)) - 1;
+  const day = Number(value.slice(8, 10));
+  const targetMonthIndex = month - months;
+  const targetYear = year + Math.floor(targetMonthIndex / 12);
+  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
+  const daysInTargetMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  return `${targetYear.toString().padStart(4, '0')}-${(targetMonth + 1).toString().padStart(2, '0')}-${Math.min(day, daysInTargetMonth).toString().padStart(2, '0')}`;
 }

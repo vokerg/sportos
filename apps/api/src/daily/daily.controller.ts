@@ -19,7 +19,7 @@ export class DailyController {
     const range = parseDateRange(from, to, { maxDays: 3660 });
     return this.dailyService.summary({
       ...range,
-      limit: parseBoundedInteger(limit, { name: 'limit', defaultValue: 365, min: 1, max: 2000 }),
+      limit: parseBoundedInteger(limit, { name: 'limit', defaultValue: 365, min: 1, max: 10_000 }),
     }, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 

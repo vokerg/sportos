@@ -38,6 +38,7 @@ describe('DailyController cockpit contracts', () => {
     await expect(controller.summary('2026-02-30', '2026-05-31', '250')).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.summary('2026-06-01', '2026-05-31', '250')).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.summary(undefined, undefined, '0')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.summary(undefined, undefined, '10001')).rejects.toBeInstanceOf(BadRequestException);
     expect(service.summary).not.toHaveBeenCalled();
   });
 
