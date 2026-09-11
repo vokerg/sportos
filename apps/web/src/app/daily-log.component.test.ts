@@ -2,6 +2,7 @@ import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
+import type { GridReadyEvent } from 'ag-grid-community';
 import type { ApiService, DailySummaryRow } from './api.service';
 import { DailyLogComponent } from './daily-log.component';
 import type { ScoreBreakdownApiService } from './score-breakdown-api.service';
@@ -118,6 +119,21 @@ describe('DailyLogComponent cockpit workflow', () => {
 
     expect(xAxis.data).toHaveLength(121);
     expect(xAxis.data?.[0]).toBe(component.formatDate(rows[120].metric_date));
+  });
+
+  it('applies an allowed page size through the grid API', () => {
+    const setGridOption = vi.fn();
+    const component = createComponent({ getForDate: vi.fn() });
+
+    component.onGridReady({ api: { setGridOption } } as unknown as GridReadyEvent<DailySummaryRow>);
+    component.setPageSize('200');
+
+    expect(component.pageSize()).toBe(200);
+    expect(setGridOption).toHaveBeenLastCalledWith('paginationPageSize', 200);
+
+    component.setPageSize('50');
+    expect(component.pageSize()).toBe(200);
+    expect(setGridOption).toHaveBeenLastCalledWith('paginationPageSize', 200);
   });
 
   it('renders an actionable summary API failure', () => {

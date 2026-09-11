@@ -27,23 +27,24 @@ export interface DailyBreakdownGridContext {
       align-items: center;
       gap: 4px;
       min-height: 32px;
-      padding: 4px 0;
-      border: 0;
-      background: transparent;
-      color: #5267a8;
+      padding: 5px 8px;
+      border: 1px solid #c8d4f0;
+      border-radius: 8px;
+      background: #f8faff;
+      color: #3959a6;
       font-size: 12px;
       font-weight: 650;
       line-height: 1.2;
-      text-decoration: underline;
-      text-decoration-color: transparent;
-      text-underline-offset: 3px;
       cursor: pointer;
       white-space: nowrap;
+      transition: border-color 150ms ease, background 150ms ease, color 150ms ease, box-shadow 150ms ease;
     }
 
     .details-link:hover {
       color: #243b73;
-      text-decoration-color: currentColor;
+      border-color: #8fa5df;
+      background: #eef3ff;
+      box-shadow: 0 2px 6px rgba(36, 59, 115, .12);
     }
 
     .details-link:focus-visible {
