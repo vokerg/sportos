@@ -10,6 +10,7 @@ import { ScoreBreakdownActivitiesComponent } from './score-breakdown-activities.
 import { ScoreBreakdownFactsComponent } from './score-breakdown-facts.component';
 import { ScoreBreakdownLedgerComponent } from './score-breakdown-ledger.component';
 import { ScoreBreakdownProvenanceComponent } from './score-breakdown-provenance.component';
+import { ScoreBreakdownSourceSummaryComponent } from './score-breakdown-source-summary.component';
 import { ScoreBreakdownSummaryComponent } from './score-breakdown-summary.component';
 
 describe('score breakdown presentation components', () => {
@@ -34,12 +35,14 @@ describe('score breakdown presentation components', () => {
     const injector = createEnvironmentInjector([], Injector.NULL as unknown as EnvironmentInjector);
     const leaves = runInInjectionContext(injector, () => [
       new ScoreBreakdownActivitiesComponent(),
+      new ScoreBreakdownSourceSummaryComponent(),
       new ScoreBreakdownProvenanceComponent(),
       new ScoreBreakdownLedgerComponent(),
     ]);
 
     expect(leaves.map((component) => component.constructor.name)).toEqual([
       'ScoreBreakdownActivitiesComponent',
+      'ScoreBreakdownSourceSummaryComponent',
       'ScoreBreakdownProvenanceComponent',
       'ScoreBreakdownLedgerComponent',
     ]);
