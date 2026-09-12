@@ -9,6 +9,7 @@ import type {
   ScoreBreakdownViewState,
 } from './score-breakdown.models';
 import { ScoreBreakdownProvenanceComponent } from './score-breakdown-provenance.component';
+import { ScoreBreakdownSourceSummaryComponent } from './score-breakdown-source-summary.component';
 import { ScoreBreakdownSummaryComponent } from './score-breakdown-summary.component';
 import { formatScoreDate } from './score-breakdown.view-model';
 
@@ -21,6 +22,7 @@ import { formatScoreDate } from './score-breakdown.view-model';
     ScoreBreakdownLedgerComponent,
     ScoreBreakdownManualFactsComponent,
     ScoreBreakdownProvenanceComponent,
+    ScoreBreakdownSourceSummaryComponent,
     ScoreBreakdownSummaryComponent,
   ],
   template: `
@@ -88,15 +90,11 @@ import { formatScoreDate } from './score-breakdown.view-model';
           [breakdown]="current"
           (edit)="requestManualEdit()" />
 
-        <sportos-score-breakdown-provenance
-          [breakdown]="current"
-          [showRecords]="false" />
+        <sportos-score-breakdown-source-summary [breakdown]="current" />
 
         <sportos-score-breakdown-activities [breakdown]="current" />
 
-        <sportos-score-breakdown-provenance
-          [breakdown]="current"
-          [showSourceSummary]="false" />
+        <sportos-score-breakdown-provenance [breakdown]="current" />
 
         <sportos-score-breakdown-ledger [breakdown]="current" />
       }
