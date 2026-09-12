@@ -12,6 +12,7 @@ import {
   deltaKind,
   deltaValue,
   formatDistance,
+  formatActivityRate,
   formatNumber,
   formatSigned,
   importedEquationLabel,
@@ -131,6 +132,9 @@ describe('score breakdown view model', () => {
     expect(calculationLabel(breakdown.ledger[0]!.calculation)).toBe('metric value: 5 · coefficient: 4');
     expect(activityLabel(activity)).toBe('run · outdoor · 5 km · 20:00');
     expect(activityScoreLabel(activity, breakdown)).toBe('In ledger');
+    expect(formatActivityRate({ activityType: 'run', avgPaceSPerKm: 305, avgSpeedMps: 3.2 })).toBe('5:05/km');
+    expect(formatActivityRate({ activityType: 'bike', avgPaceSPerKm: 160.85, avgSpeedMps: 6.217 })).toBe('22.38 km/h');
+    expect(formatActivityRate({ activityType: 'bike', avgPaceSPerKm: 160.85, avgSpeedMps: null })).toBe('2:41/km');
   });
 
   it('keeps missing provenance explicit rather than guessing a source', () => {

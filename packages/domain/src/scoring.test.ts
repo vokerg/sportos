@@ -8,6 +8,7 @@ const rules: ScoringRule[] = [
   { code: 'power.manual', name: 'Power', activityType: 'power_bonus', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 60, enabled: true },
   { code: 'run.5k.sub25.bonus', name: '5k under 25', activityType: 'run', ruleKind: 'achievement', metric: 'duration_s', thresholdOperator: 'lt', thresholdValue: 1500, thresholdUnit: 's', points: 1000, validFrom: '1900-01-01', priority: 70, enabled: true },
   { code: 'run.10k.completed.bonus', name: '10k completed', activityType: 'run', ruleKind: 'achievement', metric: 'distance_m', thresholdOperator: 'gte', thresholdValue: 10000, thresholdUnit: 'm', points: 2000, validFrom: '1900-01-01', priority: 80, enabled: true },
+  { code: 'bike.10k.easy.bonus', name: '10k ride above 20 km/h', activityType: 'bike', ruleKind: 'achievement', metric: 'avg_speed_kmh', thresholdOperator: 'gt', thresholdValue: 20, thresholdUnit: 'kmh', points: 1000, validFrom: '1900-01-01', priority: 100, enabled: true },
 ];
 
 describe('scoreDay', () => {
@@ -269,6 +270,36 @@ describe('scoreActivityWithRule', () => {
       { activityDate: '2026-05-18', activityType: 'run', distanceM: 10_000, durationS: 3_001 },
       rule,
       '2026-05-18',
+    )).toBeNull();
+  });
+
+  it('awards the bike bonus for a 10k ride above 20 km/h and uses distance as an auxiliary condition', () => {
+    const rule = rules.find((candidate) => candidate.code === 'bike.10k.easy.bonus')!;
+
+    const qualifying = scoreActivityWithRule(
+      { activityDate: '2026-09-08', activityType: 'bike', subtype: 'outdoor', distanceM: 12_023.3, avgSpeedMps: 6.217 },
+      rule,
+      '2026-09-08',
+    );
+    expect(qualifying?.points).toBe(1000);
+    expect(qualifying?.calculationJson).toMatchObject({
+      metric: 'avg_speed_kmh',
+      metricValue: 22.3812,
+      thresholdOperator: 'gt',
+      auxiliaryConditions: [
+        { metric: 'distance_m', operator: 'gte', expected: 10_000, actual: 12_023.3, passed: true },
+      ],
+    });
+
+    expect(scoreActivityWithRule(
+      { activityDate: '2026-09-08', activityType: 'bike', distanceM: 9_999.9, avgSpeedMps: 6.217 },
+      rule,
+      '2026-09-08',
+    )).toBeNull();
+    expect(scoreActivityWithRule(
+      { activityDate: '2026-09-08', activityType: 'bike', distanceM: 12_023.3, avgSpeedMps: 20 / 3.6 },
+      rule,
+      '2026-09-08',
     )).toBeNull();
   });
 

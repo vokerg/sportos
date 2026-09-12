@@ -94,6 +94,13 @@ export function formatSpeed(metersPerSecond: number): string {
   return `${(metersPerSecond * 3.6).toLocaleString('en-US', { maximumFractionDigits: 2 })} km/h`;
 }
 
+export function formatActivityRate(activity: Pick<ScoreBreakdownActivity, 'activityType' | 'avgPaceSPerKm' | 'avgSpeedMps'>): string {
+  if (activity.activityType === 'bike' && activity.avgSpeedMps !== null) return formatSpeed(activity.avgSpeedMps);
+  if (activity.avgPaceSPerKm !== null) return formatPace(activity.avgPaceSPerKm);
+  if (activity.avgSpeedMps !== null) return formatSpeed(activity.avgSpeedMps);
+  return '—';
+}
+
 export function formatSigned(value: number): string {
   if (value > 0) return `+${formatNumber(value)}`;
   if (value < 0) return `−${formatNumber(Math.abs(value))}`;

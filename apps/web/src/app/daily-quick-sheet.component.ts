@@ -1,10 +1,12 @@
-import { Component, input, output } from '@angular/core';
-import type { DailyScoreBreakdown, ScoreBreakdownViewState } from './score-breakdown.models';
+import { Component, input, output, signal } from '@angular/core';
+import { ScoreBreakdownManualFactsComponent } from './score-breakdown-manual-facts.component';
+import type { DailyScoreBreakdown, ManualDailyFactsInput, ScoreBreakdownViewState } from './score-breakdown.models';
 import { formatDate } from './date-time';
 
 @Component({
   selector: 'sportos-daily-quick-sheet',
   standalone: true,
+  imports: [ScoreBreakdownManualFactsComponent],
   template: `
     @if (date()) {
       <div class="sheet-layer" role="dialog" aria-modal="true" [attr.aria-labelledby]="headingId">
@@ -48,15 +50,25 @@ import { formatDate } from './date-time';
               <small>Workbook cells and provider JSON remain available on the full day page.</small>
             </section>
             <div class="sheet-actions">
-              <button type="button" (click)="edit.emit()">Edit complete facts</button>
+              <button type="button" (click)="requestManualEdit()">Edit complete facts</button>
               <button type="button" class="secondary" (click)="recalculate.emit()" [disabled]="recalculating()">{{ recalculating() ? 'Recalculating…' : 'Recalculate' }}</button>
               <button type="button" class="full" (click)="opened.emit()">Open complete day →</button>
             </div>
             @if (recalculationError()) { <p class="inline-error" role="alert">{{ recalculationError() }}</p> }
           } @else {
             <p>No persisted score is available for this date.</p>
-            <button type="button" (click)="edit.emit()">Enter facts manually</button>
+            <button type="button" (click)="requestManualEdit()">Enter facts manually</button>
           }
+
+          <sportos-score-breakdown-manual-facts
+            [active]="state() === 'loaded'"
+            [date]="date()"
+            [breakdown]="breakdown()"
+            [saving]="savingManual()"
+            [saveError]="manualSaveError()"
+            [editRequestId]="manualEditRequestId() + localManualEditRequestId()"
+            [showWhenEmpty]="state() === 'loaded' && !!date() && !breakdown()"
+            (save)="saveManualFacts.emit($event)" />
         </aside>
       </div>
     }
@@ -96,11 +108,15 @@ export class DailyQuickSheetComponent {
   readonly errorMessage = input<string | null>(null);
   readonly recalculating = input(false);
   readonly recalculationError = input<string | null>(null);
+  readonly savingManual = input(false);
+  readonly manualSaveError = input<string | null>(null);
+  readonly manualEditRequestId = input(0);
   readonly closed = output<void>();
   readonly opened = output<void>();
-  readonly edit = output<void>();
   readonly retry = output<void>();
   readonly recalculate = output<void>();
+  readonly saveManualFacts = output<ManualDailyFactsInput>();
+  readonly localManualEditRequestId = signal(0);
   readonly headingId = 'daily-quick-sheet-heading';
   readonly formatDate = formatDate;
 
@@ -112,5 +128,9 @@ export class DailyQuickSheetComponent {
   }
   statusLabel(status: DailyScoreBreakdown['scoreStatus']): string {
     return status === 'imported' ? 'Imported ledger' : status === 'manual' ? 'Manual edit' : 'Calculated';
+  }
+
+  requestManualEdit(): void {
+    this.localManualEditRequestId.update((value) => value + 1);
   }
 }

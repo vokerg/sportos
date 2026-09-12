@@ -17,7 +17,7 @@ const rules: ScoringRule[] = [
   { code: 'run.5k.sub25.bonus', name: '5k under 25', activityType: 'run', ruleKind: 'achievement', metric: 'duration_s', thresholdOperator: 'lt', thresholdValue: 1500, thresholdUnit: 's', points: 1000, validFrom: '1900-01-01', priority: 70, enabled: true },
   { code: 'run.10k.completed.bonus', name: '10k completed', activityType: 'run', ruleKind: 'achievement', metric: 'distance_m', thresholdOperator: 'gte', thresholdValue: 10000, thresholdUnit: 'm', points: 2000, validFrom: '1900-01-01', priority: 80, enabled: true },
   { code: 'swim.1k.sub20.bonus', name: '1km swim under 20', activityType: 'swim', ruleKind: 'achievement', metric: 'duration_s', thresholdOperator: 'lt', thresholdValue: 1200, thresholdUnit: 's', points: 1000, validFrom: '1900-01-01', priority: 90, enabled: true },
-  { code: 'bike.10k.easy.bonus', name: 'Easy bike', activityType: 'bike', ruleKind: 'achievement', metric: 'avg_speed_kmh', thresholdOperator: 'lt', thresholdValue: 20, thresholdUnit: 'kmh', points: 1000, validFrom: '1900-01-01', priority: 100, enabled: true },
+  { code: 'bike.10k.easy.bonus', name: 'Fast bike', activityType: 'bike', ruleKind: 'achievement', metric: 'avg_speed_kmh', thresholdOperator: 'gt', thresholdValue: 20, thresholdUnit: 'kmh', points: 1000, validFrom: '1900-01-01', priority: 100, enabled: true },
 ];
 
 describe('fixture scoring reconciliation evidence', () => {

@@ -263,6 +263,10 @@ function achievementAuxiliaryConditions(
     const actual = durationS !== undefined && distanceM > 0 ? durationS / (distanceM / 1000) : 0;
     return [{ metric: 'pace_s_per_km', operator: 'lte', expected: 300, actual, passed: durationS !== undefined && distanceM > 0 && actual <= 300 }];
   }
+  if (rule.code === 'bike.10k.easy.bonus') {
+    const actual = activity.distanceM ?? 0;
+    return [{ metric: 'distance_m', operator: 'gte', expected: 10_000, actual, passed: actual >= 10_000 }];
+  }
   return [];
 }
 

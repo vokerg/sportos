@@ -5,9 +5,8 @@ import {
   activityScoreLabel,
   formatDistance,
   formatDuration,
-  formatPace,
+  formatActivityRate,
   formatScoreDate,
-  formatSpeed,
   formatTimestamp,
   sourceName,
   sourceSummary,
@@ -43,7 +42,7 @@ import {
                   <td>{{ activity.distanceM === null ? '—' : formatDistance(activity.distanceM) }}</td>
                   <td>{{ activity.durationS === null ? '—' : formatDuration(activity.durationS) }}</td>
                   <td>{{ activity.movingTimeS === null ? '—' : formatDuration(activity.movingTimeS) }}</td>
-                  <td>{{ activity.avgPaceSPerKm === null ? (activity.avgSpeedMps === null ? '—' : formatSpeed(activity.avgSpeedMps)) : formatPace(activity.avgPaceSPerKm) }}</td>
+                  <td>{{ formatActivityRate(activity) }}</td>
                   <td><span class="score-link" [class.context-only]="activityScoreLabel(activity, current) === 'Context only'" [class.daily-fact]="activityScoreLabel(activity, current) === 'Daily fact'">{{ activityScoreLabel(activity, current) }}</span></td>
                   <td>{{ sourceSummary(activity.sourceRecord) }}</td>
                 </tr>
@@ -84,9 +83,8 @@ export class ScoreBreakdownActivitiesComponent {
   readonly activityScoreLabel = activityScoreLabel;
   readonly formatDistance = formatDistance;
   readonly formatDuration = formatDuration;
-  readonly formatPace = formatPace;
+  readonly formatActivityRate = formatActivityRate;
   readonly formatScoreDate = formatScoreDate;
-  readonly formatSpeed = formatSpeed;
   readonly formatTimestamp = formatTimestamp;
   readonly sourceName = sourceName;
   readonly sourceSummary = sourceSummary;

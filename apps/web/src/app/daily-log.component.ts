@@ -129,10 +129,13 @@ const DEFAULT_QUICK_RANGE = '3m' as const;
         [errorMessage]="breakdownError()"
         [recalculating]="recalculationState() === 'working'"
         [recalculationError]="recalculationError()"
+        [savingManual]="manualSaveState() === 'working'"
+        [manualSaveError]="manualSaveError()"
+        [manualEditRequestId]="manualEditRequestId()"
         (retry)="retryBreakdown()"
         (recalculate)="recalculateSelectedDate()"
+        (saveManualFacts)="saveManualFacts($event)"
         (opened)="openFullDay()"
-        (edit)="openFullDay(true)"
         (closed)="closeBreakdown()" />
     </section>
   `,
@@ -338,10 +341,9 @@ export class DailyLogComponent implements OnInit, OnDestroy {
 
   openManualEntry(date: string): void {
     if (!date) return;
-    this.selectedDate.set(date);
     this.manualSaveError.set(null);
     this.manualEditRequestId.update((requestId) => requestId + 1);
-    void this.router.navigate(['/daily', date], { queryParams: { edit: 'true' } });
+    this.loadBreakdown(date, true);
   }
 
   openFullDay(edit = false): void {
@@ -433,8 +435,11 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   private loadBreakdown(date: string, allowMissing = false): void {
     this.breakdownSubscription?.unsubscribe();
     this.recalculationSubscription?.unsubscribe();
+    this.manualSaveSubscription?.unsubscribe();
     this.recalculationState.set('idle');
+    this.manualSaveState.set('idle');
     this.recalculationError.set(null);
+    this.manualSaveError.set(null);
     this.selectedDate.set(date);
     this.breakdown.set(null);
     this.breakdownError.set(null);

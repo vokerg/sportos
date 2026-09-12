@@ -208,18 +208,21 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(api.dailySummary).toHaveBeenCalledTimes(1);
   });
 
-  it('opens existing facts on the dedicated daily route', () => {
+  it('opens existing facts for editing in the quick sheet', () => {
     const scoreApi = { getForDate: vi.fn().mockReturnValue(of(breakdown)) };
     const router = { navigate: vi.fn().mockResolvedValue(true) };
     const component = createComponent(scoreApi, undefined, router);
 
     component.openManualEntry(row.metric_date);
 
-    expect(router.navigate).toHaveBeenCalledWith(['/daily', row.metric_date], { queryParams: { edit: 'true' } });
+    expect(scoreApi.getForDate).toHaveBeenCalledWith(row.metric_date);
+    expect(component.selectedDate()).toBe(row.metric_date);
+    expect(component.breakdown()).toEqual(breakdown);
+    expect(router.navigate).not.toHaveBeenCalled();
     expect(component.manualEditRequestId()).toBe(1);
   });
 
-  it('uses the dedicated daily route for a blank manual entry', () => {
+  it('opens a blank manual entry in the quick sheet', () => {
     const scoreApi = {
       getForDate: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({
         status: 404,
@@ -232,7 +235,9 @@ describe('DailyLogComponent cockpit workflow', () => {
     component.openManualEntry('2026-05-19');
 
     expect(component.selectedDate()).toBe('2026-05-19');
-    expect(router.navigate).toHaveBeenCalledWith(['/daily', '2026-05-19'], { queryParams: { edit: 'true' } });
+    expect(component.breakdownState()).toBe('loaded');
+    expect(component.breakdown()).toBeNull();
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 
   it('keeps the imported breakdown visible when Strava recalculation is unavailable', () => {

@@ -42,11 +42,9 @@ describe('ScoreBreakdownManualFactsComponent', () => {
 
     expect({
       steps: component.manualSteps(),
-      runKm: component.manualRunTotalKm(),
       runIndoorKm: component.manualRunIndoorKm(),
       runOutdoorKm: component.manualRunOutdoorKm(),
       runUnspecifiedKm: component.manualRunUnspecifiedKm(),
-      bikeKm: component.manualBikeTotalKm(),
       bikeIndoorKm: component.manualBikeIndoorKm(),
       bikeOutdoorKm: component.manualBikeOutdoorKm(),
       bikeUnspecifiedKm: component.manualBikeUnspecifiedKm(),
@@ -55,11 +53,9 @@ describe('ScoreBreakdownManualFactsComponent', () => {
       powerPoints: component.manualPowerPoints(),
     }).toEqual({
       steps: 12_345,
-      runKm: 8.5,
       runIndoorKm: 2.5,
       runOutdoorKm: 5,
       runUnspecifiedKm: 1,
-      bikeKm: 21.25,
       bikeIndoorKm: 10,
       bikeOutdoorKm: 8.25,
       bikeUnspecifiedKm: 3,
@@ -87,8 +83,6 @@ describe('ScoreBreakdownManualFactsComponent', () => {
     component.submitManualFacts();
 
     expect(component.validationError()).toBeNull();
-    expect(component.manualRunTotalKm()).toBe(7);
-    expect(component.manualBikeTotalKm()).toBe(13);
     expect(emitted).toEqual([expect.objectContaining({
       runIndoorM: 4000,
       runOutdoorM: 2000,

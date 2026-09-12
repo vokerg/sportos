@@ -29,7 +29,7 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | 70 | `run.5k.sub25.bonus` | Bonus | +1,000 points | one activity: duration strictly `< 1,500 s`; distance within ±500 m of 5,000 m | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
 | 80 | `run.10k.completed.bonus` | Bonus | +2,000 points | one activity: distance `>= 10,000 m`; elapsed pace `<= 300 s/km` (5:00/km) | SportOS rule. Both conditions must pass; it is not assumed to be included in spreadsheet `All`. |
 | 90 | `swim.1k.sub20.bonus` | Bonus | +1,000 points | one activity: duration strictly `< 1,200 s`; distance `>= 1,000 m` | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
-| 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | one activity: average speed strictly `< 20 km/h`; no separate distance minimum is currently enforced | SportOS rule with an unresolved naming/condition mismatch: the name mentions 10 km, but the current engine has no minimum-distance condition. |
+| 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | one activity: distance `>= 10,000 m`; average speed strictly `> 20 km/h` | SportOS rule; provider average speed is stored in m/s and converted to km/h for the threshold. |
 
 ## Spreadsheet component evidence
 
@@ -130,7 +130,6 @@ The following items remain intentionally unresolved until permitted source evide
 - whether swim used 7.5 points/m for every historical period;
 - which source columns are included in `WOtotal` across workbook versions;
 - whether `Pow` is included in every spreadsheet `All` formula;
-- whether spreadsheet `All` includes any SportOS achievement bonuses;
-- whether the bike bonus should enforce the 10 km minimum implied by its name.
+- whether spreadsheet `All` includes any SportOS achievement bonuses.
 
 A future rule change must use a new effective period or versioned rule rather than silently tuning current values to reduce deltas.

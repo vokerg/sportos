@@ -1,6 +1,6 @@
 import { Component, input, output, signal, type OnChanges } from '@angular/core';
 import type { DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
-import { formatNumber, formatScoreDate } from './score-breakdown.view-model';
+import { formatScoreDate } from './score-breakdown.view-model';
 
 @Component({
   selector: 'sportos-score-breakdown-manual-facts',
@@ -12,16 +12,14 @@ import { formatNumber, formatScoreDate } from './score-breakdown.view-model';
           <div>
             <span class="section-label">Manual canonical entry</span>
             <h4>{{ breakdown() ? 'Replace the current daily facts' : 'Create daily facts for ' + formatScoreDate(date()) }}</h4>
-            <p class="section-help">Run and bike totals are calculated from the editable indoor, outdoor, and unspecified distances. Each component is retained as a manual activity.</p>
+            <p class="section-help">Enter indoor, outdoor, and unspecified distances separately. Each value is retained as a manual activity.</p>
           </div>
         </div>
         <div class="manual-facts-grid">
           <label>Steps <input type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
-          <div class="manual-derived-field" aria-readonly="true"><span>Run total (km)</span><strong>{{ formatNumber(manualRunTotalKm()) }}</strong><small>Calculated from treadmill + outdoor + unspecified</small></div>
           <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
           <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
           <label>Run unspecified (km) <input type="number" min="0" step="0.01" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
-          <div class="manual-derived-field" aria-readonly="true"><span>Bike total (km)</span><strong>{{ formatNumber(manualBikeTotalKm()) }}</strong><small>Calculated from indoor + outdoor + unspecified</small></div>
           <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
           <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
           <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
@@ -39,6 +37,7 @@ import { formatNumber, formatScoreDate } from './score-breakdown.view-model';
     }
   `,
   styles: [`
+    :host { display: block; container-type: inline-size; }
     .manual-facts-form { margin: 22px 0 0; padding: 16px; border: 1px solid #d8c68f; border-radius: 12px; background: #fffaf0; }
     .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
     .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
@@ -47,16 +46,15 @@ import { formatNumber, formatScoreDate } from './score-breakdown.view-model';
     .manual-facts-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 10px; }
     .manual-facts-grid label { display: grid; gap: 5px; color: #475467; font-size: 11px; font-weight: 700; }
     .manual-facts-grid input { min-width: 0; padding: 8px; border: 1px solid #cbd6ed; border-radius: 7px; background: white; }
-    .manual-derived-field { display: grid; gap: 4px; align-content: start; padding: 8px; border: 1px solid #d8dfed; border-radius: 7px; background: #f4f6fb; color: #475467; font-size: 11px; font-weight: 700; }
-    .manual-derived-field strong { color: #1d2939; font-size: 14px; }
-    .manual-derived-field small { color: #667085; font-size: 10px; font-weight: 500; }
     .manual-form-actions { display: flex; gap: 8px; margin-top: 14px; }
     .recalculation-error { color: #b54747; font-size: 12px; }
     .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
-    @media (max-width: 900px) { .manual-facts-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); } }
-    @media (max-width: 680px) {
+    @container (max-width: 900px) { .manual-facts-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); } }
+    @container (max-width: 520px) {
+      .manual-facts-form { margin-top: 18px; padding: 14px; }
       .manual-facts-grid { grid-template-columns: 1fr; }
       .section-heading { flex-direction: column; }
+      .manual-form-actions { display: grid; grid-template-columns: 1fr; }
     }
   `],
 })
@@ -83,7 +81,6 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
   readonly manualWorkoutPoints = signal(0);
   readonly manualPowerPoints = signal(0);
 
-  readonly formatNumber = formatNumber;
   readonly formatScoreDate = formatScoreDate;
   private handledEditRequestId = 0;
 
@@ -153,14 +150,6 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
       workoutPoints: this.manualWorkoutPoints(),
       powerPoints: this.manualPowerPoints(),
     });
-  }
-
-  manualRunTotalKm(): number {
-    return this.manualRunIndoorKm() + this.manualRunOutdoorKm() + this.manualRunUnspecifiedKm();
-  }
-
-  manualBikeTotalKm(): number {
-    return this.manualBikeIndoorKm() + this.manualBikeOutdoorKm() + this.manualBikeUnspecifiedKm();
   }
 
   numberInputValue(event: Event): number {
