@@ -16,7 +16,8 @@ import {
   standalone: true,
   template: `
     @let current = breakdown();
-    <div class="source-card">
+    @if (showSourceSummary()) {
+      <div class="source-card">
       <span class="source-icon" aria-hidden="true">↗</span>
       <div class="source-copy">
         <span class="section-label">Source</span>
@@ -33,9 +34,11 @@ import {
           </dl>
         </details>
       }
-    </div>
+      </div>
+    }
 
-    <section class="data-section" aria-labelledby="day-source-title">
+    @if (showRecords()) {
+      <section class="data-section" aria-labelledby="day-source-title">
       <div class="section-heading">
         <div>
           <span class="section-label">Raw provenance</span>
@@ -80,7 +83,8 @@ import {
           }
         </div>
       }
-    </section>
+      </section>
+    }
   `,
   styles: [`
     .source-card { display: flex; align-items: center; justify-content: flex-start; gap: 16px; margin: 14px 0 22px; padding: 12px 14px; border: 1px solid #e1e7f0; border-radius: 12px; background: rgba(255, 255, 255, .72); }
@@ -131,6 +135,8 @@ import {
 })
 export class ScoreBreakdownProvenanceComponent {
   readonly breakdown = input.required<DailyScoreBreakdown>();
+  readonly showSourceSummary = input(true);
+  readonly showRecords = input(true);
 
   readonly hasWorkbookCells = hasWorkbookCells;
   readonly jsonLabel = jsonLabel;
