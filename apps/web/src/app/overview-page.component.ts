@@ -6,8 +6,7 @@ import { ApiService, type DailySummaryRow } from './api.service';
 import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
 import { formatDate } from './date-time';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
-import type { ScoreBreakdownViewState } from './score-breakdown-panel.component';
-import type { ApiErrorBody, DailyScoreBreakdown } from './score-breakdown.models';
+import type { ApiErrorBody, DailyScoreBreakdown, ScoreBreakdownViewState } from './score-breakdown.models';
 
 type OverviewState = 'loading' | 'loaded' | 'empty' | 'error';
 

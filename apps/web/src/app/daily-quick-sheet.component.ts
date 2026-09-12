@@ -1,6 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import type { DailyScoreBreakdown } from './score-breakdown.models';
-import type { ScoreBreakdownViewState } from './score-breakdown-panel.component';
+import type { DailyScoreBreakdown, ScoreBreakdownViewState } from './score-breakdown.models';
 import { formatDate } from './date-time';
 
 @Component({

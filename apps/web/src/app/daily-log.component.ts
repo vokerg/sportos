@@ -13,11 +13,8 @@ import {
   type DailyBreakdownGridContext,
 } from './daily-breakdown-button.component';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
-import {
-  type ScoreBreakdownViewState,
-} from './score-breakdown-panel.component';
 import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
-import type { ApiErrorBody, DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
+import type { ApiErrorBody, DailyScoreBreakdown, ManualDailyFactsInput, ScoreBreakdownViewState } from './score-breakdown.models';
 import { formatDate } from './date-time';
 
 type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';

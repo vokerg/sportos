@@ -7,288 +7,52 @@ import {
 } from '@angular/core';
 import { describe, expect, it } from 'vitest';
 import { ScoreBreakdownPanelComponent } from './score-breakdown-panel.component';
-import type { DailyScoreBreakdown, ScoreBreakdownActivity, SourceRecordReference } from './score-breakdown.models';
-
-const source: SourceRecordReference = {
-  id: '10000000-0000-4000-8000-000000000001',
-  rowHash: 'row-hash',
-  sheetName: 'Sheet1',
-  rowIndex: 2,
-  status: 'normalized',
-  rawJson: { headers: ['Date'], cells: [46130] },
-  errors: [],
-  warnings: [],
-  normalizedEntityType: 'daily_metric',
-  normalizedEntityId: '2026-05-18',
-  batch: {
-    id: '20000000-0000-4000-8000-000000000001',
-    source: 'my_sport_xlsx',
-    filename: 'my_sport.xlsx',
-    originalSha256: 'file-hash',
-    status: 'scored',
-    startedAt: '2026-05-18T11:59:00.000Z',
-    completedAt: '2026-05-18T12:00:00.000Z',
-  },
-};
-
-const activity: ScoreBreakdownActivity = {
-  id: '30000000-0000-4000-8000-000000000001',
-  source: 'my_sport_xlsx',
-  sourceActivityId: null,
-  activityDate: '2026-05-18',
-  startTime: null,
-  activityType: 'run',
-  subtype: 'outdoor',
-  distanceM: 5_000,
-  durationS: 1_200,
-  movingTimeS: null,
-  steps: null,
-  calories: null,
-  avgHr: null,
-  maxHr: null,
-  elevationGainM: null,
-  avgSpeedMps: null,
-  avgPaceSPerKm: null,
-  effortPoints: null,
-  notes: null,
-  sourceRecord: source,
-};
-
-const breakdown: DailyScoreBreakdown = {
-  date: '2026-05-18',
-  recomputedAt: '2026-05-18T12:00:00.000Z',
-  scoreStatus: 'calculated',
-  facts: { steps: 12_345, runM: 5_000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
-  score: { appTotal: 25, excelTotal: 24, delta: 1, baseTotal: 20, bonusTotal: 5, ledgerTotal: 25 },
-  sourceRecord: source,
-  activities: [activity],
-  sourceRecords: [source],
-  ledger: [
-    {
-      id: '40000000-0000-4000-8000-000000000001',
-      points: 20,
-      reason: 'Run coefficient',
-      calculation: { metricValue: 5, coefficient: 4 },
-      createdAt: '2026-05-18T12:00:00.000Z',
-      rule: null,
-      activity,
-    },
-    {
-      id: '40000000-0000-4000-8000-000000000002',
-      points: 5,
-      reason: 'Achievement bonus',
-      calculation: { thresholdOperator: 'lt', thresholdValue: 1_500 },
-      createdAt: '2026-05-18T12:00:01.000Z',
-      rule: null,
-      activity: null,
-    },
-  ],
-};
 
 describe('ScoreBreakdownPanelComponent', () => {
-  it('distinguishes positive, negative, zero, and unavailable deltas', () => {
+  it('defaults to the accessible idle composition state', () => {
     const { component, injector } = createComponent();
-
-    expect([1, -1, 0, null].map((delta) => component.deltaKind(delta))).toEqual([
-      'positive',
-      'negative',
-      'zero',
-      'unavailable',
-    ]);
-    expect(component.deltaValue(4)).toBe('+4');
-    expect(component.deltaValue(-4)).toBe('−4');
-    expect(component.deltaValue(0)).toBe('0');
-    expect(component.deltaValue(null)).toBe('Not available');
-    expect(component.deltaDescription(null)).toContain('No spreadsheet total');
-
-    injector.destroy();
-  });
-
-  it('presents ledger inputs, activity values, and provenance without scoring', () => {
-    const { component, injector } = createComponent();
-
-    expect(component.ledgerSum(breakdown)).toBe(25);
-    expect(component.ledgerMatchesAppTotal(breakdown)).toBe(true);
-    expect(component.calculationLabel(breakdown.ledger[0]!.calculation)).toBe('metric value: 5 · coefficient: 4');
-    expect(component.activityLabel(activity)).toBe('run · outdoor · 5 km · 20:00');
-    expect(component.sourceSummary(source)).toBe('my_sport.xlsx · Sheet1 row 2');
-    expect(component.sourceSummary(null)).toBe('Source link unavailable');
-
-    injector.destroy();
-  });
-
-  it('explains an imported workbook total from retained cached source values', () => {
-    const { component, injector } = createComponent();
-    const importedSource: SourceRecordReference = {
-      ...source,
-      rawJson: {
-        headers: ['Date', 'Steps', 'Run to S', 'Bike to S', 'WOtotal', 'Pow', 'All'],
-        cells: [46130, 1000, 2000, 2991, 4, 5, 6000],
-      },
-    };
-    const importedBreakdown: DailyScoreBreakdown = {
-      ...breakdown,
-      scoreStatus: 'imported',
-      sourceRecord: importedSource,
-      score: { appTotal: 6000, excelTotal: 6000, delta: 0, baseTotal: 6000, bonusTotal: 0, ledgerTotal: 6000 },
-      ledger: [{
-        id: '40000000-0000-4000-8000-000000000003',
-        points: 6000,
-        reason: 'Imported workbook ledger total',
-        calculation: { scoreStatus: 'imported', source: 'my_sport_xlsx', field: 'All', importedPoints: 6000 },
-        createdAt: '2026-05-18T12:00:00.000Z',
-        rule: null,
-        activity: null,
-      }],
-    };
-
-    const details = component.importedLedgerDetails(importedBreakdown.ledger[0]!, importedBreakdown);
-    expect(details).toMatchObject({
-      formula: null,
-      showEquation: true,
-      inputTotal: 6000,
-      matchesTotal: true,
-    });
-    expect(details?.inputs.map((input) => [input.label, input.value])).toEqual([
-      ['Steps', 1000],
-      ['Run to S', 2000],
-      ['Bike to S', 2991],
-      ['WOtotal', 4],
-      ['Pow', 5],
-    ]);
-    expect(component.importedEquationLabel(details!, 6000)).toContain('Available cached workbook values');
-
-    injector.destroy();
-  });
-
-  it('defaults to the accessible idle and empty state and presents unavailable Excel data explicitly', () => {
-    const { component, injector } = createComponent();
-    const noExcel = { ...breakdown, score: { ...breakdown.score, excelTotal: null, delta: null } };
 
     expect(component.state()).toBe('idle');
     expect(component.date()).toBeNull();
     expect(component.breakdown()).toBeNull();
     expect(component.errorMessage()).toBeNull();
-    expect(component.deltaKind(noExcel.score.delta)).toBe('unavailable');
-    expect(component.deltaValue(noExcel.score.delta)).toBe('Not available');
+    expect(component.recalculating()).toBe(false);
+    expect(component.recalculationError()).toBeNull();
+    expect(component.savingManual()).toBe(false);
+    expect(component.manualSaveError()).toBeNull();
 
     injector.destroy();
   });
 
-  it('emits manual facts with run and bike totals derived from their splits', () => {
+  it('turns local edit intents into monotonic child edit requests', () => {
     const { component, injector } = createComponent();
-    const emitted: unknown[] = [];
-    component.saveManualFacts.subscribe((value) => emitted.push(value));
-    component.startManualEdit(null);
-    component.manualRunIndoorKm.set(4);
-    component.manualRunOutdoorKm.set(2);
-    component.manualRunUnspecifiedKm.set(1);
-    component.manualBikeIndoorKm.set(10);
-    component.manualBikeOutdoorKm.set(2);
-    component.manualBikeUnspecifiedKm.set(1);
-    component.submitManualFacts();
-    expect(component.manualValidationError()).toBeNull();
-    expect(component.manualRunTotalKm()).toBe(7);
-    expect(component.manualBikeTotalKm()).toBe(13);
-    expect(emitted).toEqual([expect.objectContaining({
-      runIndoorM: 4000,
-      runOutdoorM: 2000,
-      runUnspecifiedM: 1000,
-      bikeIndoorM: 10000,
-      bikeOutdoorM: 2000,
-      bikeUnspecifiedM: 1000,
-    })]);
-    expect(emitted[0]).not.toHaveProperty('runM');
-    expect(emitted[0]).not.toHaveProperty('bikeM');
+
+    expect(component.localManualEditRequestId()).toBe(0);
+    component.requestManualEdit();
+    component.requestManualEdit();
+
+    expect(component.localManualEditRequestId()).toBe(2);
 
     injector.destroy();
   });
 
-  it('prefills manual editing from the current canonical facts', () => {
+  it('exposes top-level workflow intents without owning API orchestration', () => {
     const { component, injector } = createComponent();
-    const current = {
-      ...breakdown,
-      facts: {
-        steps: 12_345,
-        runM: 8_500,
-        runIndoorM: 2_500,
-        runOutdoorM: 5_000,
-        runUnspecifiedM: 1_000,
-        bikeM: 21_250,
-        bikeIndoorM: 10_000,
-        bikeOutdoorM: 8_250,
-        bikeUnspecifiedM: 3_000,
-        swimM: 750,
-        workoutPoints: 12,
-        powerPoints: 4,
-      },
-    } satisfies DailyScoreBreakdown;
+    const intents: string[] = [];
 
-    component.startManualEdit(current);
+    component.retry.subscribe(() => intents.push('retry'));
+    component.recalculate.subscribe(() => intents.push('recalculate'));
+    component.closed.subscribe(() => intents.push('closed'));
 
-    expect({
-      steps: component.manualSteps(),
-      runKm: component.manualRunTotalKm(),
-      runIndoorKm: component.manualRunIndoorKm(),
-      runOutdoorKm: component.manualRunOutdoorKm(),
-      runUnspecifiedKm: component.manualRunUnspecifiedKm(),
-      bikeKm: component.manualBikeTotalKm(),
-      bikeIndoorKm: component.manualBikeIndoorKm(),
-      bikeOutdoorKm: component.manualBikeOutdoorKm(),
-      bikeUnspecifiedKm: component.manualBikeUnspecifiedKm(),
-      swimM: component.manualSwimM(),
-      workoutPoints: component.manualWorkoutPoints(),
-      powerPoints: component.manualPowerPoints(),
-    }).toEqual({
-      steps: 12_345,
-      runKm: 8.5,
-      runIndoorKm: 2.5,
-      runOutdoorKm: 5,
-      runUnspecifiedKm: 1,
-      bikeKm: 21.25,
-      bikeIndoorKm: 10,
-      bikeOutdoorKm: 8.25,
-      bikeUnspecifiedKm: 3,
-      swimM: 750,
-      workoutPoints: 12,
-      powerPoints: 4,
-    });
-    expect(component.editingManual()).toBe(true);
+    component.retry.emit();
+    component.recalculate.emit();
+    component.closed.emit();
 
-    injector.destroy();
-  });
-
-  it('saves a steps-only entry while treating cleared fields as zero', () => {
-    const { component, injector } = createComponent();
-    const emitted: unknown[] = [];
-    component.saveManualFacts.subscribe((value) => emitted.push(value));
-    component.startManualEdit(null);
-
-    component.manualSteps.set(component.numberInputValue(numberInputEvent('5056', 5056)));
-    component.manualSwimM.set(component.numberInputValue(numberInputEvent('', Number.NaN)));
-    component.submitManualFacts();
-
-    expect(component.manualValidationError()).toBeNull();
-    expect(emitted).toEqual([{
-      steps: 5056,
-      runIndoorM: 0,
-      runOutdoorM: 0,
-      runUnspecifiedM: 0,
-      bikeIndoorM: 0,
-      bikeOutdoorM: 0,
-      bikeUnspecifiedM: 0,
-      swimM: 0,
-      workoutPoints: 0,
-      powerPoints: 0,
-    }]);
+    expect(intents).toEqual(['retry', 'recalculate', 'closed']);
 
     injector.destroy();
   });
 });
-
-function numberInputEvent(value: string, valueAsNumber: number): Event {
-  return { target: { value, valueAsNumber } } as unknown as Event;
-}
 
 function createComponent(): { component: ScoreBreakdownPanelComponent; injector: EnvironmentInjector } {
   const injector = createEnvironmentInjector([], Injector.NULL as unknown as EnvironmentInjector);

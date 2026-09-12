@@ -1,5 +1,7 @@
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
+export type ScoreBreakdownViewState = 'idle' | 'loading' | 'loaded' | 'error';
+
 export interface ImportBatchReference {
   id: string;
   source: string;
