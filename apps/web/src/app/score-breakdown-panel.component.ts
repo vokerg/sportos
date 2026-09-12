@@ -5,11 +5,12 @@ import type {
   ManualDailyFactsInput,
   ScoreBreakdownActivity,
   ScoreBreakdownLedgerEntry,
+  ScoreBreakdownViewState,
   SourceRecordReference,
 } from './score-breakdown.models';
 import { formatDate, formatDateTime } from './date-time';
-
-export type ScoreBreakdownViewState = 'idle' | 'loading' | 'loaded' | 'error';
+import { ScoreBreakdownFactsComponent } from './score-breakdown-facts.component';
+import { ScoreBreakdownSummaryComponent } from './score-breakdown-summary.component';
 export type DeltaKind = 'positive' | 'negative' | 'zero' | 'unavailable';
 
 interface ImportedLedgerInput {
@@ -31,6 +32,7 @@ interface ImportedLedgerDetails {
 @Component({
   selector: 'sportos-score-breakdown-panel',
   standalone: true,
+  imports: [ScoreBreakdownSummaryComponent, ScoreBreakdownFactsComponent],
   template: `
     <section
       class="breakdown-panel"
@@ -86,67 +88,15 @@ interface ImportedLedgerDetails {
           <button type="button" (click)="startManualEdit(null)">Enter facts manually</button>
         </div>
       } @else {
-        <div class="score-overview" aria-label="Score summary">
-          <div class="total-card">
-            <span class="metric-label">Total score</span>
-            <strong>{{ formatNumber(current.score.appTotal) }}</strong>
-            <span class="status-badge" [attr.data-status]="current.scoreStatus">{{ scoreStatusLabel(current.scoreStatus) }}</span>
-            <span class="total-note">{{ scoreAuthorityNote(current.scoreStatus) }}</span>
-            <button type="button" class="secondary-button recalculation-action" (click)="recalculate.emit()" [disabled]="recalculating()">
-              {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
-            </button>
-            @if (recalculationError()) {
-              <span class="recalculation-error" role="alert">{{ recalculationError() }}</span>
-            }
-          </div>
-          <div class="metric-grid">
-            <div class="metric-card">
-              <span class="metric-label">{{ current.scoreStatus === 'imported' ? 'Imported ledger total' : 'Base' }}</span>
-              <strong>{{ formatNumber(current.score.baseTotal) }}</strong>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">{{ current.scoreStatus === 'imported' ? 'Calculated bonus' : 'Bonus' }}</span>
-              <strong class="positive-points">{{ current.scoreStatus === 'imported' ? 'Not applied' : formatSigned(current.score.bonusTotal) }}</strong>
-            </div>
-            <div class="metric-card delta-card" [attr.data-delta]="deltaKind(current.score.delta)">
-              <span class="metric-label">Compared with Excel</span>
-              <strong>{{ deltaValue(current.score.delta) }}</strong>
-              <small>{{ deltaDescription(current.score.delta) }}</small>
-            </div>
-          </div>
-        </div>
+        <sportos-score-breakdown-summary
+          [breakdown]="current"
+          [recalculating]="recalculating()"
+          [recalculationError]="recalculationError()"
+          (recalculate)="recalculate.emit()" />
 
-        <div class="consistency-row" [class.consistency-warning]="!ledgerMatchesAppTotal(current)">
-          <span class="consistency-icon" aria-hidden="true">{{ ledgerMatchesAppTotal(current) ? '✓' : '!' }}</span>
-          <div>
-            <strong>{{ ledgerMatchesAppTotal(current) ? 'Everything adds up' : 'Review the score details' }}</strong>
-            <span>Ledger total: {{ formatNumber(ledgerSum(current)) }} · {{ ledgerMatchesAppTotal(current) ? 'matches' : 'does not match' }} the app total.</span>
-          </div>
-        </div>
-
-        <section class="facts-section" aria-labelledby="daily-facts-title">
-          <div class="section-heading">
-            <div>
-              <span class="section-label">Canonical facts</span>
-              <h4 id="daily-facts-title">Everything SportOS used for this day</h4>
-            </div>
-            <button type="button" class="secondary-button" (click)="startManualEdit(current)">Edit facts</button>
-          </div>
-          <div class="facts-grid">
-            <div><span>Steps</span><strong>{{ formatNumber(current.facts.steps) }}</strong></div>
-            <div><span>Run</span><strong>{{ formatDistance(current.facts.runM) }}</strong></div>
-            <div><span>Run · treadmill</span><strong>{{ formatDistance(current.facts.runIndoorM) }}</strong></div>
-            <div><span>Run · outdoor</span><strong>{{ formatDistance(current.facts.runOutdoorM) }}</strong></div>
-            <div><span>Run · unspecified</span><strong>{{ formatDistance(current.facts.runUnspecifiedM) }}</strong></div>
-            <div><span>Bike</span><strong>{{ formatDistance(current.facts.bikeM) }}</strong></div>
-            <div><span>Bike · indoor</span><strong>{{ formatDistance(current.facts.bikeIndoorM) }}</strong></div>
-            <div><span>Bike · outdoor</span><strong>{{ formatDistance(current.facts.bikeOutdoorM) }}</strong></div>
-            <div><span>Bike · unspecified</span><strong>{{ formatDistance(current.facts.bikeUnspecifiedM) }}</strong></div>
-            <div><span>Swim</span><strong>{{ formatDistance(current.facts.swimM, 0) }}</strong></div>
-            <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong></div>
-            <div><span>Power points</span><strong>{{ formatNumber(current.facts.powerPoints) }}</strong></div>
-          </div>
-        </section>
+        <sportos-score-breakdown-facts
+          [breakdown]="current"
+          (edit)="startManualEdit(current)" />
 
         <div class="source-card">
           <span class="source-icon" aria-hidden="true">↗</span>
