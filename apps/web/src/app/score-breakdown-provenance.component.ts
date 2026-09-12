@@ -6,7 +6,6 @@ import {
   rawValueLabel,
   sourceName,
   sourceRecordTitle,
-  sourceSummary,
   workbookCells,
   workbookHeader,
 } from './score-breakdown.view-model';
@@ -16,29 +15,7 @@ import {
   standalone: true,
   template: `
     @let current = breakdown();
-    @if (showSourceSummary()) {
-      <div class="source-card">
-      <span class="source-icon" aria-hidden="true">↗</span>
-      <div class="source-copy">
-        <span class="section-label">Source</span>
-        <strong>{{ sourceSummary(current.sourceRecord) }}</strong>
-      </div>
-      @if (current.sourceRecord) {
-        <details class="quiet-details">
-          <summary>View details</summary>
-          <dl>
-            <dt>Batch</dt><dd>{{ current.sourceRecord.batch.id }}</dd>
-            <dt>Workbook</dt><dd>{{ current.sourceRecord.batch.filename || current.sourceRecord.batch.source }}</dd>
-            <dt>File hash</dt><dd class="hash">{{ current.sourceRecord.batch.originalSha256 || 'Unavailable' }}</dd>
-            <dt>Row hash</dt><dd class="hash">{{ current.sourceRecord.rowHash }}</dd>
-          </dl>
-        </details>
-      }
-      </div>
-    }
-
-    @if (showRecords()) {
-      <section class="data-section" aria-labelledby="day-source-title">
+    <section class="data-section" aria-labelledby="day-source-title">
       <div class="section-heading">
         <div>
           <span class="section-label">Raw provenance</span>
@@ -83,18 +60,13 @@ import {
           }
         </div>
       }
-      </section>
-    }
+    </section>
   `,
   styles: [`
-    .source-card { display: flex; align-items: center; justify-content: flex-start; gap: 16px; margin: 14px 0 22px; padding: 12px 14px; border: 1px solid #e1e7f0; border-radius: 12px; background: rgba(255, 255, 255, .72); }
-    .source-icon { display: grid; flex: 0 0 auto; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #e9edff; color: #5368ae; font-weight: 800; }
-    .source-copy { min-width: 0; flex: 1; }
-    .source-copy strong { display: block; margin-top: 3px; color: #344054; font-size: 13px; }
-    .section-label { color: #667085; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
     .data-section { margin: 22px 0; }
     .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
     .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
+    .section-label { color: #667085; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
     .section-help { max-width: 760px; margin: 5px 0 0; color: #667085; font-size: 12px; line-height: 1.45; }
     .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 12px; }
     .empty-inline { padding: 14px; border: 1px dashed #c7d2e5; border-radius: 10px; color: #667085; background: #fff; }
@@ -107,10 +79,10 @@ import {
     .source-record summary strong { min-width: 0; color: #344054; overflow-wrap: anywhere; }
     .source-record-meta { margin-left: auto; color: #667085; font-size: 11px; white-space: nowrap; }
     .source-record-body { padding: 0 12px 12px; }
-    .source-meta, dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 12px; margin: 0 0 10px; font-size: 11px; }
-    .source-meta dt, dt { color: #667085; }
-    .source-meta dd, dd { margin: 0; overflow-wrap: anywhere; }
-    .mono, .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .source-meta { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 12px; margin: 0 0 10px; font-size: 11px; }
+    .source-meta dt { color: #667085; }
+    .source-meta dd { margin: 0; overflow-wrap: anywhere; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .raw-table-wrap { overflow-x: auto; border: 1px solid #e1e7f0; border-radius: 10px; background: #fff; }
     .raw-cell-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 12px; }
     .raw-cell-table th, .raw-cell-table td { padding: 10px 11px; border-bottom: 1px solid #edf0f5; text-align: left; vertical-align: top; }
@@ -126,7 +98,6 @@ import {
     details { margin-top: 6px; }
     summary { cursor: pointer; color: #5267a8; font-size: 12px; font-weight: 700; }
     summary:focus-visible { outline: 3px solid #a8b9ef; outline-offset: 3px; border-radius: 4px; }
-    .quiet-details dl { margin-top: 8px; }
     @media (max-width: 680px) {
       .section-heading { flex-direction: column; }
       .source-record-meta { margin-left: 0; }
@@ -135,15 +106,12 @@ import {
 })
 export class ScoreBreakdownProvenanceComponent {
   readonly breakdown = input.required<DailyScoreBreakdown>();
-  readonly showSourceSummary = input(true);
-  readonly showRecords = input(true);
 
   readonly hasWorkbookCells = hasWorkbookCells;
   readonly jsonLabel = jsonLabel;
   readonly rawValueLabel = rawValueLabel;
   readonly sourceName = sourceName;
   readonly sourceRecordTitle = sourceRecordTitle;
-  readonly sourceSummary = sourceSummary;
   readonly workbookCells = workbookCells;
   readonly workbookHeader = workbookHeader;
 }
