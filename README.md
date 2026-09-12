@@ -244,8 +244,10 @@ For focused work, `pnpm dev:api` starts only the compiled/watch API, while
 
 After authentication, the Angular cockpit provides:
 
+- **Overview** — recent official score highlights and a selected-day quick sheet, with explicit paths to the complete ledger and day workspace.
 - **Analysis** — cited daily-range or score-breakdown guidance, official evidence, quality flags, and audit reference.
-- **Daily Log** — daily summaries, deterministic score totals, reconciliation, and exact ledger/rule/source provenance.
+- **Daily Log** — the full-density, filterable canonical summary table and trend chart. Selecting a row opens a lightweight highlights sheet without replacing the table.
+- **Daily score** (`/daily/:date`) — the complete day workspace: all canonical fact splits, editing, activities, source/batch metadata, raw workbook cells or provider payloads, ledger contributions, rule inputs, reconciliation, and explicit recalculation.
 - **Run Lab** — performance rankings, bounded event search, event detail, and provenance.
 - **Rules** — current rule versions, read-only preview, activation, recomputation progress, retry, and cancellation.
 - **Providers** — Strava connection, backfill, incremental sync, status, retry, cancellation, disconnect, and provenance.
@@ -253,6 +255,8 @@ After authentication, the Angular cockpit provides:
 - **Export** — bounded canonical JSON export with deterministic ordering and explicit provenance.
 
 The browser renders API truth only. It never receives provider tokens, selects an owner, normalizes canonical facts, computes official scores, or treats generated guidance as authoritative.
+
+Each major workflow is a lazy-loaded Angular route behind one authenticated upper navigation shell. Route components own page-level orchestration; focused presentation components remain reusable between Overview, Daily Log, and the complete daily workspace.
 
 ## Local workbook import CLI
 

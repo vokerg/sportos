@@ -25,7 +25,7 @@ A feature is not delivered solely because a component or table exists.
 | Authentication and ownership | Validated with non-superuser RLS evidence | production OIDC/secret operations and account deletion policy |
 | Provider ingestion | Strava connection, refresh, backfill, incremental sync, retry, disconnect, and provenance validated | webhook processing and additional providers |
 | API | Authenticated, CSRF-protected, account scoped, and equipped with narrow cited analysis tools | hosted monitoring and external rate limiting |
-| Web UI | Authenticated import, provider, review, rule, drill-down, analysis, and export workflows | broader provider portfolio and additional analysis tools |
+| Web UI | Authenticated routed workspace with upper navigation, dense Daily Log, selected-day highlights, exhaustive day edit/raw-provenance view, and dedicated import, provider, rule, run, analysis, and export pages | broader provider portfolio and additional analysis tools |
 | Hosted operation | Partially implemented | deployment, key management, backup, restoration, deletion, and observability |
 | Read-only analysis | Validated with cited evidence, deterministic calculations, safe fallback, append-only audit metadata, evaluations, and UI separation | hosted model-gateway operations and broader semantic evaluation |
 
@@ -52,7 +52,8 @@ Delivered:
 1. bounded browser upload and durable external source-file storage;
 2. durable asynchronous import jobs and independent worker execution;
 3. immutable rule versions, read-only previews, audited jobs, and atomic recomputation;
-4. Daily Log and Run Lab drill-downs plus strict canonical export.
+4. Daily Log and Run Lab drill-downs plus strict canonical export;
+5. a lazy-routed authenticated workspace that keeps the high-density daily table while separating selected-day highlights from the exhaustive editable day/provenance view.
 
 Milestone 1 was completed through issue #13.
 

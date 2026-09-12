@@ -1,6 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
 import type { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
 import { NgxEchartsDirective } from 'ngx-echarts';
@@ -13,9 +14,9 @@ import {
 } from './daily-breakdown-button.component';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import {
-  ScoreBreakdownPanelComponent,
   type ScoreBreakdownViewState,
 } from './score-breakdown-panel.component';
+import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
 import type { ApiErrorBody, DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
 import { formatDate } from './date-time';
 
@@ -31,7 +32,7 @@ const DEFAULT_QUICK_RANGE = '3m' as const;
     AgGridAngular,
     NgxEchartsDirective,
     DecimalPipe,
-    ScoreBreakdownPanelComponent,
+    DailyQuickSheetComponent,
   ],
   template: `
     <section class="card" aria-labelledby="daily-log-title">
@@ -110,6 +111,7 @@ const DEFAULT_QUICK_RANGE = '3m' as const;
 
         <ag-grid-angular
           class="ag-theme-quartz daily-grid"
+          theme="legacy"
           aria-label="Daily scores. Use the View details action in a row to view canonical facts and source provenance."
           [rowData]="rows()"
           [columnDefs]="columnDefs"
@@ -123,19 +125,17 @@ const DEFAULT_QUICK_RANGE = '3m' as const;
         </ag-grid-angular>
       }
 
-      <sportos-score-breakdown-panel
+      <sportos-daily-quick-sheet
         [state]="breakdownState()"
         [date]="selectedDate()"
         [breakdown]="breakdown()"
         [errorMessage]="breakdownError()"
         [recalculating]="recalculationState() === 'working'"
         [recalculationError]="recalculationError()"
-        [savingManual]="manualSaveState() === 'working'"
-        [manualSaveError]="manualSaveError()"
-        [manualEditRequestId]="manualEditRequestId()"
         (retry)="retryBreakdown()"
         (recalculate)="recalculateSelectedDate()"
-        (saveManualFacts)="saveManualFacts($event)"
+        (opened)="openFullDay()"
+        (edit)="openFullDay(true)"
         (closed)="closeBreakdown()" />
     </section>
   `,
@@ -246,6 +246,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   constructor(
     private readonly api: ApiService,
     private readonly scoreBreakdownApi: ScoreBreakdownApiService,
+    private readonly router: Router,
   ) {}
 
   ngOnInit(): void { this.loadRows(); }
@@ -340,9 +341,18 @@ export class DailyLogComponent implements OnInit, OnDestroy {
 
   openManualEntry(date: string): void {
     if (!date) return;
+    this.selectedDate.set(date);
     this.manualSaveError.set(null);
     this.manualEditRequestId.update((requestId) => requestId + 1);
-    this.loadBreakdown(date, true);
+    void this.router.navigate(['/daily', date], { queryParams: { edit: 'true' } });
+  }
+
+  openFullDay(edit = false): void {
+    const date = this.selectedDate();
+    if (!date) return;
+    void this.router.navigate(['/daily', date], {
+      queryParams: edit ? { edit: 'true' } : undefined,
+    });
   }
 
   saveManualFacts(input: ManualDailyFactsInput): void {
