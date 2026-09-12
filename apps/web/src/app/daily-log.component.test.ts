@@ -1,5 +1,6 @@
 import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
+import type { Router } from '@angular/router';
 import { Subject, of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import type { GridReadyEvent } from 'ag-grid-community';
@@ -207,33 +208,31 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(api.dailySummary).toHaveBeenCalledTimes(1);
   });
 
-  it('loads existing facts before opening manual entry for a date', () => {
+  it('opens existing facts on the dedicated daily route', () => {
     const scoreApi = { getForDate: vi.fn().mockReturnValue(of(breakdown)) };
-    const component = createComponent(scoreApi);
+    const router = { navigate: vi.fn().mockResolvedValue(true) };
+    const component = createComponent(scoreApi, undefined, router);
 
     component.openManualEntry(row.metric_date);
 
-    expect(scoreApi.getForDate).toHaveBeenCalledWith(row.metric_date);
-    expect(component.breakdown()).toEqual(breakdown);
-    expect(component.breakdownState()).toBe('loaded');
+    expect(router.navigate).toHaveBeenCalledWith(['/daily', row.metric_date], { queryParams: { edit: 'true' } });
     expect(component.manualEditRequestId()).toBe(1);
   });
 
-  it('opens a blank manual entry only when the selected date has no facts', () => {
+  it('uses the dedicated daily route for a blank manual entry', () => {
     const scoreApi = {
       getForDate: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({
         status: 404,
         error: { code: 'DAILY_SCORE_NOT_FOUND' },
       }))),
     };
-    const component = createComponent(scoreApi);
+    const router = { navigate: vi.fn().mockResolvedValue(true) };
+    const component = createComponent(scoreApi, undefined, router);
 
     component.openManualEntry('2026-05-19');
 
     expect(component.selectedDate()).toBe('2026-05-19');
-    expect(component.breakdown()).toBeNull();
-    expect(component.breakdownError()).toBeNull();
-    expect(component.breakdownState()).toBe('loaded');
+    expect(router.navigate).toHaveBeenCalledWith(['/daily', '2026-05-19'], { queryParams: { edit: 'true' } });
   });
 
   it('keeps the imported breakdown visible when Strava recalculation is unavailable', () => {
@@ -332,6 +331,11 @@ describe('DailyLogComponent cockpit workflow', () => {
 function createComponent(
   scoreApi: { getForDate: ReturnType<typeof vi.fn>; recalculate?: ReturnType<typeof vi.fn>; saveManualFacts?: ReturnType<typeof vi.fn> },
   api: { dailySummary: ReturnType<typeof vi.fn> } = { dailySummary: vi.fn().mockReturnValue(of([])) },
+  router: { navigate: ReturnType<typeof vi.fn> } = { navigate: vi.fn().mockResolvedValue(true) },
 ): DailyLogComponent {
-  return new DailyLogComponent(api as unknown as ApiService, scoreApi as unknown as ScoreBreakdownApiService);
+  return new DailyLogComponent(
+    api as unknown as ApiService,
+    scoreApi as unknown as ScoreBreakdownApiService,
+    router as unknown as Router,
+  );
 }

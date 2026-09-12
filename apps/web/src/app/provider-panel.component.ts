@@ -125,7 +125,7 @@ export class ProviderPanelComponent implements OnInit, OnDestroy {
   connect(): void {
     this.state.set('working');
     this.subscription?.unsubscribe();
-    this.subscription = this.api.startStrava('/#providers').subscribe({
+    this.subscription = this.api.startStrava('/providers').subscribe({
       next: ({ authorizationUrl }) => window.location.assign(authorizationUrl),
       error: (error: unknown) => this.fail(error, 'Strava connection could not be started.'),
     });
