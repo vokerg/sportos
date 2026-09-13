@@ -191,6 +191,19 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(component.manualEditRequestId()).toBe(1);
   });
 
+  it('navigates the selected day to the complete daily workspace', () => {
+    const scoreApi = { getForDate: vi.fn().mockReturnValue(of(breakdown)) };
+    const router = { navigate: vi.fn().mockResolvedValue(true) };
+    const component = createComponent(scoreApi, undefined, router);
+    component.openBreakdown(row);
+
+    component.openFullDay();
+    expect(router.navigate).toHaveBeenCalledWith(['/daily', row.metric_date], { queryParams: undefined });
+
+    component.openFullDay(true);
+    expect(router.navigate).toHaveBeenLastCalledWith(['/daily', row.metric_date], { queryParams: { edit: 'true' } });
+  });
+
   it('opens a blank manual entry in the quick sheet', () => {
     const scoreApi = {
       getForDate: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({
