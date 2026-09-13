@@ -116,7 +116,7 @@ request body.
 
 1. Provision a PostgreSQL schema-owner/Flyway identity separately from runtime identities.
 2. Provision distinct API, queue-dispatch, worker-data, and legacy identities.
-3. Run migrations through V113 before starting the new runtime.
+3. Run migrations through V114 before starting the new runtime.
 4. Configure both `SPORTOS_WORKER_DATABASE_URL` and `SPORTOS_WORKER_DATA_DATABASE_URL`; never point either at the schema owner.
 5. Configure a trusted OIDC issuer and exact API callback URL.
 6. Set exact HTTPS web/API origins and `SPORTOS_COOKIE_SECURE=true`.

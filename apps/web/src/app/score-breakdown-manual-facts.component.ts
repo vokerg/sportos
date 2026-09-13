@@ -1,6 +1,6 @@
 import { Component, input, output, signal, type OnChanges } from '@angular/core';
 import type { DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
-import { formatDate } from './date-time';
+import { formatScoreDate } from './score-breakdown.view-model';
 
 @Component({
   selector: 'sportos-score-breakdown-manual-facts',
@@ -11,24 +11,24 @@ import { formatDate } from './date-time';
         <div class="section-heading">
           <div>
             <span class="section-label">Manual canonical entry</span>
-            <h4>{{ breakdown() ? 'Replace the current daily facts' : 'Create daily facts for ' + formatDate(date()) }}</h4>
-            <p class="section-help">Distances accept precise decimals. Recalculation refreshes Strava-supported measurements while retaining manual workout and power points.</p>
+            <h4>{{ breakdown() ? 'Replace the current daily facts' : 'Create daily facts for ' + formatScoreDate(date()) }}</h4>
+            <p class="section-help">Enter indoor, outdoor, and unspecified distances separately. Each value is retained as a manual activity.</p>
           </div>
         </div>
         <div class="manual-facts-grid">
           <label>Steps <input type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
-          <label>Run treadmill (km) <input type="number" min="0" step="any" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
-          <label>Run outdoor (km) <input type="number" min="0" step="any" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
-          <label>Run unspecified (km) <input type="number" min="0" step="any" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
-          <label>Bike indoor (km) <input type="number" min="0" step="any" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
-          <label>Bike outdoor (km) <input type="number" min="0" step="any" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
-          <label>Bike unspecified (km) <input type="number" min="0" step="any" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
-          <label>Swim (m) <input type="number" min="0" step="any" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
+          <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
+          <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
+          <label>Run unspecified (km) <input type="number" min="0" step="0.01" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
+          <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
+          <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
+          <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
+          <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
           <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
           <label>Power points <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set(numberInputValue($event))" /></label>
         </div>
-        @if (validationError()) { <p class="form-error" role="alert">{{ validationError() }}</p> }
-        @if (saveError()) { <p class="form-error" role="alert">{{ saveError() }}</p> }
+        @if (validationError()) { <p class="recalculation-error" role="alert">{{ validationError() }}</p> }
+        @if (saveError()) { <p class="recalculation-error" role="alert">{{ saveError() }}</p> }
         <div class="manual-form-actions">
           <button type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save manual facts' }}</button>
           <button type="button" class="secondary-button" [disabled]="saving()" (click)="editing.set(false)">Cancel</button>
@@ -42,15 +42,18 @@ import { formatDate } from './date-time';
     .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
     .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
     .section-label { color: #667085; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-    .section-help { margin: 5px 0 0; color: #667085; font-size: 12px; line-height: 1.45; }
-    .manual-facts-grid { display: grid; grid-template-columns: repeat(2, minmax(130px, 1fr)); gap: 10px; }
+    .section-help { max-width: 760px; margin: 5px 0 0; color: #667085; font-size: 12px; line-height: 1.45; }
+    .manual-facts-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 10px; }
     .manual-facts-grid label { display: grid; gap: 5px; color: #475467; font-size: 11px; font-weight: 700; }
     .manual-facts-grid input { min-width: 0; padding: 8px; border: 1px solid #cbd6ed; border-radius: 7px; background: white; }
     .manual-form-actions { display: flex; gap: 8px; margin-top: 14px; }
-    .form-error { color: #b54747; font-size: 12px; }
-    .secondary-button { border: 1px solid #cbd6ed; background: white; color: #40558f; box-shadow: none; }
-    @container (max-width: 360px) {
+    .recalculation-error { color: #b54747; font-size: 12px; }
+    .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
+    @container (max-width: 900px) { .manual-facts-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); } }
+    @container (max-width: 520px) {
+      .manual-facts-form { margin-top: 18px; padding: 14px; }
       .manual-facts-grid { grid-template-columns: 1fr; }
+      .section-heading { flex-direction: column; }
       .manual-form-actions { display: grid; grid-template-columns: 1fr; }
     }
   `],
@@ -77,8 +80,8 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
   readonly manualSwimM = signal(0);
   readonly manualWorkoutPoints = signal(0);
   readonly manualPowerPoints = signal(0);
-  readonly formatDate = formatDate;
 
+  readonly formatScoreDate = formatScoreDate;
   private handledEditRequestId = 0;
 
   ngOnChanges(): void {
@@ -94,11 +97,11 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
 
   startManualEdit(current: DailyScoreBreakdown | null): void {
     const facts = current?.facts;
+    this.manualSteps.set(facts?.steps ?? 0);
     const runIndoorM = facts?.runIndoorM ?? 0;
     const runOutdoorM = facts?.runOutdoorM ?? 0;
     const bikeIndoorM = facts?.bikeIndoorM ?? 0;
     const bikeOutdoorM = facts?.bikeOutdoorM ?? 0;
-    this.manualSteps.set(facts?.steps ?? 0);
     this.manualRunIndoorKm.set(runIndoorM / 1000);
     this.manualRunOutdoorKm.set(runOutdoorM / 1000);
     this.manualRunUnspecifiedKm.set(this.remainderDistanceKm(facts?.runM, runIndoorM, runOutdoorM, facts?.runUnspecifiedM));

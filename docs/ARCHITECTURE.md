@@ -134,6 +134,7 @@ See [ADR 0005](adr/0005-authentication-and-data-ownership.md), [ADR 0007](adr/00
 - V110 creates append-only owner-scoped `analysis_runs`, grants only `SELECT, INSERT` to `sportos_app`, denies worker/legacy access, and asserts those privileges during migration.
 - V112 promotes imported workbook `All` totals to the current authoritative score, adds append-only `daily_score_snapshots`, exposes `score_status`, and adds the explicit account-scoped Strava recalculation path. Snapshot privileges keep the queue dispatcher out of score history.
 - V113 adds `manual` daily-score authority and the `manual_edit` snapshot trigger. Manual fact writes retain a private source record, expose current authority in canonical export v2, and preserve prior versions in append-only score history.
+- V114 versions the bike achievement rule so a single canonical bike activity must cover at least 10 km and exceed 20 km/h average speed for its 1,000-point bonus. The prior definition remains retained as a disabled rule version.
 
 Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance. Analysis adds audit metadata only and does not rewrite canonical or scoring rows.
 

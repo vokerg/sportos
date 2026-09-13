@@ -1,7 +1,6 @@
 import { Component, input, output, signal } from '@angular/core';
 import { ScoreBreakdownManualFactsComponent } from './score-breakdown-manual-facts.component';
-import type { DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
-import type { ScoreBreakdownViewState } from './score-breakdown-panel.component';
+import type { DailyScoreBreakdown, ManualDailyFactsInput, ScoreBreakdownViewState } from './score-breakdown.models';
 import { formatDate } from './date-time';
 
 @Component({
@@ -52,7 +51,7 @@ import { formatDate } from './date-time';
             </section>
             <div class="sheet-actions">
               <button type="button" (click)="requestManualEdit()">Edit complete facts</button>
-              <button type="button" class="secondary" (click)="recalculate.emit()" [disabled]="recalculating()">{{ recalculating() ? 'Recalculating…' : 'Recalculate score' }}</button>
+              <button type="button" class="secondary" (click)="recalculate.emit()" [disabled]="recalculating()">{{ recalculating() ? 'Recalculating…' : 'Recalculate' }}</button>
               <button type="button" class="full" (click)="opened.emit()">Open complete day →</button>
             </div>
             @if (recalculationError()) { <p class="inline-error" role="alert">{{ recalculationError() }}</p> }

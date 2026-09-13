@@ -4,11 +4,13 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ProviderApiService, type ProviderConnection, type ProviderSyncJob } from './provider-api.service';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
-import {
-  ScoreBreakdownPanelComponent,
-  type ScoreBreakdownViewState,
-} from './score-breakdown-panel.component';
-import type { ApiErrorBody, DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
+import { ScoreBreakdownPanelComponent } from './score-breakdown-panel.component';
+import type {
+  ApiErrorBody,
+  DailyScoreBreakdown,
+  ManualDailyFactsInput,
+  ScoreBreakdownViewState,
+} from './score-breakdown.models';
 
 @Component({
   selector: 'sportos-daily-detail-page',
