@@ -1,34 +1,36 @@
-import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { AgGridAngular } from 'ag-grid-angular';
-import type { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
-import { NgxEchartsDirective } from 'ngx-echarts';
-import type { EChartsCoreOption } from 'echarts/core';
-import { Subscription } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 import { ApiService, type DailySummaryRow } from './api.service';
+import { DailyLogActionsComponent } from './daily-log-actions.component';
+import { DailyLogFiltersComponent } from './daily-log-filters.component';
+import { DailyLogGridComponent } from './daily-log-grid.component';
+import { DailyLogTrendComponent } from './daily-log-trend.component';
 import {
-  DailyBreakdownButtonComponent,
-  type DailyBreakdownGridContext,
-} from './daily-breakdown-button.component';
+  DEFAULT_QUICK_RANGE,
+  QUICK_RANGE_VALUES,
+  type DailyLogSummaryState,
+  type QuickRange,
+  quickRangeDates,
+} from './daily-log.view-model';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
-import type { ApiErrorBody, DailyScoreBreakdown, ManualDailyFactsInput, ScoreBreakdownViewState } from './score-breakdown.models';
-import { formatDate } from './date-time';
-
-type SummaryState = 'loading' | 'loaded' | 'empty' | 'error';
-const QUICK_RANGE_VALUES = ['custom', '1m', '3m', '6m', 'ytd', '1y', '3y', 'all'] as const;
-type QuickRange = typeof QUICK_RANGE_VALUES[number];
-const DEFAULT_QUICK_RANGE = '3m' as const;
+import type {
+  ApiErrorBody,
+  DailyScoreBreakdown,
+  ManualDailyFactsInput,
+  ScoreBreakdownViewState,
+} from './score-breakdown.models';
 
 @Component({
   selector: 'sportos-daily-log',
   standalone: true,
   imports: [
-    AgGridAngular,
-    NgxEchartsDirective,
-    DecimalPipe,
+    DailyLogFiltersComponent,
+    DailyLogActionsComponent,
+    DailyLogTrendComponent,
+    DailyLogGridComponent,
     DailyQuickSheetComponent,
   ],
   template: `
@@ -36,42 +38,24 @@ const DEFAULT_QUICK_RANGE = '3m' as const;
       <h2 id="daily-log-title">Daily Log</h2>
       <p class="daily-log-help">A day can be authoritative from an imported workbook ledger, calculated activities, or saved manual facts. Use <strong>View details</strong> to inspect and edit it without losing prior provenance.</p>
 
-      <form class="filter-bar" (submit)="applyFilters(); $event.preventDefault()" aria-label="Daily Log date range">
-        <label>Quick range
-          <select [value]="quickRange()" (change)="setQuickRange($any($event.target).value)">
-            <option value="custom">Custom range</option>
-            <option value="1m">1 month</option>
-            <option value="3m">3 months</option>
-            <option value="6m">6 months</option>
-            <option value="ytd">YTD</option>
-            <option value="1y">1 year</option>
-            <option value="3y">3 years</option>
-            <option value="all">All time</option>
-          </select>
-        </label>
-        <label>From <input type="date" [value]="from()" (input)="setFrom($any($event.target).value)" /></label>
-        <label>To <input type="date" [value]="to()" (input)="setTo($any($event.target).value)" /></label>
-        <button type="submit" [disabled]="summaryState() === 'loading'">Apply range</button>
-        <button type="button" class="secondary" (click)="resetFilters()">Reset</button>
-      </form>
+      <sportos-daily-log-filters
+        [quickRange]="quickRange()"
+        [from]="from()"
+        [to]="to()"
+        [loading]="summaryState() === 'loading'"
+        (quickRangeChange)="setQuickRange($event)"
+        (fromChange)="setFrom($event)"
+        (toChange)="setTo($event)"
+        (apply)="applyFilters()"
+        (reset)="resetFilters()" />
 
-      <div class="activity-recalculation">
-        <div>
-          <span class="recalculation-label">Explicit recalculation</span>
-          <strong>Calculate a date from Strava activities</strong>
-          <small>Use this when a daily ledger row is missing. Existing imported rows can also be recalculated from the details panel.</small>
-        </div>
-        <label>Date <input type="date" [value]="activityDate()" (input)="activityDate.set($any($event.target).value)" /></label>
-        <button type="button" [disabled]="recalculationState() === 'working' || !activityDate()" (click)="recalculateSelectedDate(activityDate())">
-          Calculate from Strava
-        </button>
-        <button type="button" class="secondary" [disabled]="!activityDate()" (click)="openManualEntry(activityDate())">
-          Enter facts manually
-        </button>
-        @if (recalculationError()) {
-          <p class="recalculation-error" role="alert">{{ recalculationError() }}</p>
-        }
-      </div>
+      <sportos-daily-log-actions
+        [date]="activityDate()"
+        [working]="recalculationState() === 'working'"
+        [errorMessage]="recalculationError()"
+        (dateChange)="activityDate.set($event)"
+        (recalculate)="recalculateSelectedDate(activityDate())"
+        (manualEntry)="openManualEntry(activityDate())" />
 
       @if (summaryState() === 'loading') {
         <p role="status" aria-live="polite">Loading daily summaries…</p>
@@ -83,43 +67,8 @@ const DEFAULT_QUICK_RANGE = '3m' as const;
       } @else if (summaryState() === 'empty') {
         <p class="state-message" role="status">No canonical daily summaries match this range.</p>
       } @else {
-        <div class="kpi-row">
-          <div class="kpi"><div class="label">Rows</div><div class="value">{{ rows().length }}</div></div>
-          <div class="kpi"><div class="label">Latest total</div><div class="value">{{ latest()?.total_points ?? '—' }}</div></div>
-          <div class="kpi"><div class="label">Latest 30d avg</div><div class="value">{{ latest()?.avg_30d ? (latest()!.avg_30d | number:'1.0-0') : '—' }}</div></div>
-          <div class="kpi"><div class="label">Excel delta</div><div class="value">{{ latest()?.points_delta_vs_excel ?? '—' }}</div></div>
-        </div>
-
-        <div class="daily-chart" echarts [options]="chartOptions()" role="img" aria-label="Daily total and 30 day average trend"></div>
-
-        <div class="daily-grid-toolbar">
-          <div>
-            <span class="table-kicker">Daily entries</span>
-            <strong>Canonical daily summaries</strong>
-          </div>
-          <label>Rows per page
-            <select [value]="pageSize()" (change)="setPageSize($any($event.target).value)">
-              @for (size of paginationPageSizeSelector; track size) {
-                <option [value]="size">{{ size }}</option>
-              }
-            </select>
-          </label>
-        </div>
-
-        <ag-grid-angular
-          class="ag-theme-quartz daily-grid"
-          theme="legacy"
-          aria-label="Daily scores. Use the View details action in a row to view canonical facts and source provenance."
-          [rowData]="rows()"
-          [columnDefs]="columnDefs"
-          [defaultColDef]="defaultColDef"
-          [context]="gridContext"
-          [icons]="gridIcons"
-          [pagination]="true"
-          [paginationPageSize]="pageSize()"
-          [paginationPageSizeSelector]="false"
-          (gridReady)="onGridReady($event)">
-        </ag-grid-angular>
+        <sportos-daily-log-trend [rows]="rows()" />
+        <sportos-daily-log-grid [rows]="rows()" (openBreakdown)="openBreakdown($event)" />
       }
 
       <sportos-daily-quick-sheet
@@ -141,36 +90,14 @@ const DEFAULT_QUICK_RANGE = '3m' as const;
   `,
   styles: [`
     .daily-log-help { margin: -6px 0 16px; color: #667085; font-size: 13px; }
-    .activity-recalculation { display: flex; align-items: end; gap: 14px; margin: 16px 0 20px; padding: 14px; border: 1px solid #dbe4f0; border-radius: 12px; background: #f8faff; }
-    .activity-recalculation > div:first-child { display: grid; gap: 4px; min-width: 0; flex: 1; }
-    .activity-recalculation strong { color: #243b73; font-size: 14px; }
-    .activity-recalculation small { color: #667085; font-size: 12px; line-height: 1.4; }
-    .recalculation-label { color: #5368ae; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-    .recalculation-error { flex-basis: 100%; margin: 0; color: #b54747; font-size: 12px; }
-    .daily-chart { width: 100%; height: min(44vh, 560px); min-height: 360px; }
-    .daily-grid-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 12px 14px; border: 1px solid #dbe4f0; border-radius: 12px 12px 0 0; background: #f8faff; }
-    .daily-grid-toolbar > div { display: grid; gap: 3px; min-width: 0; }
-    .daily-grid-toolbar strong { color: #243b73; font-size: 13px; }
-    .table-kicker { color: #5368ae; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-    .daily-grid-toolbar label { display: grid; gap: 5px; }
-    .daily-grid-toolbar select { min-width: 104px; min-height: 34px; padding: 6px 24px 6px 9px; border-radius: 9px; font-size: 12px; font-weight: 700; }
-    .daily-grid { width: 100%; height: min(62vh, 720px); min-height: 480px; }
-    .daily-grid .ag-paging-panel { min-height: 54px; height: auto; padding: 8px 12px; gap: 6px; }
-    .daily-grid .ag-paging-description { color: #667085; font-size: 12px; font-weight: 650; white-space: nowrap; }
-    .daily-grid .ag-paging-button { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 34px; padding: 0 9px; border: 1px solid #d0d5dd; border-radius: 9px; background: #fff; color: #344054; font-size: 12px; font-weight: 750; line-height: 1; }
-    .daily-grid .ag-paging-button:hover:not(.ag-disabled) { border-color: #8fa5df; background: #eef3ff; color: #243b73; }
-    .daily-grid .ag-paging-button.ag-disabled { border-color: #eaecf0; background: #f8fafc; color: #98a2b3; opacity: 1; }
-    .daily-grid .ag-paging-button:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
-    @media (max-width: 760px) { .activity-recalculation { align-items: stretch; flex-direction: column; } }
   `],
 })
 export class DailyLogComponent implements OnInit, OnDestroy {
   readonly rows = signal<DailySummaryRow[]>([]);
-  readonly latest = computed(() => this.rows()[0]);
   readonly from = signal(quickRangeDates(DEFAULT_QUICK_RANGE).from);
   readonly to = signal(quickRangeDates(DEFAULT_QUICK_RANGE).to);
   readonly quickRange = signal<QuickRange>(DEFAULT_QUICK_RANGE);
-  readonly summaryState = signal<SummaryState>('loading');
+  readonly summaryState = signal<DailyLogSummaryState>('loading');
   readonly summaryError = signal<string | null>(null);
   readonly selectedDate = signal<string | null>(null);
   readonly activityDate = signal('');
@@ -183,65 +110,11 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   readonly manualSaveError = signal<string | null>(null);
   readonly manualEditRequestId = signal(0);
 
-  private summarySubscription?: Subscription;
-  private breakdownSubscription?: Subscription;
-  private recalculationSubscription?: Subscription;
-  private manualSaveSubscription?: Subscription;
-
-  readonly gridContext: DailyBreakdownGridContext = {
-    openBreakdown: (row) => this.openBreakdown(row),
-  };
-
-  readonly gridIcons = {
-    first: '<span>First</span>',
-    previous: '<span>Prev</span>',
-    next: '<span>Next</span>',
-    last: '<span>Last</span>',
-  };
-
-  readonly paginationPageSizeSelector = [100, 200, 365];
-  readonly pageSize = signal(100);
-  private gridApi?: GridApi<DailySummaryRow>;
-
-  readonly defaultColDef: ColDef<DailySummaryRow> = {
-    sortable: true,
-    resizable: true,
-    filter: true,
-    minWidth: 112,
-    flex: 1,
-  };
-
-  readonly columnDefs: ColDef<DailySummaryRow>[] = [
-    { colId: 'scoreBreakdown', headerName: 'Details', cellRenderer: DailyBreakdownButtonComponent, pinned: 'left', width: 124, minWidth: 124, maxWidth: 124, sortable: false, filter: false, suppressHeaderMenuButton: true },
-    { field: 'metric_date', headerName: 'Date', pinned: 'left', width: 150, minWidth: 150, flex: 0, valueFormatter: (params) => this.formatDate(params.value) },
-    { field: 'score_status', headerName: 'Authority', valueFormatter: (params) => this.scoreStatusLabel(params.value) },
-    { field: 'steps', headerName: 'Steps', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
-    { field: 'run_m', headerName: 'Run', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatMeters(params.value) },
-    { field: 'bike_m', headerName: 'Bike', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatMeters(params.value) },
-    { field: 'swim_m', headerName: 'Swim', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatMeters(params.value, 0) },
-    { field: 'workout_points', headerName: 'Workout', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
-    { field: 'power_points', headerName: 'Power', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
-    { field: 'base_points', headerName: 'Base', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
-    { field: 'bonus_points', headerName: 'Bonus', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
-    { field: 'total_points', headerName: 'SportOS total', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
-    { field: 'excel_all_points', headerName: 'Excel All', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
-    { field: 'points_delta_vs_excel', headerName: 'Δ vs Excel', filter: 'agNumberColumnFilter', valueFormatter: (params) => this.formatCellNumber(params.value) },
-  ];
-
-  readonly chartOptions = computed<EChartsCoreOption>(() => {
-    const chronological = [...this.rows()].reverse();
-    return {
-      tooltip: { trigger: 'axis' },
-      legend: { bottom: 0 },
-      grid: { left: 45, right: 20, top: 20, bottom: 55 },
-      xAxis: { type: 'category', data: chronological.map((r) => this.formatDate(r.metric_date)), axisLabel: { hideOverlap: true } },
-      yAxis: { type: 'value' },
-      series: [
-        { name: 'Total points', type: 'bar', data: chronological.map((r) => r.total_points) },
-        { name: '30d average', type: 'line', data: chronological.map((r) => Math.round(r.avg_30d ?? 0)) },
-      ],
-    };
-  });
+  private readonly destroy$ = new Subject<void>();
+  private readonly summaryRequestCancelled$ = new Subject<void>();
+  private readonly breakdownRequestCancelled$ = new Subject<void>();
+  private readonly recalculationRequestCancelled$ = new Subject<void>();
+  private readonly manualSaveRequestCancelled$ = new Subject<void>();
 
   constructor(
     private readonly api: ApiService,
@@ -249,13 +122,17 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     private readonly router: Router,
   ) {}
 
-  ngOnInit(): void { this.loadRows(); }
+  ngOnInit(): void {
+    this.loadRows();
+  }
 
   ngOnDestroy(): void {
-    this.summarySubscription?.unsubscribe();
-    this.breakdownSubscription?.unsubscribe();
-    this.recalculationSubscription?.unsubscribe();
-    this.manualSaveSubscription?.unsubscribe();
+    this.summaryRequestCancelled$.next();
+    this.breakdownRequestCancelled$.next();
+    this.recalculationRequestCancelled$.next();
+    this.manualSaveRequestCancelled$.next();
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   applyFilters(): void {
@@ -266,18 +143,6 @@ export class DailyLogComponent implements OnInit, OnDestroy {
       return;
     }
     this.loadRows();
-  }
-
-  onGridReady(event: GridReadyEvent<DailySummaryRow>): void {
-    this.gridApi = event.api;
-    this.gridApi.setGridOption('paginationPageSize', this.pageSize());
-  }
-
-  setPageSize(value: string): void {
-    const nextPageSize = Number(value);
-    if (!this.paginationPageSizeSelector.includes(nextPageSize)) return;
-    this.pageSize.set(nextPageSize);
-    this.gridApi?.setGridOption('paginationPageSize', nextPageSize);
   }
 
   setFrom(value: string): void {
@@ -315,29 +180,13 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.loadSummaryRows();
   }
 
-  private loadSummaryRows(): void {
-    this.summarySubscription?.unsubscribe();
-    this.summaryState.set('loading');
-    this.summaryError.set(null);
-    this.summarySubscription = this.api.dailySummary({
-      from: this.from() || undefined,
-      to: this.to() || undefined,
-      limit: 10_000,
-    }).subscribe({
-      next: (rows) => {
-        this.rows.set(rows);
-        this.summaryState.set(rows.length === 0 ? 'empty' : 'loaded');
-      },
-      error: (error: unknown) => {
-        this.rows.set([]);
-        this.summaryError.set(this.describeSummaryError(error));
-        this.summaryState.set('error');
-      },
-    });
+  openBreakdown(row: DailySummaryRow): void {
+    this.openBreakdownForDate(row.metric_date);
   }
 
-  openBreakdown(row: DailySummaryRow): void { this.openBreakdownForDate(row.metric_date); }
-  openBreakdownForDate(date: string): void { this.loadBreakdown(date); }
+  openBreakdownForDate(date: string): void {
+    this.loadBreakdown(date);
+  }
 
   openManualEntry(date: string): void {
     if (!date) return;
@@ -357,21 +206,27 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   saveManualFacts(input: ManualDailyFactsInput): void {
     const date = this.selectedDate();
     if (!date) return;
-    this.manualSaveSubscription?.unsubscribe();
+
+    this.manualSaveRequestCancelled$.next();
     this.manualSaveState.set('working');
     this.manualSaveError.set(null);
-    this.manualSaveSubscription = this.scoreBreakdownApi.saveManualFacts(date, input).subscribe({
-      next: (result) => {
-        this.breakdown.set(result);
-        this.breakdownState.set('loaded');
-        this.manualSaveState.set('idle');
-        this.loadSummaryRows();
-      },
-      error: (error: unknown) => {
-        this.manualSaveState.set('idle');
-        this.manualSaveError.set(this.describeManualSaveError(error));
-      },
-    });
+    this.scoreBreakdownApi.saveManualFacts(date, input)
+      .pipe(
+        takeUntil(this.manualSaveRequestCancelled$),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (result) => {
+          this.breakdown.set(result);
+          this.breakdownState.set('loaded');
+          this.manualSaveState.set('idle');
+          this.loadSummaryRows();
+        },
+        error: (error: unknown) => {
+          this.manualSaveState.set('idle');
+          this.manualSaveError.set(this.describeManualSaveError(error));
+        },
+      });
   }
 
   recalculateSelectedDate(date?: string): void {
@@ -382,7 +237,7 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     }
 
     const keepCurrentBreakdown = this.breakdown()?.date === targetDate;
-    this.recalculationSubscription?.unsubscribe();
+    this.recalculationRequestCancelled$.next();
     this.selectedDate.set(targetDate);
     this.recalculationState.set('working');
     this.recalculationError.set(null);
@@ -392,25 +247,30 @@ export class DailyLogComponent implements OnInit, OnDestroy {
       this.breakdownState.set('loading');
     }
 
-    this.recalculationSubscription = this.scoreBreakdownApi.recalculate(targetDate).subscribe({
-      next: (result) => {
-        this.breakdown.set(result);
-        this.breakdownError.set(null);
-        this.breakdownState.set('loaded');
-        this.recalculationState.set('idle');
-        this.recalculationError.set(null);
-        this.loadSummaryRows();
-      },
-      error: (error: unknown) => {
-        this.recalculationState.set('idle');
-        const message = this.describeRecalculationError(error);
-        this.recalculationError.set(message);
-        if (!keepCurrentBreakdown) {
-          this.breakdownError.set(message);
-          this.breakdownState.set('error');
-        }
-      },
-    });
+    this.scoreBreakdownApi.recalculate(targetDate)
+      .pipe(
+        takeUntil(this.recalculationRequestCancelled$),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (result) => {
+          this.breakdown.set(result);
+          this.breakdownError.set(null);
+          this.breakdownState.set('loaded');
+          this.recalculationState.set('idle');
+          this.recalculationError.set(null);
+          this.loadSummaryRows();
+        },
+        error: (error: unknown) => {
+          this.recalculationState.set('idle');
+          const message = this.describeRecalculationError(error);
+          this.recalculationError.set(message);
+          if (!keepCurrentBreakdown) {
+            this.breakdownError.set(message);
+            this.breakdownState.set('error');
+          }
+        },
+      });
   }
 
   retryBreakdown(): void {
@@ -419,9 +279,9 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   }
 
   closeBreakdown(): void {
-    this.breakdownSubscription?.unsubscribe();
-    this.recalculationSubscription?.unsubscribe();
-    this.manualSaveSubscription?.unsubscribe();
+    this.breakdownRequestCancelled$.next();
+    this.recalculationRequestCancelled$.next();
+    this.manualSaveRequestCancelled$.next();
     this.recalculationState.set('idle');
     this.manualSaveState.set('idle');
     this.selectedDate.set(null);
@@ -432,10 +292,36 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.breakdownState.set('idle');
   }
 
+  private loadSummaryRows(): void {
+    this.summaryRequestCancelled$.next();
+    this.summaryState.set('loading');
+    this.summaryError.set(null);
+    this.api.dailySummary({
+      from: this.from() || undefined,
+      to: this.to() || undefined,
+      limit: 10_000,
+    })
+      .pipe(
+        takeUntil(this.summaryRequestCancelled$),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.rows.set(rows);
+          this.summaryState.set(rows.length === 0 ? 'empty' : 'loaded');
+        },
+        error: (error: unknown) => {
+          this.rows.set([]);
+          this.summaryError.set(this.describeSummaryError(error));
+          this.summaryState.set('error');
+        },
+      });
+  }
+
   private loadBreakdown(date: string, allowMissing = false): void {
-    this.breakdownSubscription?.unsubscribe();
-    this.recalculationSubscription?.unsubscribe();
-    this.manualSaveSubscription?.unsubscribe();
+    this.breakdownRequestCancelled$.next();
+    this.recalculationRequestCancelled$.next();
+    this.manualSaveRequestCancelled$.next();
     this.recalculationState.set('idle');
     this.manualSaveState.set('idle');
     this.recalculationError.set(null);
@@ -444,19 +330,28 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.breakdown.set(null);
     this.breakdownError.set(null);
     this.breakdownState.set('loading');
-    this.breakdownSubscription = this.scoreBreakdownApi.getForDate(date).subscribe({
-      next: (result) => { this.breakdown.set(result); this.breakdownState.set('loaded'); },
-      error: (error: unknown) => {
-        if (allowMissing && this.isMissingBreakdown(error)) {
-          this.breakdown.set(null);
-          this.breakdownError.set(null);
+
+    this.scoreBreakdownApi.getForDate(date)
+      .pipe(
+        takeUntil(this.breakdownRequestCancelled$),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (result) => {
+          this.breakdown.set(result);
           this.breakdownState.set('loaded');
-          return;
-        }
-        this.breakdownError.set(this.describeBreakdownError(error));
-        this.breakdownState.set('error');
-      },
-    });
+        },
+        error: (error: unknown) => {
+          if (allowMissing && this.isMissingBreakdown(error)) {
+            this.breakdown.set(null);
+            this.breakdownError.set(null);
+            this.breakdownState.set('loaded');
+            return;
+          }
+          this.breakdownError.set(this.describeBreakdownError(error));
+          this.breakdownState.set('error');
+        },
+      });
   }
 
   private isMissingBreakdown(error: unknown): boolean {
@@ -506,46 +401,4 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     if (!value || typeof value !== 'object') return null;
     return value as ApiErrorBody;
   }
-
-  private formatCellNumber(value: unknown): string {
-    if (value === null || value === undefined || value === '') return '—';
-    const number = Number(value);
-    return Number.isFinite(number) ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(number) : String(value);
-  }
-
-  private formatMeters(value: unknown, fractionDigits = 2): string {
-    if (value === null || value === undefined || value === '') return '—';
-    const meters = Number(value);
-    return Number.isFinite(meters)
-      ? `${(meters / 1000).toLocaleString('en-US', { maximumFractionDigits: fractionDigits })} km`
-      : String(value);
-  }
-
-  scoreStatusLabel(value: unknown): string {
-    return value === 'imported' ? 'Imported ledger' : value === 'calculated' ? 'Calculated' : value === 'manual' ? 'Manual edit' : String(value ?? '—');
-  }
-
-  formatDate(value: string | null | undefined): string {
-    return formatDate(value);
-  }
-}
-
-function quickRangeDates(range: Exclude<QuickRange, 'custom'>, today = new Date()): { from: string; to: string } {
-  const to = today.toISOString().slice(0, 10);
-  if (range === 'all') return { from: '', to: '' };
-  if (range === 'ytd') return { from: `${to.slice(0, 4)}-01-01`, to };
-
-  const months = range === '1m' ? 1 : range === '3m' ? 3 : range === '6m' ? 6 : range === '1y' ? 12 : 36;
-  return { from: shiftCalendarMonths(to, months), to };
-}
-
-function shiftCalendarMonths(value: string, months: number): string {
-  const year = Number(value.slice(0, 4));
-  const month = Number(value.slice(5, 7)) - 1;
-  const day = Number(value.slice(8, 10));
-  const targetMonthIndex = month - months;
-  const targetYear = year + Math.floor(targetMonthIndex / 12);
-  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
-  const daysInTargetMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
-  return `${targetYear.toString().padStart(4, '0')}-${(targetMonth + 1).toString().padStart(2, '0')}-${Math.min(day, daysInTargetMonth).toString().padStart(2, '0')}`;
 }

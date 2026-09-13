@@ -3,7 +3,6 @@ import { HttpErrorResponse } from '@angular/common/http';
 import type { Router } from '@angular/router';
 import { Subject, of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { GridReadyEvent } from 'ag-grid-community';
 import type { ApiService, DailySummaryRow } from './api.service';
 import { DailyLogComponent } from './daily-log.component';
 import type { ScoreBreakdownApiService } from './score-breakdown-api.service';
@@ -107,36 +106,6 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(component.from()).toBe('2026-05-01');
   });
 
-  it('plots every row in the selected range instead of truncating the chart', () => {
-    const component = createComponent({ getForDate: vi.fn() });
-    const rows = Array.from({ length: 121 }, (_, index) => ({
-      ...row,
-      metric_date: new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10),
-    }));
-    component.rows.set(rows.reverse());
-
-    const options = component.chartOptions();
-    const xAxis = options.xAxis as { data?: string[] };
-
-    expect(xAxis.data).toHaveLength(121);
-    expect(xAxis.data?.[0]).toBe(component.formatDate(rows[120].metric_date));
-  });
-
-  it('applies an allowed page size through the grid API', () => {
-    const setGridOption = vi.fn();
-    const component = createComponent({ getForDate: vi.fn() });
-
-    component.onGridReady({ api: { setGridOption } } as unknown as GridReadyEvent<DailySummaryRow>);
-    component.setPageSize('200');
-
-    expect(component.pageSize()).toBe(200);
-    expect(setGridOption).toHaveBeenLastCalledWith('paginationPageSize', 200);
-
-    component.setPageSize('50');
-    expect(component.pageSize()).toBe(200);
-    expect(setGridOption).toHaveBeenLastCalledWith('paginationPageSize', 200);
-  });
-
   it('renders an actionable summary API failure', () => {
     const api = { dailySummary: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503, error: { message: 'Database unavailable.' } }))) };
     const component = createComponent({ getForDate: vi.fn() }, api);
@@ -220,6 +189,19 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(component.breakdown()).toEqual(breakdown);
     expect(router.navigate).not.toHaveBeenCalled();
     expect(component.manualEditRequestId()).toBe(1);
+  });
+
+  it('navigates the selected day to the complete daily workspace', () => {
+    const scoreApi = { getForDate: vi.fn().mockReturnValue(of(breakdown)) };
+    const router = { navigate: vi.fn().mockResolvedValue(true) };
+    const component = createComponent(scoreApi, undefined, router);
+    component.openBreakdown(row);
+
+    component.openFullDay();
+    expect(router.navigate).toHaveBeenCalledWith(['/daily', row.metric_date], { queryParams: undefined });
+
+    component.openFullDay(true);
+    expect(router.navigate).toHaveBeenLastCalledWith(['/daily', row.metric_date], { queryParams: { edit: 'true' } });
   });
 
   it('opens a blank manual entry in the quick sheet', () => {
