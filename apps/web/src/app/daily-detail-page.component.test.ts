@@ -4,6 +4,7 @@ import { convertToParamMap, type ActivatedRoute, type Router } from '@angular/ro
 import { of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { DailyDetailPageComponent } from './daily-detail-page.component';
+import type { ProviderApiService } from './provider-api.service';
 import type { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import type { DailyScoreBreakdown } from './score-breakdown.models';
 
@@ -63,12 +64,43 @@ describe('DailyDetailPageComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: {}, replaceUrl: true }));
     expect(component.savingManual()).toBe(false);
   });
+
+  it('refetches the selected calendar day from Strava before recalculating it', () => {
+    const job = {
+      id: 'job-1', connectionId: 'connection-1', mode: 'webhook_refresh', batchId: 'batch-1',
+      status: 'succeeded', phase: 'completed', progressPercent: 100, attemptCount: 1, maxAttempts: 5,
+      cancellationRequested: false, requestedAfter: null, requestedBefore: null, error: null, result: {},
+      createdAt: '', updatedAt: '', startedAt: '', completedAt: '',
+    } as const;
+    const providerApi = {
+      connections: vi.fn().mockReturnValue(of([{ id: 'connection-1', provider: 'strava', status: 'connected' }])),
+      enqueueSync: vi.fn().mockReturnValue(of(job)),
+      syncJob: vi.fn(),
+    };
+    const api = {
+      getForDate: vi.fn().mockReturnValue(of(breakdown)),
+      recalculate: vi.fn().mockReturnValue(of(breakdown)),
+    };
+    const component = createComponent(api, {}, undefined, providerApi);
+    component.ngOnInit();
+
+    component.refreshFromStrava();
+
+    expect(providerApi.enqueueSync).toHaveBeenCalledWith('connection-1', 'webhook_refresh', {
+      after: '2026-09-10T09:00:00.000Z',
+      before: '2026-09-12T12:00:00.000Z',
+    });
+    expect(api.recalculate).toHaveBeenCalledWith(date);
+    expect(component.stravaRefreshStatus()).toContain('latest activities');
+    expect(component.refreshingFromStrava()).toBe(false);
+  });
 });
 
 function createComponent(
   api: { getForDate: ReturnType<typeof vi.fn>; saveManualFacts?: ReturnType<typeof vi.fn> },
   query: Record<string, string> = {},
-  router: { navigate: ReturnType<typeof vi.fn> } = { navigate: vi.fn().mockResolvedValue(true) },
+  router: { navigate: ReturnType<typeof vi.fn> } | undefined = undefined,
+  providerApi: { connections: ReturnType<typeof vi.fn>; enqueueSync?: ReturnType<typeof vi.fn>; syncJob?: ReturnType<typeof vi.fn> } = { connections: vi.fn().mockReturnValue(of([])) },
 ): DailyDetailPageComponent {
   const route = {
     paramMap: of(convertToParamMap({ date })),
@@ -76,7 +108,8 @@ function createComponent(
   };
   return new DailyDetailPageComponent(
     route as unknown as ActivatedRoute,
-    router as unknown as Router,
+    (router ?? { navigate: vi.fn().mockResolvedValue(true) }) as unknown as Router,
     api as unknown as ScoreBreakdownApiService,
+    providerApi as unknown as ProviderApiService,
   );
 }

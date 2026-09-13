@@ -21,8 +21,8 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | Priority | Code | Classification | Input and formula | Boundary/auxiliary semantics | Evidence status |
 | ---: | --- | --- | --- | --- | --- |
 | 10 | `steps.base` | Base | steps × 1; nearest integer per rule | none | Confirmed SportOS mapping; steps are imported as an integer count. |
-| 20 | `run.km.default` | Base | aggregate run km × 1,000; nearest integer per rule | none | Synthetic workbook formula evidence confirms the configured mapping. Historical coefficient changes remain unproven. |
-| 30 | `bike.km.default` | Base | aggregate bike km × 650; nearest integer per rule | none | Configured assumption. No permitted historical workbook evidence currently justifies changing it. |
+| 20 | `run.km.default` | Base | treadmill km × 1,850; outdoor km × 1,700; unknown-subtype km × 1,000; nearest integer per contribution | Canonical subtype controls the coefficient for workbook, provider, recalculation, and manual facts | Workbook formula evidence confirms the treadmill/outdoor mappings; the generic coefficient remains the conservative fallback. |
+| 30 | `bike.km.default` | Base | indoor km × 700; outdoor km × 600; unknown-subtype km × 650; nearest integer per contribution | Canonical subtype controls the coefficient for workbook, provider, recalculation, and manual facts | Workbook formula evidence confirms the indoor/outdoor mappings; the generic coefficient remains the conservative fallback. |
 | 40 | `swim.m.default` | Base | swim meters × 7.5; nearest integer per rule | none | Configured assumption. No permitted historical workbook evidence currently justifies changing it. |
 | 50 | `workout.manual` | Base | imported, importer-rounded `WOtotal` points × 1; nearest integer per rule | HIIT and rowing are not added separately | Confirmed application behavior. Whether every workbook's `WOtotal` embeds the same source components remains unresolved. |
 | 60 | `power.manual` | Bonus | imported, importer-rounded `Pow` points × 1; nearest integer per rule | none | Confirmed application behavior and activity classification. Migration V102 corrects older base/bonus aggregates without changing daily totals. |
@@ -34,6 +34,10 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 ## Spreadsheet component evidence
 
 The daily workbook may provide cached formula columns `Run to S`, `Bike to S`, `sup to s`, `raw to s`, and `Swim to S`. The importer exposes these as reconciliation evidence with their source-column names. They are not canonical activity facts and they do not create scoring rules.
+
+Confirmed run and bike subtype coefficients are application scoring semantics, not importer-only behavior. Once a canonical activity or daily fact split identifies treadmill/outdoor running or indoor/outdoor cycling, the same coefficient is used for workbook calculation, explicit Strava recalculation, rule recomputation, and manual daily facts. Unknown subtypes retain the configured generic rule coefficient. Ledger calculation metadata records both the configured fallback and the applied subtype coefficient.
+
+Explicit recalculation is a merge of compatible authorities rather than wholesale replacement. Canonical source activities refresh run, bike, and swim measurements. Stored steps, workout points, and power points are retained because Strava does not author those facts. A saved manual distance remains when no canonical source activity exists for that activity type.
 
 A component comparison is:
 
@@ -126,7 +130,7 @@ No coefficient-wide historical recomputation is performed. V102 applies only cor
 
 The following items remain intentionally unresolved until permitted source evidence is available:
 
-- whether bike used 650 points/km for every historical period;
+- whether the confirmed run/bike subtype coefficients changed in any historical period;
 - whether swim used 7.5 points/m for every historical period;
 - which source columns are included in `WOtotal` across workbook versions;
 - whether `Pow` is included in every spreadsheet `All` formula;

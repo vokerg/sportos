@@ -54,10 +54,14 @@ export class ProviderApiService {
     return this.http.post<{ authorizationUrl: string }>(`${this.api.apiBase()}/providers/strava/connect`, { returnTo });
   }
 
-  enqueueSync(connectionId: string, mode: 'initial_backfill' | 'incremental') {
+  enqueueSync(
+    connectionId: string,
+    mode: 'initial_backfill' | 'incremental' | 'webhook_refresh',
+    range?: { after: string; before: string },
+  ) {
     return this.http.post<ProviderSyncJob>(
       `${this.api.apiBase()}/providers/connections/${encodeURIComponent(connectionId)}/sync`,
-      { mode },
+      { mode, ...range },
     );
   }
 

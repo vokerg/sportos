@@ -39,7 +39,55 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check database integration configuration
+        id: database_config
+        env:
+          FLYWAY_URL: ${{ secrets.SPORTOS_CI_FLYWAY_URL }}
+          FLYWAY_USER: ${{ secrets.SPORTOS_CI_FLYWAY_USER }}
+          FLYWAY_PASSWORD: ${{ secrets.SPORTOS_CI_FLYWAY_PASSWORD }}
+          UPGRADE_FLYWAY_URL: ${{ secrets.SPORTOS_CI_UPGRADE_FLYWAY_URL }}
+          UPGRADE_FLYWAY_USER: ${{ secrets.SPORTOS_CI_UPGRADE_FLYWAY_USER }}
+          UPGRADE_FLYWAY_PASSWORD: ${{ secrets.SPORTOS_CI_UPGRADE_FLYWAY_PASSWORD }}
+          UPGRADE_DATABASE_URL: ${{ secrets.SPORTOS_CI_UPGRADE_DATABASE_URL }}
+          LEGACY_DATABASE_URL: ${{ secrets.SPORTOS_CI_LEGACY_DATABASE_URL }}
+          APP_DATABASE_URL: ${{ secrets.SPORTOS_CI_APP_DATABASE_URL }}
+          WORKER_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATABASE_URL }}
+          WORKER_DATA_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATA_DATABASE_URL }}
+        run: |
+          missing=()
+          for variable in \
+            FLYWAY_URL \
+            FLYWAY_USER \
+            FLYWAY_PASSWORD \
+            UPGRADE_FLYWAY_URL \
+            UPGRADE_FLYWAY_USER \
+            UPGRADE_FLYWAY_PASSWORD \
+            UPGRADE_DATABASE_URL \
+            LEGACY_DATABASE_URL \
+            APP_DATABASE_URL \
+            WORKER_DATABASE_URL \
+            WORKER_DATA_DATABASE_URL; do
+            if [ -z "${!variable}" ]; then
+              missing+=("$variable")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Database validation not configured"
+              echo
+              echo "Static validation will continue. Neon migration and database integration steps are skipped because these CI secret values are missing:"
+              printf -- '- `%s`\n' "${missing[@]}"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Neon database validation skipped; missing CI secret values: ${missing[*]}"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "Neon database validation is configured."
+          fi
+
       - name: Install Neon migration tools
+        if: steps.database_config.outputs.ready == 'true'
         env:
           FLYWAY_VERSION: 10.20.1
         run: |
@@ -52,9 +100,11 @@ jobs:
           echo "$RUNNER_TEMP/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
 
       - name: Migrate fresh Neon test branch
+        if: steps.database_config.outputs.ready == 'true'
         run: pnpm db:migrate
 
       - name: Verify populated V105 ownership upgrade
+        if: steps.database_config.outputs.ready == 'true'
         env:
           SPORTOS_FLYWAY_URL: ${{ secrets.SPORTOS_CI_UPGRADE_FLYWAY_URL }}
           SPORTOS_FLYWAY_USER: ${{ secrets.SPORTOS_CI_UPGRADE_FLYWAY_USER }}
@@ -73,12 +123,14 @@ jobs:
         run: pnpm test
 
       - name: Database job and ownership integration
+        if: steps.database_config.outputs.ready == 'true'
         env:
           SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_LEGACY_DATABASE_URL }}
           SPORTOS_OWNER_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_APP_DATABASE_URL }}
         run: pnpm --filter @sportos/db test:integration
 
       - name: API analysis ownership integration
+        if: steps.database_config.outputs.ready == 'true'
         env:
           SPORTOS_OWNER_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_APP_DATABASE_URL }}
         run: >-
@@ -88,6 +140,7 @@ jobs:
 
       - name: Worker import integration
         id: worker_import
+        if: steps.database_config.outputs.ready == 'true'
         continue-on-error: true
         env:
           SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATABASE_URL }}
@@ -99,6 +152,7 @@ jobs:
 
       - name: Worker rule integration
         id: worker_rule
+        if: steps.database_config.outputs.ready == 'true'
         continue-on-error: true
         env:
           SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATABASE_URL }}
@@ -110,6 +164,7 @@ jobs:
 
       - name: Worker provider integration
         id: worker_provider
+        if: steps.database_config.outputs.ready == 'true'
         continue-on-error: true
         env:
           SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATABASE_URL }}
@@ -129,13 +184,14 @@ jobs:
           retention-days: 7
 
       - name: Assert worker integrations
-        if: always()
+        if: always() && steps.database_config.outputs.ready == 'true'
         run: |
           test "${{ steps.worker_import.outcome }}" = "success"
           test "${{ steps.worker_rule.outcome }}" = "success"
           test "${{ steps.worker_provider.outcome }}" = "success"
 
       - name: Database import integration
+        if: steps.database_config.outputs.ready == 'true'
         env:
           SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_LEGACY_DATABASE_URL }}
         run: pnpm --filter @sportos/importers test:integration

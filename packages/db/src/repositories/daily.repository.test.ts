@@ -147,6 +147,43 @@ describe('assembleDailyScoreBreakdown', () => {
     expect(result.activities[0]?.distanceM).toBe(13_000);
     expect(typeof result.facts.swimM).toBe('number');
   });
+
+  it('does not add stale manual distance to the source distance of a calculated day', () => {
+    const stravaActivityId = '60000000-0000-4000-8000-000000000010';
+    const result = assembleDailyScoreBreakdown(
+      { ...header, runM: 9_946.6 },
+      [ledgerRow({
+        ledgerPoints: 16_909,
+        activityId: stravaActivityId,
+        activitySource: 'strava',
+        activityDate: header.date,
+        activityType: 'run',
+        activitySubtype: 'outdoor',
+        activityDistanceM: 9_946.6,
+      })],
+      [
+        ledgerRow({
+          activityId: '60000000-0000-4000-8000-000000000011',
+          activitySource: 'manual',
+          activityDate: header.date,
+          activityType: 'run',
+          activitySubtype: 'outdoor',
+          activityDistanceM: 10_000,
+        }),
+        ledgerRow({
+          activityId: stravaActivityId,
+          activitySource: 'strava',
+          activityDate: header.date,
+          activityType: 'run',
+          activitySubtype: 'outdoor',
+          activityDistanceM: 9_946.6,
+        }),
+      ],
+    );
+
+    expect(result.facts).toMatchObject({ runM: 9_946.6, runOutdoorM: 9_946.6 });
+    expect(result.activities).toHaveLength(2);
+  });
 });
 
 function ledgerRow(overrides: Partial<DailyScoreBreakdownLedgerRow>): DailyScoreBreakdownLedgerRow {

@@ -203,12 +203,22 @@ append-only for runtime roles, and the current row remains the normal read
 path.
 
 `POST /daily/:date/recalculate` is the explicit authority transition. In one
-account-scoped transaction it requires Strava data, uses all canonical
-activities for an existing daily row (or Strava activities only for a missing
-row), removes workbook `All` from the scoring input, and persists a calculated
-score. No Strava data returns a bounded conflict without changing the current
-score. Rule publication skips imported rows and reports them instead of
-silently replacing their ledgers.
+account-scoped transaction it requires Strava data, rebuilds run, bike, and
+swim measurements from canonical source activities, retains stored steps,
+workout points, and power points, removes workbook `All` from the scoring
+input, and persists a calculated score. A saved manual distance remains when
+no source activity exists for that activity type. A missing daily row is built
+from Strava activities only. No Strava data returns a bounded conflict without
+changing the current score. Rule publication skips imported rows and reports
+them instead of silently replacing their ledgers.
+
+The full daily page also exposes a distinct targeted Strava refetch. It queues
+a durable `webhook_refresh` provider job with a bounded timestamp window that
+covers the selected Strava-local calendar date across UTC offsets. The browser
+polls that account-scoped job with a fixed limit and invokes the normal daily
+recalculation only after ingestion succeeds. Corrected or newly added Strava
+activities can therefore update the selected score without making provider
+synchronization an implicit score write.
 
 `PUT /daily/:date/facts` is the manual authority transition. It accepts only
 bounded canonical daily facts, creates a private manual source batch and source

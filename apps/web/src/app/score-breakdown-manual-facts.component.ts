@@ -140,12 +140,12 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
     this.validationError.set(null);
     this.save.emit({
       steps: this.manualSteps(),
-      runIndoorM: this.manualRunIndoorKm() * 1000,
-      runOutdoorM: this.manualRunOutdoorKm() * 1000,
-      runUnspecifiedM: this.manualRunUnspecifiedKm() * 1000,
-      bikeIndoorM: this.manualBikeIndoorKm() * 1000,
-      bikeOutdoorM: this.manualBikeOutdoorKm() * 1000,
-      bikeUnspecifiedM: this.manualBikeUnspecifiedKm() * 1000,
+      runIndoorM: this.kilometersToMeters(this.manualRunIndoorKm()),
+      runOutdoorM: this.kilometersToMeters(this.manualRunOutdoorKm()),
+      runUnspecifiedM: this.kilometersToMeters(this.manualRunUnspecifiedKm()),
+      bikeIndoorM: this.kilometersToMeters(this.manualBikeIndoorKm()),
+      bikeOutdoorM: this.kilometersToMeters(this.manualBikeOutdoorKm()),
+      bikeUnspecifiedM: this.kilometersToMeters(this.manualBikeUnspecifiedKm()),
       swimM: this.manualSwimM(),
       workoutPoints: this.manualWorkoutPoints(),
       powerPoints: this.manualPowerPoints(),
@@ -155,6 +155,10 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
   numberInputValue(event: Event): number {
     const input = event.target as HTMLInputElement;
     return input.value.trim() === '' ? 0 : input.valueAsNumber;
+  }
+
+  private kilometersToMeters(value: number): number {
+    return Math.round(value * 1_000_000) / 1000;
   }
 
   private remainderDistanceKm(
