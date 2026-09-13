@@ -204,6 +204,20 @@ describe('ScoreBreakdownPanelComponent', () => {
     injector.destroy();
   });
 
+  it('preserves precise decimal kilometer input when converting to meters', () => {
+    const { component, injector } = createComponent();
+    const emitted: unknown[] = [];
+    component.saveManualFacts.subscribe((value) => emitted.push(value));
+    component.startManualEdit(null);
+    component.manualRunOutdoorKm.set(12.85043434);
+
+    component.submitManualFacts();
+
+    expect(component.manualValidationError()).toBeNull();
+    expect(emitted).toEqual([expect.objectContaining({ runOutdoorM: 12_850.434 })]);
+    injector.destroy();
+  });
+
   it('prefills manual editing from the current canonical facts', () => {
     const { component, injector } = createComponent();
     const current = {

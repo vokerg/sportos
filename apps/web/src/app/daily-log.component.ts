@@ -61,12 +61,12 @@ const DEFAULT_QUICK_RANGE = '3m' as const;
       <div class="activity-recalculation">
         <div>
           <span class="recalculation-label">Explicit recalculation</span>
-          <strong>Calculate a date from Strava activities</strong>
-          <small>Use this when a daily ledger row is missing. Existing imported rows can also be recalculated from the details panel.</small>
+          <strong>Refresh a date from Strava activities</strong>
+          <small>Run, bike, and swim measurements come from canonical source activities. Saved steps, workout points, and power points are retained.</small>
         </div>
         <label>Date <input type="date" [value]="activityDate()" (input)="activityDate.set($any($event.target).value)" /></label>
         <button type="button" [disabled]="recalculationState() === 'working' || !activityDate()" (click)="recalculateSelectedDate(activityDate())">
-          Calculate from Strava
+          Refresh from Strava
         </button>
         <button type="button" class="secondary" [disabled]="!activityDate()" (click)="openManualEntry(activityDate())">
           Enter facts manually
@@ -132,10 +132,13 @@ const DEFAULT_QUICK_RANGE = '3m' as const;
         [errorMessage]="breakdownError()"
         [recalculating]="recalculationState() === 'working'"
         [recalculationError]="recalculationError()"
+        [savingManual]="manualSaveState() === 'working'"
+        [manualSaveError]="manualSaveError()"
+        [manualEditRequestId]="manualEditRequestId()"
         (retry)="retryBreakdown()"
         (recalculate)="recalculateSelectedDate()"
+        (saveManualFacts)="saveManualFacts($event)"
         (opened)="openFullDay()"
-        (edit)="openFullDay(true)"
         (closed)="closeBreakdown()" />
     </section>
   `,
@@ -341,10 +344,9 @@ export class DailyLogComponent implements OnInit, OnDestroy {
 
   openManualEntry(date: string): void {
     if (!date) return;
-    this.selectedDate.set(date);
     this.manualSaveError.set(null);
     this.manualEditRequestId.update((requestId) => requestId + 1);
-    void this.router.navigate(['/daily', date], { queryParams: { edit: 'true' } });
+    this.loadBreakdown(date, true);
   }
 
   openFullDay(edit = false): void {
@@ -436,8 +438,11 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   private loadBreakdown(date: string, allowMissing = false): void {
     this.breakdownSubscription?.unsubscribe();
     this.recalculationSubscription?.unsubscribe();
+    this.manualSaveSubscription?.unsubscribe();
     this.recalculationState.set('idle');
+    this.manualSaveState.set('idle');
     this.recalculationError.set(null);
+    this.manualSaveError.set(null);
     this.selectedDate.set(date);
     this.breakdown.set(null);
     this.breakdownError.set(null);

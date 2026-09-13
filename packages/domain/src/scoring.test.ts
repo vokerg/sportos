@@ -111,7 +111,84 @@ describe('scoreDay', () => {
     );
 
     expect(result).toMatchObject({ basePoints: 12_000, bonusPoints: 0, totalPoints: 12_000 });
-    expect(result.ledger.map((entry) => entry.ruleCode)).toEqual(['run.km.default']);
+    expect(result.ledger.map((entry) => entry.ruleCode)).toEqual(['run.km.default', 'run.km.default']);
+    expect(result.ledger.map((entry) => entry.activityId)).toEqual(['run1', 'run2']);
+  });
+
+  it('uses confirmed subtype coefficients consistently for provider recalculation', () => {
+    const result = scoreDay(
+      {
+        metricDate: '2026-09-13',
+        steps: 0,
+        runM: 22_032.2,
+        runIndoorM: 0,
+        runOutdoorM: 22_032.2,
+        runUnspecifiedM: 0,
+        bikeM: 10_000,
+        bikeIndoorM: 0,
+        bikeOutdoorM: 10_000,
+        bikeUnspecifiedM: 0,
+        swimM: 1_000,
+        workoutPoints: 0,
+        powerPoints: 0,
+      },
+      [
+        { id: 'strava-run', source: 'strava', activityDate: '2026-09-13', activityType: 'run', subtype: 'outdoor', distanceM: 22_032.2, durationS: 9_203 },
+        { id: 'strava-bike', source: 'strava', activityDate: '2026-09-13', activityType: 'bike', subtype: 'outdoor', distanceM: 10_000 },
+      ],
+      [
+        ...rules,
+        { code: 'bike.km.default', name: 'Bike', activityType: 'bike', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 650, validFrom: '1900-01-01', priority: 30, enabled: true },
+        { code: 'swim.m.default', name: 'Swim', activityType: 'swim', ruleKind: 'coefficient', metric: 'distance_m', coefficient: 7.5, validFrom: '1900-01-01', priority: 40, enabled: true },
+      ],
+    );
+
+    expect(result).toMatchObject({ basePoints: 50_955, bonusPoints: 0, totalPoints: 50_955 });
+    expect(result.ledger.find((entry) => entry.activityId === 'strava-run')).toMatchObject({
+      points: 37_455,
+      calculationJson: {
+        coefficientSource: 'confirmed_workbook_subtype_semantics',
+        configuredCoefficient: 1000,
+        appliedCoefficient: 1700,
+      },
+    });
+    expect(result.ledger.find((entry) => entry.activityId === 'strava-bike')).toMatchObject({
+      points: 6_000,
+      calculationJson: {
+        coefficientSource: 'confirmed_workbook_subtype_semantics',
+        configuredCoefficient: 650,
+        appliedCoefficient: 600,
+      },
+    });
+    expect(result.ledger.find((entry) => entry.ruleCode === 'swim.m.default')).toMatchObject({ points: 7_500 });
+  });
+
+  it('uses the same subtype coefficients for manual daily facts', () => {
+    const result = scoreDay(
+      {
+        metricDate: '2026-09-13',
+        steps: 0,
+        runM: 2_000,
+        runIndoorM: 1_000,
+        runOutdoorM: 1_000,
+        runUnspecifiedM: 0,
+        bikeM: 2_000,
+        bikeIndoorM: 1_000,
+        bikeOutdoorM: 1_000,
+        bikeUnspecifiedM: 0,
+        swimM: 0,
+        workoutPoints: 0,
+        powerPoints: 0,
+      },
+      [],
+      [
+        ...rules,
+        { code: 'bike.km.default', name: 'Bike', activityType: 'bike', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 650, validFrom: '1900-01-01', priority: 30, enabled: true },
+      ],
+    );
+
+    expect(result).toMatchObject({ basePoints: 4_850, bonusPoints: 0, totalPoints: 4_850 });
+    expect(result.ledger.map((entry) => entry.points)).toEqual([1_850, 1_700, 700, 600]);
   });
 
   it('uses workbook activity-specific coefficients when subtype distances are present', () => {

@@ -76,6 +76,8 @@ SportOS does not infer that unmapped SUP or rowing values should be added to `Al
 
 The synthetic fixture uses coherent cached formulas for run, bike, swim, and `All` according to the current configured rules. That proves parser and reconciliation behavior, not that every historical workbook used the same bike or swim coefficients.
 
+The confirmed subtype mappings—treadmill run × 1,850/km, outdoor run × 1,700/km, indoor bike × 700/km, and outdoor bike × 600/km—also apply when the same canonical subtype comes from Strava recalculation or manual daily facts. Swimming is source-independent at metres × 7.5. Unknown run/bike subtypes use the generic configured coefficient instead of guessing a subtype.
+
 ## Running-performance workbook
 
 ### Confirmed sheet mapping

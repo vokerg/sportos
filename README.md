@@ -33,7 +33,8 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Browse daily summaries and inspect exact score-ledger, immutable rule-version, activity, source-record, and import-batch provenance.
 - Treat imported workbook `All` totals as authoritative until an explicit recalculation or manual edit; each daily row shows whether its current score is imported, calculated, or manual.
 - Create or edit a date's canonical daily facts with derived run/bike totals from treadmill/indoor, outdoor, and unspecified splits; manual edits retain provenance, replace only prior manual activities, and append immutable score history.
-- Recalculate a selected date from canonical activities, including a Strava-only date when no daily ledger row exists, without changing scores implicitly during synchronization.
+- Recalculate a selected date from already-canonical source activities while retaining saved steps, workout points, and power points; a Strava-only date can still create a daily row without changing scores implicitly during synchronization.
+- From the full daily page, refetch a bounded calendar-day window from Strava to ingest newly added or corrected activity snapshots, then recalculate that date only after the durable provider job succeeds.
 - Explore running performance, personal-best views, event detail, and source attribution in Run Lab.
 - Preview scoring-rule changes without writes.
 - Publish immutable rule versions with non-overlapping account-scoped effective ranges.

@@ -93,7 +93,7 @@ interface ImportedLedgerDetails {
             <span class="status-badge" [attr.data-status]="current.scoreStatus">{{ scoreStatusLabel(current.scoreStatus) }}</span>
             <span class="total-note">{{ scoreAuthorityNote(current.scoreStatus) }}</span>
             <button type="button" class="secondary-button recalculation-action" (click)="recalculate.emit()" [disabled]="recalculating()">
-              {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
+              {{ recalculating() ? 'Recalculating…' : 'Recalculate score' }}
             </button>
             @if (recalculationError()) {
               <span class="recalculation-error" role="alert">{{ recalculationError() }}</span>
@@ -172,7 +172,7 @@ interface ImportedLedgerDetails {
             <div>
               <span class="section-label">All canonical activities</span>
               <h4 id="day-activities-title">Activities recorded for {{ formatDate(date()) }}</h4>
-              <p class="section-help">Imported rows use the saved workbook ledger. Recalculated rows use the canonical activities shown here, including Strava records.</p>
+              <p class="section-help">Recalculation uses canonical source activities for run, bike, and swim while retaining saved steps, workout points, and power points.</p>
             </div>
             <strong class="count-badge">{{ current.activities.length }}</strong>
           </div>
@@ -386,21 +386,21 @@ interface ImportedLedgerDetails {
           <div class="manual-facts-grid">
             <label>Steps <input type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
             <div class="manual-derived-field" aria-readonly="true"><span>Run total (km)</span><strong>{{ formatNumber(manualRunTotalKm()) }}</strong><small>Calculated from treadmill + outdoor + unspecified</small></div>
-            <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
-            <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
-            <label>Run unspecified (km) <input type="number" min="0" step="0.01" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
+            <label>Run treadmill (km) <input type="number" min="0" step="any" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
+            <label>Run outdoor (km) <input type="number" min="0" step="any" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
+            <label>Run unspecified (km) <input type="number" min="0" step="any" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
             <div class="manual-derived-field" aria-readonly="true"><span>Bike total (km)</span><strong>{{ formatNumber(manualBikeTotalKm()) }}</strong><small>Calculated from indoor + outdoor + unspecified</small></div>
-            <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
-            <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
-            <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
-            <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
+            <label>Bike indoor (km) <input type="number" min="0" step="any" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
+            <label>Bike outdoor (km) <input type="number" min="0" step="any" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
+            <label>Bike unspecified (km) <input type="number" min="0" step="any" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
+            <label>Swim (m) <input type="number" min="0" step="any" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
             <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
             <label>Power points <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set(numberInputValue($event))" /></label>
           </div>
           @if (manualValidationError()) { <p class="recalculation-error" role="alert">{{ manualValidationError() }}</p> }
           @if (manualSaveError()) { <p class="recalculation-error" role="alert">{{ manualSaveError() }}</p> }
           <div class="manual-form-actions">
-            <button type="submit" [disabled]="savingManual()">{{ savingManual() ? 'Savingâ€¦' : 'Save manual facts' }}</button>
+            <button type="submit" [disabled]="savingManual()">{{ savingManual() ? 'Saving…' : 'Save manual facts' }}</button>
             <button type="button" class="secondary-button" [disabled]="savingManual()" (click)="editingManual.set(false)">Cancel</button>
           </div>
         </form>
@@ -813,7 +813,7 @@ export class ScoreBreakdownPanelComponent implements OnChanges {
   scoreAuthorityNote(status: DailyScoreBreakdown['scoreStatus']): string {
     if (status === 'imported') return 'Imported ledger is authoritative';
     if (status === 'manual') return 'Saved manual facts are authoritative';
-    return 'Calculated from canonical activities';
+    return 'Calculated from merged canonical facts';
   }
 
   startManualEdit(current: DailyScoreBreakdown | null): void {
@@ -861,12 +861,12 @@ export class ScoreBreakdownPanelComponent implements OnChanges {
     this.manualValidationError.set(null);
     this.saveManualFacts.emit({
       steps: this.manualSteps(),
-      runIndoorM: this.manualRunIndoorKm() * 1000,
-      runOutdoorM: this.manualRunOutdoorKm() * 1000,
-      runUnspecifiedM: this.manualRunUnspecifiedKm() * 1000,
-      bikeIndoorM: this.manualBikeIndoorKm() * 1000,
-      bikeOutdoorM: this.manualBikeOutdoorKm() * 1000,
-      bikeUnspecifiedM: this.manualBikeUnspecifiedKm() * 1000,
+      runIndoorM: this.kilometersToMeters(this.manualRunIndoorKm()),
+      runOutdoorM: this.kilometersToMeters(this.manualRunOutdoorKm()),
+      runUnspecifiedM: this.kilometersToMeters(this.manualRunUnspecifiedKm()),
+      bikeIndoorM: this.kilometersToMeters(this.manualBikeIndoorKm()),
+      bikeOutdoorM: this.kilometersToMeters(this.manualBikeOutdoorKm()),
+      bikeUnspecifiedM: this.kilometersToMeters(this.manualBikeUnspecifiedKm()),
       swimM: this.manualSwimM(),
       workoutPoints: this.manualWorkoutPoints(),
       powerPoints: this.manualPowerPoints(),
@@ -889,6 +889,10 @@ export class ScoreBreakdownPanelComponent implements OnChanges {
   numberInputValue(event: Event): number {
     const input = event.target as HTMLInputElement;
     return input.value.trim() === '' ? 0 : input.valueAsNumber;
+  }
+
+  private kilometersToMeters(value: number): number {
+    return Math.round(value * 1_000_000) / 1000;
   }
 
   formatNumber(value: number): string {

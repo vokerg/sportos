@@ -448,7 +448,7 @@ export function assembleDailyScoreBreakdown(
     ? activities.filter((activity) => activity.source === 'my_sport_xlsx')
     : header.scoreStatus === 'manual'
       ? activities.filter((activity) => activity.source === 'manual')
-      : activities;
+      : calculatedDistanceActivities(activities, ledger);
   const subtypeFacts = scoringActivities.reduce(
     (facts, activity) => {
       const distanceM = Number(activity.distanceM ?? 0);
@@ -495,6 +495,31 @@ export function assembleDailyScoreBreakdown(
     sourceRecords,
     ledger,
   };
+}
+
+function calculatedDistanceActivities(
+  activities: ScoreBreakdownActivityReadModel[],
+  ledger: ScoreBreakdownLedgerEntryReadModel[],
+): ScoreBreakdownActivityReadModel[] {
+  const linkedActivityIds = new Set(
+    ledger
+      .map((entry) => entry.activity?.id)
+      .filter((id): id is string => id !== undefined),
+  );
+
+  return activities.filter((activity) => {
+    if (activity.activityType !== 'run' && activity.activityType !== 'bike') return true;
+
+    const linkedForType = activities.some(
+      (candidate) => candidate.activityType === activity.activityType && linkedActivityIds.has(candidate.id),
+    );
+    if (linkedForType) return linkedActivityIds.has(activity.id);
+
+    const hasSourceForType = activities.some(
+      (candidate) => candidate.activityType === activity.activityType && candidate.source !== 'manual',
+    );
+    return hasSourceForType ? activity.source !== 'manual' : activity.source === 'manual';
+  });
 }
 
 function mapLedgerEntry(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownLedgerEntryReadModel {

@@ -12,6 +12,7 @@ type TestDatabase = ReturnType<typeof createDb>;
 const noLedgerDate = '2097-05-18';
 const importedDate = '2097-05-19';
 const manualDate = '2097-05-20';
+const mixedDate = '2097-05-21';
 
 databaseDescribe('DailyScoringRepository database integration', () => {
   let db: TestDatabase;
@@ -37,7 +38,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
     );
 
     expect(breakdown).toMatchObject({ date: noLedgerDate, scoreStatus: 'calculated' });
-    expect(breakdown.score).toMatchObject({ appTotal: 6000, baseTotal: 5000, bonusTotal: 1000, excelTotal: null });
+    expect(breakdown.score).toMatchObject({ appTotal: 9500, baseTotal: 8500, bonusTotal: 1000, excelTotal: null });
     expect(breakdown.activities).toHaveLength(1);
     expect(breakdown.activities[0]).toMatchObject({ source: 'strava', activityType: 'run' });
     expect(breakdown.ledger).toHaveLength(2);
@@ -47,7 +48,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
       .select(['score_status', 'total_points', 'excel_all_points'])
       .where('metric_date', '=', noLedgerDate)
       .executeTakeFirstOrThrow();
-    expect(daily).toMatchObject({ score_status: 'calculated', total_points: 6000, excel_all_points: null });
+    expect(daily).toMatchObject({ score_status: 'calculated', total_points: 9500, excel_all_points: null });
   });
 
   it('keeps an imported total in history and changes authority only after explicit recalculation', async () => {
@@ -82,11 +83,44 @@ databaseDescribe('DailyScoringRepository database integration', () => {
       snapshots: await ownerDb.selectFrom('daily_score_snapshots').select(['score_status', 'trigger', 'total_points']).where('metric_date', '=', importedDate).orderBy('created_at', 'asc').execute(),
     }));
 
-    expect(evidence.daily).toMatchObject({ score_status: 'calculated', total_points: 6000, excel_all_points: 5000 });
+    expect(evidence.daily).toMatchObject({ score_status: 'calculated', total_points: 9500, excel_all_points: 5000 });
     expect(evidence.snapshots.map((snapshot) => ({ status: snapshot.score_status, trigger: snapshot.trigger, total: snapshot.total_points }))).toEqual([
       { status: 'imported', trigger: 'workbook_import', total: 5000 },
-      { status: 'calculated', trigger: 'manual_recalculation', total: 6000 },
+      { status: 'calculated', trigger: 'manual_recalculation', total: 9500 },
     ]);
+  });
+
+  it('refreshes Strava distances without erasing manual workout points', async () => {
+    await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      await new DailyScoringRepository(ownerDb).saveManualFacts(mixedDate, {
+        steps: 0,
+        runIndoorM: 0,
+        runOutdoorM: 0,
+        runUnspecifiedM: 0,
+        bikeIndoorM: 0,
+        bikeOutdoorM: 0,
+        bikeUnspecifiedM: 0,
+        swimM: 0,
+        workoutPoints: 11_000,
+        powerPoints: 0,
+      });
+      await insertStravaRun(ownerDb, mixedDate, 'strava-mixed-1', 'strava-mixed-hash-1', 4_000, 2_000);
+      await insertStravaRun(ownerDb, mixedDate, 'strava-mixed-2', 'strava-mixed-hash-2', 4_000, 2_000);
+      await insertStravaRun(ownerDb, mixedDate, 'strava-mixed-3', 'strava-mixed-hash-3', 4_000, 2_000);
+    });
+
+    const breakdown = await withAccountContext(
+      db,
+      LEGACY_ACCOUNT_ID,
+      (ownerDb) => new DailyScoringRepository(ownerDb).recalculateFromActivities(mixedDate),
+    );
+
+    expect(breakdown).toMatchObject({
+      scoreStatus: 'calculated',
+      facts: { runM: 12_000, runOutdoorM: 12_000, workoutPoints: 11_000 },
+      score: { appTotal: 31_400, baseTotal: 31_400, bonusTotal: 0 },
+    });
+    expect(breakdown.ledger.map((entry) => entry.points).sort((a, b) => a - b)).toEqual([6_800, 6_800, 6_800, 11_000]);
   });
 
   it('stores manual facts, provenance, activities, and immutable score history', async () => {
@@ -137,7 +171,14 @@ databaseDescribe('DailyScoringRepository database integration', () => {
   });
 });
 
-async function insertStravaRun(db: TestDatabase, activityDate: string, sourceActivityId: string, sourceRecordHash: string): Promise<void> {
+async function insertStravaRun(
+  db: TestDatabase,
+  activityDate: string,
+  sourceActivityId: string,
+  sourceRecordHash: string,
+  distanceM = 5_000,
+  durationS = 1_499,
+): Promise<void> {
   await db.insertInto('activities').values({
     source: 'strava',
     source_record_id: null,
@@ -147,9 +188,9 @@ async function insertStravaRun(db: TestDatabase, activityDate: string, sourceAct
     start_time: new Date(`${activityDate}T08:00:00.000Z`),
     activity_type: 'run',
     subtype: 'outdoor',
-    distance_m: 5000,
-    duration_s: 1499,
-    moving_time_s: 1490,
+    distance_m: distanceM,
+    duration_s: durationS,
+    moving_time_s: durationS,
     steps: null,
     calories: null,
     avg_hr: null,
@@ -165,9 +206,9 @@ async function insertStravaRun(db: TestDatabase, activityDate: string, sourceAct
 
 async function reset(db: TestDatabase): Promise<void> {
   await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
-    await ownerDb.deleteFrom('score_ledger').where('metric_date', 'in', [noLedgerDate, importedDate, manualDate]).execute();
-    await ownerDb.deleteFrom('daily_metrics').where('metric_date', 'in', [noLedgerDate, importedDate, manualDate]).execute();
-    await ownerDb.deleteFrom('activities').where('activity_date', 'in', [noLedgerDate, importedDate, manualDate]).execute();
+    await ownerDb.deleteFrom('score_ledger').where('metric_date', 'in', [noLedgerDate, importedDate, manualDate, mixedDate]).execute();
+    await ownerDb.deleteFrom('daily_metrics').where('metric_date', 'in', [noLedgerDate, importedDate, manualDate, mixedDate]).execute();
+    await ownerDb.deleteFrom('activities').where('activity_date', 'in', [noLedgerDate, importedDate, manualDate, mixedDate]).execute();
     const batches = await ownerDb.selectFrom('import_batches').select('id').where('source', '=', 'manual_daily_edit').execute();
     if (batches.length > 0) {
       const ids = batches.map((batch) => batch.id);

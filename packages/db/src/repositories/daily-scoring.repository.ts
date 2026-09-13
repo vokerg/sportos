@@ -112,16 +112,18 @@ export class DailyScoringRepository {
         .executeTakeFirst();
       const dailyRepository = new DailyRepository(transaction);
       const activityRows = await dailyRepository.listActivitiesForDates([metricDate]);
-      const activities = activityRows.map(toActivityFact).filter((activity) => activity.source !== 'manual');
-      const stravaActivities = activities.filter((activity) => activity.source === 'strava');
+      const activities = activityRows.map(toActivityFact);
+      const sourceActivities = activities.filter((activity) => activity.source !== 'manual');
+      const manualActivities = activities.filter((activity) => activity.source === 'manual');
+      const stravaActivities = sourceActivities.filter((activity) => activity.source === 'strava');
 
       if (!daily && stravaActivities.length === 0) {
         throw new DailyRecalculationUnavailableError(metricDate);
       }
 
-      const scoringActivities = daily ? activities : stravaActivities;
+      const scoringActivities = daily ? sourceActivities : stravaActivities;
       const facts = daily
-        ? factsFromDailyRow(daily, scoringActivities)
+        ? factsFromDailyRow(daily, scoringActivities, manualActivities)
         : aggregateActivitiesToDailyFacts(metricDate, stravaActivities);
       const score = scoreDay(
         { ...facts, excelAllPoints: undefined, excelRowHash: undefined },
@@ -212,7 +214,11 @@ function appendDistance(
   if (distanceM > 0) rows.push({ activityType, subtype, distanceM });
 }
 
-function factsFromDailyRow(row: DailyMetric, activities: ActivityFact[]): DailyMetricFactsInput {
+function factsFromDailyRow(
+  row: DailyMetric,
+  sourceActivities: ActivityFact[],
+  manualActivities: ActivityFact[],
+): DailyMetricFactsInput {
   const stored = {
     metricDate: dateString(row.metric_date),
     steps: number(row.steps),
@@ -225,17 +231,76 @@ function factsFromDailyRow(row: DailyMetric, activities: ActivityFact[]): DailyM
     excelRowHash: row.excel_row_hash ?? undefined,
   };
 
-  if (activities.length === 0) return stored;
+  const source = aggregateActivitiesToDailyFacts(stored.metricDate, sourceActivities, stored.excelAllPoints);
+  const manual = aggregateActivitiesToDailyFacts(stored.metricDate, manualActivities, stored.excelAllPoints);
+  const run = distanceFacts('run', stored.runM, sourceActivities, source, manualActivities, manual);
+  const bike = distanceFacts('bike', stored.bikeM, sourceActivities, source, manualActivities, manual);
+  const swimM = hasActivityType(sourceActivities, 'swim')
+    ? source.swimM
+    : hasActivityType(manualActivities, 'swim') ? manual.swimM : stored.swimM;
 
-  const aggregated = aggregateActivitiesToDailyFacts(
-    stored.metricDate,
-    activities,
-    stored.excelAllPoints,
-  );
   return {
-    ...aggregated,
+    metricDate: stored.metricDate,
+    // Strava does not provide these workbook/manual facts. Recalculation must
+    // refresh supported activity measurements without erasing them.
+    steps: stored.steps,
+    ...run,
+    ...bike,
+    swimM,
+    workoutPoints: stored.workoutPoints,
+    powerPoints: stored.powerPoints,
+    excelAllPoints: stored.excelAllPoints,
     excelRowHash: stored.excelRowHash,
   };
+}
+
+function distanceFacts(
+  activityType: 'run',
+  storedTotalM: number,
+  sourceActivities: ActivityFact[],
+  source: DailyMetricFactsInput,
+  manualActivities: ActivityFact[],
+  manual: DailyMetricFactsInput,
+): Pick<DailyMetricFactsInput, 'runM' | 'runIndoorM' | 'runOutdoorM' | 'runUnspecifiedM'>;
+function distanceFacts(
+  activityType: 'bike',
+  storedTotalM: number,
+  sourceActivities: ActivityFact[],
+  source: DailyMetricFactsInput,
+  manualActivities: ActivityFact[],
+  manual: DailyMetricFactsInput,
+): Pick<DailyMetricFactsInput, 'bikeM' | 'bikeIndoorM' | 'bikeOutdoorM' | 'bikeUnspecifiedM'>;
+function distanceFacts(
+  activityType: 'run' | 'bike',
+  storedTotalM: number,
+  sourceActivities: ActivityFact[],
+  source: DailyMetricFactsInput,
+  manualActivities: ActivityFact[],
+  manual: DailyMetricFactsInput,
+): Pick<DailyMetricFactsInput, 'runM' | 'runIndoorM' | 'runOutdoorM' | 'runUnspecifiedM'>
+  | Pick<DailyMetricFactsInput, 'bikeM' | 'bikeIndoorM' | 'bikeOutdoorM' | 'bikeUnspecifiedM'> {
+  const selected = hasActivityType(sourceActivities, activityType)
+    ? source
+    : hasActivityType(manualActivities, activityType) ? manual : null;
+
+  if (activityType === 'run') {
+    return {
+      runM: selected?.runM ?? storedTotalM,
+      runIndoorM: selected?.runIndoorM,
+      runOutdoorM: selected?.runOutdoorM,
+      runUnspecifiedM: selected?.runUnspecifiedM,
+    };
+  }
+  return {
+    bikeM: selected?.bikeM ?? storedTotalM,
+    bikeIndoorM: selected?.bikeIndoorM,
+    bikeOutdoorM: selected?.bikeOutdoorM,
+    bikeUnspecifiedM: selected?.bikeUnspecifiedM,
+  };
+}
+
+function hasActivityType(activities: ActivityFact[], activityType: ActivityFact['activityType']): boolean {
+  return activities.some((activity) => activity.activityType === activityType);
 }
 
 function toActivityFact(row: Activity): ActivityFact {
