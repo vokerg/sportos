@@ -83,8 +83,8 @@ describe('scoreDay', () => {
     expect(result).toMatchObject({ basePoints: 6000, bonusPoints: 1250, totalPoints: 7250 });
     expect(result.ledger.map((entry) => entry.ruleCode)).toEqual([
       'steps.base',
-      'run.km.default',
       'power.manual',
+      'run.km.default',
       'run.5k.sub25.bonus',
     ]);
     expect(result.ledger.find((entry) => entry.ruleCode === 'power.manual')?.calculationJson.classification).toBe('bonus');

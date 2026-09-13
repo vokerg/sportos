@@ -57,11 +57,28 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
   const activityBackedTypes = new Set(
     (['run', 'bike'] as const).filter((activityType) => activityDistancesMatchAggregate(distanceActivities, activityType, facts)),
   );
+  const allowConfirmedSubtypeSplits = facts.excelAllPoints === undefined;
 
   const syntheticDailyActivities = ([
     { activityDate: facts.metricDate, activityType: 'steps', steps: facts.steps },
-    ...splitDistanceActivities(facts, 'run', facts.runM, facts.runIndoorM, facts.runOutdoorM, facts.runUnspecifiedM),
-    ...splitDistanceActivities(facts, 'bike', facts.bikeM, facts.bikeIndoorM, facts.bikeOutdoorM, facts.bikeUnspecifiedM),
+    ...splitDistanceActivities(
+      facts,
+      'run',
+      facts.runM,
+      facts.runIndoorM,
+      facts.runOutdoorM,
+      facts.runUnspecifiedM,
+      allowConfirmedSubtypeSplits || hasSubtypeRules(activeRules, 'run'),
+    ),
+    ...splitDistanceActivities(
+      facts,
+      'bike',
+      facts.bikeM,
+      facts.bikeIndoorM,
+      facts.bikeOutdoorM,
+      facts.bikeUnspecifiedM,
+      allowConfirmedSubtypeSplits || hasSubtypeRules(activeRules, 'bike'),
+    ),
     { activityDate: facts.metricDate, activityType: 'swim', distanceM: facts.swimM },
     { activityDate: facts.metricDate, activityType: 'workout', effortPoints: facts.workoutPoints },
     { activityDate: facts.metricDate, activityType: 'power_bonus', effortPoints: facts.powerPoints },
@@ -292,8 +309,9 @@ function splitDistanceActivities(
   indoorM: number | undefined,
   outdoorM: number | undefined,
   unspecifiedM: number | undefined,
+  splitBySubtype: boolean,
 ): ActivityFact[] {
-  if (indoorM === undefined && outdoorM === undefined && unspecifiedM === undefined) {
+  if (!splitBySubtype || (indoorM === undefined && outdoorM === undefined && unspecifiedM === undefined)) {
     return [{ activityDate: facts.metricDate, activityType, distanceM: aggregateM }];
   }
   const indoorSubtype = activityType === 'run' ? 'treadmill' : 'indoor';

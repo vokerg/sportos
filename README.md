@@ -386,6 +386,9 @@ The CI workflow expects dedicated Neon test branches and these repository secret
 `SPORTOS_CI_APP_DATABASE_URL`, `SPORTOS_CI_WORKER_DATABASE_URL`, and
 `SPORTOS_CI_WORKER_DATA_DATABASE_URL`. Keep these branches separate from user data;
 the runtime roles remain non-owner and the Flyway role is migration-only.
+When these secrets are not provisioned, CI records the missing values and runs the
+static gates while explicitly skipping database validation; provision the complete
+set before treating the database invariants as validated.
 
 ## Current limitations
 
