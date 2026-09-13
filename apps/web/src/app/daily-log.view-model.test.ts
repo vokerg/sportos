@@ -53,7 +53,7 @@ describe('daily log view model', () => {
 
     expect(xAxis.data).toHaveLength(121);
     expect(xAxis.data?.[0]).toBe(formatDate(rows[120]!.metric_date));
-    expect(xAxis.data?.at(-1)).toBe(formatDate(rows[0]!.metric_date));
+    expect(xAxis.data?.[120]).toBe(formatDate(rows[0]!.metric_date));
     expect(series[0]?.data).toHaveLength(121);
     expect(series[1]?.data).toHaveLength(121);
   });
