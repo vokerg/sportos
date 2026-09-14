@@ -11,20 +11,20 @@ import {
   type DynamicsMetric,
   type DynamicsResponse,
 } from './api.service';
-import { DYNAMICS_LABELS, dynamicsChartOptions, formatDynamicsValue, type DynamicsMode } from './dynamics.view-model';
+import { DYNAMICS_LABELS, dynamicsChartOptions, formatDynamicsValue, type DynamicsMode } from './monthly-stats.view-model';
 
 type DynamicsState = 'loading' | 'loaded' | 'empty' | 'error';
 
 @Component({
-  selector: 'sportos-dynamics-page',
+  selector: 'sportos-monthly-stats-page',
   standalone: true,
   imports: [NgxEchartsDirective],
   template: `
-    <section class="dynamics-heading" aria-labelledby="dynamics-title">
-      <div><span class="page-kicker">Dynamics</span><h1 id="dynamics-title">Training over time</h1><p>Monthly totals, recorded-day averages, and selectable trends from canonical SportOS facts.</p></div>
+    <section class="dynamics-heading" aria-labelledby="monthly-stats-title">
+      <div><span class="page-kicker">Monthly Stats</span><h1 id="monthly-stats-title">Training by month</h1><p>Monthly totals, recorded-day averages, and selectable bucket trends from canonical SportOS facts.</p></div>
     </section>
 
-    <section class="card controls" aria-label="Dynamics controls">
+    <section class="card controls" aria-label="Monthly statistics controls">
       <div class="filter-bar">
         <label>From <input type="date" [value]="from()" (input)="from.set(inputValue($event))"></label>
         <label>To <input type="date" [value]="to()" (input)="to.set(inputValue($event))"></label>
@@ -59,7 +59,7 @@ type DynamicsState = 'loading' | 'loaded' | 'empty' | 'error';
     </section>
 
     @if (state() === 'loading') {
-      <section class="card state-card" role="status">Loading canonical dynamics…</section>
+      <section class="card state-card" role="status">Loading monthly statistics…</section>
     } @else if (state() === 'error') {
       <section class="card state-card error" role="alert"><p>{{ errorMessage() }}</p><button type="button" (click)="load()">Retry</button></section>
     } @else if (state() === 'empty') {
@@ -104,7 +104,7 @@ type DynamicsState = 'loading' | 'loaded' | 'empty' | 'error';
     @media (max-width: 700px) { .section-title { display: grid; }.dynamics-chart { min-height: 340px; } }
   `],
 })
-export class DynamicsPageComponent implements OnInit, OnDestroy {
+export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
   readonly availableMetrics = DYNAMICS_METRICS;
   readonly labels = DYNAMICS_LABELS;
   readonly from = signal(defaultFrom());
@@ -153,7 +153,7 @@ export class DynamicsPageComponent implements OnInit, OnDestroy {
   load(): void {
     if (this.from() > this.to()) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
     this.requestCancelled$.next(); this.state.set('loading'); this.errorMessage.set(null);
-    this.api.dynamics({ from: this.from(), to: this.to(), granularity: this.granularity(), metrics: this.selectedMetrics() })
+    this.api.monthlyStats({ from: this.from(), to: this.to(), granularity: this.granularity(), metrics: this.selectedMetrics() })
       .pipe(takeUntil(this.requestCancelled$), takeUntil(this.destroy$))
       .subscribe({
         next: (response) => { this.data.set(response); this.state.set(response.monthly.some((bucket) => bucket.recordedDays > 0) ? 'loaded' : 'empty'); },
@@ -182,4 +182,4 @@ function validGranularity(value: string | null): DynamicsGranularity | null { re
 function validMetrics(value: string | null): DynamicsMetric[] { const values = value?.split(',') ?? []; return values.length <= 4 && new Set(values).size === values.length && values.every((metric) => DYNAMICS_METRICS.includes(metric as DynamicsMetric)) ? values as DynamicsMetric[] : []; }
 function today(): string { return new Date().toISOString().slice(0, 10); }
 function defaultFrom(): string { const date = new Date(`${today()}T00:00:00.000Z`); date.setUTCFullYear(date.getUTCFullYear() - 1); return date.toISOString().slice(0, 10); }
-function describeError(error: unknown): string { if (!(error instanceof HttpErrorResponse)) return 'Dynamics could not be loaded.'; if (error.status === 0) return 'The SportOS API is unavailable.'; const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {}; return typeof body.message === 'string' ? body.message : `Dynamics could not be loaded (HTTP ${error.status}).`; }
+function describeError(error: unknown): string { if (!(error instanceof HttpErrorResponse)) return 'Monthly stats could not be loaded.'; if (error.status === 0) return 'The SportOS API is unavailable.'; const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {}; return typeof body.message === 'string' ? body.message : `Monthly stats could not be loaded (HTTP ${error.status}).`; }

@@ -1,6 +1,11 @@
-# Metric dynamics
+# Rolling dynamics and monthly statistics
 
-SportOS exposes a dedicated authenticated **Dynamics** page at `/dynamics`. It is a read-only longitudinal view over canonical `daily_metrics`; it does not add columns to Daily Log, alter official scores, or promote workbook formula cells into canonical facts.
+SportOS exposes two authenticated read-only longitudinal views over canonical `daily_metrics`:
+
+- **Dynamics** at `/dynamics` shows how trailing 10, 20, 30, 60, and 365-day windows change on every calendar date; and
+- **Monthly Stats** at `/monthly-stats` compares calendar-month totals and recorded-day averages.
+
+Neither view adds columns to Daily Log, alters official scores, or promotes workbook formula cells into canonical facts.
 
 ## Metrics and units
 
@@ -16,9 +21,17 @@ SportOS exposes a dedicated authenticated **Dynamics** page at `/dynamics`. It i
 
 Historical workbook columns such as `A10`, `A20d`, `30(All)`, `A60d`, `A365`, and source-specific 30-day formula columns remain private raw evidence. Dynamics recomputes aggregates from the current canonical daily rows and never treats cached spreadsheet formulas as authority.
 
-## Aggregation semantics
+## Rolling Dynamics semantics
 
-`GET /dynamics` requires `from` and `to`, accepts at most 3,660 inclusive calendar days, and rejects unknown query fields. `granularity` is one of `daily`, `weekly`, or `monthly`; `metrics` is a comma-separated subset of the fixed allowlist. Weeks begin on Monday in the source-local calendar-date model already used by SportOS.
+`GET /dynamics/rolling` requires `from` and `to`, accepts one allowlisted metric, and accepts a unique subset of the fixed 10, 20, 30, 60, and 365-day windows. The repository reads enough canonical history before `from` to calculate the largest selected lookback. The response still exposes points only inside the requested display range.
+
+Every requested calendar date produces a point, even when that date has no daily row. A trailing N-day point includes the selected date and the preceding N−1 calendar dates. Therefore, an activity enters the window on its activity date and expires exactly N days later. For example, a marathon on January 1 contributes to the 30-day value through January 30 and drops out on January 31.
+
+Each window returns its rolling total, average per calendar day, recorded-day coverage, fixed window length, and completeness. Calendar-day average always divides by N. Missing canonical dates are not labelled as zero: incomplete coverage is returned and highlighted because the total and average may be understated. A persisted zero remains a recorded zero.
+
+## Monthly Stats semantics
+
+`GET /dynamics/monthly` requires `from` and `to`, accepts at most 3,660 inclusive calendar days, and rejects unknown query fields. `granularity` is one of `daily`, `weekly`, or `monthly`; `metrics` is a comma-separated subset of the fixed allowlist. Weeks begin on Monday in the source-local calendar-date model already used by SportOS.
 
 Every bucket returns:
 
@@ -30,7 +43,7 @@ Every bucket returns:
 
 No-row days are missing, not zero. A persisted row whose metric value is zero remains a recorded zero. Consequently, `recordedDayAverage` divides by `recordedDays`, never by all calendar days. Coverage is displayed beside every month so sparse history and incomplete current months remain visible.
 
-The chart supports absolute totals or recorded-day averages. Absolute mixed-unit series use separately labelled axes. Indexed comparison sets each series' first non-zero value to 100; this compares shapes, not physical magnitudes.
+The Monthly Stats chart supports absolute totals or recorded-day averages. Absolute mixed-unit series use separately labelled axes. Indexed comparison sets each series' first non-zero value to 100; this compares shapes, not physical magnitudes.
 
 ## Ownership and privacy
 

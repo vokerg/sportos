@@ -17,8 +17,13 @@ export const APP_ROUTES: Routes = [
     title: 'Daily score · SportOS',
   },
   {
+    path: 'monthly-stats',
+    loadComponent: () => import('./monthly-stats-page.component').then((module) => module.MonthlyStatsPageComponent),
+    title: 'Monthly Stats · SportOS',
+  },
+  {
     path: 'dynamics',
-    loadComponent: () => import('./dynamics-page.component').then((module) => module.DynamicsPageComponent),
+    loadComponent: () => import('./rolling-dynamics-page.component').then((module) => module.RollingDynamicsPageComponent),
     title: 'Dynamics · SportOS',
   },
   {

@@ -3,6 +3,8 @@ import type { DynamicsDailyRow } from '@sportos/db';
 export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'workout', 'power'] as const;
 export type DynamicsMetric = typeof DYNAMICS_METRICS[number];
 export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
+export const ROLLING_WINDOWS = [10, 20, 30, 60, 365] as const;
+export type RollingWindow = typeof ROLLING_WINDOWS[number];
 
 export interface DynamicsQuery {
   from: string;
@@ -35,6 +37,35 @@ export interface DynamicsResponse {
   series: DynamicsBucket[];
 }
 
+export interface RollingDynamicsQuery {
+  from: string;
+  to: string;
+  metric: DynamicsMetric;
+  windows: RollingWindow[];
+}
+
+export interface RollingMetricValue {
+  total: number | null;
+  calendarDayAverage: number | null;
+  recordedDays: number;
+  windowDays: number;
+  complete: boolean;
+}
+
+export interface RollingDynamicsPoint {
+  date: string;
+  dailyValue: number | null;
+  windows: Partial<Record<RollingWindow, RollingMetricValue>>;
+}
+
+export interface RollingDynamicsResponse {
+  range: { from: string; to: string };
+  metric: DynamicsMetric;
+  unit: 'points' | 'steps' | 'metres';
+  windows: RollingWindow[];
+  points: RollingDynamicsPoint[];
+}
+
 export function buildDynamicsResponse(rows: DynamicsDailyRow[], query: DynamicsQuery): DynamicsResponse {
   return {
     range: { from: query.from, to: query.to },
@@ -45,6 +76,45 @@ export function buildDynamicsResponse(rows: DynamicsDailyRow[], query: DynamicsQ
     },
     monthly: aggregate(rows, query.from, query.to, 'monthly', query.metrics),
     series: aggregate(rows, query.from, query.to, query.granularity, query.metrics),
+  };
+}
+
+export function buildRollingDynamicsResponse(
+  rows: DynamicsDailyRow[],
+  query: RollingDynamicsQuery,
+): RollingDynamicsResponse {
+  const rowsByDate = new Map(rows.map((row) => [row.metricDate, row]));
+  const points: RollingDynamicsPoint[] = [];
+
+  for (let date = query.from; date <= query.to; date = addDays(date, 1)) {
+    const dailyRow = rowsByDate.get(date);
+    const windows = Object.fromEntries(query.windows.map((windowDays) => {
+      let total = 0;
+      let recordedDays = 0;
+      const windowFrom = addDays(date, -(windowDays - 1));
+      for (let candidate = windowFrom; candidate <= date; candidate = addDays(candidate, 1)) {
+        const row = rowsByDate.get(candidate);
+        if (!row) continue;
+        total += row[query.metric];
+        recordedDays += 1;
+      }
+      return [windowDays, {
+        total: recordedDays ? total : null,
+        calendarDayAverage: recordedDays ? total / windowDays : null,
+        recordedDays,
+        windowDays,
+        complete: recordedDays === windowDays,
+      }];
+    })) as Partial<Record<RollingWindow, RollingMetricValue>>;
+    points.push({ date, dailyValue: dailyRow?.[query.metric] ?? null, windows });
+  }
+
+  return {
+    range: { from: query.from, to: query.to },
+    metric: query.metric,
+    unit: metricUnit(query.metric),
+    windows: query.windows,
+    points,
   };
 }
 
@@ -124,4 +194,14 @@ function addDays(date: string, count: number): string {
 
 function utcDate(date: string): Date {
   return new Date(`${date}T00:00:00.000Z`);
+}
+
+export function rollingLookbackFrom(from: string, windows: RollingWindow[]): string {
+  return addDays(from, -(Math.max(...windows) - 1));
+}
+
+function metricUnit(metric: DynamicsMetric): RollingDynamicsResponse['unit'] {
+  if (metric === 'steps') return 'steps';
+  if (metric === 'run' || metric === 'bike' || metric === 'swim') return 'metres';
+  return 'points';
 }
