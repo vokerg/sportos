@@ -32,6 +32,8 @@ export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'worko
 export type DynamicsMetric = typeof DYNAMICS_METRICS[number];
 export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
 export type DynamicsMeasure = 'total' | 'recordedDayAverage';
+export const ROLLING_WINDOWS = [10, 20, 30, 60, 365] as const;
+export type RollingWindow = typeof ROLLING_WINDOWS[number];
 
 export interface DynamicsMetricAggregate {
   total: number | null;
@@ -55,6 +57,28 @@ export interface DynamicsResponse {
   metricUnits: Record<DynamicsMetric, 'points' | 'steps' | 'metres'>;
   monthly: DynamicsBucket[];
   series: DynamicsBucket[];
+}
+
+export interface RollingMetricValue {
+  total: number | null;
+  calendarDayAverage: number | null;
+  recordedDays: number;
+  windowDays: number;
+  complete: boolean;
+}
+
+export interface RollingDynamicsPoint {
+  date: string;
+  dailyValue: number | null;
+  windows: Partial<Record<RollingWindow, RollingMetricValue>>;
+}
+
+export interface RollingDynamicsResponse {
+  range: { from: string; to: string };
+  metric: DynamicsMetric;
+  unit: 'points' | 'steps' | 'metres';
+  windows: RollingWindow[];
+  points: RollingDynamicsPoint[];
 }
 
 export interface PerformanceRow {
@@ -297,9 +321,15 @@ export class ApiService {
     return this.http.get<DailySummaryRow[]>(`${this.apiBase()}/daily/summary`, { params: queryParams(normalized) });
   }
 
-  dynamics(query: { from: string; to: string; granularity: DynamicsGranularity; metrics: DynamicsMetric[] }) {
-    return this.http.get<DynamicsResponse>(`${this.apiBase()}/dynamics`, {
+  monthlyStats(query: { from: string; to: string; granularity: DynamicsGranularity; metrics: DynamicsMetric[] }) {
+    return this.http.get<DynamicsResponse>(`${this.apiBase()}/dynamics/monthly`, {
       params: queryParams({ ...query, metrics: query.metrics.join(',') }),
+    });
+  }
+
+  rollingDynamics(query: { from: string; to: string; metric: DynamicsMetric; windows: RollingWindow[] }) {
+    return this.http.get<RollingDynamicsResponse>(`${this.apiBase()}/dynamics/rolling`, {
+      params: queryParams({ ...query, windows: query.windows.join(',') }),
     });
   }
 

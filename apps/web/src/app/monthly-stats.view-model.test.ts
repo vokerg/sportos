@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DynamicsResponse } from './api.service';
-import { dynamicsChartOptions, formatDynamicsValue } from './dynamics.view-model';
+import { dynamicsChartOptions, formatDynamicsValue } from './monthly-stats.view-model';
 
 const response: DynamicsResponse = {
   range: { from: '2026-01-01', to: '2026-02-28' },
