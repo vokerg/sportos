@@ -157,6 +157,16 @@ describe('ScoreBreakdownManualFactsComponent', () => {
 
     injector.destroy();
   });
+
+  it('uses the same cancellable editor state in every parent surface', () => {
+    const { component, injector } = createComponent();
+
+    component.startManualEdit(breakdown);
+    component.cancelManualEdit();
+
+    expect(component.editing()).toBe(false);
+    injector.destroy();
+  });
 });
 
 function numberInputEvent(value: string, valueAsNumber: number): Event {

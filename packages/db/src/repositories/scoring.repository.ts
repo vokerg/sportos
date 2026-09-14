@@ -24,6 +24,8 @@ function toEnabledRule(row: ScoringRuleRow): EnabledScoringRule {
     thresholdValue: optionalNumber(row.threshold_value),
     thresholdUnit: row.threshold_unit ?? undefined,
     points: optionalNumber(row.points),
+    achievementGroup: row.achievement_group ?? undefined,
+    pointsMultiplier: row.points_multiplier ?? undefined,
     validFrom: dateString(row.valid_from),
     validTo: row.valid_to === null ? undefined : dateString(row.valid_to),
     priority: requiredNumber(row.priority, `priority for ${row.code}`),

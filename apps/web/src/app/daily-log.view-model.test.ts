@@ -6,7 +6,9 @@ import {
   dailyScoreStatusLabel,
   formatDailyCellNumber,
   formatDailyMeters,
+  positiveMetricRange,
   quickRangeDates,
+  relativePastelBackground,
 } from './daily-log.view-model';
 
 const row: DailySummaryRow = {
@@ -66,5 +68,21 @@ describe('daily log view model', () => {
     expect(dailyScoreStatusLabel('imported')).toBe('Imported ledger');
     expect(dailyScoreStatusLabel('manual')).toBe('Manual edit');
     expect(dailyScoreStatusLabel('calculated')).toBe('Calculated');
+  });
+
+  it('maps positive values to a restrained relative pastel scale', () => {
+    const range = positiveMetricRange([0, 5_000, 21_000, null, Number.NaN]);
+
+    expect(range).toEqual({ min: 5_000, max: 21_000 });
+    expect(relativePastelBackground(0, range, '116, 168, 132')).toBeUndefined();
+    expect(relativePastelBackground(5_000, range, '116, 168, 132')).toBe('rgba(116, 168, 132, 0.10)');
+    expect(relativePastelBackground(21_000, range, '116, 168, 132')).toBe('rgba(116, 168, 132, 0.26)');
+  });
+
+  it('uses a middle pastel tone when the selection has one positive value', () => {
+    const range = positiveMetricRange([0, 5_000]);
+
+    expect(relativePastelBackground(5_000, range, '116, 168, 132')).toBe('rgba(116, 168, 132, 0.18)');
+    expect(positiveMetricRange([0, null, Number.NaN])).toBeNull();
   });
 });

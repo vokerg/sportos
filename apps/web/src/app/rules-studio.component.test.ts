@@ -127,6 +127,23 @@ describe('RulesStudioComponent', () => {
     expect(component.message()).toContain('Preview complete');
   });
 
+  it('offers pace rules and describes the completed-5k multiplier', () => {
+    const component = new RulesStudioComponent(createApi() as unknown as ApiService);
+    component.proposal.activityType = 'run';
+
+    expect(component.metricOptions()).toContain('pace_s_per_km');
+    component.proposal.activityType = 'bike';
+    expect(component.metricOptions()).not.toContain('pace_s_per_km');
+    expect(component.formula({
+      ruleKind: 'achievement',
+      thresholdOperator: 'lt',
+      thresholdValue: 240,
+      thresholdUnit: 's/km',
+      points: 4000,
+      pointsMultiplier: 'completed_5k_blocks',
+    })).toBe('lt 240 s/km → +4000 per completed 5 km');
+  });
+
   it('queues activation and stops bounded polling at success', async () => {
     vi.useFakeTimers();
     const api = createApi();

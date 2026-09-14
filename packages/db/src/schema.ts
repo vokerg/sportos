@@ -206,6 +206,8 @@ export interface ScoringRulesTable {
   threshold_value: number | null;
   threshold_unit: string | null;
   points: number | null;
+  achievement_group: string | null;
+  points_multiplier: 'completed_5k_blocks' | null;
   valid_from: DateString;
   valid_to: DateString | null;
   priority: number;

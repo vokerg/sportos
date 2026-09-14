@@ -85,6 +85,40 @@ describe('Rules Studio domain contract', () => {
     })).toThrow(RuleProposalValidationError);
   });
 
+  it('accepts the grouped completed-5k multiplier only for run pace achievements', () => {
+    expect(validateRuleProposal({
+      code: 'run.pace.per5k.sub4.bonus',
+      name: 'Run pace under 4:00/km',
+      activityType: 'run',
+      ruleKind: 'achievement',
+      metric: 'pace_s_per_km',
+      thresholdOperator: 'lt',
+      thresholdValue: 240,
+      thresholdUnit: 's/km',
+      points: 4000,
+      achievementGroup: 'run.pace.per5k',
+      pointsMultiplier: 'completed_5k_blocks',
+      validFrom: '1900-01-01',
+      priority: 73,
+    })).toMatchObject({ achievementGroup: 'run.pace.per5k', pointsMultiplier: 'completed_5k_blocks' });
+
+    expect(() => validateRuleProposal({
+      code: 'bike.invalid.multiplier',
+      name: 'Invalid bike multiplier',
+      activityType: 'bike',
+      ruleKind: 'achievement',
+      metric: 'avg_speed_kmh',
+      thresholdOperator: 'gt',
+      thresholdValue: 20,
+      thresholdUnit: 'km/h',
+      points: 1000,
+      achievementGroup: 'bike.speed',
+      pointsMultiplier: 'completed_5k_blocks',
+      validFrom: '1900-01-01',
+      priority: 100,
+    })).toThrow(RuleProposalValidationError);
+  });
+
   it('previews deterministic per-date and aggregate deltas without mutating current scores', () => {
     const preview = previewRuleChange([
       {

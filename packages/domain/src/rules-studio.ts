@@ -8,6 +8,7 @@ import type {
   RuleKind,
   ScoringRule,
   ThresholdOperator,
+  PointsMultiplier,
 } from './types.js';
 
 export interface RuleProposal {
@@ -23,6 +24,8 @@ export interface RuleProposal {
   thresholdValue?: number;
   thresholdUnit?: string;
   points?: number;
+  achievementGroup?: string;
+  pointsMultiplier?: PointsMultiplier;
   validFrom: string;
   validTo?: string;
   priority: number;
@@ -89,7 +92,7 @@ const RULE_KINDS: RuleKind[] = ['coefficient', 'achievement', 'manual_points'];
 const THRESHOLD_OPERATORS: ThresholdOperator[] = ['lt', 'lte', 'gt', 'gte', 'eq', 'exists'];
 const METRICS_BY_ACTIVITY: Record<ActivityType, string[]> = {
   steps: ['steps'],
-  run: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
+  run: ['distance_m', 'distance_km', 'duration_s', 'pace_s_per_km', 'avg_speed_mps', 'avg_speed_kmh'],
   bike: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
   swim: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
   workout: ['effort_points'],
@@ -121,6 +124,8 @@ export function normalizeRuleProposal(input: RuleProposal): RuleProposal {
     proposal.thresholdValue = optionalNumber(input.thresholdValue);
     proposal.thresholdUnit = optionalTrimmed(input.thresholdUnit);
     proposal.points = optionalNumber(input.points);
+    proposal.achievementGroup = optionalTrimmed(input.achievementGroup);
+    proposal.pointsMultiplier = input.pointsMultiplier;
   }
   return proposal;
 }
@@ -183,6 +188,16 @@ export function validateRuleProposal(input: RuleProposal): RuleProposal {
     if (!Number.isInteger(proposal.points) || (proposal.points ?? 0) <= 0 || (proposal.points ?? 0) > 1_000_000) {
       issues.push({ field: 'points', code: 'INVALID_POINTS', message: 'Achievement points must be a positive integer no greater than 1000000.' });
     }
+    if (proposal.achievementGroup && (!/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/.test(proposal.achievementGroup) || proposal.achievementGroup.length > 120)) {
+      issues.push({ field: 'achievementGroup', code: 'INVALID_ACHIEVEMENT_GROUP', message: 'Achievement group must be a lowercase stable identifier up to 120 characters.' });
+    }
+    if (proposal.pointsMultiplier !== undefined && proposal.pointsMultiplier !== 'completed_5k_blocks') {
+      issues.push({ field: 'pointsMultiplier', code: 'INVALID_POINTS_MULTIPLIER', message: 'Achievement points multiplier is not supported.' });
+    }
+    if (proposal.pointsMultiplier === 'completed_5k_blocks'
+      && (proposal.activityType !== 'run' || proposal.metric !== 'pace_s_per_km' || !proposal.achievementGroup)) {
+      issues.push({ field: 'pointsMultiplier', code: 'INVALID_BLOCK_MULTIPLIER', message: 'Completed 5 km block multiplication requires a grouped run pace achievement.' });
+    }
   }
 
   if (issues.length > 0) throw new RuleProposalValidationError(issues);
@@ -204,6 +219,8 @@ export function proposalAsRule(proposal: RuleProposal, id?: string): ScoringRule
     thresholdValue: normalized.thresholdValue,
     thresholdUnit: normalized.thresholdUnit,
     points: normalized.points,
+    achievementGroup: normalized.achievementGroup,
+    pointsMultiplier: normalized.pointsMultiplier,
     validFrom: normalized.validFrom,
     validTo: normalized.validTo,
     priority: normalized.priority,
@@ -276,6 +293,7 @@ export function metricUnit(metric: string): string {
     case 'distance_m': return 'm';
     case 'distance_km': return 'km';
     case 'duration_s': return 's';
+    case 'pace_s_per_km': return 's/km';
     case 'avg_speed_mps': return 'm/s';
     case 'avg_speed_kmh': return 'km/h';
     case 'effort_points': return 'points';

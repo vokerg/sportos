@@ -83,6 +83,13 @@ describe('daily log presentation components', () => {
     expect(setGridOption).toHaveBeenLastCalledWith('paginationPageSize', 200);
     expect(opened).toEqual([row]);
 
+    const fields = grid.columnDefs.map((column) => column.field);
+    expect(fields).toContain('avg_30d');
+    expect(fields).not.toContain('base_points');
+    expect(fields).not.toContain('excel_all_points');
+    expect(fields).not.toContain('points_delta_vs_excel');
+    expect(grid.columnDefs[0]).toMatchObject({ colId: 'scoreBreakdown', width: 72 });
+
     grid.setPageSize('50');
     expect(grid.pageSize()).toBe(200);
     expect(setGridOption).toHaveBeenLastCalledWith('paginationPageSize', 200);

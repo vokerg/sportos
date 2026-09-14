@@ -6,39 +6,50 @@ import { formatScoreDate } from './score-breakdown.view-model';
   selector: 'sportos-score-breakdown-manual-facts',
   standalone: true,
   template: `
-    @if (active() && (editing() || showWhenEmpty())) {
-      <form class="manual-facts-form" (submit)="submitManualFacts(); $event.preventDefault()">
-        <div class="section-heading">
-          <div>
-            <span class="section-label">Manual canonical entry</span>
-            <h4>{{ breakdown() ? 'Replace the current daily facts' : 'Create daily facts for ' + formatScoreDate(date()) }}</h4>
-            <p class="section-help">Enter indoor, outdoor, and unspecified distances separately. Each value is retained as a manual activity.</p>
+    @if (active() && editing()) {
+      <div
+        class="manual-dialog-layer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manual-facts-title"
+        (keydown.escape)="cancelManualEdit()">
+        <div class="manual-dialog-scrim" aria-hidden="true" (click)="cancelManualEdit()"></div>
+        <form class="manual-facts-form" (submit)="submitManualFacts(); $event.preventDefault()">
+          <div class="section-heading">
+            <div>
+              <span class="section-label">Manual canonical entry</span>
+              <h4 id="manual-facts-title">{{ breakdown() ? 'Replace the current daily facts' : 'Create daily facts for ' + formatScoreDate(date()) }}</h4>
+              <p class="section-help">Enter indoor, outdoor, and unspecified distances separately. Each value is retained as a manual activity.</p>
+            </div>
+            <button type="button" class="dialog-close" aria-label="Close manual facts editor" [disabled]="saving()" (click)="cancelManualEdit()">×</button>
           </div>
-        </div>
-        <div class="manual-facts-grid">
-          <label>Steps <input type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
-          <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
-          <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
-          <label>Run unspecified (km) <input type="number" min="0" step="0.01" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
-          <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
-          <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
-          <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
-          <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
-          <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
-          <label>Power points <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set(numberInputValue($event))" /></label>
-        </div>
-        @if (validationError()) { <p class="recalculation-error" role="alert">{{ validationError() }}</p> }
-        @if (saveError()) { <p class="recalculation-error" role="alert">{{ saveError() }}</p> }
-        <div class="manual-form-actions">
-          <button type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save manual facts' }}</button>
-          <button type="button" class="secondary-button" [disabled]="saving()" (click)="editing.set(false)">Cancel</button>
-        </div>
-      </form>
+          <div class="manual-facts-grid">
+            <label>Steps <input autofocus type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
+            <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
+            <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
+            <label>Run unspecified (km) <input type="number" min="0" step="0.01" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
+            <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
+            <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
+            <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
+            <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
+            <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
+            <label>Power points <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set(numberInputValue($event))" /></label>
+          </div>
+          @if (validationError()) { <p class="recalculation-error" role="alert">{{ validationError() }}</p> }
+          @if (saveError()) { <p class="recalculation-error" role="alert">{{ saveError() }}</p> }
+          <div class="manual-form-actions">
+            <button type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save manual facts' }}</button>
+            <button type="button" class="secondary-button" [disabled]="saving()" (click)="cancelManualEdit()">Cancel</button>
+          </div>
+        </form>
+      </div>
     }
   `,
   styles: [`
-    :host { display: block; container-type: inline-size; }
-    .manual-facts-form { margin: 22px 0 0; padding: 16px; border: 1px solid #d8c68f; border-radius: 12px; background: #fffaf0; }
+    :host { display: block; }
+    .manual-dialog-layer { position: fixed; z-index: 400; inset: 0; display: grid; place-items: center; padding: 20px; box-sizing: border-box; }
+    .manual-dialog-scrim { position: absolute; inset: 0; background: rgba(23, 32, 51, .34); backdrop-filter: blur(2px); }
+    .manual-facts-form { position: relative; width: min(920px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow-y: auto; box-sizing: border-box; padding: 22px; border: 1px solid #e2d5ae; border-radius: 16px; background: #fffdf8; box-shadow: 0 24px 70px rgba(23, 32, 51, .25); }
     .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
     .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
     .section-label { color: #667085; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
@@ -49,9 +60,11 @@ import { formatScoreDate } from './score-breakdown.view-model';
     .manual-form-actions { display: flex; gap: 8px; margin-top: 14px; }
     .recalculation-error { color: #b54747; font-size: 12px; }
     .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
-    @container (max-width: 900px) { .manual-facts-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); } }
-    @container (max-width: 520px) {
-      .manual-facts-form { margin-top: 18px; padding: 14px; }
+    .dialog-close { flex: 0 0 auto; width: 34px; height: 34px; padding: 0; border: 1px solid #d0d5dd; border-radius: 50%; background: white; color: #475467; font-size: 21px; line-height: 1; }
+    @media (max-width: 900px) { .manual-facts-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); } }
+    @media (max-width: 520px) {
+      .manual-dialog-layer { padding: 10px; }
+      .manual-facts-form { max-height: calc(100vh - 20px); padding: 16px; }
       .manual-facts-grid { grid-template-columns: 1fr; }
       .section-heading { flex-direction: column; }
       .manual-form-actions { display: grid; grid-template-columns: 1fr; }
@@ -65,7 +78,6 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
   readonly saving = input(false);
   readonly saveError = input<string | null>(null);
   readonly editRequestId = input(0);
-  readonly showWhenEmpty = input(false);
   readonly save = output<ManualDailyFactsInput>();
 
   readonly editing = signal(false);
@@ -113,6 +125,10 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
     this.manualPowerPoints.set(facts?.powerPoints ?? 0);
     this.validationError.set(null);
     this.editing.set(true);
+  }
+
+  cancelManualEdit(): void {
+    if (!this.saving()) this.editing.set(false);
   }
 
   submitManualFacts(): void {

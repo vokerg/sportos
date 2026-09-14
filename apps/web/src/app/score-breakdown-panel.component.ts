@@ -106,7 +106,6 @@ import { formatScoreDate } from './score-breakdown.view-model';
         [saving]="savingManual()"
         [saveError]="manualSaveError()"
         [editRequestId]="manualEditRequestId() + localManualEditRequestId()"
-        [showWhenEmpty]="state() === 'loaded' && !!date() && !breakdown()"
         (save)="saveManualFacts.emit($event)" />
     </section>
   `,

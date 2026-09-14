@@ -16,50 +16,42 @@ export interface DailyBreakdownGridContext {
       type="button"
       class="details-link"
       [attr.aria-label]="'View score breakdown for ' + formatDate(date)"
+      [attr.title]="'View score breakdown for ' + formatDate(date)"
       (click)="open()">
-      <span>View details</span>
-      <span class="details-arrow" aria-hidden="true">→</span>
+      <span aria-hidden="true">›</span>
     </button>
   `,
   styles: [`
     .details-link {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      min-height: 32px;
-      padding: 5px 8px;
-      border: 1px solid #c8d4f0;
-      border-radius: 8px;
-      background: #f8faff;
-      color: #3959a6;
-      font-size: 12px;
-      font-weight: 650;
-      line-height: 1.2;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 50%;
+      background: transparent;
+      color: #60709a;
+      font-size: 24px;
+      font-weight: 400;
+      line-height: 1;
       cursor: pointer;
       white-space: nowrap;
-      transition: border-color 150ms ease, background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+      transition: border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
     }
 
     .details-link:hover {
       color: #243b73;
-      border-color: #8fa5df;
-      background: #eef3ff;
-      box-shadow: 0 2px 6px rgba(36, 59, 115, .12);
+      border-color: #d5ddef;
+      background: #f1f4fa;
+      transform: translateX(1px);
     }
 
     .details-link:focus-visible {
       outline: 3px solid #a8b9ef;
       outline-offset: 3px;
-      border-radius: 4px;
-    }
-
-    .details-arrow {
-      font-size: 14px;
-      transition: transform 150ms ease;
-    }
-
-    .details-link:hover .details-arrow {
-      transform: translateX(2px);
+      border-radius: 50%;
     }
   `],
 })

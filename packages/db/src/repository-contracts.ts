@@ -1,4 +1,4 @@
-import type { DailyScoreStatus } from '@sportos/domain';
+import type { DailyScoreStatus, PointsMultiplier } from '@sportos/domain';
 import type { ActivitiesTable, Json } from './schema.js';
 
 export type { DailyScoreStatus };
@@ -66,6 +66,8 @@ export interface EnabledScoringRule {
   thresholdValue?: number;
   thresholdUnit?: string;
   points?: number;
+  achievementGroup?: string;
+  pointsMultiplier?: PointsMultiplier;
   validFrom: string;
   validTo?: string;
   priority: number;
@@ -133,6 +135,8 @@ export interface ScoreBreakdownRuleReadModel {
   thresholdValue: number | null;
   thresholdUnit: string | null;
   configuredPoints: number | null;
+  achievementGroup: string | null;
+  pointsMultiplier: PointsMultiplier | null;
   validFrom: string;
   validTo: string | null;
   priority: number;
