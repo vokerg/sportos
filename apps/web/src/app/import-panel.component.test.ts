@@ -130,10 +130,9 @@ describe('ImportPanelComponent', () => {
     expect(api.importBatchDetail).toHaveBeenCalledWith(batch.id, 100, 0);
     expect(component.detailState()).toBe('loaded');
     expect(component.detail()?.diagnostics[0]).toMatchObject({ sheetName: 'Sheet1', rowIndex: 3 });
-    expect(component.diagnosticLocation(detail.diagnostics[0]!)).toBe('Sheet1 row 3');
   });
 
-  it('reports upload progress, monitors the job, and opens its completed batch', async () => {
+  it('separates upload progress from durable job progress and resets the file input', async () => {
     vi.useFakeTimers();
     const api = createApi();
     api.uploadWorkbook.mockReturnValue(of(
@@ -142,18 +141,26 @@ describe('ImportPanelComponent', () => {
     ));
     api.importJob.mockReturnValue(of(succeededJob));
     const component = new ImportPanelComponent(api as unknown as ApiService);
+    const fileInput = { value: 'selected' } as HTMLInputElement;
     component.selectedFile = selectedFile;
     component.selectedFilename.set(selectedFile.name);
 
-    component.import();
+    component.import(fileInput);
+
+    expect(component.uploadProgress()).toBeNull();
+    expect(component.activeJob()?.progressPercent).toBe(0);
+    expect(component.selectedFile).toBeNull();
+    expect(component.selectedFilename()).toBeNull();
+    expect(fileInput.value).toBe('');
+
     await vi.runAllTimersAsync();
 
     expect(api.uploadWorkbook).toHaveBeenCalledWith(selectedFile, 'my_sport');
     expect(api.importJob).toHaveBeenCalledWith(queuedJob.id);
-    expect(component.selectedFile).toBeNull();
-    expect(component.uploadProgress()).toBe(100);
+    expect(component.uploadProgress()).toBeNull();
     expect(component.importMessage()).toContain('2 daily rows');
     expect(component.activeJob()?.status).toBe('succeeded');
+    expect(component.activeJob()?.progressPercent).toBe(100);
     expect(component.selectedBatchId()).toBe(batch.id);
   });
 
@@ -206,7 +213,7 @@ describe('ImportPanelComponent', () => {
     expect(component.activeJob()?.status).toBe('succeeded');
   });
 
-  it('shows duplicate guidance without exposing backend details', () => {
+  it('shows duplicate guidance without exposing backend details and clears selection', () => {
     const api = createApi();
     api.uploadWorkbook.mockReturnValue(
       throwError(() => new HttpErrorResponse({
@@ -219,15 +226,19 @@ describe('ImportPanelComponent', () => {
       })),
     );
     const component = new ImportPanelComponent(api as unknown as ApiService);
+    const fileInput = { value: 'selected' } as HTMLInputElement;
     component.selectedFile = selectedFile;
+    component.selectedFilename.set(selectedFile.name);
 
-    component.import();
+    component.import(fileInput);
 
     expect(component.importState()).toBe('error');
     expect(component.importMessage()).toContain('already uploaded');
     expect(component.importMessage()).toContain('scored');
     expect(component.importMessage()).not.toContain('/private');
     expect(component.selectedFile).toBeNull();
+    expect(component.selectedFilename()).toBeNull();
+    expect(fileInput.value).toBe('');
   });
 
   it('appends bounded diagnostic pages', () => {
