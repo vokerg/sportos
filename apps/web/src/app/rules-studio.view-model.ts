@@ -73,7 +73,7 @@ export function updateProposalActivity(proposal: RuleProposal, activityType: Act
     ...proposal,
     activityType,
     metric,
-    thresholdUnit: proposal.ruleKind === 'achievement' ? metricUnit(metric) : proposal.thresholdUnit,
+    thresholdUnit: metricUnit(metric),
   };
 }
 
