@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ApiService, RuleChange, RulePreviewResponse, RuleVersion } from './api.service';
 import { RulesStudioComponent } from './rules-studio.component';
 
-const rule: RuleVersion = {
+const coefficientRule: RuleVersion = {
   id: '11111111-1111-4111-8111-111111111111',
   version: 1,
   supersedesRuleId: null,
@@ -21,10 +21,32 @@ const rule: RuleVersion = {
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
-const preview: RulePreviewResponse = {
+const achievementRule: RuleVersion = {
+  id: '44444444-4444-4444-8444-444444444444',
+  version: 3,
+  supersedesRuleId: '55555555-5555-4555-8555-555555555555',
+  code: 'run.pace.fast',
+  name: 'Fast run pace',
+  activityType: 'run',
+  ruleKind: 'achievement',
+  metric: 'pace_s_per_km',
+  thresholdOperator: 'lt',
+  thresholdValue: 240,
+  thresholdUnit: 's/km',
+  points: 4000,
+  achievementGroup: 'run.pace.universal',
+  pointsMultiplier: 'completed_5k_blocks',
+  validFrom: '2026-05-01',
+  priority: 40,
+  enabled: true,
+  description: 'Current pace tier.',
+  createdAt: '2026-05-01T00:00:00.000Z',
+};
+
+const coefficientPreview: RulePreviewResponse = {
   proposal: {
-    replaceRuleId: rule.id,
-    code: rule.code,
+    replaceRuleId: coefficientRule.id,
+    code: coefficientRule.code,
     name: 'Run coefficient v2',
     activityType: 'run',
     ruleKind: 'coefficient',
@@ -55,10 +77,49 @@ const preview: RulePreviewResponse = {
   previewFingerprint: 'a'.repeat(64),
 };
 
+const achievementPreview: RulePreviewResponse = {
+  proposal: {
+    replaceRuleId: achievementRule.id,
+    code: achievementRule.code,
+    name: 'Fast run pace v4',
+    activityType: 'run',
+    ruleKind: 'achievement',
+    metric: 'pace_s_per_km',
+    thresholdOperator: 'lt',
+    thresholdValue: 235,
+    thresholdUnit: 's/km',
+    points: 4500,
+    achievementGroup: 'run.pace.universal',
+    pointsMultiplier: 'completed_5k_blocks',
+    validFrom: '2026-06-01',
+    priority: 40,
+  },
+  preview: {
+    affectedFrom: '2026-06-01',
+    affectedTo: '2026-06-30',
+    totalDates: 30,
+    changedDates: 2,
+    aggregateDelta: 9000,
+    minimumDelta: 0,
+    maximumDelta: 4500,
+    rows: [{
+      metricDate: '2026-06-14',
+      currentBasePoints: 6000,
+      proposedBasePoints: 6000,
+      currentBonusPoints: 0,
+      proposedBonusPoints: 4500,
+      currentTotalPoints: 6000,
+      proposedTotalPoints: 10500,
+      delta: 4500,
+    }],
+  },
+  previewFingerprint: 'b'.repeat(64),
+};
+
 const queuedChange: RuleChange = {
   id: '22222222-2222-4222-8222-222222222222',
-  ruleCode: rule.code,
-  previousRuleId: rule.id,
+  ruleCode: coefficientRule.code,
+  previousRuleId: coefficientRule.id,
   proposedRuleId: '33333333-3333-4333-8333-333333333333',
   status: 'queued',
   phase: 'queued',
@@ -68,9 +129,9 @@ const queuedChange: RuleChange = {
   cancellationRequested: false,
   initiatedBy: 'local-user',
   reason: 'Increase coefficient.',
-  proposal: preview.proposal,
-  preview: preview.preview,
-  previewFingerprint: preview.previewFingerprint,
+  proposal: coefficientPreview.proposal,
+  preview: coefficientPreview.preview,
+  previewFingerprint: coefficientPreview.previewFingerprint,
   affectedFrom: '2026-05-18',
   affectedTo: '2026-05-18',
   error: null,
@@ -92,6 +153,14 @@ const succeededChange: RuleChange = {
   completedAt: '2026-07-31T08:00:02.000Z',
 };
 
+const failedChange: RuleChange = {
+  ...queuedChange,
+  status: 'failed',
+  phase: 'failed',
+  attemptCount: 1,
+  error: { code: 'FORCED', message: 'sanitized failure' },
+};
+
 afterEach(() => vi.useRealTimers());
 
 describe('RulesStudioComponent', () => {
@@ -103,98 +172,130 @@ describe('RulesStudioComponent', () => {
 
     expect(api.ruleVersions).toHaveBeenCalled();
     expect(api.ruleChanges).toHaveBeenCalled();
-    expect(component.rules()).toEqual([rule]);
+    expect(component.rules()).toEqual([coefficientRule, achievementRule]);
     expect(component.changes()).toEqual([queuedChange]);
   });
 
-  it('prepares a superseding version and renders a server-computed preview', () => {
+  it('prepares a representative coefficient supersession and renders the server-computed preview', () => {
     const api = createApi();
     const component = new RulesStudioComponent(api as unknown as ApiService);
 
-    component.editRule(rule);
+    component.editRule(coefficientRule);
     component.proposal.validFrom = '2026-05-18';
     component.proposal.name = 'Run coefficient v2';
     component.proposal.coefficient = 1200;
     component.preview();
 
     expect(api.previewRule).toHaveBeenCalledWith(expect.objectContaining({
-      replaceRuleId: rule.id,
-      code: rule.code,
+      replaceRuleId: coefficientRule.id,
+      code: coefficientRule.code,
+      ruleKind: 'coefficient',
       coefficient: 1200,
       validFrom: '2026-05-18',
     }));
-    expect(component.previewResult()).toEqual(preview);
+    expect(component.previewResult()).toEqual(coefficientPreview);
     expect(component.message()).toContain('Preview complete');
   });
 
-  it('offers pace rules and describes the completed-5k multiplier', () => {
-    const component = new RulesStudioComponent(createApi() as unknown as ApiService);
-    component.proposal.activityType = 'run';
+  it('prepares a representative achievement supersession without calculating score impact in Angular', () => {
+    const api = createApi();
+    api.previewRule.mockReturnValue(of(achievementPreview));
+    const component = new RulesStudioComponent(api as unknown as ApiService);
 
-    expect(component.metricOptions()).toContain('pace_s_per_km');
-    component.proposal.activityType = 'bike';
-    expect(component.metricOptions()).not.toContain('pace_s_per_km');
-    expect(component.formula({
+    component.editRule(achievementRule);
+    component.proposal.validFrom = '2026-06-01';
+    component.proposal.name = 'Fast run pace v4';
+    component.proposal.thresholdValue = 235;
+    component.proposal.points = 4500;
+    component.preview();
+
+    expect(api.previewRule).toHaveBeenCalledWith(expect.objectContaining({
+      replaceRuleId: achievementRule.id,
+      code: achievementRule.code,
       ruleKind: 'achievement',
+      metric: 'pace_s_per_km',
       thresholdOperator: 'lt',
-      thresholdValue: 240,
+      thresholdValue: 235,
       thresholdUnit: 's/km',
-      points: 4000,
+      points: 4500,
       pointsMultiplier: 'completed_5k_blocks',
-    })).toBe('lt 240 s/km → +4000 per completed 5 km');
+    }));
+    expect(component.previewResult()).toEqual(achievementPreview);
+    expect(component.previewResult()?.preview.aggregateDelta).toBe(9000);
   });
 
-  it('queues activation and stops bounded polling at success', async () => {
+  it('keeps a queued change active until bounded polling reaches success', async () => {
     vi.useFakeTimers();
     const api = createApi();
     api.ruleChange.mockReturnValue(of(succeededChange));
     const component = new RulesStudioComponent(api as unknown as ApiService);
-    component.previewResult.set(preview);
+    component.previewResult.set(coefficientPreview);
     component.reason = 'Increase coefficient.';
 
     component.activate();
+
+    expect(api.activateRule).toHaveBeenCalledWith(
+      coefficientPreview.proposal,
+      coefficientPreview.previewFingerprint,
+      'Increase coefficient.',
+    );
+    expect(component.activeChange()?.status).toBe('queued');
+
     await vi.runAllTimersAsync();
 
-    expect(api.activateRule).toHaveBeenCalledWith(preview.proposal, preview.previewFingerprint, 'Increase coefficient.');
     expect(api.ruleChange).toHaveBeenCalledWith(queuedChange.id);
     expect(component.activeChange()?.status).toBe('succeeded');
     expect(component.message()).toContain('atomically');
   });
 
-  it('supports cooperative cancellation and retry with the same audit identity', async () => {
+  it('preserves failed state for retry and resumes the same audited change to success', async () => {
     vi.useFakeTimers();
-    const failed = {
-      ...queuedChange,
-      status: 'failed' as const,
-      phase: 'failed',
-      attemptCount: 1,
-      error: { code: 'FORCED', message: 'sanitized failure' },
-    };
     const api = createApi();
-    api.cancelRuleChange.mockReturnValue(of({ ...queuedChange, status: 'cancelled' as const, phase: 'cancelled' }));
     api.retryRuleChange.mockReturnValue(of(queuedChange));
     api.ruleChange.mockReturnValue(of(succeededChange));
     const component = new RulesStudioComponent(api as unknown as ApiService);
+    component.activeChange.set(failedChange);
 
-    component.activeChange.set(queuedChange);
-    component.cancelActiveChange();
-    expect(api.cancelRuleChange).toHaveBeenCalledWith(queuedChange.id);
-    expect(component.activeChange()?.status).toBe('cancelled');
+    expect(component.activeChange()?.status).toBe('failed');
 
-    component.activeChange.set(failed);
     component.retryActiveChange();
+    expect(api.retryRuleChange).toHaveBeenCalledWith(failedChange.id);
+    expect(component.activeChange()?.id).toBe(failedChange.id);
+    expect(component.activeChange()?.status).toBe('queued');
+
     await vi.runAllTimersAsync();
-    expect(api.retryRuleChange).toHaveBeenCalledWith(failed.id);
-    expect(component.activeChange()?.id).toBe(failed.id);
+
+    expect(component.activeChange()?.id).toBe(failedChange.id);
     expect(component.activeChange()?.status).toBe('succeeded');
+  });
+
+  it('supports cooperative cancellation for an active change', () => {
+    const running = {
+      ...queuedChange,
+      status: 'running' as const,
+      phase: 'recomputing',
+      progressPercent: 45,
+      attemptCount: 1,
+    };
+    const cancelling = { ...running, cancellationRequested: true };
+    const api = createApi();
+    api.cancelRuleChange.mockReturnValue(of(cancelling));
+    const component = new RulesStudioComponent(api as unknown as ApiService);
+    component.activeChange.set(running);
+
+    component.cancelActiveChange();
+
+    expect(api.cancelRuleChange).toHaveBeenCalledWith(running.id);
+    expect(component.activeChange()?.cancellationRequested).toBe(true);
+    expect(component.message()).toContain('safe boundary');
   });
 });
 
 function createApi() {
   return {
-    ruleVersions: vi.fn().mockReturnValue(of([rule])),
+    ruleVersions: vi.fn().mockReturnValue(of([coefficientRule, achievementRule])),
     ruleChanges: vi.fn().mockReturnValue(of([queuedChange])),
-    previewRule: vi.fn().mockReturnValue(of(preview)),
+    previewRule: vi.fn().mockReturnValue(of(coefficientPreview)),
     activateRule: vi.fn().mockReturnValue(of(queuedChange)),
     ruleChange: vi.fn().mockReturnValue(of(succeededChange)),
     cancelRuleChange: vi.fn().mockReturnValue(of({ ...queuedChange, status: 'cancelled' as const, phase: 'cancelled' })),
