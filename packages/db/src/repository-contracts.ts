@@ -186,3 +186,10 @@ export interface DailyScoreBreakdownReadModel {
   sourceRecords: SourceRecordReferenceReadModel[];
   ledger: ScoreBreakdownLedgerEntryReadModel[];
 }
+
+export interface ManualDailyFactsRow {
+  date: string;
+  scoreStatus: DailyScoreStatus;
+  totalPoints: number;
+  facts: ManualDailyFactsInput;
+}

@@ -17,11 +17,11 @@ const response = {
 };
 
 describe('DailyController cockpit contracts', () => {
-  let service: { summary: ReturnType<typeof vi.fn>; scoreBreakdown: ReturnType<typeof vi.fn>; recalculateFromActivities: ReturnType<typeof vi.fn>; saveManualFacts: ReturnType<typeof vi.fn> };
+  let service: { summary: ReturnType<typeof vi.fn>; manualFacts: ReturnType<typeof vi.fn>; scoreBreakdown: ReturnType<typeof vi.fn>; recalculateFromActivities: ReturnType<typeof vi.fn>; saveManualFacts: ReturnType<typeof vi.fn> };
   let controller: DailyController;
 
   beforeEach(() => {
-    service = { summary: vi.fn(), scoreBreakdown: vi.fn(), recalculateFromActivities: vi.fn(), saveManualFacts: vi.fn() };
+    service = { summary: vi.fn(), manualFacts: vi.fn(), scoreBreakdown: vi.fn(), recalculateFromActivities: vi.fn(), saveManualFacts: vi.fn() };
     controller = new DailyController(service as unknown as DailyService);
   });
 
@@ -40,6 +40,15 @@ describe('DailyController cockpit contracts', () => {
     await expect(controller.summary(undefined, undefined, '0')).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.summary(undefined, undefined, '10001')).rejects.toBeInstanceOf(BadRequestException);
     expect(service.summary).not.toHaveBeenCalled();
+  });
+
+  it('lists bounded owner-scoped facts for quick entry', async () => {
+    service.manualFacts.mockResolvedValue([]);
+    await expect(controller.manualFacts('2026-05-01', '2026-05-31', '100')).resolves.toEqual([]);
+    expect(service.manualFacts).toHaveBeenCalledWith(
+      { from: '2026-05-01', to: '2026-05-31', limit: 100 },
+      LEGACY_ACCOUNT_ID,
+    );
   });
 
   it('returns the stable persisted score response for a valid date', async () => {

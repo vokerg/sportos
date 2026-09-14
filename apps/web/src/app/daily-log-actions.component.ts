@@ -17,6 +17,9 @@ import { Component, input, output } from '@angular/core';
       <button type="button" class="secondary" [disabled]="!date()" (click)="manualEntry.emit()">
         Enter facts manually
       </button>
+      <button type="button" class="secondary" [disabled]="!date()" (click)="quickEntry.emit()">
+        Add to quick entry
+      </button>
       @if (errorMessage()) {
         <p class="recalculation-error" role="alert">{{ errorMessage() }}</p>
       }
@@ -40,4 +43,5 @@ export class DailyLogActionsComponent {
   readonly dateChange = output<string>();
   readonly recalculate = output<void>();
   readonly manualEntry = output<void>();
+  readonly quickEntry = output<void>();
 }

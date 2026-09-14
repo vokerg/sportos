@@ -19,6 +19,20 @@ const response: DailyScoreBreakdown = {
 };
 
 describe('ScoreBreakdownApiService', () => {
+  it('requests bounded quick-entry facts from the configured API base', () => {
+    const get = vi.fn().mockReturnValue(of([]));
+    const service = new ScoreBreakdownApiService(
+      { get } as unknown as HttpClient,
+      { apiBase: signal('http://sportos.test') } as unknown as ApiService,
+    );
+
+    service.manualFacts({ from: '2026-05-01', to: '2026-05-31', limit: 100 }).subscribe();
+
+    expect(get).toHaveBeenCalledWith('http://sportos.test/daily/manual-facts', {
+      params: { from: '2026-05-01', to: '2026-05-31', limit: '100' },
+    });
+  });
+
   it('requests the encoded date from the configured SportOS API base', () => {
     const get = vi.fn().mockReturnValue(of(response));
     const http = { get } as unknown as HttpClient;

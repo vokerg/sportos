@@ -1,6 +1,8 @@
 import { sql, type Kysely } from 'kysely';
 import type {
   DailyMetricFactsInput,
+  ManualDailyFactsInput,
+  ManualDailyFactsRow,
   DailyScoreBreakdownReadModel,
   DailyScoreInput,
   DailyScoreSnapshotTrigger,
@@ -63,7 +65,7 @@ export interface DailyScoreBreakdownLedgerRow {
   ruleThresholdUnit: string | null;
   ruleConfiguredPoints: number | null;
   ruleAchievementGroup: string | null;
-  rulePointsMultiplier: 'completed_5k_blocks' | null;
+  rulePointsMultiplier: 'completed_5k_blocks' | 'rounded_5k_blocks' | null;
   ruleValidFrom: string | null;
   ruleValidTo: string | null;
   rulePriority: number | null;
@@ -273,6 +275,55 @@ export class DailyRepository {
       .execute();
   }
 
+  async listManualDailyFacts(input: { from?: string; to?: string; limit?: number } = {}): Promise<ManualDailyFactsRow[]> {
+    let query = this.db
+      .selectFrom('daily_metrics as dm')
+      .leftJoin('daily_score_snapshots as dss', 'dss.id', 'dm.score_snapshot_id')
+      .select([
+        'dm.metric_date as date',
+        'dm.score_status as scoreStatus',
+        'dm.total_points as totalPoints',
+        'dm.steps as steps',
+        'dm.run_m as runM',
+        'dm.bike_m as bikeM',
+        'dm.swim_m as swimM',
+        'dm.workout_points as workoutPoints',
+        'dm.power_points as powerPoints',
+        'dss.facts_json as snapshotFacts',
+      ])
+      .where('dm.metric_date', '<=', input.to ?? new Date().toISOString().slice(0, 10));
+    if (input.from !== undefined) query = query.where('dm.metric_date', '>=', input.from);
+    const rows = await query
+      .orderBy('dm.metric_date', 'desc')
+      .limit(input.limit ?? 365)
+      .execute();
+
+    return rows.map((row) => {
+      const snapshot = jsonRecord(row.snapshotFacts);
+      const runIndoorM = finiteSnapshotNumber(snapshot.runIndoorM);
+      const runOutdoorM = finiteSnapshotNumber(snapshot.runOutdoorM);
+      const bikeIndoorM = finiteSnapshotNumber(snapshot.bikeIndoorM);
+      const bikeOutdoorM = finiteSnapshotNumber(snapshot.bikeOutdoorM);
+      return {
+        date: toIsoDate(row.date),
+        scoreStatus: row.scoreStatus,
+        totalPoints: databaseNumber(row.totalPoints, 'daily total points'),
+        facts: {
+          steps: databaseNumber(row.steps, 'daily steps'),
+          runIndoorM,
+          runOutdoorM,
+          runUnspecifiedM: finiteSnapshotNumber(snapshot.runUnspecifiedM, Math.max(databaseNumber(row.runM, 'daily run distance') - runIndoorM - runOutdoorM, 0)),
+          bikeIndoorM,
+          bikeOutdoorM,
+          bikeUnspecifiedM: finiteSnapshotNumber(snapshot.bikeUnspecifiedM, Math.max(databaseNumber(row.bikeM, 'daily bike distance') - bikeIndoorM - bikeOutdoorM, 0)),
+          swimM: databaseNumber(row.swimM, 'daily swim distance'),
+          workoutPoints: databaseNumber(row.workoutPoints, 'daily workout points'),
+          powerPoints: databaseNumber(row.powerPoints, 'daily power points'),
+        },
+      };
+    });
+  }
+
   async getDailyScoreBreakdown(metricDate: string): Promise<DailyScoreBreakdownReadModel | null> {
     const header = await this.db
       .selectFrom('daily_metrics as dm')
@@ -472,7 +523,7 @@ export function assembleDailyScoreBreakdown(
   ]);
   const ledgerTotal = ledger.reduce((sum, entry) => sum + entry.points, 0);
   return {
-    date: header.date,
+    date: toIsoDate(header.date),
     recomputedAt: toIsoTimestamp(header.recomputedAt),
     scoreStatus: header.scoreStatus,
     facts: {
@@ -567,8 +618,8 @@ function mapRule(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownRuleReadModel
     configuredPoints: nullableDatabaseNumber(row.ruleConfiguredPoints, 'rule configured points'),
     achievementGroup: row.ruleAchievementGroup,
     pointsMultiplier: row.rulePointsMultiplier,
-    validFrom: row.ruleValidFrom,
-    validTo: row.ruleValidTo,
+    validFrom: toIsoDate(row.ruleValidFrom),
+    validTo: row.ruleValidTo === null ? null : toIsoDate(row.ruleValidTo),
     priority: row.rulePriority,
     enabled: row.ruleEnabled,
     description: row.ruleDescription,
@@ -584,7 +635,7 @@ function mapActivity(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownActivityR
     id: row.activityId,
     source: row.activitySource,
     sourceActivityId: row.activitySourceActivityId,
-    activityDate: row.activityDate,
+    activityDate: toIsoDate(row.activityDate),
     startTime: toNullableIsoTimestamp(row.activityStartTime),
     activityType: row.activityType,
     subtype: row.activitySubtype,
@@ -694,6 +745,20 @@ function databaseNumber(value: unknown, field: string): number {
   const parsed = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(parsed)) throw new TypeError(`Expected a finite numeric value for ${field}.`);
   return parsed;
+}
+
+function toIsoDate(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  throw new TypeError('Expected a database date value.');
+}
+
+function jsonRecord(value: Json | null): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function finiteSnapshotNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 function nullableDatabaseNumber(value: unknown | null, field: string): number | null {

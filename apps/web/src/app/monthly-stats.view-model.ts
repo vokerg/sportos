@@ -27,11 +27,12 @@ export function dynamicsChartOptions(
   const indexed = mode === 'indexed';
   const axes = indexed ? [{ type: 'value', name: 'Index (first non-zero = 100)' }] : response.metrics.map((metric, index) => ({
     type: 'value',
-    name: `${DYNAMICS_LABELS[metric]} (${units[index]})`,
+    name: units[index],
     position: index % 2 === 0 ? 'left' : 'right',
     offset: Math.floor(index / 2) * 56,
     axisLine: { show: true, lineStyle: { color: COLORS[metric] } },
     axisLabel: { color: COLORS[metric] },
+    nameTextStyle: { color: COLORS[metric], fontWeight: 650 },
   }));
   const leftAxes = indexed ? 1 : Math.ceil(response.metrics.length / 2);
   const rightAxes = indexed ? 0 : Math.floor(response.metrics.length / 2);
@@ -53,9 +54,19 @@ export function dynamicsChartOptions(
         showSymbol: response.series.length <= 60,
         yAxisIndex: indexed ? 0 : index,
         data: indexed ? indexedValues(absolute) : absolute,
+        tooltip: {
+          valueFormatter: (value: unknown) => formatChartValue(value, indexed ? 'index' : response.metricUnits[metric]),
+        },
       };
     }),
   };
+}
+
+function formatChartValue(value: unknown, unit: DynamicsResponse['metricUnits'][DynamicsMetric] | 'index'): string {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return '—';
+  const formatted = new Intl.NumberFormat(undefined, { maximumFractionDigits: unit === 'metres' ? 2 : 1 }).format(numericValue);
+  return unit === 'metres' ? `${formatted} km` : formatted;
 }
 
 export function formatDynamicsValue(

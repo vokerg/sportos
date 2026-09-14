@@ -102,6 +102,22 @@ describe('Rules Studio domain contract', () => {
       priority: 73,
     })).toMatchObject({ achievementGroup: 'run.pace.per5k', pointsMultiplier: 'completed_5k_blocks' });
 
+    expect(validateRuleProposal({
+      code: 'run.pace.rounded.bonus',
+      name: 'Favourably rounded run pace',
+      activityType: 'run',
+      ruleKind: 'achievement',
+      metric: 'pace_s_per_km',
+      thresholdOperator: 'lte',
+      thresholdValue: 240,
+      thresholdUnit: 's/km',
+      points: 4000,
+      achievementGroup: 'run.pace.per5k',
+      pointsMultiplier: 'rounded_5k_blocks',
+      validFrom: '1900-01-01',
+      priority: 73,
+    })).toMatchObject({ pointsMultiplier: 'rounded_5k_blocks' });
+
     expect(() => validateRuleProposal({
       code: 'bike.invalid.multiplier',
       name: 'Invalid bike multiplier',

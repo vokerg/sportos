@@ -191,12 +191,17 @@ export function validateRuleProposal(input: RuleProposal): RuleProposal {
     if (proposal.achievementGroup && (!/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/.test(proposal.achievementGroup) || proposal.achievementGroup.length > 120)) {
       issues.push({ field: 'achievementGroup', code: 'INVALID_ACHIEVEMENT_GROUP', message: 'Achievement group must be a lowercase stable identifier up to 120 characters.' });
     }
-    if (proposal.pointsMultiplier !== undefined && proposal.pointsMultiplier !== 'completed_5k_blocks') {
+    if (proposal.pointsMultiplier !== undefined
+      && proposal.pointsMultiplier !== 'completed_5k_blocks'
+      && proposal.pointsMultiplier !== 'rounded_5k_blocks') {
       issues.push({ field: 'pointsMultiplier', code: 'INVALID_POINTS_MULTIPLIER', message: 'Achievement points multiplier is not supported.' });
     }
-    if (proposal.pointsMultiplier === 'completed_5k_blocks'
+    if ((proposal.pointsMultiplier === 'completed_5k_blocks' || proposal.pointsMultiplier === 'rounded_5k_blocks')
       && (proposal.activityType !== 'run' || proposal.metric !== 'pace_s_per_km' || !proposal.achievementGroup)) {
       issues.push({ field: 'pointsMultiplier', code: 'INVALID_BLOCK_MULTIPLIER', message: 'Completed 5 km block multiplication requires a grouped run pace achievement.' });
+    }
+    if (proposal.pointsMultiplier === 'rounded_5k_blocks' && proposal.thresholdOperator !== 'lte') {
+      issues.push({ field: 'thresholdOperator', code: 'INVALID_ROUNDED_PACE_OPERATOR', message: 'Favourably rounded run pace requires an inclusive lte threshold.' });
     }
   }
 

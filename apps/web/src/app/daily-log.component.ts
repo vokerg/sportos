@@ -7,6 +7,7 @@ import { DailyLogActionsComponent } from './daily-log-actions.component';
 import { DailyLogFiltersComponent } from './daily-log-filters.component';
 import { DailyLogGridComponent } from './daily-log-grid.component';
 import { DailyLogTrendComponent } from './daily-log-trend.component';
+import { DailyQuickEntryGridComponent, type DailyQuickEntryChange, type DailyQuickEntryGridRow } from './daily-quick-entry-grid.component';
 import {
   DEFAULT_QUICK_RANGE,
   QUICK_RANGE_VALUES,
@@ -16,6 +17,8 @@ import {
 } from './daily-log.view-model';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
+import { ProviderApiService, type ProviderConnection, type ProviderSyncJob } from './provider-api.service';
+import { stravaCalendarDateWindow } from './strava-day-refresh';
 import type {
   ApiErrorBody,
   DailyScoreBreakdown,
@@ -31,6 +34,7 @@ import type {
     DailyLogActionsComponent,
     DailyLogTrendComponent,
     DailyLogGridComponent,
+    DailyQuickEntryGridComponent,
     DailyQuickSheetComponent,
   ],
   template: `
@@ -55,20 +59,36 @@ import type {
         [errorMessage]="recalculationError()"
         (dateChange)="activityDate.set($event)"
         (recalculate)="recalculateSelectedDate(activityDate())"
-        (manualEntry)="openManualEntry(activityDate())" />
+        (manualEntry)="openManualEntry(activityDate())"
+        (quickEntry)="addQuickEntryDate(activityDate())" />
 
-      @if (summaryState() === 'loading') {
-        <p role="status" aria-live="polite">Loading daily summaries…</p>
-      } @else if (summaryState() === 'error') {
-        <div class="state-message error" role="alert">
-          <p>{{ summaryError() }}</p>
-          <button type="button" (click)="loadRows()">Retry</button>
-        </div>
-      } @else if (summaryState() === 'empty') {
-        <p class="state-message" role="status">No canonical daily summaries match this range.</p>
+      <div class="view-switch" role="group" aria-label="Daily log view">
+        <button type="button" [class.active]="viewMode() === 'summary'" (click)="showSummary()">Summary</button>
+        <button type="button" [class.active]="viewMode() === 'quick-entry'" (click)="showQuickEntry()">Quick entry</button>
+      </div>
+
+      @if (viewMode() === 'summary') {
+        @if (summaryState() === 'loading') {
+          <p role="status" aria-live="polite">Loading daily summaries…</p>
+        } @else if (summaryState() === 'error') {
+          <div class="state-message error" role="alert"><p>{{ summaryError() }}</p><button type="button" (click)="loadRows()">Retry</button></div>
+        } @else if (summaryState() === 'empty') {
+          <p class="state-message" role="status">No canonical daily summaries match this range.</p>
+        } @else {
+          <sportos-daily-log-trend [rows]="rows()" />
+          <sportos-daily-log-grid [rows]="rows()" (openBreakdown)="openBreakdown($event)" />
+        }
       } @else {
-        <sportos-daily-log-trend [rows]="rows()" />
-        <sportos-daily-log-grid [rows]="rows()" (openBreakdown)="openBreakdown($event)" />
+        @if (quickEntryState() === 'loading') {
+          <p role="status">Loading editable facts…</p>
+        } @else if (quickEntryState() === 'error') {
+          <div class="state-message error" role="alert"><p>{{ quickEntryError() }}</p><button type="button" (click)="loadQuickEntryRows()">Retry</button></div>
+        } @else {
+          <sportos-daily-quick-entry-grid
+            [rows]="quickEntryRows()"
+            (save)="saveQuickEntry($event)"
+            (refreshFromStrava)="refreshQuickEntryFromStrava($event)" />
+        }
       }
 
       <sportos-daily-quick-sheet
@@ -90,6 +110,9 @@ import type {
   `,
   styles: [`
     .daily-log-help { margin: -6px 0 16px; color: #667085; font-size: 13px; }
+    .view-switch { display: flex; gap: 4px; width: fit-content; padding: 4px; border: 1px solid #dbe4f0; border-radius: 10px; background: #f8fafc; }
+    .view-switch button { border-color: transparent; background: transparent; color: #667085; }
+    .view-switch button.active { border-color: #b8c8ed; background: #fff; color: #243b73; box-shadow: 0 1px 2px rgba(16, 24, 40, .08); }
   `],
 })
 export class DailyLogComponent implements OnInit, OnDestroy {
@@ -109,21 +132,34 @@ export class DailyLogComponent implements OnInit, OnDestroy {
   readonly manualSaveState = signal<'idle' | 'working'>('idle');
   readonly manualSaveError = signal<string | null>(null);
   readonly manualEditRequestId = signal(0);
+  readonly viewMode = signal<'summary' | 'quick-entry'>('summary');
+  readonly quickEntryRows = signal<DailyQuickEntryGridRow[]>([]);
+  readonly quickEntryState = signal<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+  readonly quickEntryError = signal<string | null>(null);
+  readonly stravaConnection = signal<ProviderConnection | null>(null);
 
   private readonly destroy$ = new Subject<void>();
   private readonly summaryRequestCancelled$ = new Subject<void>();
   private readonly breakdownRequestCancelled$ = new Subject<void>();
   private readonly recalculationRequestCancelled$ = new Subject<void>();
   private readonly manualSaveRequestCancelled$ = new Subject<void>();
+  private quickEntryRefreshSubscription?: { unsubscribe(): void };
+  private quickEntryPollTimer?: ReturnType<typeof setTimeout>;
+  private quickEntryPollCount = 0;
 
   constructor(
     private readonly api: ApiService,
     private readonly scoreBreakdownApi: ScoreBreakdownApiService,
     private readonly router: Router,
+    private readonly providerApi: ProviderApiService,
   ) {}
 
   ngOnInit(): void {
     this.loadRows();
+    this.providerApi.connections().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (connections) => this.stravaConnection.set(connections.find((item) => item.provider === 'strava') ?? null),
+      error: () => this.stravaConnection.set(null),
+    });
   }
 
   ngOnDestroy(): void {
@@ -133,6 +169,8 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.manualSaveRequestCancelled$.next();
     this.destroy$.next();
     this.destroy$.complete();
+    this.quickEntryRefreshSubscription?.unsubscribe();
+    if (this.quickEntryPollTimer) clearTimeout(this.quickEntryPollTimer);
   }
 
   applyFilters(): void {
@@ -173,6 +211,120 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     this.to.set(dates.to);
     this.quickRange.set(DEFAULT_QUICK_RANGE);
     this.loadRows();
+  }
+
+  showSummary(): void {
+    this.viewMode.set('summary');
+  }
+
+  showQuickEntry(): void {
+    this.viewMode.set('quick-entry');
+    this.loadQuickEntryRows();
+  }
+
+  addQuickEntryDate(date: string): void {
+    if (!date) return;
+    this.viewMode.set('quick-entry');
+    if (this.quickEntryState() === 'idle') this.loadQuickEntryRows();
+    if (this.quickEntryRows().some((row) => row.date === date)) return;
+    this.quickEntryRows.update((rows) => [blankQuickEntryRow(date), ...rows].sort((a, b) => b.date.localeCompare(a.date)));
+    this.quickEntryState.set('loaded');
+  }
+
+  loadQuickEntryRows(): void {
+    this.quickEntryState.set('loading');
+    this.quickEntryError.set(null);
+    this.scoreBreakdownApi.manualFacts({ from: this.from() || undefined, to: this.to() || undefined, limit: 10_000 })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows) => {
+          this.quickEntryRows.set(rows.map((row) => ({ date: row.date, scoreStatus: row.scoreStatus, totalPoints: row.totalPoints, ...row.facts })));
+          this.quickEntryState.set('loaded');
+        },
+        error: (error: unknown) => {
+          this.quickEntryError.set(this.describeSummaryError(error));
+          this.quickEntryState.set('error');
+        },
+      });
+  }
+
+  saveQuickEntry(change: DailyQuickEntryChange): void {
+    this.patchQuickEntryRow(change.date, { saving: true, error: null });
+    this.scoreBreakdownApi.saveManualFacts(change.date, change.input).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (result) => {
+        this.replaceQuickEntryRow(quickEntryRowFromBreakdown(result));
+        this.loadSummaryRows();
+      },
+      error: (error: unknown) => {
+        this.replaceQuickEntryRow({ ...change.previous, saving: false, error: this.describeManualSaveError(error) });
+      },
+    });
+  }
+
+  refreshQuickEntryFromStrava(date: string): void {
+    const activeDate = this.quickEntryRows().find((row) => row.refreshing)?.date;
+    if (activeDate && activeDate !== date) {
+      this.patchQuickEntryRow(date, { error: `Wait for the Strava refresh for ${activeDate} to finish.` });
+      return;
+    }
+    const connection = this.stravaConnection();
+    const range = stravaCalendarDateWindow(date);
+    if (!connection || connection.status !== 'connected' || !range) {
+      this.patchQuickEntryRow(date, { error: 'Connect Strava on the Providers page before refreshing this day.' });
+      return;
+    }
+    this.quickEntryRefreshSubscription?.unsubscribe();
+    if (this.quickEntryPollTimer) clearTimeout(this.quickEntryPollTimer);
+    this.quickEntryPollCount = 0;
+    this.patchQuickEntryRow(date, { refreshing: true, error: null });
+    this.quickEntryRefreshSubscription = this.providerApi.enqueueSync(connection.id, 'webhook_refresh', range).subscribe({
+      next: (job) => this.pollQuickEntryRefresh(date, job),
+      error: (error: unknown) => this.failQuickEntryRefresh(date, error, 'The Strava refresh could not be queued.'),
+    });
+  }
+
+  private pollQuickEntryRefresh(date: string, job: ProviderSyncJob): void {
+    if (job.status === 'succeeded') {
+      this.quickEntryRefreshSubscription = this.scoreBreakdownApi.recalculate(date).subscribe({
+        next: (result) => {
+          this.replaceQuickEntryRow(quickEntryRowFromBreakdown(result));
+          this.loadSummaryRows();
+        },
+        error: (error: unknown) => this.failQuickEntryRefresh(date, error, 'Strava refreshed, but recalculation failed.'),
+      });
+      return;
+    }
+    if (job.status === 'failed' || job.status === 'cancelled') {
+      this.failQuickEntryRefresh(date, job.error?.message || `The Strava refresh was ${job.status}.`, 'The Strava refresh failed.');
+      return;
+    }
+    if (++this.quickEntryPollCount > 400) {
+      this.failQuickEntryRefresh(date, 'Automatic status refresh paused after ten minutes.', 'Automatic status refresh paused.');
+      return;
+    }
+    this.quickEntryPollTimer = setTimeout(() => {
+      this.quickEntryRefreshSubscription = this.providerApi.syncJob(job.id).subscribe({
+        next: (nextJob) => this.pollQuickEntryRefresh(date, nextJob),
+        error: (error: unknown) => this.failQuickEntryRefresh(date, error, 'The Strava refresh status could not be loaded.'),
+      });
+    }, 1500);
+  }
+
+  private failQuickEntryRefresh(date: string, error: unknown, fallback: string): void {
+    const message = typeof error === 'string'
+      ? error
+      : error instanceof HttpErrorResponse
+        ? this.describeRecalculationError(error)
+        : fallback;
+    this.patchQuickEntryRow(date, { refreshing: false, error: message });
+  }
+
+  private patchQuickEntryRow(date: string, patch: Partial<DailyQuickEntryGridRow>): void {
+    this.quickEntryRows.update((rows) => rows.map((row) => row.date === date ? { ...row, ...patch } : row));
+  }
+
+  private replaceQuickEntryRow(next: DailyQuickEntryGridRow): void {
+    this.quickEntryRows.update((rows) => rows.map((row) => row.date === next.date ? next : row));
   }
 
   loadRows(): void {
@@ -401,4 +553,47 @@ export class DailyLogComponent implements OnInit, OnDestroy {
     if (!value || typeof value !== 'object') return null;
     return value as ApiErrorBody;
   }
+}
+
+function blankQuickEntryRow(date: string): DailyQuickEntryGridRow {
+  return {
+    date,
+    scoreStatus: 'manual',
+    totalPoints: 0,
+    steps: 0,
+    runIndoorM: 0,
+    runOutdoorM: 0,
+    runUnspecifiedM: 0,
+    bikeIndoorM: 0,
+    bikeOutdoorM: 0,
+    bikeUnspecifiedM: 0,
+    swimM: 0,
+    workoutPoints: 0,
+    powerPoints: 0,
+  };
+}
+
+function quickEntryRowFromBreakdown(result: DailyScoreBreakdown): DailyQuickEntryGridRow {
+  const runIndoorM = result.facts.runIndoorM ?? 0;
+  const runOutdoorM = result.facts.runOutdoorM ?? 0;
+  const bikeIndoorM = result.facts.bikeIndoorM ?? 0;
+  const bikeOutdoorM = result.facts.bikeOutdoorM ?? 0;
+  return {
+    date: result.date,
+    scoreStatus: result.scoreStatus,
+    totalPoints: result.score.appTotal,
+    steps: result.facts.steps,
+    runIndoorM,
+    runOutdoorM,
+    runUnspecifiedM: result.facts.runUnspecifiedM ?? Math.max(result.facts.runM - runIndoorM - runOutdoorM, 0),
+    bikeIndoorM,
+    bikeOutdoorM,
+    bikeUnspecifiedM: result.facts.bikeUnspecifiedM ?? Math.max(result.facts.bikeM - bikeIndoorM - bikeOutdoorM, 0),
+    swimM: result.facts.swimM,
+    workoutPoints: result.facts.workoutPoints,
+    powerPoints: result.facts.powerPoints,
+    saving: false,
+    refreshing: false,
+    error: null,
+  };
 }

@@ -127,7 +127,9 @@ export function ruleFormula(
   rule: Pick<RuleVersion, 'ruleKind' | 'coefficient' | 'thresholdOperator' | 'thresholdValue' | 'thresholdUnit' | 'points' | 'pointsMultiplier'>,
 ): string {
   if (rule.ruleKind === 'achievement') {
-    const multiplier = rule.pointsMultiplier === 'completed_5k_blocks' ? ' per completed 5 km' : '';
+    const multiplier = rule.pointsMultiplier === 'rounded_5k_blocks'
+      ? ' per rounded 5 km (pace rounded favourably)'
+      : rule.pointsMultiplier === 'completed_5k_blocks' ? ' per completed 5 km' : '';
     return `${rule.thresholdOperator} ${rule.thresholdValue ?? ''} ${rule.thresholdUnit ?? ''} → +${rule.points ?? 0}${multiplier}`;
   }
   return `× ${rule.coefficient ?? 0}`;

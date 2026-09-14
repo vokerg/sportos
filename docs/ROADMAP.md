@@ -14,7 +14,7 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Defined through V115 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Defined through V116 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
@@ -40,7 +40,7 @@ Delivered:
 - score breakdown and reconciliation;
 - import history and row diagnostics;
 - explicit scoring units, rounding, thresholds, priorities, effective dates, and base/bonus semantics;
-- imported workbook `All` authority with visible imported/calculated/manual row status, append-only score snapshots, explicit Strava-backed recalculation, and manual canonical fact entry;
+- imported workbook `All` authority with visible imported/calculated/manual row status, append-only score snapshots, explicit Strava-backed recalculation, focused manual entry, and Excel-like bulk quick entry over the same canonical save path;
 - machine-readable exact/explained/unresolved evidence.
 
 The detailed evidence is maintained in [FIRST_MILESTONE.md](FIRST_MILESTONE.md).

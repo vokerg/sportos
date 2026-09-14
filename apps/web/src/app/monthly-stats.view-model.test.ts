@@ -18,8 +18,21 @@ describe('dynamics view model', () => {
   it('keeps unlike absolute metrics on separately labelled axes and converts metres to kilometres', () => {
     const options = dynamicsChartOptions(response, 'total', 'absolute') as Record<string, any>;
     expect(options.yAxis).toHaveLength(2);
-    expect(options.yAxis.map((axis: any) => axis.name)).toEqual(['Official score (points)', 'Run (km)']);
+    expect(options.yAxis.map((axis: any) => axis.name)).toEqual(['points', 'km']);
+    expect(options.series.map((series: any) => series.name)).toEqual(['Official score · total (points)', 'Run · total (km)']);
     expect(options.series[1].data).toEqual([10, null]);
+    expect(options.series[1].tooltip.valueFormatter(10.296333333333333)).toBe('10.3 km');
+  });
+
+  it('uses compact unit captions when multiple axes share one side', () => {
+    const options = dynamicsChartOptions({ ...response, metrics: ['score', 'steps', 'run'] }, 'total', 'absolute') as Record<string, any>;
+
+    expect(options.yAxis.map((axis: any) => axis.name)).toEqual(['points', 'steps', 'km']);
+    expect(options.yAxis.map((axis: any) => [axis.position, axis.offset])).toEqual([
+      ['left', 0],
+      ['right', 0],
+      ['left', 56],
+    ]);
   });
 
   it('indexes each series independently from its first non-zero value', () => {

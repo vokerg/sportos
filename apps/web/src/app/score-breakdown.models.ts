@@ -65,7 +65,7 @@ export interface ScoreBreakdownRule {
   thresholdUnit: string | null;
   configuredPoints: number | null;
   achievementGroup: string | null;
-  pointsMultiplier: 'completed_5k_blocks' | null;
+  pointsMultiplier: 'completed_5k_blocks' | 'rounded_5k_blocks' | null;
   validFrom: string;
   validTo: string | null;
   priority: number;
@@ -127,6 +127,13 @@ export interface ManualDailyFactsInput {
   swimM: number;
   workoutPoints: number;
   powerPoints: number;
+}
+
+export interface ManualDailyFactsRow {
+  date: string;
+  scoreStatus: DailyScoreBreakdown['scoreStatus'];
+  totalPoints: number;
+  facts: ManualDailyFactsInput;
 }
 
 export interface ApiErrorBody {

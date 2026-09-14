@@ -9,6 +9,9 @@ import type {
 import { metersToKm, mpsToKmh } from './units.js';
 
 const ROUNDING_POLICY = 'nearest_integer_per_rule';
+const RUN_BONUS_DISTANCE_INCREMENT_M = 100;
+const RUN_BONUS_PACE_INCREMENT_S_PER_KM = 6;
+const RUN_BONUS_ELIGIBILITY_ROUNDING = 'nearest_0.1_km_and_0.1_min_per_km_favouring_boundary';
 
 export function scoreFromImportedLedger(facts: DailyMetricFacts, evidence?: ImportedLedgerEvidence): DailyScoreResult {
   const importedPoints = facts.excelAllPoints;
@@ -227,16 +230,17 @@ export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule,
 
   if (rule.ruleKind === 'achievement') {
     const metricValue = getMetricValue(activity, rule.metric);
-    if (!passesThresholdValue(metricValue, rule)) return null;
+    const thresholdEvaluation = evaluateThresholdValue(metricValue, rule);
+    if (!thresholdEvaluation.passed) return null;
     const auxiliaryConditions = achievementAuxiliaryConditions(activity, rule);
     if (auxiliaryConditions.some((condition) => !condition.passed)) return null;
     const configuredPoints = rule.points ?? 0;
-    const pointsMultiplier = achievementPointsMultiplier(activity, rule);
-    if (pointsMultiplier === 0) return null;
-    const points = configuredPoints * pointsMultiplier;
+    const multiplierEvaluation = achievementPointsMultiplier(activity, rule);
+    if (multiplierEvaluation.value === 0) return null;
+    const points = configuredPoints * multiplierEvaluation.value;
     if (points === 0) return null;
-    const multiplierExplanation = rule.pointsMultiplier === 'completed_5k_blocks'
-      ? `; ${pointsMultiplier} completed 5 km block${pointsMultiplier === 1 ? '' : 's'} × ${configuredPoints} = ${points}`
+    const multiplierExplanation = rule.pointsMultiplier === 'completed_5k_blocks' || rule.pointsMultiplier === 'rounded_5k_blocks'
+      ? `; ${multiplierEvaluation.value} completed 5 km block${multiplierEvaluation.value === 1 ? '' : 's'} × ${configuredPoints} = ${points}`
       : `; +${points}`;
     return {
       metricDate,
@@ -244,7 +248,7 @@ export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule,
       ruleId: rule.id,
       ruleCode: rule.code,
       points,
-      reason: `${rule.name}: ${formatThreshold(metricValue, rule)}${multiplierExplanation}`,
+      reason: `${rule.name}: ${formatThreshold(metricValue, rule, thresholdEvaluation)}${multiplierExplanation}`,
       calculationJson: {
         ruleKind: rule.ruleKind,
         classification,
@@ -255,10 +259,13 @@ export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule,
         thresholdOperator: rule.thresholdOperator ?? null,
         thresholdValue: rule.thresholdValue ?? null,
         thresholdUnit: rule.thresholdUnit ?? null,
+        thresholdComparisonValue: thresholdEvaluation.comparisonValue ?? null,
+        eligibilityRounding: thresholdEvaluation.roundingPolicy ?? multiplierEvaluation.roundingPolicy ?? null,
         configuredPoints,
         achievementGroup: rule.achievementGroup ?? null,
         pointsMultiplier: rule.pointsMultiplier ?? null,
-        multiplierValue: pointsMultiplier,
+        multiplierValue: multiplierEvaluation.value,
+        multiplierInputValue: multiplierEvaluation.inputValue ?? null,
         awardedPoints: points,
         auxiliaryConditions,
         validFrom: rule.validFrom,
@@ -271,12 +278,23 @@ export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule,
   return null;
 }
 
-function achievementPointsMultiplier(activity: ActivityFact, rule: ScoringRule): number {
-  if (!rule.pointsMultiplier) return 1;
+function achievementPointsMultiplier(
+  activity: ActivityFact,
+  rule: ScoringRule,
+): { value: number; inputValue?: number; roundingPolicy?: string } {
+  if (!rule.pointsMultiplier) return { value: 1 };
   if (rule.pointsMultiplier === 'completed_5k_blocks') {
-    return Math.floor((activity.distanceM ?? 0) / 5000);
+    return { value: Math.floor((activity.distanceM ?? 0) / 5000), inputValue: activity.distanceM ?? 0 };
   }
-  return 0;
+  if (rule.pointsMultiplier === 'rounded_5k_blocks') {
+    const roundedDistanceM = roundToIncrement(activity.distanceM ?? 0, RUN_BONUS_DISTANCE_INCREMENT_M);
+    return {
+      value: Math.floor(roundedDistanceM / 5000),
+      inputValue: roundedDistanceM,
+      roundingPolicy: RUN_BONUS_ELIGIBILITY_ROUNDING,
+    };
+  }
+  return { value: 0 };
 }
 
 export function isRuleActiveForDate(rule: ScoringRule, isoDate: string): boolean {
@@ -287,17 +305,29 @@ function classifyRule(rule: ScoringRule): 'base' | 'bonus' {
   return rule.ruleKind === 'achievement' || rule.activityType === 'power_bonus' ? 'bonus' : 'base';
 }
 
-function passesThresholdValue(value: number | undefined, rule: ScoringRule): boolean {
-  if (rule.thresholdOperator === 'exists') return value !== undefined;
-  if (value === undefined || rule.thresholdValue === undefined) return false;
+function evaluateThresholdValue(
+  value: number | undefined,
+  rule: ScoringRule,
+): { passed: boolean; comparisonValue?: number; roundingPolicy?: string } {
+  if (rule.thresholdOperator === 'exists') return { passed: value !== undefined, comparisonValue: value };
+  if (value === undefined || rule.thresholdValue === undefined) return { passed: false };
+  const roundsRunPace = rule.pointsMultiplier === 'rounded_5k_blocks' && rule.metric === 'pace_s_per_km';
+  const comparisonValue = roundsRunPace ? roundToIncrement(value, RUN_BONUS_PACE_INCREMENT_S_PER_KM) : value;
+  const roundingPolicy = roundsRunPace ? RUN_BONUS_ELIGIBILITY_ROUNDING : undefined;
+  let passed: boolean;
   switch (rule.thresholdOperator) {
-    case 'lt': return value < rule.thresholdValue;
-    case 'lte': return value <= rule.thresholdValue;
-    case 'gt': return value > rule.thresholdValue;
-    case 'gte': return value >= rule.thresholdValue;
-    case 'eq': return value === rule.thresholdValue;
-    default: return false;
+    case 'lt': passed = comparisonValue < rule.thresholdValue; break;
+    case 'lte': passed = comparisonValue <= rule.thresholdValue; break;
+    case 'gt': passed = comparisonValue > rule.thresholdValue; break;
+    case 'gte': passed = comparisonValue >= rule.thresholdValue; break;
+    case 'eq': passed = comparisonValue === rule.thresholdValue; break;
+    default: passed = false;
   }
+  return { passed, comparisonValue, roundingPolicy };
+}
+
+function roundToIncrement(value: number, increment: number): number {
+  return Math.round((value + Number.EPSILON) / increment) * increment;
 }
 
 function achievementAuxiliaryConditions(
@@ -325,8 +355,15 @@ function achievementAuxiliaryConditions(
   return [];
 }
 
-function formatThreshold(value: number | undefined, rule: ScoringRule): string {
+function formatThreshold(
+  value: number | undefined,
+  rule: ScoringRule,
+  evaluation: { comparisonValue?: number; roundingPolicy?: string },
+): string {
   if (rule.thresholdOperator === 'exists') return `${rule.metric} exists`;
+  if (evaluation.roundingPolicy) {
+    return `${value ?? 'missing'} ${metricUnit(rule.metric)} rounded to ${evaluation.comparisonValue ?? 'missing'} ${metricUnit(rule.metric)} <= ${rule.thresholdValue ?? 'missing'} ${rule.thresholdUnit ?? metricUnit(rule.metric)}`;
+  }
   return `${value ?? 'missing'} ${metricUnit(rule.metric)} ${rule.thresholdOperator ?? 'unknown'} ${rule.thresholdValue ?? 'missing'} ${rule.thresholdUnit ?? metricUnit(rule.metric)}`;
 }
 
