@@ -6,9 +6,9 @@ This is the operational entry point for coding agents and maintainers working on
 
 SportOS is an authenticated account-scoped application for importing sports workbooks, synchronizing Strava activity, preserving raw source provenance, calculating deterministic scores, reviewing/exporting canonical results, and producing cited read-only generated analysis.
 
-Validated capabilities include browser XLSX upload, external source storage, encrypted provider credentials, Strava connection/backfill/incremental sync, durable import/provider/rule jobs, immutable scoring-rule versions, audited recomputation, daily/performance provenance drill-downs, canonical export, narrow deterministic analysis tools, citation-validated generation with safe fallback, append-only analysis audit metadata, OIDC sign-in, opaque server-side sessions, CSRF protection, account-scoped database constraints, forced row-level security, split worker authorization, and authenticated Angular states.
+Validated capabilities include browser XLSX upload, external source storage, encrypted provider credentials, Strava connection/backfill/incremental sync, durable import/provider/rule jobs, immutable scoring-rule versions, audited recomputation, daily/performance provenance drill-downs, canonical export, narrow deterministic analysis tools, citation-validated generation with safe fallback, append-only analysis audit metadata, OIDC sign-in, opaque server-side sessions, CSRF protection, account-scoped database constraints, forced row-level security, split worker authorization, authenticated Angular routes, and canonical monthly metric dynamics.
 
-The ordered queue in issue #3 is complete through #16. Do not invent the next product item; select work only after issue #3 contains a new unchecked ready item or a maintainer explicitly reprioritizes the queue.
+The foundational queue in issue #3 is complete through #16 and the active P3 queue contains later frontend/product work. Do not invent the next product item; select only the first unchecked ready item or work explicitly reprioritized by a maintainer.
 
 ## Start here
 

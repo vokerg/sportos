@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the prioritized implementation roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16). The current schema is defined through Flyway V115, and the authoritative work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #47. The current schema is defined through Flyway V115, and the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -43,6 +43,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Award the highest qualifying universal run-pace tier per activity, multiplied by completed 5 km blocks.
 - Export bounded, versioned `sportos.canonical-export.v2` JSON from one repeatable-read snapshot, including each daily score's authority status.
 - Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.
+- Review canonical score, steps, run, bike, swim, workout, and power month by month on a dedicated Dynamics page with explicit coverage, selectable daily/weekly/monthly charts, and absolute or indexed comparison.
 
 ### Ask cited, read-only questions
 

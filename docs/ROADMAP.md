@@ -25,7 +25,7 @@ A feature is not delivered solely because a component or table exists.
 | Authentication and ownership | Validated with non-superuser RLS evidence | production OIDC/secret operations and account deletion policy |
 | Provider ingestion | Strava connection, refresh, backfill, incremental sync, retry, disconnect, and provenance validated | webhook processing and additional providers |
 | API | Authenticated, CSRF-protected, account scoped, and equipped with narrow cited analysis tools | hosted monitoring and external rate limiting |
-| Web UI | Authenticated routed workspace with upper navigation, dense Daily Log, selected-day highlights, exhaustive day edit/raw-provenance view, and dedicated import, provider, rule, run, analysis, and export pages | broader provider portfolio and additional analysis tools |
+| Web UI | Authenticated routed workspace with upper navigation, dense Daily Log, monthly metric Dynamics, selected-day highlights, exhaustive day edit/raw-provenance view, and dedicated import, provider, rule, run, analysis, and export pages | broader provider portfolio and additional analysis tools |
 | Hosted operation | Partially implemented | deployment, key management, backup, restoration, deletion, and observability |
 | Read-only analysis | Validated with cited evidence, deterministic calculations, safe fallback, append-only audit metadata, evaluations, and UI separation | hosted model-gateway operations and broader semantic evaluation |
 
@@ -118,7 +118,7 @@ Milestone 3 exit is satisfied: generated analysis can explain canonical data wit
 
 ## Near-term queue
 
-Issue #3 remains authoritative. The ordered queue is complete through issue #16. New hosted operations, provider expansion, analysis tools, or product work must be added and prioritized explicitly rather than inferred from this completed sequence.
+Issue #3 remains authoritative. The foundational queue is complete through issue #16; routed frontend maintenance and explicitly prioritized product work continue in the active P3 queue. New work must be added and prioritized there rather than inferred.
 
 Each PR must identify the milestone or operational exit criterion it advances and include repeatable evidence appropriate to the risk.
 
