@@ -23,6 +23,20 @@ export class DailyController {
     }, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 
+  @Get('manual-facts')
+  async manualFacts(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('limit') limit?: string,
+    @CurrentAccount() account?: AuthenticatedAccount,
+  ) {
+    const range = parseDateRange(from, to, { maxDays: 3660 });
+    return this.dailyService.manualFacts({
+      ...range,
+      limit: parseBoundedInteger(limit, { name: 'limit', defaultValue: 365, min: 1, max: 10_000 }),
+    }, account?.id ?? LEGACY_ACCOUNT_ID);
+  }
+
   @Get(':date/score-breakdown')
   async scoreBreakdown(@Param('date') date: string, @CurrentAccount() account?: AuthenticatedAccount) {
     if (!isIsoDate(date)) {

@@ -148,6 +148,33 @@ describe('assembleDailyScoreBreakdown', () => {
     expect(typeof result.facts.swimM).toBe('number');
   });
 
+  it('normalizes PostgreSQL date objects before returning the drawer contract', () => {
+    const result = assembleDailyScoreBreakdown(
+      { ...header, date: new Date('2026-05-18T00:00:00.000Z') } as unknown as DailyScoreBreakdownHeaderRow,
+      [ledgerRow({
+        ledgerPoints: 25,
+        ruleId: '50000000-0000-4000-8000-000000000001',
+        ruleCode: 'run.distance',
+        ruleName: 'Run distance',
+        ruleActivityType: 'run',
+        ruleKind: 'coefficient',
+        ruleMetric: 'distance_km',
+        ruleValidFrom: new Date('2026-01-01T00:00:00.000Z') as unknown as string,
+        rulePriority: 10,
+        ruleEnabled: true,
+        ruleCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        activityId: '60000000-0000-4000-8000-000000000001',
+        activitySource: 'strava',
+        activityDate: new Date('2026-05-18T00:00:00.000Z') as unknown as string,
+        activityType: 'run',
+      })],
+    );
+
+    expect(result.date).toBe('2026-05-18');
+    expect(result.ledger[0]?.rule?.validFrom).toBe('2026-01-01');
+    expect(result.ledger[0]?.activity?.activityDate).toBe('2026-05-18');
+  });
+
   it('does not add stale manual distance to the source distance of a calculated day', () => {
     const stravaActivityId = '60000000-0000-4000-8000-000000000010';
     const result = assembleDailyScoreBreakdown(

@@ -21,6 +21,10 @@ export class DailyService {
     return this.dbProvider.withAccount(accountId, (db) => new CockpitRepository(db).listDailySummary(input));
   }
 
+  manualFacts(input: DailySummaryQuery, accountId = LEGACY_ACCOUNT_ID) {
+    return this.dbProvider.withAccount(accountId, (db) => new DailyRepository(db).listManualDailyFacts(input));
+  }
+
   async scoreBreakdown(metricDate: string, accountId = LEGACY_ACCOUNT_ID): Promise<DailyScoreBreakdown | null> {
     const result: DailyScoreBreakdownReadModel | null = await this.dbProvider.withAccount(
       accountId,

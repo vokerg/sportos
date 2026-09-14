@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ApiService, DailySummaryRow } from './api.service';
 import { DailyLogComponent } from './daily-log.component';
 import type { ScoreBreakdownApiService } from './score-breakdown-api.service';
+import type { ProviderApiService } from './provider-api.service';
 import type { DailyScoreBreakdown } from './score-breakdown.models';
 
 const row: DailySummaryRow = {
@@ -177,6 +178,52 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(api.dailySummary).toHaveBeenCalledTimes(1);
   });
 
+  it('loads the exact persisted fields for quick entry and can add a blank date', () => {
+    const scoreApi = {
+      getForDate: vi.fn(),
+      manualFacts: vi.fn().mockReturnValue(of([{
+        date: row.metric_date,
+        scoreStatus: 'calculated',
+        totalPoints: 25,
+        facts: {
+          steps: 1000, runIndoorM: 1000, runOutdoorM: 3000, runUnspecifiedM: 0,
+          bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0, swimM: 500,
+          workoutPoints: 10, powerPoints: 5,
+        },
+      }])),
+    };
+    const component = createComponent(scoreApi);
+
+    component.showQuickEntry();
+    component.addQuickEntryDate('2026-05-19');
+
+    expect(scoreApi.manualFacts).toHaveBeenCalled();
+    expect(component.quickEntryRows()[0]).toMatchObject({ date: '2026-05-19', steps: 0 });
+    expect(component.quickEntryRows()[1]).toMatchObject({ date: row.metric_date, runOutdoorM: 3000 });
+  });
+
+  it('uses the durable Strava refresh job before recalculating a quick-entry row', () => {
+    const recalculated = { ...breakdown, scoreStatus: 'calculated' as const };
+    const scoreApi = {
+      getForDate: vi.fn(),
+      recalculate: vi.fn().mockReturnValue(of(recalculated)),
+      manualFacts: vi.fn().mockReturnValue(of([])),
+    };
+    const providerApi = {
+      connections: vi.fn().mockReturnValue(of([{ id: 'connection-1', provider: 'strava', status: 'connected' }])),
+      enqueueSync: vi.fn().mockReturnValue(of({ id: 'job-1', status: 'succeeded', progressPercent: 100 })),
+    };
+    const component = createComponent(scoreApi, undefined, undefined, providerApi);
+    component.ngOnInit();
+    component.addQuickEntryDate(row.metric_date);
+
+    component.refreshQuickEntryFromStrava(row.metric_date);
+
+    expect(providerApi.enqueueSync).toHaveBeenCalledWith('connection-1', 'webhook_refresh', expect.any(Object));
+    expect(scoreApi.recalculate).toHaveBeenCalledWith(row.metric_date);
+    expect(component.quickEntryRows()[0]).toMatchObject({ date: row.metric_date, refreshing: false });
+  });
+
   it('opens existing facts for editing in the quick sheet', () => {
     const scoreApi = { getForDate: vi.fn().mockReturnValue(of(breakdown)) };
     const router = { navigate: vi.fn().mockResolvedValue(true) };
@@ -319,10 +366,12 @@ function createComponent(
   scoreApi: { getForDate: ReturnType<typeof vi.fn>; recalculate?: ReturnType<typeof vi.fn>; saveManualFacts?: ReturnType<typeof vi.fn> },
   api: { dailySummary: ReturnType<typeof vi.fn> } = { dailySummary: vi.fn().mockReturnValue(of([])) },
   router: { navigate: ReturnType<typeof vi.fn> } = { navigate: vi.fn().mockResolvedValue(true) },
+  providerApi: { connections: ReturnType<typeof vi.fn>; enqueueSync?: ReturnType<typeof vi.fn>; syncJob?: ReturnType<typeof vi.fn> } = { connections: vi.fn().mockReturnValue(of([])) },
 ): DailyLogComponent {
   return new DailyLogComponent(
     api as unknown as ApiService,
     scoreApi as unknown as ScoreBreakdownApiService,
     router as unknown as Router,
+    providerApi as unknown as ProviderApiService,
   );
 }

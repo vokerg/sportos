@@ -59,7 +59,7 @@ export interface ImportedLedgerEvidence {
 
 export type RuleKind = 'coefficient' | 'achievement' | 'manual_points';
 export type ThresholdOperator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'exists';
-export type PointsMultiplier = 'completed_5k_blocks';
+export type PointsMultiplier = 'completed_5k_blocks' | 'rounded_5k_blocks';
 
 export interface ScoringRule {
   id?: string;

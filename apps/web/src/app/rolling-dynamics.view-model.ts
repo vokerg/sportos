@@ -13,7 +13,10 @@ export function rollingDynamicsChartOptions(
   const unit = displayUnit(response.unit);
   return {
     color: response.windows.map((window) => WINDOW_COLORS[window]),
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      valueFormatter: (value: unknown) => formatDisplayedValue(value, response.unit),
+    },
     legend: { bottom: 0 },
     grid: { left: 44, right: 24, top: 28, bottom: 58, containLabel: true },
     xAxis: { type: 'category', data: response.points.map((point) => point.date), axisLabel: { hideOverlap: true } },
@@ -31,7 +34,13 @@ export function rollingDynamicsChartOptions(
 export function formatRollingValue(value: number | null | undefined, unit: RollingDynamicsResponse['unit']): string {
   if (value === null || value === undefined) return '—';
   const displayed = displayValue(value, unit)!;
-  const formatted = new Intl.NumberFormat(undefined, { maximumFractionDigits: unit === 'metres' ? 2 : 1 }).format(displayed);
+  return formatDisplayedValue(displayed, unit);
+}
+
+function formatDisplayedValue(value: unknown, unit: RollingDynamicsResponse['unit']): string {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return '—';
+  const formatted = new Intl.NumberFormat(undefined, { maximumFractionDigits: unit === 'metres' ? 2 : 1 }).format(numericValue);
   return unit === 'metres' ? `${formatted} km` : formatted;
 }
 

@@ -129,6 +129,14 @@ describe('Rules Studio view model', () => {
       points: 4000,
       pointsMultiplier: 'completed_5k_blocks',
     })).toBe('lt 240 s/km → +4000 per completed 5 km');
+    expect(ruleFormula({
+      ruleKind: 'achievement',
+      thresholdOperator: 'lte',
+      thresholdValue: 240,
+      thresholdUnit: 's/km',
+      points: 4000,
+      pointsMultiplier: 'rounded_5k_blocks',
+    })).toBe('lte 240 s/km → +4000 per rounded 5 km (pace rounded favourably)');
     expect(signedRuleDelta(1000)).toBe('+1000');
     expect(signedRuleDelta(-250)).toBe('-250');
 

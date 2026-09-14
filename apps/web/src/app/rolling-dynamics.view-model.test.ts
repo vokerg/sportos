@@ -16,6 +16,7 @@ describe('rolling dynamics view model', () => {
     expect(options.yAxis.name).toBe('km');
     expect(options.series.map((series: any) => series.name)).toEqual(['30d avg/day', '365d avg/day']);
     expect(options.series[0].data).toEqual([1.4065, 0]);
+    expect(options.tooltip.valueFormatter(10.296333333333333)).toBe('10.3 km');
   });
 
   it('keeps missing and recorded zero values distinct', () => {
