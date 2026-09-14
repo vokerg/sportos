@@ -86,6 +86,12 @@ describe('Rules Studio view model', () => {
       metric: 'distance_m',
       thresholdUnit: 'm',
     }));
+
+    expect(updateProposalActivity(newRuleProposal('2026-09-14'), 'steps')).toEqual(expect.objectContaining({
+      activityType: 'steps',
+      metric: 'steps',
+      thresholdUnit: 'steps',
+    }));
   });
 
   it('derives representative achievement and coefficient form state without scoring in Angular', () => {
