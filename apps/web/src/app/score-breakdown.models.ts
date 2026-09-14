@@ -64,6 +64,8 @@ export interface ScoreBreakdownRule {
   thresholdValue: number | null;
   thresholdUnit: string | null;
   configuredPoints: number | null;
+  achievementGroup: string | null;
+  pointsMultiplier: 'completed_5k_blocks' | null;
   validFrom: string;
   validTo: string | null;
   priority: number;

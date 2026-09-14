@@ -9,6 +9,8 @@ This document is the semantic contract for the enabled MVP-0 scoring rules. The 
 - Daily base and bonus totals are sums of the already-rounded ledger contributions. SportOS does not sum fractional rule outputs and round only at the end.
 - Coefficient/manual rules evaluate synthetic daily aggregates; achievement rules evaluate one canonical activity only. Separate sessions are never combined to cross an achievement threshold.
 - Achievement rules award their configured integer points only after every threshold and auxiliary condition passes.
+- Achievement rules sharing an `achievementGroup` are mutually exclusive for one activity: only the qualifying rule with the highest configured points applies.
+- The universal run pace ladder uses `completed_5k_blocks`, so awarded points are `floor(activity distance meters / 5,000) × tier points`. Distance and overall elapsed pace come from one canonical run and are never combined across activities.
 - Rules are active when `validFrom <= metricDate <= validTo`; a missing `validTo` means no configured end date. Both boundaries are inclusive.
 - Rule evaluation order is deterministic: ascending `priority`, then ascending rule `code`.
 - Coefficient and ordinary manual-point rules are base contributions. Achievement rules and rules whose activity type is `power_bonus` are bonus contributions.
@@ -26,10 +28,14 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | 40 | `swim.m.default` | Base | swim meters × 7.5; nearest integer per rule | none | Configured assumption. No permitted historical workbook evidence currently justifies changing it. |
 | 50 | `workout.manual` | Base | imported, importer-rounded `WOtotal` points × 1; nearest integer per rule | HIIT and rowing are not added separately | Confirmed application behavior. Whether every workbook's `WOtotal` embeds the same source components remains unresolved. |
 | 60 | `power.manual` | Bonus | imported, importer-rounded `Pow` points × 1; nearest integer per rule | none | Confirmed application behavior and activity classification. Migration V102 corrects older base/bonus aggregates without changing daily totals. |
-| 70 | `run.5k.sub25.bonus` | Bonus | +1,000 points | one activity: duration strictly `< 1,500 s`; distance within ±500 m of 5,000 m | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
-| 80 | `run.10k.completed.bonus` | Bonus | +2,000 points | one activity: distance `>= 10,000 m`; elapsed pace `<= 300 s/km` (5:00/km) | SportOS rule. Both conditions must pass; it is not assumed to be included in spreadsheet `All`. |
+| 70 | `run.pace.per5k.sub5.bonus` | Bonus | +1,000 per completed 5 km | one activity: overall elapsed pace strictly `< 300 s/km` (5:00/km) | Lowest tier in the mutually exclusive `run.pace.per5k` ladder. |
+| 71 | `run.pace.per5k.sub4m24.bonus` | Bonus | +2,000 per completed 5 km | one activity: overall elapsed pace strictly `< 264 s/km` (4:24/km) | Second tier; replaces the lower tier for the same activity. |
+| 72 | `run.pace.per5k.sub4m12.bonus` | Bonus | +3,000 per completed 5 km | one activity: overall elapsed pace strictly `< 252 s/km` (4:12/km) | Third tier; replaces lower tiers for the same activity. |
+| 73 | `run.pace.per5k.sub4.bonus` | Bonus | +4,000 per completed 5 km | one activity: overall elapsed pace strictly `< 240 s/km` (4:00/km) | Highest tier; replaces lower tiers for the same activity. |
 | 90 | `swim.1k.sub20.bonus` | Bonus | +1,000 points | one activity: duration strictly `< 1,200 s`; distance `>= 1,000 m` | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
 | 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | one activity: distance `>= 10,000 m`; average speed strictly `> 20 km/h` | SportOS rule; provider average speed is stored in m/s and converted to km/h for the threshold. |
+
+The run ladder is universal rather than tied to named race distances. For example, a 17 km run below 4:00/km completes three 5 km blocks and earns `3 × 4,000 = 12,000` bonus points. The remaining 2 km does not form another block. A run exactly on a threshold does not qualify for that tier because every boundary is strict. The prior `run.5k.sub25.bonus` and `run.10k.completed.bonus` definitions remain disabled history after V115 so old ledger and rule UUID provenance stays inspectable.
 
 ## Spreadsheet component evidence
 

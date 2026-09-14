@@ -135,6 +135,7 @@ See [ADR 0005](adr/0005-authentication-and-data-ownership.md), [ADR 0007](adr/00
 - V112 promotes imported workbook `All` totals to the current authoritative score, adds append-only `daily_score_snapshots`, exposes `score_status`, and adds the explicit account-scoped Strava recalculation path. Snapshot privileges keep the queue dispatcher out of score history.
 - V113 adds `manual` daily-score authority and the `manual_edit` snapshot trigger. Manual fact writes retain a private source record, expose current authority in canonical export v2, and preserve prior versions in append-only score history.
 - V114 versions the bike achievement rule so a single canonical bike activity must cover at least 10 km and exceed 20 km/h average speed for its 1,000-point bonus. The prior definition remains retained as a disabled rule version.
+- V115 replaces distance-specific run achievements with an account-scoped universal pace ladder. It adds explicit achievement grouping and point-multiplier semantics, selects only the highest qualifying tier per activity, multiplies it by completed 5 km blocks, atomically recomputes non-imported affected scores, appends score snapshots, and preserves the former 5k/10k rules as disabled UUID-backed history.
 
 Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance. Analysis adds audit metadata only and does not rewrite canonical or scoring rows.
 
@@ -185,6 +186,8 @@ When linking an existing workbook/manual fact, its source fields, values, and pr
 A rule family is `(owner_id, code)` and a version is `(owner_id, code, version)`. A GiST exclusion constraint prevents overlapping enabled inclusive ranges within an account.
 
 Activation records the authenticated account as actor. The dispatcher claims the audit job; the worker-data executor establishes the owner and atomically closes the superseded range, enables the proposed UUID, recomputes affected totals, replaces ledger rows, and completes the audit.
+
+Grouped achievements are mutually exclusive per canonical activity. A rule with the `completed_5k_blocks` multiplier calculates `floor(distance_m / 5000) × configured points`; the ledger records the overall pace, selected tier, completed-block count, per-block value, awarded total, and exact rule UUID. Separate runs are evaluated independently and never combined to create distance blocks or a faster aggregate pace.
 
 ### Imported score authority and explicit recalculation
 

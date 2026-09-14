@@ -36,7 +36,7 @@ import type {
   template: `
     <section class="card" aria-labelledby="daily-log-title">
       <h2 id="daily-log-title">Daily Log</h2>
-      <p class="daily-log-help">A day can be authoritative from an imported workbook ledger, calculated activities, or saved manual facts. Use <strong>View details</strong> to inspect and edit it without losing prior provenance.</p>
+      <p class="daily-log-help">A day can be authoritative from an imported workbook ledger, calculated activities, or saved manual facts. Open a row to inspect and edit it without losing prior provenance.</p>
 
       <sportos-daily-log-filters
         [quickRange]="quickRange()"

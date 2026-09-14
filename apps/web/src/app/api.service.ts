@@ -89,6 +89,7 @@ export type ImportJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'c
 export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'power_bonus';
 export type RuleKind = 'coefficient' | 'achievement' | 'manual_points';
 export type ThresholdOperator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'exists';
+export type PointsMultiplier = 'completed_5k_blocks';
 export type RuleChangeStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
 export interface ImportBatchHistoryItem {
@@ -188,6 +189,8 @@ export interface RuleProposal {
   thresholdValue?: number;
   thresholdUnit?: string;
   points?: number;
+  achievementGroup?: string;
+  pointsMultiplier?: PointsMultiplier;
   validFrom: string;
   validTo?: string;
   priority: number;

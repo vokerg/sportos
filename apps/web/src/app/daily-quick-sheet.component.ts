@@ -67,7 +67,6 @@ import { formatDate } from './date-time';
             [saving]="savingManual()"
             [saveError]="manualSaveError()"
             [editRequestId]="manualEditRequestId() + localManualEditRequestId()"
-            [showWhenEmpty]="state() === 'loaded' && !!date() && !breakdown()"
             (save)="saveManualFacts.emit($event)" />
         </aside>
       </div>

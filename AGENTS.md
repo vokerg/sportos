@@ -137,6 +137,7 @@ The dispatcher is a narrow trusted-system exception. It may inspect queue lifecy
 - V108 splits dispatcher/worker-data authorization, restricts authentication tables, and makes ownership immutable;
 - V109 adds provider connections, encrypted credentials, OAuth state, sync jobs, links, webhook inbox, RLS, direct grants, and privilege assertions;
 - V110 adds append-only owner-scoped analysis audit metadata with app-only grants and privilege assertions;
+- V115 adds grouped universal run-pace tiers, completed-5km point multipliers, atomic non-imported score recomputation, and retained legacy run-rule history;
 - ADRs 0001–0007 document import, storage, jobs, rule publication, authentication/ownership, providers, and read-only analysis.
 
 ## Change requirements

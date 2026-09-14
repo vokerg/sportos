@@ -14,11 +14,11 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Validated through V114 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Defined through V115 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
-| Deterministic scoring | Validated and account scoped; imported workbook ledgers are authoritative until explicit recalculation | additional semantics only when evidence justifies them |
+| Deterministic scoring | Validated and account scoped; imported workbook ledgers remain authoritative, while calculated run achievements use the universal highest-tier pace ladder per completed 5 km | additional semantics only when evidence justifies them |
 | Rules Studio | Validated with authenticated actor identity | hosted-scale recomputation |
 | Score reconciliation | Validated on sanitized evidence | permitted historical evidence for unresolved workbook semantics |
 | Cockpit review and export | Validated and account scoped | larger export delivery |

@@ -111,14 +111,34 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
   }
 
   for (const activity of datedActivities) {
-    for (const rule of activeRules.filter(
+    const achievementCandidates = activeRules.filter(
       (candidate) => candidate.activityType === activity.activityType
         && candidate.ruleKind === 'achievement'
         && (!candidate.activitySubtype || candidate.activitySubtype === activity.subtype),
-    )) {
-      const entry = scoreActivityWithRule(activity, rule, facts.metricDate);
-      if (entry) ledger.push(entry);
+    ).map((rule) => ({ rule, entry: scoreActivityWithRule(activity, rule, facts.metricDate) }))
+      .filter((candidate): candidate is { rule: ScoringRule; entry: ScoreLedgerEntry } => candidate.entry !== null);
+    const groupedAchievements = new Map<string, { rule: ScoringRule; entry: ScoreLedgerEntry }>();
+
+    for (const candidate of achievementCandidates) {
+      const group = candidate.rule.achievementGroup;
+      if (!group) {
+        ledger.push(candidate.entry);
+        continue;
+      }
+      const selected = groupedAchievements.get(group);
+      if (!selected || achievementCandidatePrecedes(candidate, selected)) groupedAchievements.set(group, candidate);
     }
+    for (const { entry } of groupedAchievements.values()) ledger.push(entry);
+  }
+
+  function achievementCandidatePrecedes(
+    candidate: { rule: ScoringRule; entry: ScoreLedgerEntry },
+    selected: { rule: ScoringRule; entry: ScoreLedgerEntry },
+  ): boolean {
+    const pointDifference = (candidate.rule.points ?? 0) - (selected.rule.points ?? 0);
+    if (pointDifference !== 0) return pointDifference > 0;
+    if (candidate.rule.priority !== selected.rule.priority) return candidate.rule.priority < selected.rule.priority;
+    return candidate.rule.code.localeCompare(selected.rule.code) < 0;
   }
 
   const basePoints = ledger
@@ -210,15 +230,21 @@ export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule,
     if (!passesThresholdValue(metricValue, rule)) return null;
     const auxiliaryConditions = achievementAuxiliaryConditions(activity, rule);
     if (auxiliaryConditions.some((condition) => !condition.passed)) return null;
-    const points = rule.points ?? 0;
+    const configuredPoints = rule.points ?? 0;
+    const pointsMultiplier = achievementPointsMultiplier(activity, rule);
+    if (pointsMultiplier === 0) return null;
+    const points = configuredPoints * pointsMultiplier;
     if (points === 0) return null;
+    const multiplierExplanation = rule.pointsMultiplier === 'completed_5k_blocks'
+      ? `; ${pointsMultiplier} completed 5 km block${pointsMultiplier === 1 ? '' : 's'} × ${configuredPoints} = ${points}`
+      : `; +${points}`;
     return {
       metricDate,
       activityId: activity.id,
       ruleId: rule.id,
       ruleCode: rule.code,
       points,
-      reason: `${rule.name}: ${formatThreshold(metricValue, rule)}; +${points}`,
+      reason: `${rule.name}: ${formatThreshold(metricValue, rule)}${multiplierExplanation}`,
       calculationJson: {
         ruleKind: rule.ruleKind,
         classification,
@@ -229,7 +255,11 @@ export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule,
         thresholdOperator: rule.thresholdOperator ?? null,
         thresholdValue: rule.thresholdValue ?? null,
         thresholdUnit: rule.thresholdUnit ?? null,
-        configuredPoints: points,
+        configuredPoints,
+        achievementGroup: rule.achievementGroup ?? null,
+        pointsMultiplier: rule.pointsMultiplier ?? null,
+        multiplierValue: pointsMultiplier,
+        awardedPoints: points,
         auxiliaryConditions,
         validFrom: rule.validFrom,
         validTo: rule.validTo ?? null,
@@ -239,6 +269,14 @@ export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule,
   }
 
   return null;
+}
+
+function achievementPointsMultiplier(activity: ActivityFact, rule: ScoringRule): number {
+  if (!rule.pointsMultiplier) return 1;
+  if (rule.pointsMultiplier === 'completed_5k_blocks') {
+    return Math.floor((activity.distanceM ?? 0) / 5000);
+  }
+  return 0;
 }
 
 export function isRuleActiveForDate(rule: ScoringRule, isoDate: string): boolean {
@@ -417,6 +455,10 @@ function getMetricValue(activity: ActivityFact, metric: string): number | undefi
     case 'distance_m': return activity.distanceM;
     case 'distance_km': return activity.distanceM === undefined ? undefined : metersToKm(activity.distanceM);
     case 'duration_s': return activity.durationS;
+    case 'pace_s_per_km': {
+      if (activity.durationS === undefined || activity.distanceM === undefined || activity.distanceM <= 0) return undefined;
+      return activity.durationS / (activity.distanceM / 1000);
+    }
     case 'avg_speed_mps': return activity.avgSpeedMps;
     case 'avg_speed_kmh': return activity.avgSpeedMps === undefined ? undefined : mpsToKmh(activity.avgSpeedMps);
     case 'effort_points': return activity.effortPoints;

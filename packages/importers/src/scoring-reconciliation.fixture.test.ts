@@ -14,6 +14,8 @@ const rules: ScoringRule[] = [
   { code: 'swim.m.default', name: 'Swim', activityType: 'swim', ruleKind: 'coefficient', metric: 'distance_m', coefficient: 7.5, validFrom: '1900-01-01', priority: 40, enabled: true },
   { code: 'workout.manual', name: 'Workout', activityType: 'workout', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 50, enabled: true },
   { code: 'power.manual', name: 'Power', activityType: 'power_bonus', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 60, enabled: true },
+  // Keep this committed fixture on its historical rule catalog. V115 preserves
+  // these UUID-backed definitions as disabled history while replacing live rules.
   { code: 'run.5k.sub25.bonus', name: '5k under 25', activityType: 'run', ruleKind: 'achievement', metric: 'duration_s', thresholdOperator: 'lt', thresholdValue: 1500, thresholdUnit: 's', points: 1000, validFrom: '1900-01-01', priority: 70, enabled: true },
   { code: 'run.10k.completed.bonus', name: '10k completed', activityType: 'run', ruleKind: 'achievement', metric: 'distance_m', thresholdOperator: 'gte', thresholdValue: 10000, thresholdUnit: 'm', points: 2000, validFrom: '1900-01-01', priority: 80, enabled: true },
   { code: 'swim.1k.sub20.bonus', name: '1km swim under 20', activityType: 'swim', ruleKind: 'achievement', metric: 'duration_s', thresholdOperator: 'lt', thresholdValue: 1200, thresholdUnit: 's', points: 1000, validFrom: '1900-01-01', priority: 90, enabled: true },

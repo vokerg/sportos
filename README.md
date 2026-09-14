@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the prioritized implementation roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16). The current schema is validated through Flyway V114, and the authoritative work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the prioritized implementation roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16). The current schema is defined through Flyway V115, and the authoritative work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -40,6 +40,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Publish immutable rule versions with non-overlapping account-scoped effective ranges.
 - Recompute affected scores atomically through audited background jobs.
 - Reconcile persisted score totals against deterministic domain calculations.
+- Award the highest qualifying universal run-pace tier per activity, multiplied by completed 5 km blocks.
 - Export bounded, versioned `sportos.canonical-export.v2` JSON from one repeatable-read snapshot, including each daily score's authority status.
 - Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.
 
@@ -376,7 +377,7 @@ SPORTOS_TEST_DATABASE_URL=postgresql://sportos_legacy:<password>@<test-project>.
   pnpm --filter @sportos/importers test:integration
 ```
 
-CI covers frozen installation, fresh migration through V114, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, imported-ledger authority, manual canonical facts, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
+CI covers frozen installation, fresh migration through V115, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, imported-ledger authority, manual canonical facts, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
 
 The CI workflow expects dedicated Neon test branches and these repository secrets:
 `SPORTOS_CI_FLYWAY_URL`, `SPORTOS_CI_FLYWAY_USER`,

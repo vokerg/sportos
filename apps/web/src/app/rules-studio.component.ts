@@ -84,6 +84,13 @@ import { formatDate, formatDateTime } from './date-time';
             <label>Threshold<input name="thresholdValue" type="number" step="any" min="0" [(ngModel)]="proposal.thresholdValue"></label>
             <label>Unit<input name="thresholdUnit" [(ngModel)]="proposal.thresholdUnit"></label>
             <label>Points<input name="points" type="number" min="1" step="1" [(ngModel)]="proposal.points"></label>
+            <label>Achievement group<input name="achievementGroup" [(ngModel)]="proposal.achievementGroup" placeholder="Optional highest-tier group"></label>
+            <label>Points multiplier
+              <select name="pointsMultiplier" [(ngModel)]="proposal.pointsMultiplier">
+                <option [ngValue]="undefined">None</option>
+                <option value="completed_5k_blocks">Completed 5 km blocks</option>
+              </select>
+            </label>
           </div>
         </ng-template>
 
@@ -188,6 +195,8 @@ export class RulesStudioComponent implements OnInit, OnDestroy {
       thresholdValue: rule.thresholdValue,
       thresholdUnit: rule.thresholdUnit,
       points: rule.points,
+      achievementGroup: rule.achievementGroup,
+      pointsMultiplier: rule.pointsMultiplier,
       validFrom: todayIso(),
       validTo: undefined,
       priority: rule.priority,
@@ -223,7 +232,10 @@ export class RulesStudioComponent implements OnInit, OnDestroy {
   metricOptions(): string[] {
     if (this.proposal.activityType === 'steps') return ['steps'];
     if (['workout', 'hiit', 'power_bonus'].includes(this.proposal.activityType)) return ['effort_points'];
-    return ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'];
+    const distanceMetrics = ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'];
+    return this.proposal.activityType === 'run'
+      ? [...distanceMetrics.slice(0, 3), 'pace_s_per_km', ...distanceMetrics.slice(3)]
+      : distanceMetrics;
   }
 
   preview(): void {
@@ -284,8 +296,11 @@ export class RulesStudioComponent implements OnInit, OnDestroy {
     });
   }
 
-  formula(rule: Pick<RuleVersion, 'ruleKind' | 'coefficient' | 'thresholdOperator' | 'thresholdValue' | 'thresholdUnit' | 'points'>): string {
-    if (rule.ruleKind === 'achievement') return `${rule.thresholdOperator} ${rule.thresholdValue ?? ''} ${rule.thresholdUnit ?? ''} → +${rule.points ?? 0}`;
+  formula(rule: Pick<RuleVersion, 'ruleKind' | 'coefficient' | 'thresholdOperator' | 'thresholdValue' | 'thresholdUnit' | 'points' | 'pointsMultiplier'>): string {
+    if (rule.ruleKind === 'achievement') {
+      const multiplier = rule.pointsMultiplier === 'completed_5k_blocks' ? ' per completed 5 km' : '';
+      return `${rule.thresholdOperator} ${rule.thresholdValue ?? ''} ${rule.thresholdUnit ?? ''} → +${rule.points ?? 0}${multiplier}`;
+    }
     return `× ${rule.coefficient ?? 0}`;
   }
 
@@ -380,6 +395,7 @@ function metricUnit(metric: string): string {
     case 'distance_m': return 'm';
     case 'distance_km': return 'km';
     case 'duration_s': return 's';
+    case 'pace_s_per_km': return 's/km';
     case 'avg_speed_mps': return 'm/s';
     case 'avg_speed_kmh': return 'km/h';
     case 'effort_points': return 'points';

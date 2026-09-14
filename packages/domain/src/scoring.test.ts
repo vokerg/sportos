@@ -6,8 +6,10 @@ const rules: ScoringRule[] = [
   { code: 'steps.base', name: 'Steps', activityType: 'steps', ruleKind: 'coefficient', metric: 'steps', coefficient: 1, validFrom: '1900-01-01', priority: 10, enabled: true },
   { code: 'run.km.default', name: 'Run', activityType: 'run', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1000, validFrom: '1900-01-01', priority: 20, enabled: true },
   { code: 'power.manual', name: 'Power', activityType: 'power_bonus', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 60, enabled: true },
-  { code: 'run.5k.sub25.bonus', name: '5k under 25', activityType: 'run', ruleKind: 'achievement', metric: 'duration_s', thresholdOperator: 'lt', thresholdValue: 1500, thresholdUnit: 's', points: 1000, validFrom: '1900-01-01', priority: 70, enabled: true },
-  { code: 'run.10k.completed.bonus', name: '10k completed', activityType: 'run', ruleKind: 'achievement', metric: 'distance_m', thresholdOperator: 'gte', thresholdValue: 10000, thresholdUnit: 'm', points: 2000, validFrom: '1900-01-01', priority: 80, enabled: true },
+  { code: 'run.pace.per5k.sub5.bonus', name: 'Run pace under 5:00/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lt', thresholdValue: 300, thresholdUnit: 's/km', points: 1000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'completed_5k_blocks', validFrom: '1900-01-01', priority: 70, enabled: true },
+  { code: 'run.pace.per5k.sub4m24.bonus', name: 'Run pace under 4:24/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lt', thresholdValue: 264, thresholdUnit: 's/km', points: 2000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'completed_5k_blocks', validFrom: '1900-01-01', priority: 71, enabled: true },
+  { code: 'run.pace.per5k.sub4m12.bonus', name: 'Run pace under 4:12/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lt', thresholdValue: 252, thresholdUnit: 's/km', points: 3000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'completed_5k_blocks', validFrom: '1900-01-01', priority: 72, enabled: true },
+  { code: 'run.pace.per5k.sub4.bonus', name: 'Run pace under 4:00/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lt', thresholdValue: 240, thresholdUnit: 's/km', points: 4000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'completed_5k_blocks', validFrom: '1900-01-01', priority: 73, enabled: true },
   { code: 'bike.10k.easy.bonus', name: '10k ride above 20 km/h', activityType: 'bike', ruleKind: 'achievement', metric: 'avg_speed_kmh', thresholdOperator: 'gt', thresholdValue: 20, thresholdUnit: 'kmh', points: 1000, validFrom: '1900-01-01', priority: 100, enabled: true },
 ];
 
@@ -86,18 +88,19 @@ describe('scoreDay', () => {
       'steps.base',
       'power.manual',
       'run.km.default',
-      'run.5k.sub25.bonus',
+      'run.pace.per5k.sub5.bonus',
     ]);
     expect(result.ledger.find((entry) => entry.ruleCode === 'power.manual')?.calculationJson.classification).toBe('bonus');
-    expect(result.ledger.find((entry) => entry.ruleCode === 'run.5k.sub25.bonus')?.calculationJson).toMatchObject({
+    expect(result.ledger.find((entry) => entry.ruleCode === 'run.pace.per5k.sub5.bonus')?.calculationJson).toMatchObject({
       classification: 'bonus',
-      metricValue: 1499,
+      metricValue: 299.8,
       thresholdOperator: 'lt',
-      thresholdValue: 1500,
-      thresholdUnit: 's',
-      auxiliaryConditions: [
-        { metric: 'distance_m', operator: 'within', expected: 5000, actual: 5000, passed: true },
-      ],
+      thresholdValue: 300,
+      thresholdUnit: 's/km',
+      achievementGroup: 'run.pace.per5k',
+      pointsMultiplier: 'completed_5k_blocks',
+      multiplierValue: 1,
+      awardedPoints: 1000,
     });
   });
 
@@ -310,44 +313,78 @@ describe('scoreActivityWithRule', () => {
     });
   });
 
-  it('uses strict threshold boundaries and the documented 5k distance window', () => {
-    const rule = rules.find((candidate) => candidate.code === 'run.5k.sub25.bonus')!;
+  it('uses strict pace boundaries and completed 5 km blocks', () => {
+    const rule = rules.find((candidate) => candidate.code === 'run.pace.per5k.sub5.bonus')!;
 
     expect(scoreActivityWithRule(
-      { activityDate: '2026-05-18', activityType: 'run', distanceM: 5500, durationS: 1499 },
+      { activityDate: '2026-05-18', activityType: 'run', distanceM: 5500, durationS: 1649 },
       rule,
       '2026-05-18',
     )?.points).toBe(1000);
     expect(scoreActivityWithRule(
-      { activityDate: '2026-05-18', activityType: 'run', distanceM: 5500, durationS: 1500 },
+      { activityDate: '2026-05-18', activityType: 'run', distanceM: 5500, durationS: 1650 },
       rule,
       '2026-05-18',
     )).toBeNull();
     expect(scoreActivityWithRule(
-      { activityDate: '2026-05-18', activityType: 'run', distanceM: 5501, durationS: 1499 },
+      { activityDate: '2026-05-18', activityType: 'run', distanceM: 4999, durationS: 1000 },
       rule,
       '2026-05-18',
     )).toBeNull();
   });
 
-  it('requires a 10k run pace of five minutes per kilometer or faster', () => {
-    const rule = rules.find((candidate) => candidate.code === 'run.10k.completed.bonus')!;
+  it('awards only the highest pace tier and scales it by completed 5 km blocks', () => {
+    const result = scoreDay(
+      { metricDate: '2026-05-18', steps: 0, runM: 17_000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      [{ id: 'run17', activityDate: '2026-05-18', activityType: 'run', distanceM: 17_000, durationS: 4_079 }],
+      rules,
+    );
 
-    expect(scoreActivityWithRule(
-      { activityDate: '2026-05-18', activityType: 'run', distanceM: 10_000, durationS: 3_000 },
-      rule,
-      '2026-05-18',
-    )?.points).toBe(2000);
-    expect(scoreActivityWithRule(
-      { activityDate: '2026-05-18', activityType: 'run', distanceM: 21_775.8, durationS: 8_223 },
-      rule,
-      '2026-05-18',
-    )).toBeNull();
-    expect(scoreActivityWithRule(
-      { activityDate: '2026-05-18', activityType: 'run', distanceM: 10_000, durationS: 3_001 },
-      rule,
-      '2026-05-18',
-    )).toBeNull();
+    const achievements = result.ledger.filter((entry) => entry.calculationJson.ruleKind === 'achievement');
+    expect(achievements).toHaveLength(1);
+    expect(achievements[0]).toMatchObject({
+      ruleCode: 'run.pace.per5k.sub4.bonus',
+      points: 12_000,
+      calculationJson: { configuredPoints: 4000, multiplierValue: 3, awardedPoints: 12_000 },
+    });
+  });
+
+  it.each([
+    { durationS: 1500, expectedCode: undefined, expectedPoints: 0 },
+    { durationS: 1499, expectedCode: 'run.pace.per5k.sub5.bonus', expectedPoints: 1000 },
+    { durationS: 1320, expectedCode: 'run.pace.per5k.sub5.bonus', expectedPoints: 1000 },
+    { durationS: 1319, expectedCode: 'run.pace.per5k.sub4m24.bonus', expectedPoints: 2000 },
+    { durationS: 1260, expectedCode: 'run.pace.per5k.sub4m24.bonus', expectedPoints: 2000 },
+    { durationS: 1259, expectedCode: 'run.pace.per5k.sub4m12.bonus', expectedPoints: 3000 },
+    { durationS: 1200, expectedCode: 'run.pace.per5k.sub4m12.bonus', expectedPoints: 3000 },
+    { durationS: 1199, expectedCode: 'run.pace.per5k.sub4.bonus', expectedPoints: 4000 },
+  ])('keeps the $durationS-second 5k cutoff strict', ({ durationS, expectedCode, expectedPoints }) => {
+    const result = scoreDay(
+      { metricDate: '2026-05-18', steps: 0, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      [{ id: 'boundary-run', activityDate: '2026-05-18', activityType: 'run', distanceM: 5000, durationS }],
+      rules,
+    );
+
+    const achievements = result.ledger.filter((entry) => entry.calculationJson.ruleKind === 'achievement');
+    expect(achievements.map((entry) => entry.ruleCode)).toEqual(expectedCode ? [expectedCode] : []);
+    expect(result.bonusPoints).toBe(expectedPoints);
+  });
+
+  it('counts completed 5 km blocks independently for each run', () => {
+    const result = scoreDay(
+      { metricDate: '2026-05-18', steps: 0, runM: 16_000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      [
+        { id: 'fast-run-1', activityDate: '2026-05-18', activityType: 'run', distanceM: 8000, durationS: 1919 },
+        { id: 'fast-run-2', activityDate: '2026-05-18', activityType: 'run', distanceM: 8000, durationS: 1919 },
+      ],
+      rules,
+    );
+
+    const achievements = result.ledger.filter((entry) => entry.calculationJson.ruleKind === 'achievement');
+    expect(achievements).toHaveLength(2);
+    expect(achievements.map((entry) => entry.points)).toEqual([4000, 4000]);
+    expect(achievements.map((entry) => entry.calculationJson.multiplierValue)).toEqual([1, 1]);
+    expect(result.bonusPoints).toBe(8000);
   });
 
   it('awards the bike bonus for a 10k ride above 20 km/h and uses distance as an auxiliary condition', () => {

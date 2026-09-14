@@ -62,6 +62,8 @@ export interface DailyScoreBreakdownLedgerRow {
   ruleThresholdValue: number | null;
   ruleThresholdUnit: string | null;
   ruleConfiguredPoints: number | null;
+  ruleAchievementGroup: string | null;
+  rulePointsMultiplier: 'completed_5k_blocks' | null;
   ruleValidFrom: string | null;
   ruleValidTo: string | null;
   rulePriority: number | null;
@@ -336,6 +338,8 @@ export class DailyRepository {
         'sr.threshold_value as ruleThresholdValue',
         'sr.threshold_unit as ruleThresholdUnit',
         'sr.points as ruleConfiguredPoints',
+        'sr.achievement_group as ruleAchievementGroup',
+        'sr.points_multiplier as rulePointsMultiplier',
         'sr.valid_from as ruleValidFrom',
         'sr.valid_to as ruleValidTo',
         'sr.priority as rulePriority',
@@ -561,6 +565,8 @@ function mapRule(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownRuleReadModel
     thresholdValue: nullableDatabaseNumber(row.ruleThresholdValue, 'rule threshold value'),
     thresholdUnit: row.ruleThresholdUnit,
     configuredPoints: nullableDatabaseNumber(row.ruleConfiguredPoints, 'rule configured points'),
+    achievementGroup: row.ruleAchievementGroup,
+    pointsMultiplier: row.rulePointsMultiplier,
     validFrom: row.ruleValidFrom,
     validTo: row.ruleValidTo,
     priority: row.rulePriority,

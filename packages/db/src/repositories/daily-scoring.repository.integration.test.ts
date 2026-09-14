@@ -13,6 +13,7 @@ const noLedgerDate = '2097-05-18';
 const importedDate = '2097-05-19';
 const manualDate = '2097-05-20';
 const mixedDate = '2097-05-21';
+const universalPaceDate = '2097-05-22';
 
 databaseDescribe('DailyScoringRepository database integration', () => {
   let db: TestDatabase;
@@ -123,6 +124,27 @@ databaseDescribe('DailyScoringRepository database integration', () => {
     expect(breakdown.ledger.map((entry) => entry.points).sort((a, b) => a - b)).toEqual([6_800, 6_800, 6_800, 11_000]);
   });
 
+  it('awards the highest pace tier for each completed 5 km block', async () => {
+    await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      await insertStravaRun(ownerDb, universalPaceDate, 'strava-run-17k', 'strava-hash-17k', 17_000, 4_079);
+    });
+
+    const breakdown = await withAccountContext(
+      db,
+      LEGACY_ACCOUNT_ID,
+      (ownerDb) => new DailyScoringRepository(ownerDb).recalculateFromActivities(universalPaceDate),
+    );
+
+    expect(breakdown).toMatchObject({
+      scoreStatus: 'calculated',
+      facts: { runM: 17_000, runOutdoorM: 17_000 },
+      score: { appTotal: 40_900, baseTotal: 28_900, bonusTotal: 12_000 },
+    });
+    expect(breakdown.ledger).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ruleCode: 'run.pace.per5k.sub4.bonus', points: 12_000 }),
+    ]));
+  });
+
   it('stores manual facts, provenance, activities, and immutable score history', async () => {
     const input = {
       steps: 1000,
@@ -206,9 +228,10 @@ async function insertStravaRun(
 
 async function reset(db: TestDatabase): Promise<void> {
   await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
-    await ownerDb.deleteFrom('score_ledger').where('metric_date', 'in', [noLedgerDate, importedDate, manualDate, mixedDate]).execute();
-    await ownerDb.deleteFrom('daily_metrics').where('metric_date', 'in', [noLedgerDate, importedDate, manualDate, mixedDate]).execute();
-    await ownerDb.deleteFrom('activities').where('activity_date', 'in', [noLedgerDate, importedDate, manualDate, mixedDate]).execute();
+    const dates = [noLedgerDate, importedDate, manualDate, mixedDate, universalPaceDate];
+    await ownerDb.deleteFrom('score_ledger').where('metric_date', 'in', dates).execute();
+    await ownerDb.deleteFrom('daily_metrics').where('metric_date', 'in', dates).execute();
+    await ownerDb.deleteFrom('activities').where('activity_date', 'in', dates).execute();
     const batches = await ownerDb.selectFrom('import_batches').select('id').where('source', '=', 'manual_daily_edit').execute();
     if (batches.length > 0) {
       const ids = batches.map((batch) => batch.id);

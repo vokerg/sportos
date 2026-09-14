@@ -6,7 +6,7 @@ const baseRules: ScoringRule[] = [
   { code: 'steps.base', name: 'Steps', activityType: 'steps', ruleKind: 'coefficient', metric: 'steps', coefficient: 1, validFrom: '1900-01-01', priority: 10, enabled: true },
   { code: 'run.km.default', name: 'Run', activityType: 'run', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1000, validFrom: '1900-01-01', priority: 20, enabled: true },
   { code: 'bike.km.default', name: 'Bike', activityType: 'bike', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 650, validFrom: '1900-01-01', priority: 30, enabled: true },
-  { code: 'run.5k.sub25.bonus', name: '5k under 25', activityType: 'run', ruleKind: 'achievement', metric: 'duration_s', thresholdOperator: 'lt', thresholdValue: 1500, thresholdUnit: 's', points: 1000, validFrom: '1900-01-01', priority: 70, enabled: true },
+  { code: 'run.pace.per5k.sub5.bonus', name: 'Run pace under 5:00/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lt', thresholdValue: 300, thresholdUnit: 's/km', points: 1000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'completed_5k_blocks', validFrom: '1900-01-01', priority: 70, enabled: true },
 ];
 
 describe('reconcileScore', () => {
@@ -53,7 +53,7 @@ describe('reconcileScore', () => {
       delta: 1000,
       status: 'explained',
       explanationCode: 'sportos_bonus_excluded_from_excel',
-      likelyRuleCodes: ['run.5k.sub25.bonus'],
+      likelyRuleCodes: ['run.pace.per5k.sub5.bonus'],
     });
   });
 
