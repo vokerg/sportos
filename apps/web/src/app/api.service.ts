@@ -28,6 +28,35 @@ export interface DailySummaryRow {
   score_status: 'imported' | 'calculated' | 'manual';
 }
 
+export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'workout', 'power'] as const;
+export type DynamicsMetric = typeof DYNAMICS_METRICS[number];
+export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
+export type DynamicsMeasure = 'total' | 'recordedDayAverage';
+
+export interface DynamicsMetricAggregate {
+  total: number | null;
+  recordedDayAverage: number | null;
+}
+
+export interface DynamicsBucket {
+  key: string;
+  from: string;
+  to: string;
+  calendarDays: number;
+  recordedDays: number;
+  partial: boolean;
+  values: Partial<Record<DynamicsMetric, DynamicsMetricAggregate>>;
+}
+
+export interface DynamicsResponse {
+  range: { from: string; to: string };
+  granularity: DynamicsGranularity;
+  metrics: DynamicsMetric[];
+  metricUnits: Record<DynamicsMetric, 'points' | 'steps' | 'metres'>;
+  monthly: DynamicsBucket[];
+  series: DynamicsBucket[];
+}
+
 export interface PerformanceRow {
   event_date: string;
   distance_m: number;
@@ -266,6 +295,12 @@ export class ApiService {
   dailySummary(query: DateRangeQuery | number = { limit: 365 }) {
     const normalized = typeof query === 'number' ? { limit: query } : query;
     return this.http.get<DailySummaryRow[]>(`${this.apiBase()}/daily/summary`, { params: queryParams(normalized) });
+  }
+
+  dynamics(query: { from: string; to: string; granularity: DynamicsGranularity; metrics: DynamicsMetric[] }) {
+    return this.http.get<DynamicsResponse>(`${this.apiBase()}/dynamics`, {
+      params: queryParams({ ...query, metrics: query.metrics.join(',') }),
+    });
   }
 
   bestPerformance(distanceM: number, limit = 50) {

@@ -17,6 +17,11 @@ export const APP_ROUTES: Routes = [
     title: 'Daily score · SportOS',
   },
   {
+    path: 'dynamics',
+    loadComponent: () => import('./dynamics-page.component').then((module) => module.DynamicsPageComponent),
+    title: 'Dynamics · SportOS',
+  },
+  {
     path: 'run-lab',
     loadComponent: () => import('./run-lab.component').then((module) => module.RunLabComponent),
     title: 'Run Lab · SportOS',

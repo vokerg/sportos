@@ -22,6 +22,8 @@ import { RulesService } from './rules/rules.service.js';
 import { DbProvider } from './db.provider.js';
 import { LocalUploadStorage } from './storage/local-upload-storage.js';
 import { UploadStorage } from './storage/upload-storage.js';
+import { DynamicsController } from './dynamics/dynamics.controller.js';
+import { DynamicsService } from './dynamics/dynamics.service.js';
 
 @Module({
   controllers: [
@@ -34,6 +36,7 @@ import { UploadStorage } from './storage/upload-storage.js';
     ExportsController,
     ProvidersController,
     AnalysisController,
+    DynamicsController,
   ],
   providers: [
     DbProvider,
@@ -45,6 +48,7 @@ import { UploadStorage } from './storage/upload-storage.js';
     ProvidersService,
     AnalysisToolService,
     AnalysisService,
+    DynamicsService,
     { provide: AnalysisTextGenerator, useFactory: createAnalysisTextGenerator },
     SessionGuard,
     { provide: APP_GUARD, useExisting: SessionGuard },
