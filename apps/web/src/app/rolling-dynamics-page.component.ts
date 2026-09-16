@@ -13,9 +13,11 @@ import {
   type RollingWindow,
 } from './api.service';
 import { DYNAMICS_LABELS } from './monthly-stats.view-model';
+import { QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './daily-log.view-model';
 import { formatRollingValue, rollingDynamicsChartOptions, rollingMeasure } from './rolling-dynamics.view-model';
 
 type PageState = 'loading' | 'loaded' | 'empty' | 'error';
+const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
 
 @Component({
   selector: 'sportos-rolling-dynamics-page',
@@ -28,8 +30,19 @@ type PageState = 'loading' | 'loaded' | 'empty' | 'error';
 
     <section class="card controls" aria-label="Rolling dynamics controls">
       <div class="filter-bar">
-        <label>From <input type="date" [value]="from()" (input)="from.set(inputValue($event))"></label>
-        <label>To <input type="date" [value]="to()" (input)="to.set(inputValue($event))"></label>
+        <label>Quick range
+          <select [value]="quickRange()" (change)="setQuickRange(inputValue($event))">
+            <option value="custom">Custom range</option>
+            <option value="1m">1 month</option>
+            <option value="3m">3 months</option>
+            <option value="6m">6 months</option>
+            <option value="ytd">YTD</option>
+            <option value="1y">1 year</option>
+            <option value="3y">3 years</option>
+          </select>
+        </label>
+        <label>From <input type="date" [value]="from()" (input)="setFrom(inputValue($event))"></label>
+        <label>To <input type="date" [value]="to()" (input)="setTo(inputValue($event))"></label>
         <label>Metric
           <select [value]="metric()" (change)="setMetric(inputValue($event))">
             @for (option of metrics; track option) { <option [value]="option">{{ labels[option] }}</option> }
@@ -41,6 +54,7 @@ type PageState = 'loading' | 'loaded' | 'empty' | 'error';
           </select>
         </label>
         <button type="button" (click)="apply()" [disabled]="state() === 'loading'">Apply</button>
+        <button type="button" class="secondary" (click)="resetRange()" [disabled]="state() === 'loading'">Reset</button>
       </div>
       <fieldset><legend>Trailing windows</legend><div class="window-picker">
         @for (window of availableWindows; track window) {
@@ -94,8 +108,9 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   readonly metrics = DYNAMICS_METRICS;
   readonly labels = DYNAMICS_LABELS;
   readonly availableWindows = ROLLING_WINDOWS;
-  readonly from = signal(defaultFrom());
-  readonly to = signal(today());
+  readonly quickRange = signal<QuickRange>(DEFAULT_ROLLING_QUICK_RANGE);
+  readonly from = signal(defaultRange().from);
+  readonly to = signal(defaultRange().to);
   readonly metric = signal<DynamicsMetric>('run');
   readonly windows = signal<RollingWindow[]>([30, 365]);
   readonly measure = signal<DynamicsMeasure>('recordedDayAverage');
@@ -113,8 +128,12 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
-      this.from.set(validDate(params.get('from')) ?? defaultFrom());
-      this.to.set(validDate(params.get('to')) ?? today());
+      const fallback = defaultRange();
+      const from = validDate(params.get('from')) ?? fallback.from;
+      const to = validDate(params.get('to')) ?? fallback.to;
+      this.from.set(from);
+      this.to.set(to);
+      this.quickRange.set(matchingQuickRange(from, to));
       this.metric.set(validMetric(params.get('metric')) ?? 'run');
       this.windows.set(validWindows(params.get('windows')));
       this.measure.set(params.get('measure') === 'total' ? 'total' : 'recordedDayAverage');
@@ -147,6 +166,27 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
     this.windows.set((selected ? [...current, window] : current.filter((value) => value !== window)).sort((a, b) => a - b));
   }
 
+  setQuickRange(value: string): void {
+    if (!QUICK_RANGE_VALUES.includes(value as QuickRange) || value === 'all') return;
+    const range = value as Exclude<QuickRange, 'all'>;
+    this.quickRange.set(range);
+    if (range === 'custom') return;
+    const dates = quickRangeDates(range);
+    this.from.set(dates.from);
+    this.to.set(dates.to);
+    this.apply();
+  }
+
+  setFrom(value: string): void { this.from.set(value); this.quickRange.set('custom'); }
+  setTo(value: string): void { this.to.set(value); this.quickRange.set('custom'); }
+  resetRange(): void {
+    const dates = defaultRange();
+    this.quickRange.set(DEFAULT_ROLLING_QUICK_RANGE);
+    this.from.set(dates.from);
+    this.to.set(dates.to);
+    this.apply();
+  }
+
   setMetric(value: string): void { const metric = validMetric(value); if (metric) this.metric.set(metric); }
   setMeasure(value: string): void { if (value === 'total' || value === 'recordedDayAverage') this.measure.set(value); }
   inputValue(event: Event): string { return (event.target as HTMLInputElement | HTMLSelectElement).value; }
@@ -160,6 +200,12 @@ function validDate(value: string | null): string | null { return value && /^\d{4
 function validMetric(value: string | null): DynamicsMetric | null { return value && DYNAMICS_METRICS.includes(value as DynamicsMetric) ? value as DynamicsMetric : null; }
 function validWindows(value: string | null): RollingWindow[] { const values = value?.split(',').map(Number) ?? [30, 365]; return values.length && new Set(values).size === values.length && values.every((window) => ROLLING_WINDOWS.includes(window as RollingWindow)) ? values as RollingWindow[] : [30, 365]; }
 function hasValues(response: RollingDynamicsResponse): boolean { return response.points.some((point) => response.windows.some((window) => point.windows[window]?.total !== null)); }
-function today(): string { return new Date().toISOString().slice(0, 10); }
-function defaultFrom(): string { const date = new Date(`${today()}T00:00:00.000Z`); date.setUTCFullYear(date.getUTCFullYear() - 1); return date.toISOString().slice(0, 10); }
+function defaultRange(): { from: string; to: string } { return quickRangeDates(DEFAULT_ROLLING_QUICK_RANGE); }
+function matchingQuickRange(from: string, to: string): QuickRange {
+  for (const range of ['1m', '3m', '6m', 'ytd', '1y', '3y'] as const) {
+    const dates = quickRangeDates(range, new Date(`${to}T00:00:00.000Z`));
+    if (dates.from === from && dates.to === to) return range;
+  }
+  return 'custom';
+}
 function describeError(error: unknown): string { if (!(error instanceof HttpErrorResponse)) return 'Rolling dynamics could not be loaded.'; if (error.status === 0) return 'The SportOS API is unavailable.'; const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {}; return typeof body.message === 'string' ? body.message : `Rolling dynamics could not be loaded (HTTP ${error.status}).`; }

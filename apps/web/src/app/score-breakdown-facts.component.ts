@@ -27,7 +27,6 @@ import { formatDistance, formatNumber } from './score-breakdown.view-model';
         <div><span>Bike · unspecified</span><strong>{{ formatDistance(current.facts.bikeUnspecifiedM) }}</strong></div>
         <div><span>Swim</span><strong>{{ formatDistance(current.facts.swimM, 0) }}</strong></div>
         <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong></div>
-        <div><span>Power points</span><strong>{{ formatNumber(current.facts.powerPoints) }}</strong></div>
       </div>
     </section>
   `,

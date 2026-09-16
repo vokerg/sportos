@@ -203,7 +203,12 @@ describe('DailyLogComponent cockpit workflow', () => {
   });
 
   it('uses the durable Strava refresh job before recalculating a quick-entry row', () => {
-    const recalculated = { ...breakdown, scoreStatus: 'calculated' as const };
+    const recalculated = {
+      ...breakdown,
+      scoreStatus: 'calculated' as const,
+      facts: { ...breakdown.facts, powerPoints: 0 },
+      score: { ...breakdown.score, bonusTotal: 3_000 },
+    };
     const scoreApi = {
       getForDate: vi.fn(),
       recalculate: vi.fn().mockReturnValue(of(recalculated)),
@@ -221,7 +226,7 @@ describe('DailyLogComponent cockpit workflow', () => {
 
     expect(providerApi.enqueueSync).toHaveBeenCalledWith('connection-1', 'webhook_refresh', expect.any(Object));
     expect(scoreApi.recalculate).toHaveBeenCalledWith(row.metric_date);
-    expect(component.quickEntryRows()[0]).toMatchObject({ date: row.metric_date, refreshing: false });
+    expect(component.quickEntryRows()[0]).toMatchObject({ date: row.metric_date, powerPoints: 3_000, refreshing: false });
   });
 
   it('opens existing facts for editing in the quick sheet', () => {

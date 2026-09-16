@@ -37,6 +37,10 @@ export class DailyScoringRepository {
         ...input,
         runM: input.runIndoorM + input.runOutdoorM + runUnspecifiedM,
         bikeM: input.bikeIndoorM + input.bikeOutdoorM + bikeUnspecifiedM,
+        // The legacy power-points slot is the persisted manual bonus override.
+        // Manual authority uses it as the exact bonus total, while an explicit
+        // activity recalculation below clears it and derives bonuses from rules.
+        powerPoints: input.powerPoints,
         excelAllPoints: optionalNumber(existing?.excel_all_points),
         excelRowHash: existing?.excel_row_hash ?? undefined,
       };
@@ -248,7 +252,9 @@ function factsFromDailyRow(
     ...bike,
     swimM,
     workoutPoints: stored.workoutPoints,
-    powerPoints: stored.powerPoints,
+    // Recalculation is an explicit return to activity/rule authority. A prior
+    // manual bonus override must not be retained or added to achievements.
+    powerPoints: 0,
     excelAllPoints: stored.excelAllPoints,
     excelRowHash: stored.excelRowHash,
   };

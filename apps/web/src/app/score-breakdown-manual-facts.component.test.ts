@@ -35,7 +35,7 @@ const breakdown: DailyScoreBreakdown = {
 };
 
 describe('ScoreBreakdownManualFactsComponent', () => {
-  it('prefills manual editing from current canonical facts', () => {
+  it('prefills the bonus override from the official bonus total', () => {
     const { component, injector } = createComponent();
 
     component.startManualEdit(breakdown);
@@ -61,7 +61,7 @@ describe('ScoreBreakdownManualFactsComponent', () => {
       bikeUnspecifiedKm: 3,
       swimM: 750,
       workoutPoints: 12,
-      powerPoints: 4,
+      powerPoints: 5,
     });
     expect(component.editing()).toBe(true);
 

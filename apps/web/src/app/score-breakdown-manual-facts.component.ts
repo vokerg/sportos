@@ -33,7 +33,7 @@ import { formatScoreDate } from './score-breakdown.view-model';
             <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
             <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
             <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
-            <label>Power points <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set(numberInputValue($event))" /></label>
+            <label>Bonus override <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set(numberInputValue($event))" /></label>
           </div>
           @if (validationError()) { <p class="recalculation-error" role="alert">{{ validationError() }}</p> }
           @if (saveError()) { <p class="recalculation-error" role="alert">{{ saveError() }}</p> }
@@ -122,7 +122,7 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
     this.manualBikeUnspecifiedKm.set(this.remainderDistanceKm(facts?.bikeM, bikeIndoorM, bikeOutdoorM, facts?.bikeUnspecifiedM));
     this.manualSwimM.set(facts?.swimM ?? 0);
     this.manualWorkoutPoints.set(facts?.workoutPoints ?? 0);
-    this.manualPowerPoints.set(facts?.powerPoints ?? 0);
+    this.manualPowerPoints.set(current?.score.bonusTotal ?? 0);
     this.validationError.set(null);
     this.editing.set(true);
   }
@@ -142,7 +142,7 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
       ['Bike unspecified', this.manualBikeUnspecifiedKm()],
       ['Swim', this.manualSwimM()],
       ['Workout points', this.manualWorkoutPoints()],
-      ['Power points', this.manualPowerPoints()],
+      ['Bonus override', this.manualPowerPoints()],
     ];
     const invalidField = fields.find(([, value]) => !Number.isFinite(value) || value < 0);
     if (invalidField) {
@@ -150,7 +150,7 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
       return;
     }
     if (![this.manualSteps(), this.manualWorkoutPoints(), this.manualPowerPoints()].every(Number.isInteger)) {
-      this.validationError.set('Steps, workout points, and power points must be whole numbers.');
+      this.validationError.set('Steps, workout points, and the bonus override must be whole numbers.');
       return;
     }
     this.validationError.set(null);

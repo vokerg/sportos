@@ -33,7 +33,7 @@ import { formatDate } from './date-time';
               <div><span>Bike</span><strong>{{ distance(current.facts.bikeM) }}</strong></div>
               <div><span>Swim</span><strong>{{ distance(current.facts.swimM, 0) }}</strong></div>
               <div><span>Workout</span><strong>{{ number(current.facts.workoutPoints) }}</strong></div>
-              <div><span>Power</span><strong>{{ number(current.facts.powerPoints) }}</strong></div>
+              <div><span>Bonus</span><strong>{{ number(current.score.bonusTotal) }}</strong></div>
             </div>
             <section class="highlights">
               <div class="section-heading"><h4>Activities</h4><span>{{ current.activities.length }}</span></div>

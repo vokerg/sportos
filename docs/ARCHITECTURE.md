@@ -137,6 +137,7 @@ See [ADR 0005](adr/0005-authentication-and-data-ownership.md), [ADR 0007](adr/00
 - V114 versions the bike achievement rule so a single canonical bike activity must cover at least 10 km and exceed 20 km/h average speed for its 1,000-point bonus. The prior definition remains retained as a disabled rule version.
 - V115 replaces distance-specific run achievements with an account-scoped universal pace ladder. It adds explicit achievement grouping and point-multiplier semantics, selects only the highest qualifying tier per activity, multiplies it by completed 5 km blocks, atomically recomputes non-imported affected scores, appends score snapshots, and preserves the former 5k/10k rules as disabled UUID-backed history.
 - V116 preserves the strict V115 pace rules as disabled immutable versions, adds explicit `rounded_5k_blocks` semantics, activates inclusive favourably rounded pace-rule versions, atomically recomputes non-imported affected scores, and records both raw and rounded eligibility inputs in the ledger.
+- V117 preserves the strict V114 bike rule as a disabled immutable version, accepts a bounded 0.1 km/h tolerance around the 20 km/h target, and atomically recomputes calculated affected scores with the replacement rule UUID.
 
 Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance. Analysis adds audit metadata only and does not rewrite canonical or scoring rows.
 
@@ -208,10 +209,10 @@ path.
 
 `POST /daily/:date/recalculate` is the explicit authority transition. In one
 account-scoped transaction it requires Strava data, rebuilds run, bike, and
-swim measurements from canonical source activities, retains stored steps,
-workout points, and power points, removes workbook `All` from the scoring
-input, and persists a calculated score. A saved manual distance remains when
-no source activity exists for that activity type. A missing daily row is built
+swim measurements from canonical source activities, retains stored steps and
+workout points, clears any manual bonus override, removes workbook `All` from
+the scoring input, and persists a calculated score. A saved manual distance
+remains when no source activity exists for that activity type. A missing daily row is built
 from Strava activities only. No Strava data returns a bounded conflict without
 changing the current score. Rule publication skips imported rows and reports
 them instead of silently replacing their ledgers.
@@ -230,7 +231,8 @@ record, and replaces only prior manual activities for that date. Workbook and
 provider activities remain intact as source-owned context. Run and bike totals
 are calculated from entered indoor, outdoor, and unspecified distances; each
 component becomes a manual activity, with an unspecified remainder kept as the
-`unknown` subtype. The write appends a `manual_edit` snapshot,
+`unknown` subtype. The editable bonus value is an exact manual override rather
+than an additive second bonus source. The write appends a `manual_edit` snapshot,
 recomputes through deterministic rules, and sets `score_status = 'manual'`.
 Rule publication recomputes those facts without granting source activities
 authority and preserves the manual status.

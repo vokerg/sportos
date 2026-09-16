@@ -10,7 +10,7 @@ const rules: ScoringRule[] = [
   { code: 'run.pace.per5k.sub4m24.bonus', name: 'Run rounded pace at or under 4:24/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lte', thresholdValue: 264, thresholdUnit: 's/km', points: 2000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'rounded_5k_blocks', validFrom: '1900-01-01', priority: 71, enabled: true },
   { code: 'run.pace.per5k.sub4m12.bonus', name: 'Run rounded pace at or under 4:12/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lte', thresholdValue: 252, thresholdUnit: 's/km', points: 3000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'rounded_5k_blocks', validFrom: '1900-01-01', priority: 72, enabled: true },
   { code: 'run.pace.per5k.sub4.bonus', name: 'Run rounded pace at or under 4:00/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lte', thresholdValue: 240, thresholdUnit: 's/km', points: 4000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'rounded_5k_blocks', validFrom: '1900-01-01', priority: 73, enabled: true },
-  { code: 'bike.10k.easy.bonus', name: '10k ride above 20 km/h', activityType: 'bike', ruleKind: 'achievement', metric: 'avg_speed_kmh', thresholdOperator: 'gt', thresholdValue: 20, thresholdUnit: 'kmh', points: 1000, validFrom: '1900-01-01', priority: 100, enabled: true },
+  { code: 'bike.10k.easy.bonus', name: '10k ride at the 20 km/h boundary', activityType: 'bike', ruleKind: 'achievement', metric: 'avg_speed_kmh', thresholdOperator: 'gte', thresholdValue: 19.9, thresholdUnit: 'kmh', points: 1000, validFrom: '1900-01-01', priority: 100, enabled: true },
 ];
 
 describe('scoreDay', () => {
@@ -409,7 +409,7 @@ describe('scoreActivityWithRule', () => {
     expect(result.bonusPoints).toBe(8000);
   });
 
-  it('awards the bike bonus for a 10k ride above 20 km/h and uses distance as an auxiliary condition', () => {
+  it('awards the bike bonus within 0.1 km/h of 20 and uses distance as an auxiliary condition', () => {
     const rule = rules.find((candidate) => candidate.code === 'bike.10k.easy.bonus')!;
 
     const qualifying = scoreActivityWithRule(
@@ -421,7 +421,7 @@ describe('scoreActivityWithRule', () => {
     expect(qualifying?.calculationJson).toMatchObject({
       metric: 'avg_speed_kmh',
       metricValue: 22.3812,
-      thresholdOperator: 'gt',
+      thresholdOperator: 'gte',
       auxiliaryConditions: [
         { metric: 'distance_m', operator: 'gte', expected: 10_000, actual: 12_023.3, passed: true },
       ],
@@ -433,7 +433,12 @@ describe('scoreActivityWithRule', () => {
       '2026-09-08',
     )).toBeNull();
     expect(scoreActivityWithRule(
-      { activityDate: '2026-09-08', activityType: 'bike', distanceM: 12_023.3, avgSpeedMps: 20 / 3.6 },
+      { activityDate: '2026-09-08', activityType: 'bike', distanceM: 10_440, avgSpeedMps: 19.92 / 3.6 },
+      rule,
+      '2026-09-08',
+    )?.points).toBe(1000);
+    expect(scoreActivityWithRule(
+      { activityDate: '2026-09-08', activityType: 'bike', distanceM: 12_023.3, avgSpeedMps: 19.89 / 3.6 },
       rule,
       '2026-09-08',
     )).toBeNull();

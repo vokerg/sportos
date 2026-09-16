@@ -22,11 +22,32 @@ describe('RollingDynamicsPageComponent', () => {
     expect(component.state()).toBe('loaded');
     expect(component.latestValue(30)).toBe('1.41 km');
     expect(component.latestCoverage(365)).toContain('incomplete');
+    expect(component.quickRange()).toBe('ytd');
 
     component.setMetric('bike');
     component.toggleWindow(10, true);
     component.apply();
     expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: expect.objectContaining({ metric: 'bike', windows: '10,30,365' }) }));
+  });
+
+  it('applies Daily Log-style quick ranges and marks edited dates custom', () => {
+    const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', metric: 'run', windows: '30' }));
+    const router = { navigate: vi.fn().mockResolvedValue(true) };
+    const component = new RollingDynamicsPageComponent(
+      { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as ApiService,
+      { queryParamMap: params } as unknown as ActivatedRoute,
+      router as unknown as Router,
+    );
+    component.ngOnInit();
+
+    component.setQuickRange('3m');
+    expect(component.quickRange()).toBe('3m');
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ from: component.from(), to: component.to() }),
+    }));
+
+    component.setFrom('2026-05-01');
+    expect(component.quickRange()).toBe('custom');
   });
 
   it('does not allow the last trailing window to be removed', () => {

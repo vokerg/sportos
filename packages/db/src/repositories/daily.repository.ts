@@ -288,7 +288,9 @@ export class DailyRepository {
         'dm.bike_m as bikeM',
         'dm.swim_m as swimM',
         'dm.workout_points as workoutPoints',
-        'dm.power_points as powerPoints',
+        // Quick entry edits the authoritative bonus total, not the internal
+        // legacy power-points input used to persist a manual override.
+        'dm.bonus_points as powerPoints',
         'dss.facts_json as snapshotFacts',
       ])
       .where('dm.metric_date', '<=', input.to ?? new Date().toISOString().slice(0, 10));
@@ -318,7 +320,7 @@ export class DailyRepository {
           bikeUnspecifiedM: finiteSnapshotNumber(snapshot.bikeUnspecifiedM, Math.max(databaseNumber(row.bikeM, 'daily bike distance') - bikeIndoorM - bikeOutdoorM, 0)),
           swimM: databaseNumber(row.swimM, 'daily swim distance'),
           workoutPoints: databaseNumber(row.workoutPoints, 'daily workout points'),
-          powerPoints: databaseNumber(row.powerPoints, 'daily power points'),
+          powerPoints: databaseNumber(row.powerPoints, 'daily bonus points'),
         },
       };
     });

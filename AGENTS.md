@@ -139,6 +139,7 @@ The dispatcher is a narrow trusted-system exception. It may inspect queue lifecy
 - V110 adds append-only owner-scoped analysis audit metadata with app-only grants and privilege assertions;
 - V115 adds grouped universal run-pace tiers, completed-5km point multipliers, atomic non-imported score recomputation, and retained legacy run-rule history;
 - V116 versions the run-pace tiers with favourable 0.1 km and 0.1 min/km eligibility rounding while preserving strict V115 rule UUID history and atomically recomputing non-imported scores;
+- V117 versions the bike achievement with a bounded 0.1 km/h tolerance around the 20 km/h target, preserves strict V114 UUID history, and atomically recomputes calculated scores;
 - ADRs 0001–0007 document import, storage, jobs, rule publication, authentication/ownership, providers, and read-only analysis.
 
 ## Change requirements

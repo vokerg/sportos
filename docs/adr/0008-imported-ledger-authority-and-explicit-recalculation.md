@@ -60,9 +60,9 @@ per-account/per-date advisory lock:
 1. lock the current daily row when it exists;
 2. require at least one canonical Strava activity for the selected date;
 3. when a daily row exists, refresh run, bike, and swim measurements from
-   canonical source activities while retaining stored steps, workout points,
-   and power points; a manual run, bike, or swim value remains in effect when
-   no source activity exists for that category; when no row exists, use Strava
+   canonical source activities while retaining stored steps and workout points,
+   and clear any manual bonus override; a manual run, bike, or swim value remains
+   in effect when no source activity exists for that category; when no row exists, use Strava
    activities only;
 4. clear workbook `All` from the scoring input so active deterministic rules
    calculate base and bonus contributions normally;

@@ -17,7 +17,7 @@ Neither view adds columns to Daily Log, alters official scores, or promotes work
 | Bike | `daily_metrics.bike_m` | metres | kilometres |
 | Swim | `daily_metrics.swim_m` | metres | kilometres |
 | Workout | `daily_metrics.workout_points` | points | points |
-| Power | `daily_metrics.power_points` | points | points |
+| Bonus | `daily_metrics.bonus_points` | points | points |
 
 Historical workbook columns such as `A10`, `A20d`, `30(All)`, `A60d`, `A365`, and source-specific 30-day formula columns remain private raw evidence. Dynamics recomputes aggregates from the current canonical daily rows and never treats cached spreadsheet formulas as authority.
 
