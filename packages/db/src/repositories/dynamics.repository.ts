@@ -26,7 +26,7 @@ export class DynamicsRepository {
         'bike_m as bike',
         'swim_m as swim',
         'workout_points as workout',
-        'power_points as power',
+        'bonus_points as power',
       ])
       .where('metric_date', '>=', from)
       .where('metric_date', '<=', to)

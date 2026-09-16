@@ -11,6 +11,7 @@ This document is the semantic contract for the enabled MVP-0 scoring rules. The 
 - Achievement rules award their configured integer points only after every threshold and auxiliary condition passes.
 - Achievement rules sharing an `achievementGroup` are mutually exclusive for one activity: only the qualifying rule with the highest configured points applies.
 - The active universal run pace ladder uses `rounded_5k_blocks` with favourable eligibility rounding: distance is rounded to the nearest 0.1 km and overall elapsed pace to the nearest 0.1 min/km. A rounded pace on a tier boundary qualifies. Awarded points are `floor(rounded activity distance meters / 5,000) × tier points`. Raw and rounded inputs are retained in the ledger; separate activities are never combined. Historical V115 `completed_5k_blocks` versions retain their original strict, unrounded semantics.
+- The active bike achievement uses a bounded 0.1 km/h tolerance around its 20 km/h target: one ride of at least 10 km qualifies at `>= 19.9 km/h`. This is an explicit threshold tolerance, not unbounded display rounding.
 - Rules are active when `validFrom <= metricDate <= validTo`; a missing `validTo` means no configured end date. Both boundaries are inclusive.
 - Rule evaluation order is deterministic: ascending `priority`, then ascending rule `code`.
 - Coefficient and ordinary manual-point rules are base contributions. Achievement rules and rules whose activity type is `power_bonus` are bonus contributions.
@@ -33,9 +34,11 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | 72 | `run.pace.per5k.sub4m12.bonus` | Bonus | +3,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 252 s/km` (4:12/km) | Third tier; replaces lower tiers for the same activity. |
 | 73 | `run.pace.per5k.sub4.bonus` | Bonus | +4,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 240 s/km` (4:00/km) | Highest tier; replaces lower tiers for the same activity. |
 | 90 | `swim.1k.sub20.bonus` | Bonus | +1,000 points | one activity: duration strictly `< 1,200 s`; distance `>= 1,000 m` | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
-| 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | one activity: distance `>= 10,000 m`; average speed strictly `> 20 km/h` | SportOS rule; provider average speed is stored in m/s and converted to km/h for the threshold. |
+| 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | one activity: distance `>= 10,000 m`; average speed `>= 19.9 km/h` | The 0.1 km/h tolerance makes the 20 km/h target favourable at the boundary. Provider average speed is stored in m/s and converted to km/h for the threshold. |
 
 The run ladder is universal rather than tied to named race distances. For example, a 17 km run at a rounded pace of 4:00/km completes three 5 km blocks and earns `3 × 4,000 = 12,000` bonus points. The remaining 2 km does not form another block. A 4.98 km run rounds to 5.0 km for one block, and a 4:01/km pace rounds to 4.0 min/km for tier eligibility. V116 introduces this as new immutable rule versions, atomically recomputes non-imported rows, and retains the disabled strict V115 versions and their UUID-linked ledger history. Source activity facts stay unchanged. The earlier `run.5k.sub25.bonus` and `run.10k.completed.bonus` definitions also remain disabled history.
+
+V117 versions the bike achievement rule with a bounded 0.1 km/h tolerance around the 20 km/h target. A 19.90 km/h ride qualifies; a 19.89 km/h ride does not. It atomically recomputes calculated rows and retains the strict V114 rule UUID and ledger history. Imported and manually authoritative rows remain untouched until their normal explicit authority transition.
 
 ## Spreadsheet component evidence
 
@@ -43,7 +46,7 @@ The daily workbook may provide cached formula columns `Run to S`, `Bike to S`, `
 
 Confirmed run and bike subtype coefficients are application scoring semantics, not importer-only behavior. Once a canonical activity or daily fact split identifies treadmill/outdoor running or indoor/outdoor cycling, the same coefficient is used for workbook calculation, explicit Strava recalculation, rule recomputation, and manual daily facts. Unknown subtypes retain the configured generic rule coefficient. Ledger calculation metadata records both the configured fallback and the applied subtype coefficient.
 
-Explicit recalculation is a merge of compatible authorities rather than wholesale replacement. Canonical source activities refresh run, bike, and swim measurements. Stored steps, workout points, and power points are retained because Strava does not author those facts. A saved manual distance remains when no canonical source activity exists for that activity type.
+Explicit recalculation is a merge of compatible authorities rather than wholesale replacement. Canonical source activities refresh run, bike, and swim measurements. Stored steps and workout points are retained because Strava does not author those facts. A manual bonus override is discarded so active achievement rules become the sole bonus authority again. A saved manual distance remains when no canonical source activity exists for that activity type.
 
 A component comparison is:
 

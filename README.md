@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #47. The current schema is defined through Flyway V116, and the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #47. The current schema is defined through Flyway V117, and the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -33,7 +33,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Browse daily summaries and inspect exact score-ledger, immutable rule-version, activity, source-record, and import-batch provenance.
 - Treat imported workbook `All` totals as authoritative until an explicit recalculation or manual edit; each daily row shows whether its current score is imported, calculated, or manual.
 - Create or edit canonical daily facts in the focused form or the Daily Log's Excel-like Quick entry grid. Enter and vertical-arrow commits use the same manual-save/recalculation path, Escape cancels the active cell, and edits retain provenance, replace only prior manual activities, and append immutable score history.
-- Recalculate a selected date from already-canonical source activities while retaining saved steps, workout points, and power points; a Strava-only date can still create a daily row without changing scores implicitly during synchronization.
+- Recalculate a selected date from already-canonical source activities while retaining saved steps and workout points and replacing any manual bonus override with rule-derived bonuses; a Strava-only date can still create a daily row without changing scores implicitly during synchronization.
 - From the full daily page, refetch a bounded calendar-day window from Strava to ingest newly added or corrected activity snapshots, then recalculate that date only after the durable provider job succeeds.
 - Explore running performance, personal-best views, event detail, and source attribution in Run Lab.
 - Preview scoring-rule changes without writes.
@@ -43,7 +43,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Award the highest qualifying universal run-pace tier per activity, using favourable 0.1 km and 0.1 min/km eligibility rounding and multiplying by rounded completed 5 km blocks.
 - Export bounded, versioned `sportos.canonical-export.v2` JSON from one repeatable-read snapshot, including each daily score's authority status.
 - Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.
-- Review canonical score, steps, run, bike, swim, workout, and power in Monthly Stats, and graph their true day-by-day trailing 10/20/30/60/365-day movement in Dynamics with explicit data coverage.
+- Review canonical score, steps, run, bike, swim, workout, and bonus totals in Monthly Stats, and graph their true day-by-day trailing 10/20/30/60/365-day movement in Dynamics with explicit data coverage.
 
 ### Ask cited, read-only questions
 
@@ -380,7 +380,7 @@ SPORTOS_TEST_DATABASE_URL=postgresql://sportos_legacy:<password>@<test-project>.
   pnpm --filter @sportos/importers test:integration
 ```
 
-CI covers frozen installation, fresh migration through V116, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, imported-ledger authority, manual canonical facts, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
+CI covers frozen installation, fresh migration through V117, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, imported-ledger authority, manual canonical facts, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
 
 The CI workflow expects dedicated Neon test branches and these repository secrets:
 `SPORTOS_CI_FLYWAY_URL`, `SPORTOS_CI_FLYWAY_USER`,

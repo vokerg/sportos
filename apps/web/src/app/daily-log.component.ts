@@ -591,7 +591,7 @@ function quickEntryRowFromBreakdown(result: DailyScoreBreakdown): DailyQuickEntr
     bikeUnspecifiedM: result.facts.bikeUnspecifiedM ?? Math.max(result.facts.bikeM - bikeIndoorM - bikeOutdoorM, 0),
     swimM: result.facts.swimM,
     workoutPoints: result.facts.workoutPoints,
-    powerPoints: result.facts.powerPoints,
+    powerPoints: result.score.bonusTotal,
     saving: false,
     refreshing: false,
     error: null,

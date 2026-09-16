@@ -10,7 +10,7 @@ export const DYNAMICS_LABELS: Record<DynamicsMetric, string> = {
   bike: 'Bike',
   swim: 'Swim',
   workout: 'Workout points',
-  power: 'Power points',
+  power: 'Bonus points',
 };
 
 const COLORS: Record<DynamicsMetric, string> = {

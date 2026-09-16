@@ -84,7 +84,7 @@ export class DailyQuickEntryGridComponent {
     this.kilometerColumn('bikeUnspecifiedM', 'Bike other'),
     this.numberColumn('swimM', 'Swim (m)'),
     this.numberColumn('workoutPoints', 'Workout points', true),
-    this.numberColumn('powerPoints', 'Power points', true),
+    this.numberColumn('powerPoints', 'Bonus override', true),
     { field: 'totalPoints', headerName: 'Total', editable: false, valueFormatter: (p) => Number(p.value ?? 0).toLocaleString() },
     { field: 'scoreStatus', headerName: 'Authority', editable: false },
     { colId: 'status', headerName: 'Save status', editable: false, valueGetter: (p) => p.data?.saving ? 'Saving…' : p.data?.error || 'Saved', minWidth: 150 },

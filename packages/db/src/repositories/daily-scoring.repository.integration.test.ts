@@ -14,6 +14,7 @@ const importedDate = '2097-05-19';
 const manualDate = '2097-05-20';
 const mixedDate = '2097-05-21';
 const universalPaceDate = '2097-05-22';
+const bonusOverrideDate = '2097-05-23';
 
 databaseDescribe('DailyScoringRepository database integration', () => {
   let db: TestDatabase;
@@ -145,6 +146,49 @@ databaseDescribe('DailyScoringRepository database integration', () => {
     ]));
   });
 
+  it('replaces a manual bonus override when activities are recalculated', async () => {
+    await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      await insertStravaRun(ownerDb, bonusOverrideDate, 'strava-bonus-run', 'strava-bonus-run-hash', 10_080, 2_988);
+      await insertStravaBike(ownerDb, bonusOverrideDate, 'strava-bonus-bike', 'strava-bonus-bike-hash', 10_440, 19.92 / 3.6);
+    });
+
+    const calculated = await withAccountContext(
+      db,
+      LEGACY_ACCOUNT_ID,
+      (ownerDb) => new DailyScoringRepository(ownerDb).recalculateFromActivities(bonusOverrideDate),
+    );
+    expect(calculated.score.bonusTotal).toBe(3_000);
+
+    const manual = await withAccountContext(
+      db,
+      LEGACY_ACCOUNT_ID,
+      (ownerDb) => new DailyScoringRepository(ownerDb).saveManualFacts(bonusOverrideDate, {
+        steps: 0,
+        runIndoorM: 0,
+        runOutdoorM: 10_080,
+        runUnspecifiedM: 0,
+        bikeIndoorM: 0,
+        bikeOutdoorM: 10_440,
+        bikeUnspecifiedM: 0,
+        swimM: 0,
+        workoutPoints: 0,
+        powerPoints: 4_000,
+      }),
+    );
+    expect(manual.score.bonusTotal).toBe(4_000);
+
+    const recalculated = await withAccountContext(
+      db,
+      LEGACY_ACCOUNT_ID,
+      (ownerDb) => new DailyScoringRepository(ownerDb).recalculateFromActivities(bonusOverrideDate),
+    );
+    expect(recalculated).toMatchObject({
+      scoreStatus: 'calculated',
+      facts: { powerPoints: 0 },
+      score: { bonusTotal: 3_000 },
+    });
+  });
+
   it('stores manual facts, provenance, activities, and immutable score history', async () => {
     const input = {
       steps: 1000,
@@ -226,9 +270,42 @@ async function insertStravaRun(
   }).execute();
 }
 
+async function insertStravaBike(
+  db: TestDatabase,
+  activityDate: string,
+  sourceActivityId: string,
+  sourceRecordHash: string,
+  distanceM: number,
+  avgSpeedMps: number,
+): Promise<void> {
+  await db.insertInto('activities').values({
+    source: 'strava',
+    source_record_id: null,
+    source_activity_id: sourceActivityId,
+    source_record_hash: sourceRecordHash,
+    activity_date: activityDate,
+    start_time: new Date(`${activityDate}T10:00:00.000Z`),
+    activity_type: 'bike',
+    subtype: 'outdoor',
+    distance_m: distanceM,
+    duration_s: Math.round(distanceM / avgSpeedMps),
+    moving_time_s: Math.round(distanceM / avgSpeedMps),
+    steps: null,
+    calories: null,
+    avg_hr: null,
+    max_hr: null,
+    elevation_gain_m: null,
+    avg_speed_mps: avgSpeedMps,
+    avg_pace_s_per_km: null,
+    effort_points: null,
+    notes: null,
+    raw_payload_json: {},
+  }).execute();
+}
+
 async function reset(db: TestDatabase): Promise<void> {
   await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
-    const dates = [noLedgerDate, importedDate, manualDate, mixedDate, universalPaceDate];
+    const dates = [noLedgerDate, importedDate, manualDate, mixedDate, universalPaceDate, bonusOverrideDate];
     await ownerDb.deleteFrom('score_ledger').where('metric_date', 'in', dates).execute();
     await ownerDb.deleteFrom('daily_metrics').where('metric_date', 'in', dates).execute();
     await ownerDb.deleteFrom('activities').where('activity_date', 'in', dates).execute();
