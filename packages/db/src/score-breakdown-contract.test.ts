@@ -23,6 +23,7 @@ const validResponse: DailyScoreBreakdownReadModel = {
   },
   sourceRecord: null,
   activities: [],
+  garminObservations: [],
   sourceRecords: [],
   ledger: [
     {
@@ -67,6 +68,49 @@ describe('daily score breakdown runtime contract', () => {
         score: { ...validResponse.score, excelTotal: null, delta: null },
       }).score.delta,
     ).toBeNull();
+  });
+
+  it('accepts dated Garmin evidence and rejects observations assigned to another day', () => {
+    const sourceRecord = {
+      id: '20000000-0000-4000-8000-000000000001',
+      rowHash: 'garmin-row-hash',
+      sheetName: 'steps_weekly',
+      rowIndex: 2,
+      status: 'normalized' as const,
+      rawJson: { cells: ['18/05/2026', '12345'] },
+      errors: [],
+      warnings: [],
+      normalizedEntityType: 'garmin_observation',
+      normalizedEntityId: '30000000-0000-4000-8000-000000000001',
+      batch: {
+        id: '40000000-0000-4000-8000-000000000001',
+        source: 'garmin_csv',
+        filename: 'steps.csv',
+        originalSha256: 'hash',
+        status: 'normalized' as const,
+        startedAt: '2026-05-18T12:00:00.000Z',
+        completedAt: '2026-05-18T12:00:01.000Z',
+      },
+    };
+    const observation = {
+      id: '30000000-0000-4000-8000-000000000001',
+      reportType: 'steps_weekly' as const,
+      recordedDate: validResponse.date,
+      recordedTime: null,
+      values: { steps: 12345 },
+      sourceRecord,
+    };
+
+    expect(parseDailyScoreBreakdown({
+      ...validResponse,
+      garminObservations: [observation],
+      sourceRecords: [sourceRecord],
+    }).garminObservations).toEqual([observation]);
+    expect(() => parseDailyScoreBreakdown({
+      ...validResponse,
+      garminObservations: [{ ...observation, recordedDate: '2026-05-19' }],
+      sourceRecords: [sourceRecord],
+    })).toThrow(ScoreBreakdownContractError);
   });
 });
 

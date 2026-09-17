@@ -1,4 +1,8 @@
-import type { DailyScoreBreakdownReadModel, SourceRecordReferenceReadModel } from './repository-contracts.js';
+import type {
+  DailyEvidenceReadModel,
+  DailyScoreBreakdownReadModel,
+  SourceRecordReferenceReadModel,
+} from './repository-contracts.js';
 
 export type DailyScoreBreakdown = DailyScoreBreakdownReadModel;
 
@@ -30,6 +34,15 @@ export function parseDailyScoreBreakdown(value: DailyScoreBreakdownReadModel): D
   }
 
   validateSourceRecord(value.sourceRecord, 'sourceRecord', issues);
+  value.sourceRecords.forEach((record, index) => validateSourceRecord(record, `sourceRecords[${index}]`, issues));
+  value.garminObservations.forEach((observation, index) => {
+    if (!isIsoDate(observation.recordedDate)) issues.push(`garminObservations[${index}].recordedDate must be an ISO date`);
+    if (observation.recordedDate !== value.date) issues.push(`garminObservations[${index}].recordedDate must match date`);
+    if (observation.recordedTime !== null && !/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(observation.recordedTime)) {
+      issues.push(`garminObservations[${index}].recordedTime must be null or HH:mm:ss`);
+    }
+    validateSourceRecord(observation.sourceRecord, `garminObservations[${index}].sourceRecord`, issues);
+  });
   value.ledger.forEach((entry, index) => {
     if (!isIsoTimestamp(entry.createdAt)) issues.push(`ledger[${index}].createdAt must be an ISO timestamp`);
     if (entry.rule) {
@@ -48,6 +61,22 @@ export function parseDailyScoreBreakdown(value: DailyScoreBreakdownReadModel): D
     }
   });
 
+  if (issues.length > 0) throw new ScoreBreakdownContractError(issues);
+  return value;
+}
+
+export function parseDailyEvidence(value: DailyEvidenceReadModel): DailyEvidenceReadModel {
+  const issues: string[] = [];
+  if (!isIsoDate(value.date)) issues.push('date must be a real calendar date in YYYY-MM-DD format');
+  value.sourceRecords.forEach((record, index) => validateSourceRecord(record, `sourceRecords[${index}]`, issues));
+  value.garminObservations.forEach((observation, index) => {
+    if (!isIsoDate(observation.recordedDate)) issues.push(`garminObservations[${index}].recordedDate must be an ISO date`);
+    if (observation.recordedDate !== value.date) issues.push(`garminObservations[${index}].recordedDate must match date`);
+    if (observation.recordedTime !== null && !/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(observation.recordedTime)) {
+      issues.push(`garminObservations[${index}].recordedTime must be null or HH:mm:ss`);
+    }
+    validateSourceRecord(observation.sourceRecord, `garminObservations[${index}].sourceRecord`, issues);
+  });
   if (issues.length > 0) throw new ScoreBreakdownContractError(issues);
   return value;
 }

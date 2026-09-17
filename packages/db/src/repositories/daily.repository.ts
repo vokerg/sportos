@@ -1,12 +1,14 @@
 import { sql, type Kysely } from 'kysely';
 import type {
   DailyMetricFactsInput,
+  DailyEvidenceReadModel,
   ManualDailyFactsInput,
   ManualDailyFactsRow,
   DailyScoreBreakdownReadModel,
   DailyScoreInput,
   DailyScoreSnapshotTrigger,
   DailyScoreStatus,
+  GarminObservationReadModel,
   ScoreBreakdownActivityReadModel,
   ScoreBreakdownLedgerEntryReadModel,
   ScoreBreakdownRuleReadModel,
@@ -107,6 +109,31 @@ export interface DailyScoreBreakdownLedgerRow {
   activitySourceWarnings?: Json | null;
   activitySourceNormalizedEntityType?: string | null;
   activitySourceNormalizedEntityId?: string | null;
+}
+
+export interface DailyGarminObservationRow {
+  observationId: string;
+  reportType: GarminObservationReadModel['reportType'];
+  recordedDate: string;
+  recordedTime: string | null;
+  values: Json;
+  sourceRecordId: string;
+  sourceRowHash: string;
+  sourceSheetName: string | null;
+  sourceRowIndex: number | null;
+  sourceStatus: 'raw' | 'normalized' | 'skipped' | 'error';
+  sourceRawJson: Json;
+  sourceErrors: Json;
+  sourceWarnings: Json;
+  sourceNormalizedEntityType: string | null;
+  sourceNormalizedEntityId: string | null;
+  sourceBatchId: string;
+  sourceBatchSource: string;
+  sourceBatchFilename: string | null;
+  sourceBatchOriginalSha256: string | null;
+  sourceBatchStatus: ImportBatchesTable['status'];
+  sourceBatchStartedAt: unknown;
+  sourceBatchCompletedAt: unknown | null;
 }
 
 export interface DailyScorePersistenceOptions {
@@ -362,7 +389,7 @@ export class DailyRepository {
 
     if (!header) return null;
 
-    const ledgerRows = await this.db
+    const ledgerRowsPromise = this.db
       .selectFrom('score_ledger as sl')
       .leftJoin('scoring_rules as sr', 'sr.id', 'sl.rule_id')
       .leftJoin('activities as a', 'a.id', 'sl.activity_id')
@@ -434,9 +461,9 @@ export class DailyRepository {
       .orderBy('sr.priority', 'asc')
       .orderBy('sl.created_at', 'asc')
       .orderBy('sl.id', 'asc')
-      .execute() as unknown as DailyScoreBreakdownLedgerRow[];
+      .execute() as unknown as Promise<DailyScoreBreakdownLedgerRow[]>;
 
-    const activityRows = await this.db
+    const activityRowsPromise = this.db
       .selectFrom('activities as a')
       .leftJoin('source_records as asr', 'asr.id', 'a.source_record_id')
       .leftJoin('import_batches as aib', 'aib.id', 'asr.import_batch_id')
@@ -482,9 +509,56 @@ export class DailyRepository {
       .orderBy('a.source', 'asc')
       .orderBy('a.activity_type', 'asc')
       .orderBy('a.id', 'asc')
-      .execute() as unknown as DailyScoreBreakdownLedgerRow[];
+      .execute() as unknown as Promise<DailyScoreBreakdownLedgerRow[]>;
 
-    return assembleDailyScoreBreakdown(header, ledgerRows, activityRows);
+    const [ledgerRows, activityRows, garminRows] = await Promise.all([
+      ledgerRowsPromise,
+      activityRowsPromise,
+      this.listGarminObservationRows(metricDate),
+    ]);
+
+    return assembleDailyScoreBreakdown(header, ledgerRows, activityRows, garminRows);
+  }
+
+  async getDailyEvidence(metricDate: string): Promise<DailyEvidenceReadModel> {
+    return assembleDailyEvidence(metricDate, await this.listGarminObservationRows(metricDate));
+  }
+
+  private async listGarminObservationRows(metricDate: string): Promise<DailyGarminObservationRow[]> {
+    const rows = await this.db
+      .selectFrom('garmin_observations as observation')
+      .innerJoin('source_records as source', 'source.id', 'observation.current_source_record_id')
+      .innerJoin('import_batches as batch', 'batch.id', 'source.import_batch_id')
+      .select([
+        'observation.id as observationId',
+        'observation.report_type as reportType',
+        'observation.recorded_date as recordedDate',
+        'observation.recorded_time as recordedTime',
+        'observation.values_json as values',
+        'source.id as sourceRecordId',
+        'source.row_hash as sourceRowHash',
+        'source.sheet_name as sourceSheetName',
+        'source.row_index as sourceRowIndex',
+        'source.status as sourceStatus',
+        'source.raw_json as sourceRawJson',
+        'source.errors as sourceErrors',
+        'source.warnings as sourceWarnings',
+        'source.normalized_entity_type as sourceNormalizedEntityType',
+        'source.normalized_entity_id as sourceNormalizedEntityId',
+        'batch.id as sourceBatchId',
+        'batch.source as sourceBatchSource',
+        'batch.filename as sourceBatchFilename',
+        'batch.original_sha256 as sourceBatchOriginalSha256',
+        'batch.status as sourceBatchStatus',
+        'batch.started_at as sourceBatchStartedAt',
+        'batch.completed_at as sourceBatchCompletedAt',
+      ])
+      .where('observation.recorded_date', '=', metricDate)
+      .orderBy('observation.report_type', 'asc')
+      .orderBy('observation.recorded_time', 'asc')
+      .orderBy('observation.id', 'asc')
+      .execute();
+    return rows as unknown as DailyGarminObservationRow[];
   }
 }
 
@@ -492,6 +566,7 @@ export function assembleDailyScoreBreakdown(
   header: DailyScoreBreakdownHeaderRow,
   ledgerRows: DailyScoreBreakdownLedgerRow[],
   activityRows: DailyScoreBreakdownLedgerRow[] = [],
+  garminRows: DailyGarminObservationRow[] = [],
 ): DailyScoreBreakdownReadModel {
   const ledger = ledgerRows.map(mapLedgerEntry);
   const activities = activityRows.map(mapActivity).filter((activity): activity is NonNullable<typeof activity> => activity !== null);
@@ -516,6 +591,7 @@ export function assembleDailyScoreBreakdown(
   const sourceRecords = dedupeSourceRecords([
     mapHeaderSourceRecord(header),
     ...activities.map((activity) => activity.sourceRecord),
+    ...garminRows.map((row) => mapGarminSourceRecord(row)),
   ]);
   const ledgerTotal = ledger.reduce((sum, entry) => sum + entry.points, 0);
   return {
@@ -542,8 +618,20 @@ export function assembleDailyScoreBreakdown(
     },
     sourceRecord: mapHeaderSourceRecord(header),
     activities,
+    garminObservations: garminRows.map(mapGarminObservation),
     sourceRecords,
     ledger,
+  };
+}
+
+export function assembleDailyEvidence(
+  metricDate: string,
+  garminRows: DailyGarminObservationRow[],
+): DailyEvidenceReadModel {
+  return {
+    date: toIsoDate(metricDate),
+    garminObservations: garminRows.map(mapGarminObservation),
+    sourceRecords: dedupeSourceRecords(garminRows.map(mapGarminSourceRecord)),
   };
 }
 
@@ -730,6 +818,41 @@ function mapActivitySourceRecord(row: DailyScoreBreakdownLedgerRow): SourceRecor
       status: row.activitySourceBatchStatus,
       startedAt: toIsoTimestamp(row.activitySourceBatchStartedAt),
       completedAt: toNullableIsoTimestamp(row.activitySourceBatchCompletedAt),
+    },
+  };
+}
+
+function mapGarminObservation(row: DailyGarminObservationRow): GarminObservationReadModel {
+  return {
+    id: row.observationId,
+    reportType: row.reportType,
+    recordedDate: toIsoDate(row.recordedDate),
+    recordedTime: row.recordedTime,
+    values: row.values,
+    sourceRecord: mapGarminSourceRecord(row),
+  };
+}
+
+function mapGarminSourceRecord(row: DailyGarminObservationRow): SourceRecordReferenceReadModel {
+  return {
+    id: row.sourceRecordId,
+    rowHash: row.sourceRowHash,
+    sheetName: row.sourceSheetName,
+    rowIndex: row.sourceRowIndex,
+    status: row.sourceStatus,
+    rawJson: row.sourceRawJson,
+    errors: row.sourceErrors,
+    warnings: row.sourceWarnings,
+    normalizedEntityType: row.sourceNormalizedEntityType,
+    normalizedEntityId: row.sourceNormalizedEntityId,
+    batch: {
+      id: row.sourceBatchId,
+      source: row.sourceBatchSource,
+      filename: row.sourceBatchFilename,
+      originalSha256: row.sourceBatchOriginalSha256,
+      status: row.sourceBatchStatus,
+      startedAt: toIsoTimestamp(row.sourceBatchStartedAt),
+      completedAt: toNullableIsoTimestamp(row.sourceBatchCompletedAt),
     },
   };
 }

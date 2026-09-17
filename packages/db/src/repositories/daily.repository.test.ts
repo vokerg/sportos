@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   assembleDailyScoreBreakdown,
+  assembleDailyEvidence,
+  type DailyGarminObservationRow,
   type DailyScoreBreakdownHeaderRow,
   type DailyScoreBreakdownLedgerRow,
 } from './daily.repository.js';
@@ -241,7 +243,63 @@ describe('assembleDailyScoreBreakdown', () => {
     expect(result.facts).toMatchObject({ runM: 9_946.6, runOutdoorM: 9_946.6 });
     expect(result.activities).toHaveLength(2);
   });
+
+  it('attaches current Garmin observations and their raw rows to the recorded date without changing facts or score', () => {
+    const garmin = garminRow();
+    const result = assembleDailyScoreBreakdown(
+      header,
+      [ledgerRow({ ledgerPoints: 25 })],
+      [],
+      [garmin],
+    );
+
+    expect(result.garminObservations).toEqual([expect.objectContaining({
+      id: garmin.observationId,
+      reportType: 'steps_weekly',
+      recordedDate: header.date,
+      values: { steps: 12_345 },
+      sourceRecord: expect.objectContaining({ id: garmin.sourceRecordId }),
+    })]);
+    expect(result.sourceRecords).toContainEqual(expect.objectContaining({ id: garmin.sourceRecordId }));
+    expect(result.facts.steps).toBe(header.steps);
+    expect(result.score.appTotal).toBe(header.appTotal);
+  });
+
+  it('builds date evidence independently of a persisted daily score', () => {
+    const evidence = assembleDailyEvidence('2026-05-18', [garminRow()]);
+
+    expect(evidence.date).toBe('2026-05-18');
+    expect(evidence.garminObservations).toHaveLength(1);
+    expect(evidence.sourceRecords).toHaveLength(1);
+  });
 });
+
+function garminRow(): DailyGarminObservationRow {
+  return {
+    observationId: '80000000-0000-4000-8000-000000000001',
+    reportType: 'steps_weekly',
+    recordedDate: '2026-05-18',
+    recordedTime: null,
+    values: { steps: 12_345 },
+    sourceRecordId: '90000000-0000-4000-8000-000000000001',
+    sourceRowHash: 'garmin-source-row-hash',
+    sourceSheetName: 'steps_weekly',
+    sourceRowIndex: 2,
+    sourceStatus: 'normalized',
+    sourceRawJson: { cells: ['18/05/2026', '12345'] },
+    sourceErrors: [],
+    sourceWarnings: [],
+    sourceNormalizedEntityType: 'garmin_observation',
+    sourceNormalizedEntityId: '80000000-0000-4000-8000-000000000001',
+    sourceBatchId: 'a0000000-0000-4000-8000-000000000001',
+    sourceBatchSource: 'garmin_csv',
+    sourceBatchFilename: 'steps.csv',
+    sourceBatchOriginalSha256: 'garmin-file-hash',
+    sourceBatchStatus: 'normalized',
+    sourceBatchStartedAt: new Date('2026-05-18T11:00:00.000Z'),
+    sourceBatchCompletedAt: new Date('2026-05-18T11:00:01.000Z'),
+  };
+}
 
 function ledgerRow(overrides: Partial<DailyScoreBreakdownLedgerRow>): DailyScoreBreakdownLedgerRow {
   return {

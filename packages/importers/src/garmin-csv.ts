@@ -5,6 +5,7 @@ import type { Json } from '@sportos/db';
 export const MAX_GARMIN_CSV_ROWS = 50_000;
 
 export type GarminReportType =
+  | 'daily_summary'
   | 'steps_weekly'
   | 'calories_weekly'
   | 'floors_weekly'
@@ -118,6 +119,17 @@ function parseObservation(
   contextDate: string | null,
   rowIndex: number,
 ): { observation: GarminCsvObservation } | { warning: GarminCsvWarning | null } {
+  if (reportType === 'daily_summary') {
+    const recordedDate = parseIsoDate(cells[0] ?? '');
+    const steps = parseNonNegativeInteger(cells[1]);
+    const distanceKm = parseNonNegativeNumber(cells[2]);
+    const totalCalories = parseNonNegativeInteger(cells[3]);
+    if (!recordedDate || steps === null || distanceKm === null || totalCalories === null) {
+      return skipped(rowIndex, 'Daily Garmin summary requires an ISO date, steps, distance_km, and total_calories.');
+    }
+    return observation(reportType, recordedDate, recordedDate, null, { steps, distanceKm, totalCalories }, rowIndex);
+  }
+
   if (reportType === 'weight_body_composition') {
     if (cells.length === 1 && parseEnglishDate(cells[0] ?? '')) return { warning: null };
     const time = parseTime(cells[0] ?? '');
@@ -220,6 +232,7 @@ function skipped(rowIndex: number, message: string): { warning: GarminCsvWarning
 
 function detectReportType(header: string[]): GarminReportType {
   const key = header.join('|');
+  if (key === 'date|steps|distance_km|total_calories') return 'daily_summary';
   if (key === '|actual') return 'steps_weekly';
   if (key === 'period_label|week_end|active_calories|resting_calories|avg_daily_total') return 'calories_weekly';
   if (key === 'period_label|week_end|climbed_floors|descended_floors') return 'floors_weekly';
@@ -325,6 +338,13 @@ function parseNonNegativeInteger(value: string | undefined): number | null {
   if (!/^\d+$/.test(text)) return null;
   const parsed = Number(text);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function parseNonNegativeNumber(value: string | undefined): number | null {
+  const text = value?.trim() ?? '';
+  if (!/^\d+(?:\.\d+)?$/.test(text)) return null;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function parseOptionalNumber(value: string | undefined): number | null {

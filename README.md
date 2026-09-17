@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The current schema is defined through Flyway V119, and the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The current schema is defined through Flyway V120, and the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 

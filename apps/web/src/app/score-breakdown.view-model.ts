@@ -188,6 +188,7 @@ export function sourceName(source: string): string {
   if (source === 'my_sport_xlsx') return 'Excel';
   if (source === 'strava' || source === 'strava_api') return 'Strava';
   if (source === 'run_db_xlsx') return 'Run DB';
+  if (source === 'garmin' || source === 'garmin_csv') return 'Garmin';
   if (source === 'manual' || source === 'manual_daily_edit') return 'Manual';
   return humanize(source);
 }

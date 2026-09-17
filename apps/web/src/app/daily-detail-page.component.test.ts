@@ -17,6 +17,7 @@ const breakdown: DailyScoreBreakdown = {
   score: { appTotal: 24978, excelTotal: null, delta: null, baseTotal: 22978, bonusPoints: 2000, ledgerTotal: 24978 },
   sourceRecord: null,
   activities: [],
+  garminObservations: [],
   sourceRecords: [],
   ledger: [],
 };
@@ -32,6 +33,24 @@ describe('DailyDetailPageComponent', () => {
     expect(component.breakdown()).toEqual(breakdown);
     expect(component.state()).toBe('loaded');
     expect(component.manualEditRequestId()).toBe(1);
+  });
+
+  it('keeps dated Garmin evidence visible when no score exists', () => {
+    const evidence = { date, garminObservations: [], sourceRecords: [] };
+    const api = {
+      getForDate: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({
+        status: 404,
+        error: { code: 'DAILY_SCORE_NOT_FOUND' },
+      }))),
+      getEvidence: vi.fn().mockReturnValue(of(evidence)),
+    };
+    const component = createComponent(api);
+
+    component.ngOnInit();
+
+    expect(component.state()).toBe('loaded');
+    expect(component.breakdown()).toBeNull();
+    expect(component.evidence()).toEqual(evidence);
   });
 
   it('allows manual entry when the selected day does not exist yet', () => {
@@ -97,7 +116,7 @@ describe('DailyDetailPageComponent', () => {
 });
 
 function createComponent(
-  api: { getForDate: ReturnType<typeof vi.fn>; saveManualFacts?: ReturnType<typeof vi.fn> },
+  api: { getForDate: ReturnType<typeof vi.fn>; getEvidence?: ReturnType<typeof vi.fn>; saveManualFacts?: ReturnType<typeof vi.fn> },
   query: Record<string, string> = {},
   router: { navigate: ReturnType<typeof vi.fn> } | undefined = undefined,
   providerApi: { connections: ReturnType<typeof vi.fn>; enqueueSync?: ReturnType<typeof vi.fn>; syncJob?: ReturnType<typeof vi.fn> } = { connections: vi.fn().mockReturnValue(of([])) },
@@ -109,7 +128,10 @@ function createComponent(
   return new DailyDetailPageComponent(
     route as unknown as ActivatedRoute,
     (router ?? { navigate: vi.fn().mockResolvedValue(true) }) as unknown as Router,
-    api as unknown as ScoreBreakdownApiService,
+    {
+      getEvidence: vi.fn().mockReturnValue(of({ date, garminObservations: [], sourceRecords: [] })),
+      ...api,
+    } as unknown as ScoreBreakdownApiService,
     providerApi as unknown as ProviderApiService,
   );
 }

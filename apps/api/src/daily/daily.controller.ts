@@ -37,15 +37,15 @@ export class DailyController {
     }, account?.id ?? LEGACY_ACCOUNT_ID);
   }
 
+  @Get(':date/evidence')
+  evidence(@Param('date') date: string, @CurrentAccount() account?: AuthenticatedAccount) {
+    requireDate(date);
+    return this.dailyService.evidence(date, account?.id ?? LEGACY_ACCOUNT_ID);
+  }
+
   @Get(':date/score-breakdown')
   async scoreBreakdown(@Param('date') date: string, @CurrentAccount() account?: AuthenticatedAccount) {
-    if (!isIsoDate(date)) {
-      throw new BadRequestException({
-        code: 'INVALID_DATE',
-        message: 'Date must be a real calendar date in YYYY-MM-DD format.',
-        date,
-      });
-    }
+    requireDate(date);
 
     const result = await this.dailyService.scoreBreakdown(date, account?.id ?? LEGACY_ACCOUNT_ID);
     if (result === null) {
@@ -60,13 +60,7 @@ export class DailyController {
 
   @Post(':date/recalculate')
   async recalculate(@Param('date') date: string, @CurrentAccount() account?: AuthenticatedAccount) {
-    if (!isIsoDate(date)) {
-      throw new BadRequestException({
-        code: 'INVALID_DATE',
-        message: 'Date must be a real calendar date in YYYY-MM-DD format.',
-        date,
-      });
-    }
+    requireDate(date);
 
     try {
       return await this.dailyService.recalculateFromActivities(date, account?.id ?? LEGACY_ACCOUNT_ID);
@@ -88,15 +82,18 @@ export class DailyController {
     @Body() body: unknown,
     @CurrentAccount() account?: AuthenticatedAccount,
   ) {
-    if (!isIsoDate(date)) {
-      throw new BadRequestException({
-        code: 'INVALID_DATE',
-        message: 'Date must be a real calendar date in YYYY-MM-DD format.',
-        date,
-      });
-    }
+    requireDate(date);
     return this.dailyService.saveManualFacts(date, parseManualDailyFacts(body), account?.id ?? LEGACY_ACCOUNT_ID);
   }
+}
+
+function requireDate(date: string): void {
+  if (isIsoDate(date)) return;
+  throw new BadRequestException({
+    code: 'INVALID_DATE',
+    message: 'Date must be a real calendar date in YYYY-MM-DD format.',
+    date,
+  });
 }
 
 const MANUAL_FACT_FIELDS = [

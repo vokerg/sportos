@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import type { DailyScoreBreakdown } from './score-breakdown.models';
+import type { DailyScoreBreakdown, SourceRecordReference } from './score-breakdown.models';
 import {
   hasWorkbookCells,
   jsonLabel,
@@ -14,21 +14,21 @@ import {
   selector: 'sportos-score-breakdown-provenance',
   standalone: true,
   template: `
-    @let current = breakdown();
+    @let records = visibleSourceRecords();
     <section class="data-section" aria-labelledby="day-source-title">
       <div class="section-heading">
         <div>
           <span class="section-label">Raw provenance</span>
           <h4 id="day-source-title">Every source record for this day</h4>
-          <p class="section-help">This is the unabridged source payload behind the daily row and the imported provider activities.</p>
+          <p class="section-help">This is the unabridged source payload recorded for the date, including non-scoring Garmin observations.</p>
         </div>
-        <strong class="count-badge">{{ current.sourceRecords.length }}</strong>
+        <strong class="count-badge">{{ records.length }}</strong>
       </div>
-      @if (current.sourceRecords.length === 0) {
+      @if (records.length === 0) {
         <div class="empty-inline">No source records are linked to this date.</div>
       } @else {
         <div class="source-record-list">
-          @for (record of current.sourceRecords; track record.id) {
+          @for (record of records; track record.id) {
             <details class="source-record">
               <summary>
                 <span class="source-badge" [attr.data-source]="record.batch.source">{{ sourceName(record.batch.source) }}</span>
@@ -95,6 +95,7 @@ import {
     .source-badge { display: inline-block; padding: 4px 7px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 10px; font-weight: 800; white-space: nowrap; }
     .source-badge[data-source='strava'] { background: #fff0e8; color: #b54708; }
     .source-badge[data-source='my_sport_xlsx'] { background: #eaf7ee; color: #13795b; }
+    .source-badge[data-source='garmin_csv'] { background: #e8f4ff; color: #1769aa; }
     details { margin-top: 6px; }
     summary { cursor: pointer; color: #5267a8; font-size: 12px; font-weight: 700; }
     summary:focus-visible { outline: 3px solid #a8b9ef; outline-offset: 3px; border-radius: 4px; }
@@ -105,7 +106,8 @@ import {
   `],
 })
 export class ScoreBreakdownProvenanceComponent {
-  readonly breakdown = input.required<DailyScoreBreakdown>();
+  readonly breakdown = input<DailyScoreBreakdown | null>(null);
+  readonly sourceRecords = input<SourceRecordReference[] | null>(null);
 
   readonly hasWorkbookCells = hasWorkbookCells;
   readonly jsonLabel = jsonLabel;
@@ -114,4 +116,8 @@ export class ScoreBreakdownProvenanceComponent {
   readonly sourceRecordTitle = sourceRecordTitle;
   readonly workbookCells = workbookCells;
   readonly workbookHeader = workbookHeader;
+
+  visibleSourceRecords(): SourceRecordReference[] {
+    return this.sourceRecords() ?? this.breakdown()?.sourceRecords ?? [];
+  }
 }
