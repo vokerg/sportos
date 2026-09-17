@@ -3,8 +3,8 @@ import type { DynamicsDailyRow } from '@sportos/db';
 import { buildDynamicsResponse, buildRollingDynamicsResponse, rollingLookbackFrom } from './dynamics.contracts.js';
 
 const rows: DynamicsDailyRow[] = [
-  { metricDate: '2026-01-31', score: 100, steps: 1_000, run: 5_000, bike: 0, swim: 0, workout: 10, power: 0 },
-  { metricDate: '2026-02-02', score: 300, steps: 3_000, run: 0, bike: 20_000, swim: 500, workout: 0, power: 20 },
+  { metricDate: '2026-01-31', score: 100, steps: 1_000, run: 5_000, bike: 0, swim: 0, workout: 10, bonus: 0 },
+  { metricDate: '2026-02-02', score: 300, steps: 3_000, run: 0, bike: 20_000, swim: 500, workout: 0, bonus: 20 },
 ];
 
 describe('buildDynamicsResponse', () => {
@@ -43,9 +43,9 @@ describe('buildDynamicsResponse', () => {
 describe('buildRollingDynamicsResponse', () => {
   it('emits one point per calendar day and drops values on the exact expiry date', () => {
     const rollingRows: DynamicsDailyRow[] = [
-      { metricDate: '2026-01-01', score: 0, steps: 0, run: 42_195, bike: 0, swim: 0, workout: 0, power: 0 },
-      { metricDate: '2026-01-30', score: 0, steps: 0, run: 0, bike: 0, swim: 0, workout: 0, power: 0 },
-      { metricDate: '2026-01-31', score: 0, steps: 0, run: 0, bike: 0, swim: 0, workout: 0, power: 0 },
+      { metricDate: '2026-01-01', score: 0, steps: 0, run: 42_195, bike: 0, swim: 0, workout: 0, bonus: 0 },
+      { metricDate: '2026-01-30', score: 0, steps: 0, run: 0, bike: 0, swim: 0, workout: 0, bonus: 0 },
+      { metricDate: '2026-01-31', score: 0, steps: 0, run: 0, bike: 0, swim: 0, workout: 0, bonus: 0 },
     ];
     const result = buildRollingDynamicsResponse(rollingRows, {
       from: '2026-01-30', to: '2026-01-31', metric: 'run', windows: [30],

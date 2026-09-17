@@ -42,5 +42,5 @@ async function createAccount(db: TestDatabase, displayName: string): Promise<str
 }
 
 function dailyRow(metricDate: string, total: number) {
-  return { metric_date: metricDate, source_record_id: null, steps: 1_000, run_m: 5_000, bike_m: 0, swim_m: 0, workout_points: 0, power_points: 0, base_points: total, bonus_points: 0, total_points: total, excel_all_points: null, excel_row_hash: null };
+  return { metric_date: metricDate, source_record_id: null, steps: 1_000, run_m: 5_000, bike_m: 0, swim_m: 0, workout_points: 0, base_points: total, bonus_points: 0, total_points: total, excel_all_points: null, excel_row_hash: null };
 }

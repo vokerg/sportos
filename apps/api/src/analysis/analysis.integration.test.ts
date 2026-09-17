@@ -82,7 +82,6 @@ function dailyRow(total: number) {
     bike_m: 0,
     swim_m: 0,
     workout_points: 0,
-    power_points: 0,
     base_points: total,
     bonus_points: 0,
     total_points: total,

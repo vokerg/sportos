@@ -12,7 +12,7 @@ const baseRules: ScoringRule[] = [
 describe('reconcileScore', () => {
   it('identifies an exact total and exact formula component', () => {
     const row = reconcileScore({
-      facts: { metricDate: '2026-05-18', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 6000 },
+      facts: { metricDate: '2026-05-18', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: 6000 },
       activities: [],
       rules: baseRules,
       sourceComponents: [{ activityType: 'run', sourceColumn: 'run_to_s', importedPoints: 5000 }],
@@ -42,7 +42,7 @@ describe('reconcileScore', () => {
 
   it('explains a delta that is exactly the SportOS bonus excluded from Excel', () => {
     const row = reconcileScore({
-      facts: { metricDate: '2026-05-19', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 6000 },
+      facts: { metricDate: '2026-05-19', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: 6000 },
       activities: [{ activityDate: '2026-05-19', activityType: 'run', distanceM: 5000, durationS: 1499 }],
       rules: baseRules,
     });
@@ -70,7 +70,7 @@ describe('reconcileScore', () => {
       enabled: true,
     };
     const input = {
-      facts: { metricDate: '2026-05-20', steps: 1, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 1.4 },
+      facts: { metricDate: '2026-05-20', steps: 1, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: 1.4 },
       activities: [],
       rules: [roundingRule],
     };
@@ -86,7 +86,7 @@ describe('reconcileScore', () => {
 
   it('keeps mismatches unresolved and identifies only evidence-backed candidate rules', () => {
     const row = reconcileScore({
-      facts: { metricDate: '2026-05-21', steps: 0, runM: 0, bikeM: 1000, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 700 },
+      facts: { metricDate: '2026-05-21', steps: 0, runM: 0, bikeM: 1000, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: 700 },
       activities: [],
       rules: baseRules,
       sourceComponents: [
@@ -114,12 +114,12 @@ describe('reconcileScores', () => {
   it('produces deterministic status, magnitude, activity, and likely-rule groups', () => {
     const summary = reconcileScores([
       {
-        facts: { metricDate: '2026-05-22', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+        facts: { metricDate: '2026-05-22', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0 },
         activities: [],
         rules: baseRules,
       },
       {
-        facts: { metricDate: '2026-05-18', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 6000 },
+        facts: { metricDate: '2026-05-18', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: 6000 },
         activities: [],
         rules: baseRules,
       },
@@ -128,7 +128,7 @@ describe('reconcileScores', () => {
     expect(summary.policy).toEqual({
       defaultTolerance: 0,
       roundingToleranceRequiresExplicitSourceUnit: true,
-      bonusClassification: 'achievement_or_power_bonus',
+      bonusClassification: 'achievement_or_bonus',
       coefficientRounding: 'nearest_integer_per_rule',
     });
     expect(summary.counts).toEqual({ exact: 1, explained: 0, unresolved: 0, not_comparable: 1 });

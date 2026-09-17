@@ -14,7 +14,6 @@ export interface DailySummaryRow {
   bike_m: number;
   swim_m: number;
   workout_points: number;
-  power_points: number;
   base_points: number;
   bonus_points: number;
   total_points: number;
@@ -28,7 +27,7 @@ export interface DailySummaryRow {
   score_status: 'imported' | 'calculated' | 'manual';
 }
 
-export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'workout', 'power'] as const;
+export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'workout', 'bonus'] as const;
 export type DynamicsMetric = typeof DYNAMICS_METRICS[number];
 export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
 export type DynamicsMeasure = 'total' | 'recordedDayAverage';
@@ -127,7 +126,7 @@ export interface PerformanceEventDetail extends PerformanceEventRow {
 }
 
 export interface CanonicalExportBundle {
-  schemaVersion: 'sportos.canonical-export.v2';
+  schemaVersion: 'sportos.canonical-export.v3';
   generatedAt: string;
   dateRange: { from: string; to: string };
   rowCounts: { dailySummaries: number; activities: number; performanceEvents: number };
@@ -139,7 +138,7 @@ export interface CanonicalExportBundle {
 export type ImportBatchStatus = 'started' | 'parsed' | 'normalized' | 'scored' | 'failed';
 export type UploadWorkbookKind = 'my_sport' | 'run_db';
 export type ImportJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
-export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'power_bonus';
+export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
 export type RuleKind = 'coefficient' | 'achievement' | 'manual_points';
 export type ThresholdOperator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'exists';
 export type PointsMultiplier = 'completed_5k_blocks' | 'rounded_5k_blocks';

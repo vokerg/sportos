@@ -14,9 +14,8 @@ const header: DailyScoreBreakdownHeaderRow = {
   bikeM: 35_000,
   swimM: 1_000,
   workoutPoints: 8,
-  powerPoints: 7,
   baseTotal: 20,
-  bonusTotal: 5,
+  bonusPoints: 5,
   appTotal: 25,
   excelTotal: 24,
   sourceRecordId: '20000000-0000-4000-8000-000000000001',
@@ -82,7 +81,7 @@ describe('assembleDailyScoreBreakdown', () => {
       excelTotal: 24,
       delta: 1,
       baseTotal: 20,
-      bonusTotal: 5,
+      bonusPoints: 5,
       ledgerTotal: 25,
     });
     expect(result.scoreStatus).toBe('calculated');
@@ -173,6 +172,37 @@ describe('assembleDailyScoreBreakdown', () => {
     expect(result.date).toBe('2026-05-18');
     expect(result.ledger[0]?.rule?.validFrom).toBe('2026-01-01');
     expect(result.ledger[0]?.activity?.activityDate).toBe('2026-05-18');
+  });
+
+  it('presents retained historical manual bonus ledgers with the unified terminology', () => {
+    const result = assembleDailyScoreBreakdown(
+      header,
+      [ledgerRow({
+        ledgerPoints: 25,
+        ledgerReason: 'Power/extra-effort points: round(25 points × 1) = 25',
+        ledgerCalculation: {
+          activityType: 'power_bonus',
+          powerPoints: 25,
+          nested: ['power_bonus'],
+        },
+        ruleId: '50000000-0000-4000-8000-000000000001',
+        ruleCode: 'power.manual',
+        ruleName: 'Power/extra-effort points',
+        ruleActivityType: 'bonus',
+        ruleKind: 'manual_points',
+        ruleMetric: 'effort_points',
+        ruleValidFrom: '1900-01-01',
+        rulePriority: 60,
+        ruleEnabled: false,
+        ruleCreatedAt: new Date('2023-01-01T00:00:00.000Z'),
+      })],
+    );
+
+    expect(result.ledger[0]).toMatchObject({
+      reason: 'Manual bonus points: round(25 points × 1) = 25',
+      calculation: { activityType: 'bonus', bonusPoints: 25, nested: ['bonus'] },
+      rule: { code: 'bonus.manual', name: 'Manual bonus points' },
+    });
   });
 
   it('does not add stale manual distance to the source distance of a calculated day', () => {

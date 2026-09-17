@@ -37,10 +37,7 @@ export class DailyScoringRepository {
         ...input,
         runM: input.runIndoorM + input.runOutdoorM + runUnspecifiedM,
         bikeM: input.bikeIndoorM + input.bikeOutdoorM + bikeUnspecifiedM,
-        // The legacy power-points slot is the persisted manual bonus override.
-        // Manual authority uses it as the exact bonus total, while an explicit
-        // activity recalculation below clears it and derives bonuses from rules.
-        powerPoints: input.powerPoints,
+        bonusPoints: input.bonusPoints,
         excelAllPoints: optionalNumber(existing?.excel_all_points),
         excelRowHash: existing?.excel_row_hash ?? undefined,
       };
@@ -182,7 +179,7 @@ function manualActivities(
   appendDistance(rows, 'bike', 'unknown', input.bikeUnspecifiedM ?? 0);
   appendDistance(rows, 'swim', 'manual', input.swimM);
   if (input.workoutPoints > 0) rows.push({ activityType: 'workout', subtype: 'manual', effortPoints: input.workoutPoints });
-  if (input.powerPoints > 0) rows.push({ activityType: 'power_bonus', subtype: 'manual', effortPoints: input.powerPoints });
+  if (input.bonusPoints > 0) rows.push({ activityType: 'bonus', subtype: 'manual', effortPoints: input.bonusPoints });
 
   return rows.map((row, index) => ({
     source: 'manual' as const,
@@ -230,7 +227,6 @@ function factsFromDailyRow(
     bikeM: number(row.bike_m),
     swimM: number(row.swim_m),
     workoutPoints: number(row.workout_points),
-    powerPoints: number(row.power_points),
     excelAllPoints: optionalNumber(row.excel_all_points),
     excelRowHash: row.excel_row_hash ?? undefined,
   };
@@ -254,7 +250,7 @@ function factsFromDailyRow(
     workoutPoints: stored.workoutPoints,
     // Recalculation is an explicit return to activity/rule authority. A prior
     // manual bonus override must not be retained or added to achievements.
-    powerPoints: 0,
+    bonusPoints: 0,
     excelAllPoints: stored.excelAllPoints,
     excelRowHash: stored.excelRowHash,
   };

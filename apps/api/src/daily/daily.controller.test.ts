@@ -8,8 +8,8 @@ const response = {
   date: '2026-05-18',
   recomputedAt: '2026-05-18T12:00:00.000Z',
   scoreStatus: 'calculated',
-  facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
-  score: { appTotal: 0, excelTotal: null, delta: null, baseTotal: 0, bonusTotal: 0, ledgerTotal: 0 },
+  facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0 },
+  score: { appTotal: 0, excelTotal: null, delta: null, baseTotal: 0, bonusPoints: 0, ledgerTotal: 0 },
   sourceRecord: null,
   activities: [],
   sourceRecords: [],
@@ -105,7 +105,7 @@ describe('DailyController cockpit contracts', () => {
     const input = {
       steps: 1000, runIndoorM: 1000, runOutdoorM: 3000,
       runUnspecifiedM: 1000, bikeIndoorM: 500, bikeOutdoorM: 1000, bikeUnspecifiedM: 500, swimM: 750,
-      workoutPoints: 10, powerPoints: 5,
+      workoutPoints: 10, bonusPoints: 5,
     };
     service.saveManualFacts.mockResolvedValue({ ...response, scoreStatus: 'manual' });
 
@@ -117,10 +117,10 @@ describe('DailyController cockpit contracts', () => {
     const valid = {
       steps: 1000, runIndoorM: 1000, runOutdoorM: 3000,
       runUnspecifiedM: 1000, bikeIndoorM: 500, bikeOutdoorM: 1000, bikeUnspecifiedM: 500, swimM: 750,
-      workoutPoints: 10, powerPoints: 5,
+      workoutPoints: 10, bonusPoints: 5,
     };
     for (const input of [
-      { ...valid, powerPoints: undefined },
+      { ...valid, bonusPoints: undefined },
       { ...valid, ownerId: 'foreign' },
       { ...valid, steps: 1.5 },
       { ...valid, runM: 5000 },

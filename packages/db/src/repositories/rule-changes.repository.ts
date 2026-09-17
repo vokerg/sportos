@@ -85,6 +85,7 @@ export class RuleChangesRepository {
     const rows = await this.db
       .selectFrom('scoring_rules')
       .selectAll()
+      .where('code', '!=', 'power.manual')
       .orderBy('code', 'asc')
       .orderBy('version', 'desc')
       .execute();
@@ -114,11 +115,13 @@ export class RuleChangesRepository {
 
   async listPreviewDays(from: string, to: string): Promise<RulePreviewDay[]> {
     const dailyRows = await this.db
-      .selectFrom('daily_metrics')
-      .selectAll()
-      .where('metric_date', '>=', from)
-      .where('metric_date', '<=', to)
-      .orderBy('metric_date', 'asc')
+      .selectFrom('daily_metrics as dm')
+      .innerJoin('daily_score_snapshots as dss', 'dss.id', 'dm.score_snapshot_id')
+      .selectAll('dm')
+      .select('dss.facts_json as snapshotFacts')
+      .where('dm.metric_date', '>=', from)
+      .where('dm.metric_date', '<=', to)
+      .orderBy('dm.metric_date', 'asc')
       .execute();
     if (dailyRows.length === 0) return [];
 
@@ -149,7 +152,7 @@ export class RuleChangesRepository {
           bikeM: requiredNumber(row.bike_m),
           swimM: requiredNumber(row.swim_m),
           workoutPoints: requiredNumber(row.workout_points),
-          powerPoints: requiredNumber(row.power_points),
+          bonusPoints: snapshotBonusPoints(row.snapshotFacts),
           ...(row.score_status === 'manual' ? manualSubtypeFacts(dayActivities) : {}),
           excelAllPoints: optionalNumber(row.excel_all_points),
           excelRowHash: row.excel_row_hash ?? undefined,
@@ -428,11 +431,13 @@ export class RuleChangesRepository {
         .where('enabled', '=', true)
         .execute()).map(toRuleVersion);
       const dailyRows = await transaction
-        .selectFrom('daily_metrics')
-        .selectAll()
-        .where('metric_date', '>=', change.affected_from)
-        .where('metric_date', '<=', change.affected_to)
-        .orderBy('metric_date', 'asc')
+        .selectFrom('daily_metrics as dm')
+        .innerJoin('daily_score_snapshots as dss', 'dss.id', 'dm.score_snapshot_id')
+        .selectAll('dm')
+        .select('dss.facts_json as snapshotFacts')
+        .where('dm.metric_date', '>=', change.affected_from)
+        .where('dm.metric_date', '<=', change.affected_to)
+        .orderBy('dm.metric_date', 'asc')
         .execute();
       const dates = dailyRows.map((row) => dateString(row.metric_date));
       const activityRows = dates.length === 0 ? [] : await transaction
@@ -466,7 +471,7 @@ export class RuleChangesRepository {
           bikeM: requiredNumber(row.bike_m),
           swimM: requiredNumber(row.swim_m),
           workoutPoints: requiredNumber(row.workout_points),
-          powerPoints: requiredNumber(row.power_points),
+          bonusPoints: snapshotBonusPoints(row.snapshotFacts),
           ...(row.score_status === 'manual' ? manualSubtypeFacts(activitiesByDate.get(metricDate) ?? []) : {}),
           excelAllPoints: optionalNumber(row.excel_all_points),
           excelRowHash: row.excel_row_hash ?? undefined,
@@ -705,6 +710,13 @@ function manualSubtypeFacts(activities: ActivityFact[]): {
     if (activity.activityType === 'bike' && activity.subtype === 'unknown') facts.bikeUnspecifiedM += distanceM;
     return facts;
   }, { runIndoorM: 0, runOutdoorM: 0, runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0 });
+}
+
+function snapshotBonusPoints(value: Json): number {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Current daily score snapshot facts must be an object.');
+  }
+  return requiredNumber((value as Record<string, Json>).bonusPoints);
 }
 
 export class RuleChangeCancelledError extends Error {

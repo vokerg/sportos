@@ -84,7 +84,7 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
     ),
     { activityDate: facts.metricDate, activityType: 'swim', distanceM: facts.swimM },
     { activityDate: facts.metricDate, activityType: 'workout', effortPoints: facts.workoutPoints },
-    { activityDate: facts.metricDate, activityType: 'power_bonus', effortPoints: facts.powerPoints },
+    { activityDate: facts.metricDate, activityType: 'bonus', effortPoints: facts.bonusPoints },
   ] as ActivityFact[]).filter((activity) => !activityBackedTypes.has(activity.activityType as 'run' | 'bike'));
 
   // Daily aggregates drive coefficient/manual rules only. Achievement rules must
@@ -302,7 +302,7 @@ export function isRuleActiveForDate(rule: ScoringRule, isoDate: string): boolean
 }
 
 function classifyRule(rule: ScoringRule): 'base' | 'bonus' {
-  return rule.ruleKind === 'achievement' || rule.activityType === 'power_bonus' ? 'bonus' : 'base';
+  return rule.ruleKind === 'achievement' || rule.activityType === 'bonus' ? 'bonus' : 'base';
 }
 
 function evaluateThresholdValue(

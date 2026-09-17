@@ -61,7 +61,7 @@ export interface ScoreReconciliationSummary {
   policy: {
     defaultTolerance: 0;
     roundingToleranceRequiresExplicitSourceUnit: true;
-    bonusClassification: 'achievement_or_power_bonus';
+    bonusClassification: 'achievement_or_bonus';
     coefficientRounding: 'nearest_integer_per_rule';
   };
   counts: Record<ReconciliationStatus, number>;
@@ -83,7 +83,7 @@ export function reconcileScores(inputs: ScoreReconciliationInput[]): ScoreReconc
     policy: {
       defaultTolerance: 0,
       roundingToleranceRequiresExplicitSourceUnit: true,
-      bonusClassification: 'achievement_or_power_bonus',
+      bonusClassification: 'achievement_or_bonus',
       coefficientRounding: 'nearest_integer_per_rule',
     },
     counts: {

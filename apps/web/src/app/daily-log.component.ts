@@ -569,7 +569,7 @@ function blankQuickEntryRow(date: string): DailyQuickEntryGridRow {
     bikeUnspecifiedM: 0,
     swimM: 0,
     workoutPoints: 0,
-    powerPoints: 0,
+    bonusPoints: 0,
   };
 }
 
@@ -591,7 +591,7 @@ function quickEntryRowFromBreakdown(result: DailyScoreBreakdown): DailyQuickEntr
     bikeUnspecifiedM: result.facts.bikeUnspecifiedM ?? Math.max(result.facts.bikeM - bikeIndoorM - bikeOutdoorM, 0),
     swimM: result.facts.swimM,
     workoutPoints: result.facts.workoutPoints,
-    powerPoints: result.score.bonusTotal,
+    bonusPoints: result.score.bonusPoints,
     saving: false,
     refreshing: false,
     error: null,

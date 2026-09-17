@@ -13,7 +13,7 @@ const rules: ScoringRule[] = [
   { code: 'bike.km.default', name: 'Bike', activityType: 'bike', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 650, validFrom: '1900-01-01', priority: 30, enabled: true },
   { code: 'swim.m.default', name: 'Swim', activityType: 'swim', ruleKind: 'coefficient', metric: 'distance_m', coefficient: 7.5, validFrom: '1900-01-01', priority: 40, enabled: true },
   { code: 'workout.manual', name: 'Workout', activityType: 'workout', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 50, enabled: true },
-  { code: 'power.manual', name: 'Power', activityType: 'power_bonus', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 60, enabled: true },
+  { code: 'bonus.manual', name: 'Bonus', activityType: 'bonus', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 60, enabled: true },
   // Keep this committed fixture on its historical rule catalog. V115 preserves
   // these UUID-backed definitions as disabled history while replacing live rules.
   { code: 'run.5k.sub25.bonus', name: '5k under 25', activityType: 'run', ruleKind: 'achievement', metric: 'duration_s', thresholdOperator: 'lt', thresholdValue: 1500, thresholdUnit: 's', points: 1000, validFrom: '1900-01-01', priority: 70, enabled: true },
@@ -46,12 +46,12 @@ describe('fixture scoring reconciliation evidence', () => {
           rules,
         },
         {
-          facts: { metricDate: '2026-05-20', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 6000 },
+          facts: { metricDate: '2026-05-20', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: 6000 },
           activities: [{ activityDate: '2026-05-20', activityType: 'run', distanceM: 5000, durationS: 1499 }],
           rules,
         },
         {
-          facts: { metricDate: '2026-05-21', steps: 0, runM: 0, bikeM: 1000, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 700 },
+          facts: { metricDate: '2026-05-21', steps: 0, runM: 0, bikeM: 1000, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: 700 },
           activities: [],
           rules,
           sourceComponents: [{ activityType: 'bike', sourceColumn: 'bike_to_s', importedPoints: 700 }],

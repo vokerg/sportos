@@ -70,7 +70,7 @@ describe('sanitized XLSX fixture harness', () => {
         bikeOutdoorM: 20_000,
         swimM: 1_000,
         workoutPoints: 8,
-        powerPoints: 7,
+        bonusPoints: 7,
         excelAllPoints: 55_610,
       });
       expect(result.dailyMetrics[0]?.excelRowHash).toMatch(/^[a-f0-9]{64}$/);
@@ -81,7 +81,7 @@ describe('sanitized XLSX fixture harness', () => {
         bikeM: 0,
         swimM: 0,
         workoutPoints: 0,
-        powerPoints: 0,
+        bonusPoints: 0,
       });
       expect(result.dailyMetrics[1]?.excelAllPoints).toBeUndefined();
 
@@ -130,7 +130,7 @@ describe('sanitized XLSX fixture harness', () => {
           expect.objectContaining({ activityDate: '2026-05-18', activityType: 'hiit', effortPoints: 3 }),
           expect.objectContaining({ activityDate: '2026-05-18', activityType: 'swim', distanceM: 1_000 }),
           expect.objectContaining({ activityDate: '2026-05-18', activityType: 'workout', effortPoints: 8 }),
-          expect.objectContaining({ activityDate: '2026-05-18', activityType: 'power_bonus', effortPoints: 7 }),
+          expect.objectContaining({ activityDate: '2026-05-18', activityType: 'bonus', effortPoints: 7 }),
           expect.objectContaining({ activityDate: '2026-05-19', activityType: 'run', subtype: 'outdoor', distanceM: 1_500 }),
         ]),
       );

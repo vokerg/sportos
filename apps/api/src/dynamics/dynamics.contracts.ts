@@ -1,6 +1,6 @@
 import type { DynamicsDailyRow } from '@sportos/db';
 
-export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'workout', 'power'] as const;
+export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'workout', 'bonus'] as const;
 export type DynamicsMetric = typeof DYNAMICS_METRICS[number];
 export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
 export const ROLLING_WINDOWS = [10, 20, 30, 60, 365] as const;
@@ -72,7 +72,7 @@ export function buildDynamicsResponse(rows: DynamicsDailyRow[], query: DynamicsQ
     granularity: query.granularity,
     metrics: query.metrics,
     metricUnits: {
-      score: 'points', steps: 'steps', run: 'metres', bike: 'metres', swim: 'metres', workout: 'points', power: 'points',
+      score: 'points', steps: 'steps', run: 'metres', bike: 'metres', swim: 'metres', workout: 'points', bonus: 'points',
     },
     monthly: aggregate(rows, query.from, query.to, 'monthly', query.metrics),
     series: aggregate(rows, query.from, query.to, query.granularity, query.metrics),

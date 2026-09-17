@@ -9,7 +9,7 @@ export const ActivityTypeSchema = z.enum([
   'rowing',
   'sup',
   'hiit',
-  'power_bonus',
+  'bonus',
 ]);
 
 export const ActivitySubtypeSchema = z.enum([
@@ -65,7 +65,7 @@ export const DailyMetricInputSchema = z.object({
   bikeOutdoorM: z.number().nonnegative().optional(),
   swimM: z.number().default(0),
   workoutPoints: z.number().int().default(0),
-  powerPoints: z.number().int().default(0),
+  bonusPoints: z.number().int().default(0),
   excelAllPoints: z.number().optional(),
   excelRowHash: z.string().optional(),
 });

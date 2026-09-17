@@ -36,7 +36,6 @@ databaseDescribe('RuleChangeRunner database integration', () => {
         bike_m: 0,
         swim_m: 0,
         workout_points: 0,
-        power_points: 0,
         base_points: 2500,
         bonus_points: 0,
         total_points: 2500,

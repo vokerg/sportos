@@ -10,8 +10,8 @@ const response: DailyScoreBreakdown = {
   date: '2026-05-18',
   recomputedAt: '2026-05-18T12:00:00.000Z',
   scoreStatus: 'calculated',
-  facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
-  score: { appTotal: 0, excelTotal: null, delta: null, baseTotal: 0, bonusTotal: 0, ledgerTotal: 0 },
+  facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0 },
+  score: { appTotal: 0, excelTotal: null, delta: null, baseTotal: 0, bonusPoints: 0, ledgerTotal: 0 },
   sourceRecord: null,
   activities: [],
   sourceRecords: [],
@@ -65,7 +65,7 @@ describe('ScoreBreakdownApiService', () => {
     const input = {
       steps: 1000, runIndoorM: 1000, runOutdoorM: 3000,
       runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0, swimM: 0,
-      workoutPoints: 10, powerPoints: 5,
+      workoutPoints: 10, bonusPoints: 5,
     };
 
     service.saveManualFacts('2026/05?18', input).subscribe();

@@ -102,7 +102,7 @@ export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Shee
     const hiitValue = asNumber(row.hiit) ?? 0;
     const swimMeters = asNumber(row.swim) ?? 0;
     const workoutPoints = Math.round(asNumber(row.wototal) ?? 0);
-    const powerPoints = Math.round(asNumber(row.pow) ?? 0);
+    const bonusPoints = Math.round(asNumber(row.pow) ?? 0);
     const aggregateBikeKm = asNumber(row.bike) ?? bikeInKm + bikeOutKm;
     const aggregateRunKm = asNumber(row.run) ?? runInKm + runOutKm;
     const excelAllPoints = asNumber(row.all);
@@ -123,7 +123,7 @@ export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Shee
       bikeOutdoorM: bikeOutKm * 1000,
       swimM: swimMeters,
       workoutPoints,
-      powerPoints,
+      bonusPoints,
       excelAllPoints,
       excelRowHash: extract.rows.find((record) => record.sheetName === sheetName && record.rowIndex === i + 1)?.hash,
     });
@@ -150,7 +150,7 @@ export function parseMySportWorkbook(extract: WorkbookExtract, sheetName = 'Shee
     if (hiitValue > 0) activities.push({ source: 'my_sport_xlsx', activityDate, activityType: 'hiit', subtype: 'manual', effortPoints: Math.round(hiitValue), rawPayloadJson: basePayload });
     if (swimMeters > 0) activities.push({ source: 'my_sport_xlsx', activityDate, activityType: 'swim', subtype: 'manual', distanceM: swimMeters, rawPayloadJson: basePayload });
     if (workoutPoints > 0) activities.push({ source: 'my_sport_xlsx', activityDate, activityType: 'workout', subtype: 'manual', effortPoints: workoutPoints, rawPayloadJson: basePayload });
-    if (powerPoints > 0) activities.push({ source: 'my_sport_xlsx', activityDate, activityType: 'power_bonus', subtype: 'manual', effortPoints: powerPoints, rawPayloadJson: basePayload });
+    if (bonusPoints > 0) activities.push({ source: 'my_sport_xlsx', activityDate, activityType: 'bonus', subtype: 'manual', effortPoints: bonusPoints, rawPayloadJson: basePayload });
   }
 
   if (dailyMetrics.length === 0) {

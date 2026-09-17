@@ -18,7 +18,6 @@ const row: DailySummaryRow = {
   bike_m: 0,
   swim_m: 0,
   workout_points: 0,
-  power_points: 0,
   base_points: 20,
   bonus_points: 5,
   total_points: 25,

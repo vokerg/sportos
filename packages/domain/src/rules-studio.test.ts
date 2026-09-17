@@ -145,7 +145,7 @@ describe('Rules Studio domain contract', () => {
           bikeM: 0,
           swimM: 0,
           workoutPoints: 0,
-          powerPoints: 0,
+          bonusPoints: 0,
         },
         activities: [],
         currentBasePoints: 5000,
@@ -161,7 +161,7 @@ describe('Rules Studio domain contract', () => {
           bikeM: 0,
           swimM: 0,
           workoutPoints: 0,
-          powerPoints: 0,
+          bonusPoints: 0,
         },
         activities: [],
         currentBasePoints: 10000,
@@ -186,11 +186,11 @@ describe('Rules Studio domain contract', () => {
   it('honors an inclusive valid-to boundary', () => {
     const preview = previewRuleChange([
       {
-        facts: { metricDate: '2026-05-18', steps: 0, runM: 1000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+        facts: { metricDate: '2026-05-18', steps: 0, runM: 1000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0 },
         activities: [], currentBasePoints: 1000, currentBonusPoints: 0, currentTotalPoints: 1000, recomputedAt: 'x',
       },
       {
-        facts: { metricDate: '2026-05-19', steps: 0, runM: 1000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+        facts: { metricDate: '2026-05-19', steps: 0, runM: 1000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0 },
         activities: [], currentBasePoints: 1000, currentBonusPoints: 0, currentTotalPoints: 1000, recomputedAt: 'x',
       },
     ], [existingRule], { ...proposal, validTo: '2026-05-18' });
@@ -201,7 +201,7 @@ describe('Rules Studio domain contract', () => {
   it('leaves imported ledger rows unchanged during a rule preview', () => {
     const preview = previewRuleChange([
       {
-        facts: { metricDate: '2026-05-18', steps: 0, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 6000 },
+        facts: { metricDate: '2026-05-18', steps: 0, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: 6000 },
         activities: [],
         scoreStatus: 'imported',
         currentBasePoints: 6000,

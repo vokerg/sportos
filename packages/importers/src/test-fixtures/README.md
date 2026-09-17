@@ -9,7 +9,7 @@ The importer tests generate real `.xlsx` files at runtime with `xlsx` and read t
 `writeMySportFixture` creates:
 
 - `Sheet1` with every documented daily-ledger header;
-- valid rows covering steps, indoor/outdoor run and bike, SUP, rowing, HIIT, swim, workout points, power points, aggregate run/bike values, and imported `All` points;
+- valid rows covering steps, indoor/outdoor run and bike, SUP, rowing, HIIT, swim, workout points, bonus points, aggregate run/bike values, and imported `All` points;
 - cached formula values for aggregate bike, aggregate run, and `All`;
 - one row with a missing date;
 - one unknown column that must remain raw-only;

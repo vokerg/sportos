@@ -2,10 +2,11 @@
 
 ## Version
 
-The current export contract is `sportos.canonical-export.v2`. Version 2 adds
-the required daily `scoreStatus` field (`imported`, `calculated`, or `manual`)
-so a portable row identifies its current authority. Version 1 did not carry
-that field.
+The current export contract is `sportos.canonical-export.v3`. Version 3 removes
+the duplicate `powerPoints` daily field; `bonusPoints` is now the only exported
+bonus value. Version 2 added the required daily `scoreStatus` field
+(`imported`, `calculated`, or `manual`) so a portable row identifies its current
+authority. Version 1 did not carry that field.
 
 The primary format is one UTF-8 JSON document validated by `CanonicalExportBundleSchema` in `packages/shared/src/canonical-export.ts`. A future CSV or archive representation must preserve the same field meanings and declare a separate format/version when it cannot represent the JSON contract losslessly.
 
@@ -30,7 +31,7 @@ Both dates are required, real calendar dates, inclusive, and ordered. The local 
 
 ```json
 {
-  "schemaVersion": "sportos.canonical-export.v2",
+  "schemaVersion": "sportos.canonical-export.v3",
   "generatedAt": "2026-08-01T08:00:00.000Z",
   "dateRange": {
     "from": "2026-05-01",
@@ -70,7 +71,7 @@ Every exported row has one strict provenance object:
 
 Each daily row contains:
 
-- canonical facts: `steps`, `runM`, `bikeM`, `swimM`, `workoutPoints`, `powerPoints`;
+- canonical facts: `steps`, `runM`, `bikeM`, `swimM`, `workoutPoints`;
 - persisted official totals: `basePoints`, `bonusPoints`, `totalPoints`;
 - spreadsheet comparison: `excelAllPoints`, `pointsDeltaVsExcel`, and `reconciliationStatus`;
 - persisted rolling summaries: `avg10d`, `avg20d`, `avg30d`, `avg60d`, `avg365d`;
