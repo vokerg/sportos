@@ -40,7 +40,7 @@ The run ladder is universal rather than tied to named race distances. For exampl
 
 V117 versions the bike achievement rule with a bounded 0.1 km/h tolerance around the 20 km/h target. A 19.90 km/h ride qualifies; a 19.89 km/h ride does not. It atomically recomputes calculated rows and retains the strict V114 rule UUID and ledger history. Imported and manually authoritative rows remain untouched until their normal explicit authority transition.
 
-V118 makes bonus points the single live concept. It migrates canonical bonus activities, replaces the enabled manual rule with `bonus.manual`, normalizes current snapshot facts to `bonusPoints`, removes `daily_metrics.power_points`, and retains the disabled `power.manual` UUID only where historical ledgers already reference it.
+V118 makes bonus points the single live concept. It migrates canonical bonus activities, reclassifies each imported manual bonus from the base component into the bonus component without changing the authoritative total, replaces the enabled manual rule with `bonus.manual`, normalizes current snapshot facts to `bonusPoints`, removes `daily_metrics.power_points`, and retains the disabled `power.manual` UUID only where historical ledgers already reference it.
 
 ## Spreadsheet component evidence
 

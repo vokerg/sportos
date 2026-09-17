@@ -14,7 +14,7 @@ const rules: ScoringRule[] = [
 ];
 
 describe('scoreDay', () => {
-  it('keeps an imported workbook ledger total intact without calculated bonuses', () => {
+  it('keeps an imported workbook ledger total intact while classifying its recorded bonus', () => {
     const result = scoreFromImportedLedger({
       metricDate: '2026-05-18',
       steps: 1000,
@@ -22,11 +22,11 @@ describe('scoreDay', () => {
       bikeM: 0,
       swimM: 0,
       workoutPoints: 0,
-      bonusPoints: 0,
+      bonusPoints: 1000,
       excelAllPoints: 6000,
     });
 
-    expect(result).toMatchObject({ basePoints: 6000, bonusPoints: 0, totalPoints: 6000 });
+    expect(result).toMatchObject({ basePoints: 5000, bonusPoints: 1000, totalPoints: 6000 });
     expect(result.ledger).toEqual([{
       metricDate: '2026-05-18',
       points: 6000,
@@ -74,6 +74,12 @@ describe('scoreDay', () => {
     expect(() => scoreFromImportedLedger({
       metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: -1,
     })).toThrow(/finite, non-negative integer/);
+  });
+
+  it('rejects an imported bonus that cannot be a component of All', () => {
+    expect(() => scoreFromImportedLedger({
+      metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 6001, excelAllPoints: 6000,
+    })).toThrow(/no greater than All/);
   });
 
   it('scores deterministic base points and classifies manual and achievement entries as bonuses', () => {

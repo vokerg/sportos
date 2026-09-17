@@ -25,6 +25,45 @@ UPDATE scoring_rules
 SET enabled = false
 WHERE code = 'power.manual' AND enabled;
 
+-- Imported workbook totals were authoritative, but their recorded manual bonus
+-- was historically left inside base_points. Reclassify that component without
+-- changing a single total so bonus_points has one meaning for every authority
+-- state and Dynamics no longer mixes zeroed imports with calculated bonuses.
+ALTER TABLE daily_metrics DROP CONSTRAINT chk_daily_metrics_imported_score_authority;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM daily_metrics
+    WHERE score_status = 'imported'
+      AND power_points > total_points
+  ) THEN
+    RAISE EXCEPTION 'imported manual bonus cannot exceed the authoritative total';
+  END IF;
+END $$;
+
+UPDATE daily_metrics
+SET
+  base_points = total_points - power_points,
+  bonus_points = power_points
+WHERE score_status = 'imported';
+
+ALTER TABLE daily_metrics
+  ADD CONSTRAINT chk_daily_metrics_imported_score_authority
+  CHECK (
+    score_status <> 'imported'
+    OR (
+      excel_all_points IS NOT NULL
+      AND excel_all_points >= 0
+      AND excel_all_points = trunc(excel_all_points)
+      AND base_points >= 0
+      AND bonus_points >= 0
+      AND base_points + bonus_points = excel_all_points
+      AND total_points = excel_all_points
+    )
+  );
+
 INSERT INTO scoring_rules (
   owner_id, code, version, supersedes_rule_id, name, activity_type, rule_kind,
   metric, coefficient, threshold_operator, threshold_value, threshold_unit,
@@ -185,5 +224,12 @@ BEGIN
     WHERE snapshot.id IS NULL OR NOT (snapshot.facts_json ? 'bonusPoints')
   ) THEN
     RAISE EXCEPTION 'every current daily score must reference normalized bonus facts';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM daily_metrics
+    WHERE base_points + bonus_points <> total_points
+  ) THEN
+    RAISE EXCEPTION 'daily base and bonus components must preserve every total';
   END IF;
 END $$;
