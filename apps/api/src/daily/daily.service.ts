@@ -1,11 +1,13 @@
 import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
 import {
   CockpitRepository,
+  type DailyEvidenceReadModel,
   DailyRepository,
   DailyScoringRepository,
   LEGACY_ACCOUNT_ID,
   ScoreBreakdownContractError,
   parseDailyScoreBreakdown,
+  parseDailyEvidence,
   type DailyScoreBreakdown,
   type DailyScoreBreakdownReadModel,
   type DailySummaryQuery,
@@ -23,6 +25,25 @@ export class DailyService {
 
   manualFacts(input: DailySummaryQuery, accountId = LEGACY_ACCOUNT_ID) {
     return this.dbProvider.withAccount(accountId, (db) => new DailyRepository(db).listManualDailyFacts(input));
+  }
+
+  async evidence(metricDate: string, accountId = LEGACY_ACCOUNT_ID): Promise<DailyEvidenceReadModel> {
+    const result = await this.dbProvider.withAccount(
+      accountId,
+      (db) => new DailyRepository(db).getDailyEvidence(metricDate),
+    );
+    try {
+      return parseDailyEvidence(result);
+    } catch (error) {
+      if (error instanceof ScoreBreakdownContractError) {
+        throw new InternalServerErrorException({
+          code: 'DAILY_EVIDENCE_INCONSISTENT',
+          message: 'The dated source evidence failed consistency checks.',
+          date: metricDate,
+        });
+      }
+      throw error;
+    }
   }
 
   async scoreBreakdown(metricDate: string, accountId = LEGACY_ACCOUNT_ID): Promise<DailyScoreBreakdown | null> {

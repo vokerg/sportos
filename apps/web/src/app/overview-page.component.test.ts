@@ -18,7 +18,7 @@ const breakdown: DailyScoreBreakdown = {
   date: row.metric_date, recomputedAt: '2026-09-11T12:00:00.000Z', scoreStatus: 'manual',
   facts: { steps: row.steps, runM: row.run_m, bikeM: row.bike_m, swimM: 0, workoutPoints: 0 },
   score: { appTotal: row.total_points, excelTotal: null, delta: null, baseTotal: row.base_points, bonusPoints: row.bonus_points, ledgerTotal: row.total_points },
-  sourceRecord: null, activities: [], sourceRecords: [], ledger: [],
+  sourceRecord: null, activities: [], garminObservations: [], sourceRecords: [], ledger: [],
 };
 
 describe('OverviewPageComponent', () => {

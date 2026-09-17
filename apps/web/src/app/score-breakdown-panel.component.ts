@@ -1,10 +1,13 @@
 import { Component, input, output, signal } from '@angular/core';
 import { ScoreBreakdownActivitiesComponent } from './score-breakdown-activities.component';
 import { ScoreBreakdownFactsComponent } from './score-breakdown-facts.component';
+import { ScoreBreakdownGarminComponent } from './score-breakdown-garmin.component';
 import { ScoreBreakdownLedgerComponent } from './score-breakdown-ledger.component';
 import { ScoreBreakdownManualFactsComponent } from './score-breakdown-manual-facts.component';
 import type {
   DailyScoreBreakdown,
+  DailyEvidence,
+  GarminObservation,
   ManualDailyFactsInput,
   ScoreBreakdownViewState,
 } from './score-breakdown.models';
@@ -19,6 +22,7 @@ import { formatScoreDate } from './score-breakdown.view-model';
   imports: [
     ScoreBreakdownActivitiesComponent,
     ScoreBreakdownFactsComponent,
+    ScoreBreakdownGarminComponent,
     ScoreBreakdownLedgerComponent,
     ScoreBreakdownManualFactsComponent,
     ScoreBreakdownProvenanceComponent,
@@ -35,7 +39,7 @@ import { formatScoreDate } from './score-breakdown.view-model';
         <div>
           <div class="eyebrow">Score explanation</div>
           <h3 [id]="headingId">{{ date() ? 'Daily score · ' + formatScoreDate(date()) : 'Daily score breakdown' }}</h3>
-          <p class="panel-subtitle">Imported workbook ledgers, calculated activity totals, and manual fact sets are kept as explicit authority states.</p>
+          <p class="panel-subtitle">Scores, canonical facts, activities, and dated source evidence are shown with their authority kept explicit.</p>
         </div>
         @if (date()) {
           <button type="button" class="secondary-button" aria-label="Close score breakdown" (click)="closed.emit()">
@@ -92,11 +96,18 @@ import { formatScoreDate } from './score-breakdown.view-model';
 
         <sportos-score-breakdown-source-summary [breakdown]="current" />
 
+        <sportos-score-breakdown-garmin [observations]="current.garminObservations" />
+
         <sportos-score-breakdown-activities [breakdown]="current" />
 
         <sportos-score-breakdown-provenance [breakdown]="current" />
 
         <sportos-score-breakdown-ledger [breakdown]="current" />
+      }
+
+      @if (!current && visibleGarminObservations().length > 0) {
+        <sportos-score-breakdown-garmin [observations]="visibleGarminObservations()" />
+        <sportos-score-breakdown-provenance [sourceRecords]="evidence()?.sourceRecords ?? []" />
       }
 
       <sportos-score-breakdown-manual-facts
@@ -160,6 +171,7 @@ export class ScoreBreakdownPanelComponent {
   readonly state = input<ScoreBreakdownViewState>('idle');
   readonly date = input<string | null>(null);
   readonly breakdown = input<DailyScoreBreakdown | null>(null);
+  readonly evidence = input<DailyEvidence | null>(null);
   readonly errorMessage = input<string | null>(null);
   readonly recalculating = input(false);
   readonly recalculationError = input<string | null>(null);
@@ -175,6 +187,10 @@ export class ScoreBreakdownPanelComponent {
   readonly localManualEditRequestId = signal(0);
   readonly headingId = 'daily-score-breakdown-heading';
   readonly formatScoreDate = formatScoreDate;
+
+  visibleGarminObservations(): GarminObservation[] {
+    return this.breakdown()?.garminObservations ?? this.evidence()?.garminObservations ?? [];
+  }
 
   requestManualEdit(): void {
     this.localManualEditRequestId.update((value) => value + 1);

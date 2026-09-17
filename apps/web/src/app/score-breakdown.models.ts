@@ -84,6 +84,28 @@ export interface ScoreBreakdownLedgerEntry {
   activity: ScoreBreakdownActivity | null;
 }
 
+export type GarminReportType =
+  | 'daily_summary'
+  | 'steps_weekly'
+  | 'calories_weekly'
+  | 'floors_weekly'
+  | 'weight_body_composition';
+
+export interface GarminObservation {
+  id: string;
+  reportType: GarminReportType;
+  recordedDate: string;
+  recordedTime: string | null;
+  values: JsonValue;
+  sourceRecord: SourceRecordReference;
+}
+
+export interface DailyEvidence {
+  date: string;
+  garminObservations: GarminObservation[];
+  sourceRecords: SourceRecordReference[];
+}
+
 export interface DailyScoreBreakdown {
   date: string;
   recomputedAt: string;
@@ -111,6 +133,7 @@ export interface DailyScoreBreakdown {
   };
   sourceRecord: SourceRecordReference | null;
   activities: ScoreBreakdownActivity[];
+  garminObservations: GarminObservation[];
   sourceRecords: SourceRecordReference[];
   ledger: ScoreBreakdownLedgerEntry[];
 }

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import type { DailyScoreBreakdown, ManualDailyFactsInput, ManualDailyFactsRow } from './score-breakdown.models';
+import type { DailyEvidence, DailyScoreBreakdown, ManualDailyFactsInput, ManualDailyFactsRow } from './score-breakdown.models';
 
 @Injectable({ providedIn: 'root' })
 export class ScoreBreakdownApiService {
@@ -13,6 +13,12 @@ export class ScoreBreakdownApiService {
   getForDate(date: string) {
     return this.http.get<DailyScoreBreakdown>(
       `${this.api.apiBase()}/daily/${encodeURIComponent(date)}/score-breakdown`,
+    );
+  }
+
+  getEvidence(date: string) {
+    return this.http.get<DailyEvidence>(
+      `${this.api.apiBase()}/daily/${encodeURIComponent(date)}/evidence`,
     );
   }
 

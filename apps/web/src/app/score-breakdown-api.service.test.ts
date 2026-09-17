@@ -14,6 +14,7 @@ const response: DailyScoreBreakdown = {
   score: { appTotal: 0, excelTotal: null, delta: null, baseTotal: 0, bonusPoints: 0, ledgerTotal: 0 },
   sourceRecord: null,
   activities: [],
+  garminObservations: [],
   sourceRecords: [],
   ledger: [],
 };
@@ -44,6 +45,19 @@ describe('ScoreBreakdownApiService', () => {
 
     expect(get).toHaveBeenCalledWith('http://sportos.test/daily/2026%2F05%3F18/score-breakdown');
     expect(received).toEqual(response);
+  });
+
+  it('requests date-scoped evidence independently of a persisted score', () => {
+    const evidence = { date: response.date, garminObservations: [], sourceRecords: [] };
+    const get = vi.fn().mockReturnValue(of(evidence));
+    const service = new ScoreBreakdownApiService(
+      { get } as unknown as HttpClient,
+      { apiBase: signal('http://sportos.test') } as unknown as ApiService,
+    );
+
+    service.getEvidence('2026/05?18').subscribe();
+
+    expect(get).toHaveBeenCalledWith('http://sportos.test/daily/2026%2F05%3F18/evidence');
   });
 
   it('posts an explicit recalculation request for the encoded date', () => {

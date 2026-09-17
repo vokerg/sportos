@@ -29,6 +29,7 @@ const breakdown: DailyScoreBreakdown = {
   score: { appTotal: 25, excelTotal: null, delta: null, baseTotal: 20, bonusPoints: 5, ledgerTotal: 25 },
   sourceRecord: null,
   activities: [],
+  garminObservations: [],
   sourceRecords: [],
   ledger: [],
 };

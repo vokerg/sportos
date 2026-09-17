@@ -12,16 +12,17 @@ const response = {
   score: { appTotal: 0, excelTotal: null, delta: null, baseTotal: 0, bonusPoints: 0, ledgerTotal: 0 },
   sourceRecord: null,
   activities: [],
+  garminObservations: [],
   sourceRecords: [],
   ledger: [],
 };
 
 describe('DailyController cockpit contracts', () => {
-  let service: { summary: ReturnType<typeof vi.fn>; manualFacts: ReturnType<typeof vi.fn>; scoreBreakdown: ReturnType<typeof vi.fn>; recalculateFromActivities: ReturnType<typeof vi.fn>; saveManualFacts: ReturnType<typeof vi.fn> };
+  let service: { summary: ReturnType<typeof vi.fn>; manualFacts: ReturnType<typeof vi.fn>; evidence: ReturnType<typeof vi.fn>; scoreBreakdown: ReturnType<typeof vi.fn>; recalculateFromActivities: ReturnType<typeof vi.fn>; saveManualFacts: ReturnType<typeof vi.fn> };
   let controller: DailyController;
 
   beforeEach(() => {
-    service = { summary: vi.fn(), manualFacts: vi.fn(), scoreBreakdown: vi.fn(), recalculateFromActivities: vi.fn(), saveManualFacts: vi.fn() };
+    service = { summary: vi.fn(), manualFacts: vi.fn(), evidence: vi.fn(), scoreBreakdown: vi.fn(), recalculateFromActivities: vi.fn(), saveManualFacts: vi.fn() };
     controller = new DailyController(service as unknown as DailyService);
   });
 
@@ -55,6 +56,15 @@ describe('DailyController cockpit contracts', () => {
     service.scoreBreakdown.mockResolvedValue(response);
     await expect(controller.scoreBreakdown('2026-05-18')).resolves.toEqual(response);
     expect(service.scoreBreakdown).toHaveBeenCalledWith('2026-05-18', LEGACY_ACCOUNT_ID);
+  });
+
+  it('returns dated evidence even when no score row exists', async () => {
+    const evidence = { date: '2026-05-18', garminObservations: [], sourceRecords: [] };
+    service.evidence.mockResolvedValue(evidence);
+
+    await expect(controller.evidence('2026-05-18')).resolves.toEqual(evidence);
+    expect(service.evidence).toHaveBeenCalledWith('2026-05-18', LEGACY_ACCOUNT_ID);
+    expect(() => controller.evidence('2026-02-29')).toThrow(BadRequestException);
   });
 
   it('rejects malformed and impossible calendar dates without querying the database', async () => {

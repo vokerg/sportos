@@ -7,6 +7,7 @@ import { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import { ScoreBreakdownPanelComponent } from './score-breakdown-panel.component';
 import type {
   ApiErrorBody,
+  DailyEvidence,
   DailyScoreBreakdown,
   ManualDailyFactsInput,
   ScoreBreakdownViewState,
@@ -40,6 +41,7 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
       [state]="state()"
       [date]="date()"
       [breakdown]="breakdown()"
+      [evidence]="evidence()"
       [errorMessage]="errorMessage()"
       [recalculating]="recalculating()"
       [recalculationError]="recalculationError()"
@@ -70,6 +72,7 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
   readonly date = signal<string | null>(null);
   readonly state = signal<ScoreBreakdownViewState>('loading');
   readonly breakdown = signal<DailyScoreBreakdown | null>(null);
+  readonly evidence = signal<DailyEvidence | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly recalculating = signal(false);
   readonly recalculationError = signal<string | null>(null);
@@ -85,6 +88,7 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
 
   private routeSubscription?: Subscription;
   private requestSubscription?: Subscription;
+  private evidenceSubscription?: Subscription;
   private providerSubscription?: Subscription;
   private stravaRefreshSubscription?: Subscription;
   private stravaPollTimer?: ReturnType<typeof setTimeout>;
@@ -111,6 +115,7 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.routeSubscription?.unsubscribe();
     this.requestSubscription?.unsubscribe();
+    this.evidenceSubscription?.unsubscribe();
     this.providerSubscription?.unsubscribe();
     this.clearStravaRefresh();
   }
@@ -174,6 +179,7 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
     this.requestSubscription?.unsubscribe();
     this.state.set('loading');
     this.breakdown.set(null);
+    this.evidence.set(null);
     this.errorMessage.set(null);
     this.recalculationError.set(null);
     this.manualSaveError.set(null);
@@ -186,15 +192,26 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
         }
       },
       error: (error: unknown) => {
-        if (this.isMissing(error) && this.route.snapshot.queryParamMap.get('edit') === 'true') {
+        if (this.isMissing(error)) {
           this.breakdown.set(null);
           this.state.set('loaded');
-          this.manualEditRequestId.update((value) => value + 1);
+          this.loadEvidence(date);
+          if (this.route.snapshot.queryParamMap.get('edit') === 'true') {
+            this.manualEditRequestId.update((value) => value + 1);
+          }
           return;
         }
         this.errorMessage.set(this.describe(error, 'The score breakdown could not be loaded.'));
         this.state.set('error');
       },
+    });
+  }
+
+  private loadEvidence(date: string): void {
+    this.evidenceSubscription?.unsubscribe();
+    this.evidenceSubscription = this.api.getEvidence(date).subscribe({
+      next: (result) => this.evidence.set(result),
+      error: () => this.evidence.set(null),
     });
   }
 

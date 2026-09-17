@@ -6,6 +6,25 @@ function csv(value: string, filename = 'garmin.csv') {
 }
 
 describe('readGarminCsvBuffer', () => {
+  it('parses exact date-level Garmin summaries', () => {
+    const extract = csv([
+      'date,steps,distance_km,total_calories',
+      '2026-05-16,36390,26.6,3318',
+      '2026-05-17,34466,28.1,3491',
+    ].join('\n'));
+
+    expect(extract).toMatchObject({
+      reportType: 'daily_summary',
+      observations: [
+        { identityKey: '2026-05-16', recordedDate: '2026-05-16', recordedTime: null,
+          values: { steps: 36_390, distanceKm: 26.6, totalCalories: 3318 }, sourceRowIndex: 2 },
+        { identityKey: '2026-05-17', recordedDate: '2026-05-17', recordedTime: null,
+          values: { steps: 34_466, distanceKm: 28.1, totalCalories: 3491 }, sourceRowIndex: 3 },
+      ],
+      warnings: [],
+    });
+  });
+
   it('parses BOM-prefixed weekly steps and keeps overlapping-row identities independent of filenames', () => {
     const first = csv('\uFEFF,Actual\r\n27/09/2019,78736\r\n04/10/2019,90059\r\n', 'first.csv');
     const overlap = csv('\uFEFF,Actual\n04/10/2019,90059\n11/10/2019,55041\n', 'overlap.csv');

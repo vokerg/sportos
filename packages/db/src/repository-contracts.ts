@@ -155,6 +155,28 @@ export interface ScoreBreakdownLedgerEntryReadModel {
   activity: ScoreBreakdownActivityReadModel | null;
 }
 
+export type GarminReportTypeReadModel =
+  | 'daily_summary'
+  | 'steps_weekly'
+  | 'calories_weekly'
+  | 'floors_weekly'
+  | 'weight_body_composition';
+
+export interface GarminObservationReadModel {
+  id: string;
+  reportType: GarminReportTypeReadModel;
+  recordedDate: string;
+  recordedTime: string | null;
+  values: Json;
+  sourceRecord: SourceRecordReferenceReadModel;
+}
+
+export interface DailyEvidenceReadModel {
+  date: string;
+  garminObservations: GarminObservationReadModel[];
+  sourceRecords: SourceRecordReferenceReadModel[];
+}
+
 export interface DailyScoreBreakdownReadModel {
   date: string;
   recomputedAt: string;
@@ -182,6 +204,7 @@ export interface DailyScoreBreakdownReadModel {
   };
   sourceRecord: SourceRecordReferenceReadModel | null;
   activities: ScoreBreakdownActivityReadModel[];
+  garminObservations: GarminObservationReadModel[];
   sourceRecords: SourceRecordReferenceReadModel[];
   ledger: ScoreBreakdownLedgerEntryReadModel[];
 }

@@ -131,7 +131,7 @@ export interface SourceRecordsTable {
 export interface GarminObservationsTable {
   id: Generated<string>;
   owner_id: OwnerId;
-  report_type: 'steps_weekly' | 'calories_weekly' | 'floors_weekly' | 'weight_body_composition';
+  report_type: 'daily_summary' | 'steps_weekly' | 'calories_weekly' | 'floors_weekly' | 'weight_body_composition';
   identity_key: string;
   recorded_date: DateString;
   recorded_time: string | null;
