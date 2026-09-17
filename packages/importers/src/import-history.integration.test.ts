@@ -107,6 +107,7 @@ async function resetImportTables(db: TestDatabase): Promise<void> {
   await db.deleteFrom('daily_metrics').execute();
   await db.deleteFrom('performance_events').execute();
   await db.deleteFrom('activities').execute();
+  await db.deleteFrom('garmin_observations').execute();
   await db.deleteFrom('source_records').execute();
   await db.deleteFrom('import_batches').execute();
 }

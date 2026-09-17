@@ -33,6 +33,16 @@ describe('LocalUploadStorage', () => {
     await expect(storage.read(stored.objectKey)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  it('stores Garmin CSV bytes with an opaque CSV object key', async () => {
+    const storage = await createStorage();
+    const bytes = Buffer.from(',Actual\n27/09/2019,78736\n');
+
+    const stored = await storage.store({ uploadId, sha256, bytes, extension: 'csv' });
+
+    expect(stored).toEqual({ provider: 'local', objectKey: `ab/${uploadId}.csv` });
+    await expect(storage.read(stored.objectKey)).resolves.toEqual(bytes);
+  });
+
   it('rejects traversal, absolute paths, and malformed object keys', async () => {
     const storage = await createStorage();
 

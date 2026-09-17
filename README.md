@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The current schema is defined through Flyway V118, and the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The current schema is defined through Flyway V119, and the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -11,6 +11,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Upload supported `my_sport` and running-performance XLSX workbooks from the browser.
 - Validate file type, ZIP signature, workbook readability, filename, and a 20 MB size limit before queuing work.
 - Keep uploaded bytes outside Postgres behind a replaceable storage contract.
+- Upload supported Garmin CSV reports manually, retain raw rows, and converge overlapping observations in account-scoped staging without changing activities or scores.
 - Process imports through durable Postgres-backed jobs with leases, progress, retries, cancellation, and stale recovery.
 - Retain raw workbook rows before normalization and link them to canonical activities, daily metrics, and performance events.
 - Re-import identical data transactionally and idempotently without duplicating canonical facts.
@@ -89,7 +90,7 @@ OIDC provider -> opaque API session + CSRF
         +----------------+-------------------+
         |                                    |
         v                                    v
-browser XLSX -> upload storage       Strava OAuth -> encrypted credentials
+browser XLSX/CSV -> upload storage   Strava OAuth -> encrypted credentials
         |                                    |
         v                                    v
    import_jobs                       provider_sync_jobs
@@ -131,7 +132,7 @@ browser XLSX -> upload storage       Strava OAuth -> encrypted credentials
                    canonical export + Angular cockpit
 ```
 
-Postgres is authoritative for accounts, external identities, sessions, ownership, provider metadata, encrypted credential envelopes, synchronization cursors, job leases, audit history, provenance, canonical facts, rule versions, official current scores, append-only score snapshots, and analysis-run metadata. Uploaded workbook bytes remain outside Postgres. Generated guidance is non-authoritative and cannot calculate or persist official scores.
+Postgres is authoritative for accounts, external identities, sessions, ownership, provider metadata, encrypted credential envelopes, synchronization cursors, job leases, audit history, provenance, overlap-safe Garmin staging, canonical facts, rule versions, official current scores, append-only score snapshots, and analysis-run metadata. Uploaded source bytes remain outside Postgres. Generated guidance is non-authoritative and cannot calculate or persist official scores.
 
 The runtime uses separate non-superuser database identities:
 
@@ -255,7 +256,7 @@ After authentication, the Angular cockpit provides:
 - **Run Lab** — performance rankings, bounded event search, event detail, and provenance.
 - **Rules** — current rule versions, read-only preview, activation, recomputation progress, retry, and cancellation.
 - **Providers** — Strava connection, backfill, incremental sync, status, retry, cancellation, disconnect, and provenance.
-- **Imports** — browser upload, durable job status, history, diagnostics, retry, cancellation, and reconciliation handoff.
+- **Imports** — XLSX and manual Garmin CSV upload, durable job status, history, diagnostics, retry, cancellation, and reconciliation handoff. Garmin CSVs are staging-only and never trigger score recalculation.
 - **Export** — bounded canonical JSON export with deterministic ordering and explicit provenance.
 
 The browser renders API truth only. It never receives provider tokens, selects an owner, normalizes canonical facts, computes official scores, or treats generated guidance as authoritative.
@@ -341,7 +342,7 @@ All unsafe authenticated routes require `X-SportOS-CSRF`. The API validates real
 | `apps/worker` | Queue dispatch plus owner-scoped import, provider, and rule workers; legacy CLI |
 | `packages/domain` | Pure deterministic scoring, reconciliation, rule validation, and preview logic |
 | `packages/db` | Kysely schema, account context, repositories, jobs, audits, read models, and export assembly |
-| `packages/importers` | Upload storage, XLSX extraction, provider contracts, normalization, warnings, and import transactions |
+| `packages/importers` | Upload storage, XLSX/Garmin CSV extraction, provider contracts, normalization, warnings, and import transactions |
 | `packages/shared` | Shared schemas, serialization, real-date utilities, and export contracts |
 | `packages/analytics` | Pure analytics without database dependencies |
 | `flyway/sql` | Append-only schema migrations, constraints, RLS, grants, views, indexes, and privilege assertions |
@@ -380,7 +381,7 @@ SPORTOS_TEST_DATABASE_URL=postgresql://sportos_legacy:<password>@<test-project>.
   pnpm --filter @sportos/importers test:integration
 ```
 
-CI covers frozen installation, fresh migration through V118, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, imported-ledger authority, unified bonus authority, manual canonical facts, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
+CI covers frozen installation, fresh migration through V119, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, overlap-safe manual Garmin staging, imported-ledger authority, unified bonus authority, manual canonical facts, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
 
 The CI workflow expects dedicated Neon test branches and these repository secrets:
 `SPORTOS_CI_FLYWAY_URL`, `SPORTOS_CI_FLYWAY_USER`,
@@ -398,7 +399,7 @@ set before treating the database invariants as validated.
 
 The completed roadmap is a strong local and account-scoped foundation, not a finished hosted service. Work not yet implemented includes:
 
-- Garmin, Google Sheets, FIT, or additional provider synchronization;
+- Garmin API synchronization, Google Sheets, FIT, or additional provider synchronization;
 - operational provider-webhook subscription verification and inbox processing;
 - a broader cross-provider time-zone and locale policy;
 - hosted object deletion, backup, restoration, and account-erasure workflows;

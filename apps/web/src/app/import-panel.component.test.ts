@@ -172,7 +172,7 @@ describe('ImportPanelComponent', () => {
 
     expect(api.uploadWorkbook).not.toHaveBeenCalled();
     expect(component.importState()).toBe('error');
-    expect(component.importMessage()).toContain('Choose an XLSX workbook');
+    expect(component.importMessage()).toContain('Choose a supported import file');
   });
 
   it('requests cooperative cancellation for a running job', () => {

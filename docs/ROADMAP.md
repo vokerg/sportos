@@ -14,9 +14,9 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Defined through V118 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Defined through V119 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
-| Browser upload/storage | Validated and account scoped | hosted storage backup and erasure |
+| Browser upload/storage | Validated and account scoped for XLSX and manual Garmin CSV staging | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
 | Deterministic scoring | Validated and account scoped; imported workbook ledgers remain authoritative, while calculated run achievements use the universal highest-tier pace ladder per completed 5 km | additional semantics only when evidence justifies them |
 | Rules Studio | Validated with authenticated actor identity | hosted-scale recomputation |
@@ -42,6 +42,7 @@ Delivered:
 - explicit scoring units, rounding, thresholds, priorities, effective dates, and base/bonus semantics;
 - imported workbook `All` authority with visible imported/calculated/manual row status, append-only score snapshots, explicit Strava-backed recalculation, focused manual entry, and Excel-like bulk quick entry over the same canonical save path;
 - machine-readable exact/explained/unresolved evidence.
+- manual Garmin CSV upload with raw provenance, exact-file deduplication, overlap-safe staging, and no scoring side effects.
 
 The detailed evidence is maintained in [FIRST_MILESTONE.md](FIRST_MILESTONE.md).
 
@@ -131,6 +132,7 @@ Each PR must identify the milestone or operational exit criterion it advances an
 - [ADR 0005](adr/0005-authentication-and-data-ownership.md) — identity, sessions, database ownership, and worker context.
 - [ADR 0006](adr/0006-provider-ingestion-and-strava.md) — provider adapters, encrypted credentials, durable synchronization, provenance, and cross-source identity.
 - [ADR 0007](adr/0007-read-only-ai-analysis.md) — read tools, deterministic calculations, generated-answer validation, audit, and UI separation.
+- [ADR 0009](adr/0009-manual-garmin-csv-staging.md) — manual Garmin CSV upload, raw retention, overlap-safe staging identity, and canonical isolation.
 - [Canonical export v1](CANONICAL_EXPORT.md) — versioned canonical datasets, stable ordering, reconciliation, provenance states, and privacy exclusions.
 
 See [ADR 0008](adr/0008-imported-ledger-authority-and-explicit-recalculation.md) for imported ledger authority, append-only score history, and explicit activity-based recalculation.

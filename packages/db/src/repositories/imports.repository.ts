@@ -79,7 +79,7 @@ export interface ImportBatchDetailReadModel {
 
 export interface NormalizedSourceRecordLink {
   sourceRecordId: string;
-  entityType: 'daily_metric' | 'performance_event' | 'activity';
+  entityType: 'daily_metric' | 'performance_event' | 'activity' | 'garmin_observation';
   entityId: string;
 }
 

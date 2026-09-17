@@ -13,7 +13,7 @@ OIDC provider -> opaque API session + CSRF
         +----------------+-------------------+
         |                                    |
         v                                    v
-browser XLSX -> upload storage       Strava OAuth -> encrypted credential envelope
+browser XLSX/CSV -> upload storage   Strava OAuth -> encrypted credential envelope
         |                                    |
         v                                    v
    import_jobs                       provider_sync_jobs
@@ -139,6 +139,7 @@ See [ADR 0005](adr/0005-authentication-and-data-ownership.md), [ADR 0007](adr/00
 - V116 preserves the strict V115 pace rules as disabled immutable versions, adds explicit `rounded_5k_blocks` semantics, activates inclusive favourably rounded pace-rule versions, atomically recomputes non-imported affected scores, and records both raw and rounded eligibility inputs in the ledger.
 - V117 preserves the strict V114 bike rule as a disabled immutable version, accepts a bounded 0.1 km/h tolerance around the 20 km/h target, and atomically recomputes calculated affected scores with the replacement rule UUID.
 - V118 makes `bonus_points` the sole current daily bonus value, reclassifies imported manual bonuses without changing their authoritative totals, migrates canonical bonus activities and current snapshot facts, versions the manual bonus rule, and removes the duplicate `power_points` column.
+- V119 adds manual Garmin CSV as an upload kind plus owner-scoped `garmin_observations`, forced RLS, same-owner raw provenance, overlap-safe identities, and dispatcher privilege assertions. It does not change canonical or score tables.
 
 Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance. Analysis adds audit metadata only and does not rewrite canonical or scoring rows.
 
@@ -153,6 +154,20 @@ Existing upload, batch, source-record, canonical, performance-event, rule, audit
 `import_jobs` persists owner/upload/batch links, phase, progress, attempts, lease state, cancellation, result, and sanitized errors.
 
 The dispatcher claims a job with `FOR UPDATE SKIP LOCKED` and returns the persisted owner. The worker-data executor establishes that owner before reading/writing account data. The transactional importer uses one account-bound connection; progress/cancellation callbacks use separate short owner-scoped connections so they do not deadlock the importer transaction.
+
+### Manual Garmin CSV staging
+
+Garmin CSV imports reuse the upload and import-job path. Exact files deduplicate
+by account, import kind, and SHA-256. Known report rows are retained in
+`source_records` before an account-scoped `garmin_observations` projection is
+upserted by report type and source date. Weight observations also include a
+normalized measurement fingerprint because the source can contain distinct
+measurements in the same minute. Identical overlaps remain unchanged; corrected
+weekly values replace only the current staging projection while all raw versions
+remain linked and inspectable.
+
+Garmin staging does not write canonical activities, daily metrics, score ledgers,
+or score snapshots. See [ADR 0009](adr/0009-manual-garmin-csv-staging.md).
 
 ### Provider connections and credentials
 
@@ -300,7 +315,7 @@ The generator boundary is provider-neutral. The deterministic fallback is the de
 | `packages/shared` | serialization schemas, real-date utilities, canonical export contract |
 | `packages/domain` | pure aggregation, scoring, reconciliation, rule validation, preview logic |
 | `packages/db` | identity/session/provider/analysis-audit persistence, account context, typed schema, RLS-compatible repositories, dispatcher, leases, audits, reads, export assembly |
-| `packages/importers` | storage, XLSX extraction, provider adapter/cipher contracts, normalization, warnings, import transactions |
+| `packages/importers` | storage, XLSX/Garmin CSV extraction, provider adapter/cipher contracts, normalization, warnings, import transactions |
 | `packages/analytics` | pure analytics without database dependencies |
 | `flyway/sql` | append-only migrations, grants, ownership constraints, RLS, views, indexes, privilege assertions |
 

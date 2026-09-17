@@ -2,6 +2,7 @@ import { scoreDay, scoreFromImportedLedger, type ActivityFact } from '@sportos/d
 import { rowHash } from '@sportos/shared';
 import {
   DailyRepository,
+  GarminRepository,
   ImportsRepository,
   PerformanceRepository,
   ScoringRepository,
@@ -15,6 +16,7 @@ import {
   type NewSourceRecord,
   type SourceRecord,
 } from '@sportos/db';
+import type { GarminCsvExtract, GarminCsvRawRow } from './garmin-csv.js';
 import { parseMySportWorkbook } from './my-sport.importer.js';
 import { parseRunDbWorkbook } from './run-db.importer.js';
 import { readWorkbook, type WorkbookExtract, type WorkbookRow } from './xlsx-reader.js';
@@ -24,32 +26,36 @@ export interface ImportLocalFilesInput {
   runDbPath?: string;
 }
 
-export type ImportWorkbookKind = 'my_sport' | 'run_db';
+export type ImportWorkbookKind = 'my_sport' | 'run_db' | 'garmin_csv';
 
-export interface ImportWorkbookInput {
-  workbookKind: ImportWorkbookKind;
-  extract: WorkbookExtract;
-  uploadId?: string;
-}
+export type ImportWorkbookInput =
+  | { workbookKind: 'my_sport'; extract: WorkbookExtract; uploadId?: string }
+  | { workbookKind: 'run_db'; extract: WorkbookExtract; uploadId?: string }
+  | { workbookKind: 'garmin_csv'; extract: GarminCsvExtract; uploadId?: string };
 
 export interface ImportLocalFilesResult {
   batches: { id: string; filename: string | null; source: string }[];
   dailyRows: number;
   activities: number;
   performanceEvents: number;
+  garminObservations: number;
+  garminInserted: number;
+  garminUnchanged: number;
+  garminUpdated: number;
   warnings: string[];
 }
 
 export type ImportFailurePhase =
   | 'transaction-started'
   | 'raw-stored'
+  | 'staging-written'
   | 'canonical-written'
   | 'daily-scored'
   | 'batch-finalized';
 
 export interface ImportPhaseContext {
   batchId: string;
-  source: 'my_sport_xlsx' | 'run_db_xlsx';
+  source: 'my_sport_xlsx' | 'run_db_xlsx' | 'garmin_csv';
 }
 
 export interface ImportServiceOptions {
@@ -81,10 +87,114 @@ export class ImportService {
     const result = emptyResult();
     if (input.workbookKind === 'my_sport') {
       await this.importMySportWorkbook(input.extract, result, input.uploadId);
-    } else {
+    } else if (input.workbookKind === 'run_db') {
       await this.importRunDbWorkbook(input.extract, result, input.uploadId);
+    } else {
+      await this.importGarminCsv(input.extract, result, input.uploadId);
     }
     return result;
+  }
+
+  private async importGarminCsv(
+    extract: GarminCsvExtract,
+    result: ImportLocalFilesResult,
+    uploadId?: string,
+  ): Promise<void> {
+    const batch = await this.importsRepo.createBatch({
+      source: 'garmin_csv',
+      sourceKind: 'garmin',
+      filename: extract.filename,
+      originalSha256: extract.sha256,
+      metadata: { reportType: extract.reportType, ...(uploadId ? { uploadId } : {}) },
+    });
+    if (uploadId) await this.uploadsRepo.linkBatch(uploadId, batch.id);
+    result.batches.push({ id: batch.id, filename: batch.filename, source: batch.source });
+
+    let phase: ImportFailurePhase = 'transaction-started';
+    let normalizedCount = 0;
+    const warningCount = extract.warnings.length;
+
+    try {
+      const committed = await this.db.transaction().execute(async (transaction) => {
+        const importsRepo = new ImportsRepository(transaction);
+        const garminRepo = new GarminRepository(transaction);
+
+        await this.injectFailure(phase, { batchId: batch.id, source: 'garmin_csv' });
+        const sourceRecords = await this.storeGarminRawRows(importsRepo, batch.id, extract.rows, extract.reportType);
+        const recordsByRow = new Map(sourceRecords.flatMap((record) =>
+          record.row_index === null ? [] : [[record.row_index, record] as const]));
+        phase = 'raw-stored';
+        await this.injectFailure(phase, { batchId: batch.id, source: 'garmin_csv' });
+        await importsRepo.updateBatchCounts(
+          batch.id,
+          { row_count: extract.rows.length, status: 'parsed' },
+          'garmin-csv-parsed',
+        );
+
+        await importsRepo.setAffectedDates(batch.id, [...new Set(extract.observations.map((item) => item.recordedDate))]);
+        await importsRepo.recordDiagnostics(batch.id, extract.warnings.map((warning) => ({
+          severity: 'warning',
+          code: warning.code,
+          message: warning.message,
+          phase: 'parse',
+          sheetName: extract.reportType,
+          rowIndex: warning.rowIndex,
+          sourceRecordId: recordsByRow.get(warning.rowIndex)?.id ?? null,
+        })));
+
+        let inserted = 0;
+        let unchanged = 0;
+        let updated = 0;
+        const links: Array<{ sourceRecordId: string; entityType: 'garmin_observation'; entityId: string }> = [];
+        for (const item of extract.observations) {
+          const sourceRecord = recordsByRow.get(item.sourceRowIndex);
+          if (!sourceRecord) throw new Error(`No raw Garmin source record found for row ${item.sourceRowIndex}.`);
+          const upserted = await garminRepo.upsertObservation({
+            reportType: item.reportType,
+            identityKey: item.identityKey,
+            recordedDate: item.recordedDate,
+            recordedTime: item.recordedTime,
+            values: item.values,
+            valueHash: item.valueHash,
+            sourceRecordId: sourceRecord.id,
+          });
+          if (upserted.outcome === 'inserted') inserted += 1;
+          else if (upserted.outcome === 'updated') updated += 1;
+          else unchanged += 1;
+          links.push({
+            sourceRecordId: sourceRecord.id,
+            entityType: 'garmin_observation',
+            entityId: upserted.observation.id,
+          });
+        }
+        await importsRepo.markRecordsNormalized(links);
+        normalizedCount = links.length;
+        phase = 'staging-written';
+        await this.injectFailure(phase, { batchId: batch.id, source: 'garmin_csv' });
+        await importsRepo.updateBatchCounts(batch.id, {
+          row_count: extract.rows.length,
+          normalized_count: normalizedCount,
+          warning_count: warningCount,
+          status: 'normalized',
+        }, 'garmin-staging-written');
+        phase = 'batch-finalized';
+        await this.injectFailure(phase, { batchId: batch.id, source: 'garmin_csv' });
+        return { inserted, unchanged, updated };
+      });
+
+      result.garminObservations += normalizedCount;
+      result.garminInserted += committed.inserted;
+      result.garminUnchanged += committed.unchanged;
+      result.garminUpdated += committed.updated;
+      result.warnings.push(...extract.warnings.map((warning) => `Row ${warning.rowIndex}: ${warning.message}`));
+    } catch (error) {
+      await this.importsRepo.markBatchFailed(batch.id, {
+        phase,
+        error,
+        attemptedCounts: { rowCount: extract.rows.length, normalizedCount, warningCount },
+      });
+      throw error;
+    }
   }
 
   private async importMySportWorkbook(
@@ -385,6 +495,26 @@ export class ImportService {
     return importsRepo.insertSourceRecords(records);
   }
 
+  private async storeGarminRawRows(
+    importsRepo: ImportsRepository,
+    batchId: string,
+    rows: GarminCsvRawRow[],
+    reportType: GarminCsvExtract['reportType'],
+  ): Promise<SourceRecord[]> {
+    return importsRepo.insertSourceRecords(rows.map((row): NewSourceRecord => ({
+      import_batch_id: batchId,
+      source: 'garmin_csv',
+      sheet_name: reportType,
+      row_index: row.rowIndex,
+      source_record_key: `csv:${row.rowIndex}`,
+      row_hash: row.rowHash,
+      raw_json: toJson({ cells: row.cells, contextDate: row.contextDate }),
+      status: 'raw',
+      errors: [],
+      warnings: [],
+    })));
+  }
+
   private async injectFailure(phase: ImportFailurePhase, context: ImportPhaseContext): Promise<void> {
     await this.options.failureInjector?.(phase, context);
   }
@@ -396,6 +526,10 @@ function emptyResult(): ImportLocalFilesResult {
     dailyRows: 0,
     activities: 0,
     performanceEvents: 0,
+    garminObservations: 0,
+    garminInserted: 0,
+    garminUnchanged: 0,
+    garminUpdated: 0,
     warnings: [],
   };
 }

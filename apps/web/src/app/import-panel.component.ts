@@ -36,7 +36,7 @@ import {
       <div class="section-heading">
         <div>
           <h2>Imports</h2>
-          <p class="help">Upload a supported XLSX workbook, then follow its durable worker job, batch, affected dates, and row diagnostics.</p>
+          <p class="help">Upload a supported workbook or Garmin CSV, then follow its durable job, provenance batch, affected dates, and row diagnostics.</p>
         </div>
       </div>
 
@@ -138,7 +138,7 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
     const file = this.selectedFile;
     if (!file) {
       this.importState.set('error');
-      this.importMessage.set('Choose an XLSX workbook before starting the import.');
+      this.importMessage.set('Choose a supported import file before starting the import.');
       return;
     }
 

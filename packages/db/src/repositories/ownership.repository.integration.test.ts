@@ -187,6 +187,7 @@ async function cleanupOwner(db: TestDatabase, accountId: string): Promise<void> 
     await ownerDb.deleteFrom('performance_events').execute();
     await ownerDb.deleteFrom('daily_metrics').execute();
     await ownerDb.deleteFrom('activities').execute();
+    await ownerDb.deleteFrom('garmin_observations').execute();
     await ownerDb.deleteFrom('source_records').execute();
     await ownerDb.deleteFrom('import_batches').execute();
     await ownerDb.deleteFrom('uploaded_files').execute();

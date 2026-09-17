@@ -1,4 +1,4 @@
-import { readWorkbookBuffer } from '@sportos/importers';
+import { readGarminCsvBuffer, readWorkbookBuffer } from '@sportos/importers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_WORKBOOK_UPLOAD_BYTES,
@@ -9,9 +9,16 @@ import {
 
 vi.mock('@sportos/importers', () => ({
   readWorkbookBuffer: vi.fn(),
+  readGarminCsvBuffer: vi.fn(),
+  GarminCsvError: class GarminCsvError extends Error {
+    constructor(readonly code: string, message: string) {
+      super(message);
+    }
+  },
 }));
 
 const mockedReadWorkbookBuffer = vi.mocked(readWorkbookBuffer);
+const mockedReadGarminCsvBuffer = vi.mocked(readGarminCsvBuffer);
 
 function file(overrides: Partial<MultipartWorkbookFile> = {}): MultipartWorkbookFile {
   return {
@@ -25,12 +32,21 @@ function file(overrides: Partial<MultipartWorkbookFile> = {}): MultipartWorkbook
 
 beforeEach(() => {
   mockedReadWorkbookBuffer.mockReset();
+  mockedReadGarminCsvBuffer.mockReset();
   mockedReadWorkbookBuffer.mockImplementation((bytes, filename) => ({
     filename,
     sha256: 'ab'.repeat(32),
     sheetNames: ['Sheet1'],
     rows: [],
     workbook: { SheetNames: ['Sheet1'], Sheets: {} },
+  } as never));
+  mockedReadGarminCsvBuffer.mockImplementation((bytes, filename) => ({
+    filename,
+    sha256: 'cd'.repeat(32),
+    reportType: 'steps_weekly',
+    rows: [],
+    observations: [],
+    warnings: [],
   } as never));
 });
 
@@ -72,5 +88,24 @@ describe('validateWorkbookUpload', () => {
     expect(() => validateWorkbookUpload(file(), 'run_db')).toThrow(
       expect.objectContaining<Partial<WorkbookUploadError>>({ code: 'INVALID_XLSX' }),
     );
+  });
+
+  it('accepts a supported Garmin CSV without treating it as an XLSX ZIP', () => {
+    const input = file({
+      originalname: '../private/steps.csv',
+      mimetype: 'text/csv',
+      buffer: Buffer.from(',Actual\n27/09/2019,78736\n'),
+    });
+
+    const result = validateWorkbookUpload(input, 'garmin_csv');
+
+    expect(result).toMatchObject({
+      workbookKind: 'garmin_csv',
+      originalFilename: 'steps.csv',
+      sanitizedFilename: 'steps.csv',
+      sha256: 'cd'.repeat(32),
+    });
+    expect(mockedReadGarminCsvBuffer).toHaveBeenCalledWith(input.buffer, 'steps.csv');
+    expect(mockedReadWorkbookBuffer).not.toHaveBeenCalled();
   });
 });

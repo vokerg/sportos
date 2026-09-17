@@ -8,7 +8,7 @@ export interface ImportJobReadModel {
   uploadId: string;
   batchId: string | null;
   filename: string;
-  workbookKind: 'my_sport' | 'run_db';
+  workbookKind: 'my_sport' | 'run_db' | 'garmin_csv';
   uploadStatus: Database['uploaded_files']['status'];
   status: ImportJobStatus;
   phase: string;
@@ -29,7 +29,7 @@ export interface ClaimedImportJob {
   uploadId: string;
   objectKey: string;
   filename: string;
-  workbookKind: 'my_sport' | 'run_db';
+  workbookKind: 'my_sport' | 'run_db' | 'garmin_csv';
   sha256: string;
   attemptCount: number;
   maxAttempts: number;

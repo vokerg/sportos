@@ -37,7 +37,7 @@ export interface UploadWorkbookResponse {
   upload: {
     id: string;
     filename: string;
-    workbookKind: 'my_sport' | 'run_db';
+    workbookKind: 'my_sport' | 'run_db' | 'garmin_csv';
     byteSize: number;
     sha256: string;
     status: 'stored';
@@ -93,6 +93,7 @@ export class ImportsService {
           uploadId,
           sha256: validated.sha256,
           bytes: validated.bytes,
+          extension: validated.workbookKind === 'garmin_csv' ? 'csv' : 'xlsx',
         });
         objectKey = stored.objectKey;
         await uploadsRepo.create({

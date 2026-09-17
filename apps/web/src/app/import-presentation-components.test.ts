@@ -48,6 +48,7 @@ describe('import presentation components', () => {
     expect(kinds).toEqual(['run_db']);
     expect(files).toEqual([selectedFile]);
     expect(upload.uploadProgress()).toBeNull();
+    expect(upload.acceptedFileTypes()).toContain('.xlsx');
     injector.destroy();
   });
 

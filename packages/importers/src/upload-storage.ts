@@ -5,6 +5,7 @@ export interface StoreUploadInput {
   uploadId: string;
   sha256: string;
   bytes: Uint8Array;
+  extension?: 'xlsx' | 'csv';
 }
 
 export interface StoredUploadObject {
@@ -18,7 +19,7 @@ export abstract class UploadStorage {
   abstract delete(objectKey: string): Promise<void>;
 }
 
-const OBJECT_KEY_PATTERN = /^[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.xlsx$/i;
+const OBJECT_KEY_PATTERN = /^[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:xlsx|csv)$/i;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class LocalUploadStorage extends UploadStorage {
@@ -33,7 +34,7 @@ export class LocalUploadStorage extends UploadStorage {
     if (!/^[0-9a-f]{64}$/.test(input.sha256)) throw new Error('Upload SHA-256 must be lowercase hexadecimal.');
     if (!UUID_PATTERN.test(input.uploadId)) throw new Error('Upload id must be a UUID.');
 
-    const objectKey = `${input.sha256.slice(0, 2)}/${input.uploadId}.xlsx`;
+    const objectKey = `${input.sha256.slice(0, 2)}/${input.uploadId}.${input.extension ?? 'xlsx'}`;
     const target = this.objectPath(objectKey);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, input.bytes, { flag: 'wx', mode: 0o600 });
