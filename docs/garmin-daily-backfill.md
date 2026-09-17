@@ -33,10 +33,21 @@ Garmin's Account Information page also offers a one-day wellness FIT ZIP export,
    `date,steps,distance_km,total_calories`
 
 6. Verify dates are unique and contiguous before importing.
-7. Upload the CSV as `garmin_csv`. It is parsed as `daily_summary`, retained with raw-row provenance, and shown on the matching Daily Log date. It intentionally does not change canonical facts or scores yet.
+7. Upload the CSV as `garmin_csv`. It is parsed as `daily_summary`, retained with raw-row provenance, and shown on the matching Daily Log date. Import remains staging-only; an explicit daily recalculation applies it.
+
+## Step recalculation semantics
+
+- A positive manual step fact is authoritative and can only be changed by another manual edit.
+- Positive imported or unattributed legacy steps are preserved conservatively.
+- Setting steps to zero manually unlocks Garmin resolution on the next recalculation.
+- Garmin `daily_summary.steps` is an all-day total. SportOS subtracts estimated steps from every Strava run on that date so running is not scored twice.
+- Strava running `average_cadence` values such as `89.2` are normalized to total foot strikes (`178.4 spm`). Estimated run steps are normalized cadence multiplied by moving minutes.
+- When cadence is absent, SportOS interpolates a bounded pace-based fallback calibrated to `186 spm` at `4:00/km`, `178 spm` at `5:00/km`, and `172 spm` at `5:39/km`.
+- The final canonical step fact is `max(Garmin total − estimated running steps, 0)`. Each run estimate and its cadence source are persisted in the score snapshot and shown in the Daily Log explanation.
 
 ## Verification
 
 - Import result should report one Garmin observation per data row and zero warnings.
 - Check a few dates through `GET /daily/YYYY-MM-DD/evidence` or the Daily Log UI.
 - A daily observation should be labeled **Daily summary** and show exact Steps, Distance, and Total calories.
+- After recalculation, the Steps fact should show the Garmin equation and a per-run cadence deduction. Manual/imported step facts should remain unchanged.

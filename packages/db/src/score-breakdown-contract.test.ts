@@ -70,6 +70,30 @@ describe('daily score breakdown runtime contract', () => {
     ).toBeNull();
   });
 
+  it('accepts a consistent Garmin running-step deduction and rejects a mismatched result', () => {
+    const stepsCalculation = {
+      source: 'garmin_adjusted' as const,
+      resolvedSteps: 2_701,
+      garminTotalSteps: 15_000,
+      estimatedRunningSteps: 12_299,
+      runs: [
+        { movingTimeS: 2_400, cadenceSpm: 186, cadenceSource: 'strava_cadence' as const, estimatedSteps: 7_440 },
+        { movingTimeS: 1_695, cadenceSpm: 172, cadenceSource: 'strava_cadence' as const, estimatedSteps: 4_859 },
+      ],
+      unestimatedRunCount: 0,
+    };
+    const response = {
+      ...validResponse,
+      facts: { ...validResponse.facts, steps: 2_701, stepsCalculation },
+    };
+
+    expect(parseDailyScoreBreakdown(response).facts.stepsCalculation).toEqual(stepsCalculation);
+    expect(() => parseDailyScoreBreakdown({
+      ...response,
+      facts: { ...response.facts, stepsCalculation: { ...stepsCalculation, resolvedSteps: 2_700 } },
+    })).toThrow(ScoreBreakdownContractError);
+  });
+
   it('accepts dated Garmin evidence and rejects observations assigned to another day', () => {
     const sourceRecord = {
       id: '20000000-0000-4000-8000-000000000001',

@@ -8,6 +8,8 @@ import type {
   DailyScoreInput,
   DailyScoreSnapshotTrigger,
   DailyScoreStatus,
+  DailyRunStepCalculation,
+  DailyStepsCalculation,
   GarminObservationReadModel,
   ScoreBreakdownActivityReadModel,
   ScoreBreakdownLedgerEntryReadModel,
@@ -29,6 +31,7 @@ export interface DailyScoreBreakdownHeaderRow {
   bonusPoints: number;
   appTotal: number;
   excelTotal: number | null;
+  snapshotFacts?: Json | null;
   sourceRecordId: string | null;
   sourceRowHash: string | null;
   sourceSheetName: string | null;
@@ -47,6 +50,8 @@ export interface DailyScoreBreakdownHeaderRow {
   sourceNormalizedEntityType?: string | null;
   sourceNormalizedEntityId?: string | null;
 }
+
+export type ScoringActivityRow = Activity & { sourceRawJson: Json | null };
 
 export interface DailyScoreBreakdownLedgerRow {
   ledgerId: string;
@@ -185,15 +190,32 @@ export class DailyRepository {
     return upserted;
   }
 
-  async listActivitiesForDates(metricDates: string[]): Promise<Activity[]> {
+  async listActivitiesForDates(metricDates: string[]): Promise<ScoringActivityRow[]> {
     if (metricDates.length === 0) return [];
     return this.db
-      .selectFrom('activities')
-      .selectAll()
-      .where('activity_date', 'in', metricDates)
-      .orderBy('activity_date', 'asc')
-      .orderBy('id', 'asc')
-      .execute();
+      .selectFrom('activities as activity')
+      .leftJoin('source_records as source', 'source.id', 'activity.source_record_id')
+      .selectAll('activity')
+      .select('source.raw_json as sourceRawJson')
+      .where('activity.activity_date', 'in', metricDates)
+      .orderBy('activity.activity_date', 'asc')
+      .orderBy('activity.id', 'asc')
+      .execute() as unknown as Promise<ScoringActivityRow[]>;
+  }
+
+  async getGarminDailySteps(metricDate: string): Promise<number | null> {
+    const row = await this.db
+      .selectFrom('garmin_observations')
+      .select('values_json')
+      .where('report_type', '=', 'daily_summary')
+      .where('recorded_date', '=', metricDate)
+      .executeTakeFirst();
+    if (!row) return null;
+    const steps = jsonRecord(row.values_json).steps;
+    if (typeof steps !== 'number' || !Number.isSafeInteger(steps) || steps < 0) {
+      throw new Error(`Garmin daily steps are invalid for ${metricDate}.`);
+    }
+    return steps;
   }
 
   async upsertDailyMetric(
@@ -351,6 +373,7 @@ export class DailyRepository {
   async getDailyScoreBreakdown(metricDate: string): Promise<DailyScoreBreakdownReadModel | null> {
     const header = await this.db
       .selectFrom('daily_metrics as dm')
+      .leftJoin('daily_score_snapshots as dss', 'dss.id', 'dm.score_snapshot_id')
       .leftJoin('source_records as dsr', 'dsr.id', 'dm.source_record_id')
       .leftJoin('import_batches as dib', 'dib.id', 'dsr.import_batch_id')
       .select([
@@ -366,6 +389,7 @@ export class DailyRepository {
         'dm.bonus_points as bonusPoints',
         'dm.total_points as appTotal',
         'dm.excel_all_points as excelTotal',
+        'dss.facts_json as snapshotFacts',
         'dsr.id as sourceRecordId',
         'dsr.row_hash as sourceRowHash',
         'dsr.sheet_name as sourceSheetName',
@@ -594,12 +618,14 @@ export function assembleDailyScoreBreakdown(
     ...garminRows.map((row) => mapGarminSourceRecord(row)),
   ]);
   const ledgerTotal = ledger.reduce((sum, entry) => sum + entry.points, 0);
+  const stepsCalculation = stepsCalculationFromSnapshot(header.snapshotFacts);
   return {
     date: toIsoDate(header.date),
     recomputedAt: toIsoTimestamp(header.recomputedAt),
     scoreStatus: header.scoreStatus,
     facts: {
       steps: databaseNumber(header.steps, 'daily steps'),
+      ...(stepsCalculation ? { stepsCalculation } : {}),
       runM: databaseNumber(header.runM, 'daily run distance'),
       bikeM: databaseNumber(header.bikeM, 'daily bike distance'),
       swimM: databaseNumber(header.swimM, 'daily swim distance'),
@@ -893,6 +919,43 @@ function jsonRecord(value: Json | null): Record<string, unknown> {
 
 function finiteSnapshotNumber(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+export function stepsCalculationFromSnapshot(value: Json | null | undefined): DailyStepsCalculation | null {
+  const candidate = jsonRecord(jsonRecord(value ?? null).stepsCalculation as Json | null);
+  const sources: DailyStepsCalculation['source'][] = ['manual', 'imported', 'garmin_adjusted', 'stored', 'none'];
+  if (!sources.includes(candidate.source as DailyStepsCalculation['source'])) return null;
+  if (typeof candidate.resolvedSteps !== 'number' || !Number.isSafeInteger(candidate.resolvedSteps) || candidate.resolvedSteps < 0) return null;
+
+  const runs = Array.isArray(candidate.runs)
+    ? candidate.runs.flatMap((value) => {
+      const run = jsonRecord(value as Json);
+      if (
+        typeof run.movingTimeS !== 'number' || !Number.isFinite(run.movingTimeS) || run.movingTimeS <= 0 ||
+        typeof run.cadenceSpm !== 'number' || !Number.isFinite(run.cadenceSpm) || run.cadenceSpm <= 0 ||
+        (run.cadenceSource !== 'strava_cadence' && run.cadenceSource !== 'pace_fallback') ||
+        typeof run.estimatedSteps !== 'number' || !Number.isSafeInteger(run.estimatedSteps) || run.estimatedSteps < 0
+      ) return [];
+      return [{
+        ...(typeof run.activityId === 'string' ? { activityId: run.activityId } : {}),
+        ...(typeof run.distanceM === 'number' && Number.isFinite(run.distanceM) ? { distanceM: run.distanceM } : {}),
+        movingTimeS: run.movingTimeS,
+        ...(typeof run.paceSPerKm === 'number' && Number.isFinite(run.paceSPerKm) ? { paceSPerKm: run.paceSPerKm } : {}),
+        cadenceSpm: run.cadenceSpm,
+        cadenceSource: run.cadenceSource as DailyRunStepCalculation['cadenceSource'],
+        estimatedSteps: run.estimatedSteps,
+      }];
+    })
+    : undefined;
+
+  return {
+    source: candidate.source as DailyStepsCalculation['source'],
+    resolvedSteps: candidate.resolvedSteps,
+    ...(typeof candidate.garminTotalSteps === 'number' ? { garminTotalSteps: finiteSnapshotNumber(candidate.garminTotalSteps) } : {}),
+    ...(typeof candidate.estimatedRunningSteps === 'number' ? { estimatedRunningSteps: finiteSnapshotNumber(candidate.estimatedRunningSteps) } : {}),
+    ...(runs ? { runs } : {}),
+    ...(typeof candidate.unestimatedRunCount === 'number' ? { unestimatedRunCount: finiteSnapshotNumber(candidate.unestimatedRunCount) } : {}),
+  };
 }
 
 function nullableDatabaseNumber(value: unknown | null, field: string): number | null {

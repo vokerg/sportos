@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { aggregateActivitiesToDailyFacts, scoreDay, type ActivityFact } from '@sportos/domain';
+import { aggregateActivitiesToDailyFacts, deductRunningSteps, normalizeStravaRunCadenceSpm, scoreDay, type ActivityFact } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Activity, DailyMetric, Database, Json } from '../schema.js';
-import type { DailyMetricFactsInput, ManualDailyFactsInput } from '../repository-contracts.js';
-import { DailyRepository } from './daily.repository.js';
+import type { DailyMetricFactsInput, DailyStepsCalculation, ManualDailyFactsInput } from '../repository-contracts.js';
+import { DailyRepository, type ScoringActivityRow } from './daily.repository.js';
 import { ImportsRepository } from './imports.repository.js';
 import { ScoringRepository } from './scoring.repository.js';
 
@@ -38,6 +38,10 @@ export class DailyScoringRepository {
         runM: input.runIndoorM + input.runOutdoorM + runUnspecifiedM,
         bikeM: input.bikeIndoorM + input.bikeOutdoorM + bikeUnspecifiedM,
         bonusPoints: input.bonusPoints,
+        stepsCalculation: {
+          source: input.steps > 0 ? 'manual' : 'none',
+          resolvedSteps: input.steps,
+        },
         excelAllPoints: optionalNumber(existing?.excel_all_points),
         excelRowHash: existing?.excel_row_hash ?? undefined,
       };
@@ -117,20 +121,41 @@ export class DailyScoringRepository {
       const sourceActivities = activities.filter((activity) => activity.source !== 'manual');
       const manualActivities = activities.filter((activity) => activity.source === 'manual');
       const stravaActivities = sourceActivities.filter((activity) => activity.source === 'strava');
+      const garminSteps = await dailyRepository.getGarminDailySteps(metricDate);
+      const snapshotFacts = daily?.score_snapshot_id
+        ? (await transaction
+          .selectFrom('daily_score_snapshots')
+          .select('facts_json')
+          .where('id', '=', daily.score_snapshot_id)
+          .executeTakeFirst())?.facts_json ?? null
+        : null;
 
-      if (!daily && stravaActivities.length === 0) {
+      if (!daily && stravaActivities.length === 0 && garminSteps === null) {
         throw new DailyRecalculationUnavailableError(metricDate);
       }
 
       const scoringActivities = daily ? sourceActivities : stravaActivities;
-      const facts = daily
+      const baseFacts = daily
         ? factsFromDailyRow(daily, scoringActivities, manualActivities)
         : aggregateActivitiesToDailyFacts(metricDate, stravaActivities);
-      const score = scoreDay(
+      const stepsCalculation = resolveDailySteps(
+        daily,
+        sourceActivities,
+        manualActivities,
+        stravaActivities,
+        garminSteps,
+        snapshotFacts,
+      );
+      const facts: DailyMetricFactsInput = {
+        ...baseFacts,
+        steps: stepsCalculation.resolvedSteps,
+        stepsCalculation,
+      };
+      const score = attachStepsCalculation(scoreDay(
         { ...facts, excelAllPoints: undefined, excelRowHash: undefined },
         scoringActivities,
         await new ScoringRepository(transaction).listEnabledRules(),
-      );
+      ), stepsCalculation);
 
       await dailyRepository.persistDailyScore(
         facts,
@@ -305,7 +330,7 @@ function hasActivityType(activities: ActivityFact[], activityType: ActivityFact[
   return activities.some((activity) => activity.activityType === activityType);
 }
 
-function toActivityFact(row: Activity): ActivityFact {
+function toActivityFact(row: ScoringActivityRow): ActivityFact {
   return {
     id: row.id,
     activityDate: dateString(row.activity_date),
@@ -313,11 +338,92 @@ function toActivityFact(row: Activity): ActivityFact {
     subtype: row.subtype ?? undefined,
     distanceM: optionalNumber(row.distance_m),
     durationS: optionalNumber(row.duration_s),
+    movingTimeS: optionalNumber(row.moving_time_s),
     steps: optionalNumber(row.steps),
     avgSpeedMps: optionalNumber(row.avg_speed_mps),
+    avgPaceSPerKm: optionalNumber(row.avg_pace_s_per_km),
+    avgCadenceSpm: stravaRunCadenceSpm(row),
     effortPoints: optionalNumber(row.effort_points),
     source: row.source,
   };
+}
+
+export function resolveDailySteps(
+  daily: Pick<DailyMetric, 'steps'> | undefined,
+  sourceActivities: ActivityFact[],
+  manualActivities: ActivityFact[],
+  stravaActivities: ActivityFact[],
+  garminSteps: number | null,
+  snapshotFacts: Json | null,
+): DailyStepsCalculation {
+  const previousSource = snapshotStepsSource(snapshotFacts);
+  const manualSteps = activitySteps(manualActivities);
+  if (manualSteps > 0) return { source: 'manual', resolvedSteps: manualSteps };
+
+  const importedSteps = activitySteps(sourceActivities.filter((activity) =>
+    activity.source !== 'garmin' && activity.source !== 'strava'));
+  if (importedSteps > 0 && previousSource !== 'none') return { source: 'imported', resolvedSteps: importedSteps };
+
+  const storedSteps = daily ? number(daily.steps) : 0;
+  if (storedSteps > 0 && previousSource !== 'garmin_adjusted') {
+    return { source: 'stored', resolvedSteps: storedSteps };
+  }
+
+  if (garminSteps !== null) {
+    const deduction = deductRunningSteps(garminSteps, stravaActivities);
+    return {
+      source: 'garmin_adjusted',
+      resolvedSteps: deduction.nonRunningSteps,
+      garminTotalSteps: deduction.garminTotalSteps,
+      estimatedRunningSteps: deduction.estimatedRunningSteps,
+      runs: deduction.runs,
+      unestimatedRunCount: deduction.unestimatedRunCount,
+    };
+  }
+
+  return { source: storedSteps > 0 ? 'stored' : 'none', resolvedSteps: storedSteps };
+}
+
+export function attachStepsCalculation<T extends { ledger: Array<{ ruleCode?: string; calculationJson: Record<string, unknown> }> }>(
+  score: T,
+  calculation: DailyStepsCalculation,
+): T {
+  return {
+    ...score,
+    ledger: score.ledger.map((entry) => entry.ruleCode === 'steps.base'
+      ? { ...entry, calculationJson: { ...entry.calculationJson, stepsCalculation: calculation } }
+      : entry),
+  };
+}
+
+function activitySteps(activities: ActivityFact[]): number {
+  return Math.round(activities
+    .filter((activity) => activity.activityType === 'steps')
+    .reduce((sum, activity) => sum + (activity.steps ?? 0), 0));
+}
+
+function snapshotStepsSource(value: Json | null): DailyStepsCalculation['source'] | undefined {
+  const facts = jsonRecord(value);
+  const calculation = jsonRecord(facts.stepsCalculation);
+  const source = calculation.source;
+  return source === 'manual' || source === 'imported' || source === 'garmin_adjusted' || source === 'stored' || source === 'none'
+    ? source
+    : undefined;
+}
+
+function stravaRunCadenceSpm(row: ScoringActivityRow): number | undefined {
+  if (row.source !== 'strava' || row.activity_type !== 'run') return undefined;
+  const value = jsonRecord(row.sourceRawJson).average_cadence;
+  const cadence = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  if (!Number.isFinite(cadence) || cadence <= 0) return undefined;
+
+  return normalizeStravaRunCadenceSpm(cadence);
+}
+
+function jsonRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
 function optionalNumber(value: unknown): number | undefined {

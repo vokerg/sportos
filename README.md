@@ -256,7 +256,7 @@ After authentication, the Angular cockpit provides:
 - **Run Lab** — performance rankings, bounded event search, event detail, and provenance.
 - **Rules** — current rule versions, read-only preview, activation, recomputation progress, retry, and cancellation.
 - **Providers** — Strava connection, backfill, incremental sync, status, retry, cancellation, disconnect, and provenance.
-- **Imports** — XLSX and manual Garmin CSV upload, durable job status, history, diagnostics, retry, cancellation, and reconciliation handoff. Garmin CSVs are staging-only and never trigger score recalculation.
+- **Imports** — XLSX and manual Garmin CSV upload, durable job status, history, diagnostics, retry, cancellation, and reconciliation handoff. Garmin CSV uploads are staging-only and never trigger score recalculation; an explicit daily recalculation can consume exact `daily_summary` steps.
 - **Export** — bounded canonical JSON export with deterministic ordering and explicit provenance.
 
 The browser renders API truth only. It never receives provider tokens, selects an owner, normalizes canonical facts, computes official scores, or treats generated guidance as authoritative.

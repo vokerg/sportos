@@ -5,6 +5,25 @@ export type { DailyScoreStatus };
 
 export type DailyScoreSnapshotTrigger = 'workbook_import' | 'manual_edit' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration';
 
+export interface DailyRunStepCalculation {
+  activityId?: string;
+  distanceM?: number;
+  movingTimeS: number;
+  paceSPerKm?: number;
+  cadenceSpm: number;
+  cadenceSource: 'strava_cadence' | 'pace_fallback';
+  estimatedSteps: number;
+}
+
+export interface DailyStepsCalculation {
+  source: 'manual' | 'imported' | 'garmin_adjusted' | 'stored' | 'none';
+  resolvedSteps: number;
+  garminTotalSteps?: number;
+  estimatedRunningSteps?: number;
+  runs?: DailyRunStepCalculation[];
+  unestimatedRunCount?: number;
+}
+
 export interface ManualDailyFactsInput {
   steps: number;
   runIndoorM: number;
@@ -34,6 +53,7 @@ export interface DailyMetricFactsInput {
   bonusPoints: number;
   excelAllPoints?: number;
   excelRowHash?: string;
+  stepsCalculation?: DailyStepsCalculation;
 }
 
 export interface ScoreLedgerInput {
@@ -183,6 +203,7 @@ export interface DailyScoreBreakdownReadModel {
   scoreStatus: DailyScoreStatus;
   facts: {
     steps: number;
+    stepsCalculation?: DailyStepsCalculation;
     runM: number;
     runIndoorM?: number | null;
     runOutdoorM?: number | null;

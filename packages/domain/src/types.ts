@@ -20,8 +20,11 @@ export interface ActivityFact {
   subtype?: ActivitySubtype;
   distanceM?: number;
   durationS?: number;
+  movingTimeS?: number;
   steps?: number;
   avgSpeedMps?: number;
+  avgPaceSPerKm?: number;
+  avgCadenceSpm?: number;
   effortPoints?: number;
   source?: string;
   rawPayloadJson?: Record<string, unknown>;

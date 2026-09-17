@@ -48,4 +48,25 @@ describe('score breakdown presentation components', () => {
     ]);
     injector.destroy();
   });
+
+  it('explains the Garmin total and each running-step estimate', () => {
+    const injector = createEnvironmentInjector([], Injector.NULL as unknown as EnvironmentInjector);
+    const facts = runInInjectionContext(injector, () => new ScoreBreakdownFactsComponent());
+    const calculation = {
+      source: 'garmin_adjusted' as const,
+      resolvedSteps: 2_701,
+      garminTotalSteps: 15_000,
+      estimatedRunningSteps: 12_299,
+    };
+
+    expect(facts.garminEquation(calculation)).toBe('Garmin 15,000 − running 12,299 = 2,701 steps');
+    expect(facts.runEquation({
+      distanceM: 10_000,
+      movingTimeS: 2_400,
+      cadenceSpm: 186,
+      cadenceSource: 'strava_cadence',
+      estimatedSteps: 7_440,
+    })).toContain('186 spm (Strava cadence)');
+    injector.destroy();
+  });
 });

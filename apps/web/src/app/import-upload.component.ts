@@ -10,7 +10,7 @@ import type { UploadWorkbookKind } from './api.service';
     <section class="upload-panel" aria-labelledby="upload-heading">
       <div>
         <h3 id="upload-heading">Upload data file</h3>
-        <p class="privacy-note">Maximum 20 MB. Garmin CSV uploads are staged only and do not recalculate scores.</p>
+        <p class="privacy-note">Maximum 20 MB. Garmin CSV uploads are staged only and do not recalculate scores until you explicitly recalculate a day.</p>
       </div>
       <div class="upload-fields">
         <label>
