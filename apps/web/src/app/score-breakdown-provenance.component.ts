@@ -20,7 +20,7 @@ import {
         <div>
           <span class="section-label">Raw provenance</span>
           <h4 id="day-source-title">Every source record for this day</h4>
-          <p class="section-help">This is the unabridged source payload recorded for the date, including non-scoring Garmin observations.</p>
+          <p class="section-help">This is the unabridged source payload recorded for the date, including Garmin evidence used by recalculation or retained as context.</p>
         </div>
         <strong class="count-badge">{{ records.length }}</strong>
       </div>

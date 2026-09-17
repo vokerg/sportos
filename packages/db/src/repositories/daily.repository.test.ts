@@ -176,6 +176,33 @@ describe('assembleDailyScoreBreakdown', () => {
     expect(result.ledger[0]?.activity?.activityDate).toBe('2026-05-18');
   });
 
+  it('returns the persisted Garmin running-step explanation', () => {
+    const stepsCalculation = {
+      source: 'garmin_adjusted',
+      resolvedSteps: 2_701,
+      garminTotalSteps: 15_000,
+      estimatedRunningSteps: 12_299,
+      runs: [{
+        movingTimeS: 2_400,
+        cadenceSpm: 186,
+        cadenceSource: 'strava_cadence',
+        estimatedSteps: 7_440,
+      }, {
+        movingTimeS: 1_695,
+        cadenceSpm: 172,
+        cadenceSource: 'strava_cadence',
+        estimatedSteps: 4_859,
+      }],
+      unestimatedRunCount: 0,
+    };
+    const result = assembleDailyScoreBreakdown(
+      { ...header, steps: 2_701, snapshotFacts: { stepsCalculation } },
+      [ledgerRow({ ledgerPoints: 25 })],
+    );
+
+    expect(result.facts.stepsCalculation).toEqual(stepsCalculation);
+  });
+
   it('presents retained historical manual bonus ledgers with the unified terminology', () => {
     const result = assembleDailyScoreBreakdown(
       header,

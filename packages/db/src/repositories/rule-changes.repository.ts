@@ -1,7 +1,8 @@
 import { scoreDay, type ActivityFact, type RuleChangePreview, type RulePreviewDay, type RuleProposal, type ScoringRule } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Activity, Database, Json, ScoringRuleChange, ScoringRuleRow } from '../schema.js';
-import { DailyRepository } from './daily.repository.js';
+import { DailyRepository, stepsCalculationFromSnapshot } from './daily.repository.js';
+import { attachStepsCalculation } from './daily-scoring.repository.js';
 
 export type RuleChangeStatus = ScoringRuleChange['status'];
 
@@ -464,6 +465,7 @@ export class RuleChangesRepository {
         }
 
         const metricDate = dateString(row.metric_date);
+        const stepsCalculation = stepsCalculationFromSnapshot(row.snapshotFacts);
         const facts = {
           metricDate,
           steps: requiredNumber(row.steps),
@@ -472,15 +474,17 @@ export class RuleChangesRepository {
           swimM: requiredNumber(row.swim_m),
           workoutPoints: requiredNumber(row.workout_points),
           bonusPoints: snapshotBonusPoints(row.snapshotFacts),
+          ...(stepsCalculation ? { stepsCalculation } : {}),
           ...(row.score_status === 'manual' ? manualSubtypeFacts(activitiesByDate.get(metricDate) ?? []) : {}),
           excelAllPoints: optionalNumber(row.excel_all_points),
           excelRowHash: row.excel_row_hash ?? undefined,
         };
-        const score = scoreDay(
+        const calculatedScore = scoreDay(
           { ...facts, excelAllPoints: undefined, excelRowHash: undefined },
           row.score_status === 'manual' ? [] : activitiesByDate.get(metricDate) ?? [],
           rules,
         );
+        const score = stepsCalculation ? attachStepsCalculation(calculatedScore, stepsCalculation) : calculatedScore;
         await dailyRepository.persistDailyScore(
           facts,
           score,

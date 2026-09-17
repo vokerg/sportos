@@ -28,6 +28,25 @@ export interface SourceRecordReference {
 
 export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
 
+export interface DailyRunStepCalculation {
+  activityId?: string;
+  distanceM?: number;
+  movingTimeS: number;
+  paceSPerKm?: number;
+  cadenceSpm: number;
+  cadenceSource: 'strava_cadence' | 'pace_fallback';
+  estimatedSteps: number;
+}
+
+export interface DailyStepsCalculation {
+  source: 'manual' | 'imported' | 'garmin_adjusted' | 'stored' | 'none';
+  resolvedSteps: number;
+  garminTotalSteps?: number;
+  estimatedRunningSteps?: number;
+  runs?: DailyRunStepCalculation[];
+  unestimatedRunCount?: number;
+}
+
 export interface ScoreBreakdownActivity {
   id: string;
   source: 'manual' | 'my_sport_xlsx' | 'run_db_xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit';
@@ -112,6 +131,7 @@ export interface DailyScoreBreakdown {
   scoreStatus: 'imported' | 'calculated' | 'manual';
   facts: {
     steps: number;
+    stepsCalculation?: DailyStepsCalculation;
     runM: number;
     runIndoorM?: number | null;
     runOutdoorM?: number | null;

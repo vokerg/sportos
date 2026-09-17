@@ -27,6 +27,7 @@ export function parseDailyScoreBreakdown(value: DailyScoreBreakdownReadModel): D
   if (value.score.baseTotal + value.score.bonusPoints !== value.score.appTotal) {
     issues.push('baseTotal plus bonusPoints must equal appTotal');
   }
+  validateStepsCalculation(value, issues);
 
   const expectedDelta = value.score.excelTotal === null ? null : value.score.appTotal - value.score.excelTotal;
   if (expectedDelta === null ? value.score.delta !== null : value.score.delta === null || Math.abs(value.score.delta - expectedDelta) > 1e-9) {
@@ -63,6 +64,26 @@ export function parseDailyScoreBreakdown(value: DailyScoreBreakdownReadModel): D
 
   if (issues.length > 0) throw new ScoreBreakdownContractError(issues);
   return value;
+}
+
+function validateStepsCalculation(value: DailyScoreBreakdownReadModel, issues: string[]): void {
+  const calculation = value.facts.stepsCalculation;
+  if (!calculation) return;
+  if (calculation.resolvedSteps !== value.facts.steps) {
+    issues.push('facts.stepsCalculation.resolvedSteps must equal facts.steps');
+  }
+  if (calculation.source !== 'garmin_adjusted') return;
+  if (calculation.garminTotalSteps === undefined || calculation.estimatedRunningSteps === undefined) {
+    issues.push('Garmin step calculation must include total and estimated running steps');
+    return;
+  }
+  if (Math.max(calculation.garminTotalSteps - calculation.estimatedRunningSteps, 0) !== calculation.resolvedSteps) {
+    issues.push('Garmin step calculation must subtract estimated running steps and clamp at zero');
+  }
+  const estimatedSum = (calculation.runs ?? []).reduce((sum, run) => sum + run.estimatedSteps, 0);
+  if (estimatedSum !== calculation.estimatedRunningSteps) {
+    issues.push('Garmin estimatedRunningSteps must equal the sum of run estimates');
+  }
 }
 
 export function parseDailyEvidence(value: DailyEvidenceReadModel): DailyEvidenceReadModel {

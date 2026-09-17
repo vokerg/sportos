@@ -34,9 +34,9 @@ const METRIC_LABELS: Record<string, string> = {
       <section class="data-section" aria-labelledby="garmin-observations-title">
         <div class="section-heading">
           <div>
-            <span class="section-label">Dated context · not scored</span>
+            <span class="section-label">Dated Garmin evidence</span>
             <h4 id="garmin-observations-title">Garmin observations for this date</h4>
-            <p class="section-help">These values are attached to the date and retain their source row, but do not affect canonical facts or scoring yet.</p>
+            <p class="section-help">Every value retains its source row. Exact Daily summary steps can feed an explicit recalculation; weekly and body-composition reports remain context only.</p>
           </div>
           <strong class="count-badge">{{ observations().length }}</strong>
         </div>
