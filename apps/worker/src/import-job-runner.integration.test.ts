@@ -107,6 +107,65 @@ databaseDescribe('ImportJobRunner database integration', () => {
     expect(await dispatchDb.selectFrom('daily_metrics').select('metric_date').execute()).toEqual([]);
     expect(await dispatchDb.selectFrom('source_records').select('id').execute()).toEqual([]);
   });
+
+  it('stages a Garmin CSV job without writing canonical or score rows', async () => {
+    await resetImportTables(dataDb);
+    const bytes = Buffer.from(',Actual\n27/09/2019,78736\n04/10/2019,90059\n');
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    const uploadId = '55555555-5555-4555-8555-555555555555';
+    const storage = new LocalUploadStorage(directory);
+    const stored = await storage.store({ uploadId, sha256, bytes, extension: 'csv' });
+
+    const queued = await withAccountContext(dataDb, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      await ownerDb.insertInto('uploaded_files').values({
+        id: uploadId,
+        workbook_kind: 'garmin_csv',
+        storage_provider: 'local',
+        object_key: stored.objectKey,
+        original_filename: 'steps.csv',
+        sanitized_filename: 'steps.csv',
+        content_type: 'text/csv',
+        byte_size: bytes.length,
+        sha256,
+        status: 'stored',
+        last_error: null,
+        imported_at: null,
+        deleted_at: null,
+      }).execute();
+      return new ImportJobsRepository(ownerDb).enqueue(uploadId);
+    });
+
+    const runner = new ImportJobRunner(dispatchDb, dataDb, storage, {
+      workerId: 'garmin-integration-worker',
+      leaseSeconds: 60,
+    });
+    await expect(runner.processNext()).resolves.toBe(true);
+
+    const evidence = await withAccountContext(dataDb, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      const completed = await new ImportJobsRepository(ownerDb).getById(queued.id);
+      const observations = await ownerDb.selectFrom('garmin_observations')
+        .select(['identity_key', 'values_json'])
+        .orderBy('identity_key', 'asc')
+        .execute();
+      const [activities, daily, ledger] = await Promise.all([
+        ownerDb.selectFrom('activities').select((eb) => eb.fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+        ownerDb.selectFrom('daily_metrics').select((eb) => eb.fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+        ownerDb.selectFrom('score_ledger').select((eb) => eb.fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+      ]);
+      return { completed, observations, activities, daily, ledger };
+    });
+
+    expect(evidence.completed).toMatchObject({
+      status: 'succeeded',
+      uploadStatus: 'imported',
+      result: { garminObservations: 2, garminInserted: 2, garminUpdated: 0, garminUnchanged: 0 },
+    });
+    expect(evidence.observations).toEqual([
+      { identity_key: '2019-09-27', values_json: { steps: 78_736 } },
+      { identity_key: '2019-10-04', values_json: { steps: 90_059 } },
+    ]);
+    expect([evidence.activities.count, evidence.daily.count, evidence.ledger.count].map(Number)).toEqual([0, 0, 0]);
+  });
 });
 
 async function resetImportTables(db: TestDatabase): Promise<void> {
@@ -115,6 +174,7 @@ async function resetImportTables(db: TestDatabase): Promise<void> {
     await ownerDb.deleteFrom('daily_metrics').execute();
     await ownerDb.deleteFrom('performance_events').execute();
     await ownerDb.deleteFrom('activities').execute();
+    await ownerDb.deleteFrom('garmin_observations').execute();
     await ownerDb.deleteFrom('source_records').execute();
     await ownerDb.deleteFrom('import_jobs').execute();
     await ownerDb.deleteFrom('import_batches').execute();

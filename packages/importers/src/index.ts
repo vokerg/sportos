@@ -1,4 +1,5 @@
 export * from './xlsx-reader.js';
+export * from './garmin-csv.js';
 export * from './my-sport.importer.js';
 export * from './run-db.importer.js';
 export * from './import-service.js';

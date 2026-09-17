@@ -63,6 +63,21 @@ describe('import workflow view model', () => {
     expect(isActiveImportJob(job)).toBe(false);
   });
 
+  it('summarizes overlap-safe Garmin staging and states that scores are unchanged', () => {
+    expect(importJobSuccessMessage({
+      ...job,
+      filename: 'steps.csv',
+      workbookKind: 'garmin_csv',
+      result: {
+        garminObservations: 12,
+        garminInserted: 7,
+        garminUpdated: 1,
+        garminUnchanged: 4,
+        warnings: [],
+      },
+    })).toBe('Garmin staging completed: 12 observations (7 new, 1 updated, 4 unchanged) and 0 warnings. Scores were not recalculated.');
+  });
+
   it('keeps duplicate upload guidance actionable and path-free', () => {
     const error = new HttpErrorResponse({
       status: 409,

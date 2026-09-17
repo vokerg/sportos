@@ -9,12 +9,12 @@ import type { UploadWorkbookKind } from './api.service';
   template: `
     <section class="upload-panel" aria-labelledby="upload-heading">
       <div>
-        <h3 id="upload-heading">Upload workbook</h3>
-        <p class="privacy-note">Maximum 20 MB. Upload returns after queueing; a separate worker performs the import.</p>
+        <h3 id="upload-heading">Upload data file</h3>
+        <p class="privacy-note">Maximum 20 MB. Garmin CSV uploads are staged only and do not recalculate scores.</p>
       </div>
       <div class="upload-fields">
         <label>
-          Workbook type
+          File type
           <select
             [ngModel]="workbookKind()"
             (ngModelChange)="setWorkbookKind($event)"
@@ -22,14 +22,15 @@ import type { UploadWorkbookKind } from './api.service';
             [disabled]="loading()">
             <option value="my_sport">Daily ledger (my_sport)</option>
             <option value="run_db">Running performance database</option>
+            <option value="garmin_csv">Garmin report (CSV, staging only)</option>
           </select>
         </label>
         <label>
-          XLSX file
+          {{ workbookKind() === 'garmin_csv' ? 'CSV file' : 'XLSX file' }}
           <input
             #fileInput
             type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            [accept]="acceptedFileTypes()"
             (change)="selectFile($event)"
             [disabled]="loading()">
         </label>
@@ -72,6 +73,12 @@ export class ImportUploadComponent {
   readonly workbookKindChange = output<UploadWorkbookKind>();
   readonly fileSelected = output<File | null>();
   readonly uploadRequested = output<HTMLInputElement>();
+
+  acceptedFileTypes(): string {
+    return this.workbookKind() === 'garmin_csv'
+      ? '.csv,text/csv,text/plain'
+      : '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  }
 
   setWorkbookKind(value: UploadWorkbookKind): void {
     this.workbookKindChange.emit(value);

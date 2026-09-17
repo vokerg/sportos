@@ -53,7 +53,7 @@ export interface AuthTransactionsTable {
 export interface UploadedFilesTable {
   id: string;
   owner_id: OwnerId;
-  workbook_kind: 'my_sport' | 'run_db';
+  workbook_kind: 'my_sport' | 'run_db' | 'garmin_csv';
   storage_provider: 'local';
   object_key: string;
   original_filename: string;
@@ -126,6 +126,21 @@ export interface SourceRecordsTable {
   errors: Json;
   warnings: Json;
   created_at: Generated<Timestamp>;
+}
+
+export interface GarminObservationsTable {
+  id: Generated<string>;
+  owner_id: OwnerId;
+  report_type: 'steps_weekly' | 'calories_weekly' | 'floors_weekly' | 'weight_body_composition';
+  identity_key: string;
+  recorded_date: DateString;
+  recorded_time: string | null;
+  values_json: Json;
+  value_hash: string;
+  current_source_record_id: string;
+  first_seen_at: GeneratedTimestamp;
+  last_seen_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
 }
 
 export interface ActivitiesTable {
@@ -388,6 +403,7 @@ export interface Database {
   import_batches: ImportBatchesTable;
   import_jobs: ImportJobsTable;
   source_records: SourceRecordsTable;
+  garmin_observations: GarminObservationsTable;
   activities: ActivitiesTable;
   daily_metrics: DailyMetricsTable;
   daily_score_snapshots: DailyScoreSnapshotsTable;
@@ -429,6 +445,7 @@ export type ScoringRuleChange = Selectable<ScoringRuleChangesTable>;
 export type NewScoreLedger = Insertable<ScoreLedgerTable>;
 export type PerformanceEvent = Selectable<PerformanceEventsTable>;
 export type NewPerformanceEvent = Insertable<PerformanceEventsTable>;
+export type GarminObservation = Selectable<GarminObservationsTable>;
 export type ProviderConnection = Selectable<ProviderConnectionsTable>;
 export type ProviderCredential = Selectable<ProviderCredentialsTable>;
 export type ProviderSyncJob = Selectable<ProviderSyncJobsTable>;

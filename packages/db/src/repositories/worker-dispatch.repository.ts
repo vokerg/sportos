@@ -7,7 +7,7 @@ export interface DispatchedImportJob {
   uploadId: string;
   objectKey: string;
   filename: string;
-  workbookKind: 'my_sport' | 'run_db';
+  workbookKind: 'my_sport' | 'run_db' | 'garmin_csv';
   sha256: string;
   attemptCount: number;
   maxAttempts: number;

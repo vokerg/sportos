@@ -136,7 +136,7 @@ export interface CanonicalExportBundle {
 }
 
 export type ImportBatchStatus = 'started' | 'parsed' | 'normalized' | 'scored' | 'failed';
-export type UploadWorkbookKind = 'my_sport' | 'run_db';
+export type UploadWorkbookKind = 'my_sport' | 'run_db' | 'garmin_csv';
 export type ImportJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
 export type RuleKind = 'coefficient' | 'achievement' | 'manual_points';

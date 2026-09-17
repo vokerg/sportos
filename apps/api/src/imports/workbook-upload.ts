@@ -1,12 +1,27 @@
-import { readWorkbookBuffer, type ImportWorkbookKind, type WorkbookExtract } from '@sportos/importers';
+import {
+  GarminCsvError,
+  readGarminCsvBuffer,
+  readWorkbookBuffer,
+  type GarminCsvExtract,
+  type ImportWorkbookKind,
+  type WorkbookExtract,
+} from '@sportos/importers';
 
 export const MAX_WORKBOOK_UPLOAD_BYTES = 20 * 1024 * 1024;
 
-const ALLOWED_MIME_TYPES = new Set([
+const XLSX_MIME_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/octet-stream',
   'application/zip',
   'application/x-zip-compressed',
+]);
+
+const CSV_MIME_TYPES = new Set([
+  'text/csv',
+  'text/plain',
+  'application/csv',
+  'application/vnd.ms-excel',
+  'application/octet-stream',
 ]);
 
 export interface MultipartWorkbookFile {
@@ -24,7 +39,7 @@ export interface ValidatedWorkbookUpload {
   byteSize: number;
   bytes: Buffer;
   sha256: string;
-  extract: WorkbookExtract;
+  extract: WorkbookExtract | GarminCsvExtract;
 }
 
 export type WorkbookUploadErrorCode =
@@ -34,7 +49,10 @@ export type WorkbookUploadErrorCode =
   | 'UNSUPPORTED_MEDIA_TYPE'
   | 'EMPTY_UPLOAD'
   | 'UPLOAD_TOO_LARGE'
-  | 'INVALID_XLSX';
+  | 'INVALID_XLSX'
+  | 'INVALID_GARMIN_CSV'
+  | 'UNSUPPORTED_GARMIN_REPORT'
+  | 'GARMIN_CSV_TOO_MANY_ROWS';
 
 export class WorkbookUploadError extends Error {
   constructor(
@@ -51,11 +69,15 @@ export function validateWorkbookUpload(
   rawWorkbookKind: string | undefined,
 ): ValidatedWorkbookUpload {
   const workbookKind = parseWorkbookKind(rawWorkbookKind);
-  if (!file) throw new WorkbookUploadError('UPLOAD_FILE_REQUIRED', 'Choose an XLSX workbook to upload.');
+  if (!file) throw new WorkbookUploadError('UPLOAD_FILE_REQUIRED', 'Choose a supported import file to upload.');
 
-  const originalFilename = safeBasename(file.originalname);
-  if (!/\.xlsx$/i.test(originalFilename)) {
-    throw new WorkbookUploadError('UNSUPPORTED_FILE_EXTENSION', 'Only .xlsx workbooks are supported.');
+  const originalFilename = safeBasename(file.originalname, workbookKind === 'garmin_csv' ? 'garmin.csv' : 'workbook.xlsx');
+  const expectedExtension = workbookKind === 'garmin_csv' ? '.csv' : '.xlsx';
+  if (!originalFilename.toLowerCase().endsWith(expectedExtension)) {
+    throw new WorkbookUploadError(
+      'UNSUPPORTED_FILE_EXTENSION',
+      workbookKind === 'garmin_csv' ? 'Garmin reports must be .csv files.' : 'Workbook imports must be .xlsx files.',
+    );
   }
 
   const byteSize = file.buffer.length;
@@ -68,22 +90,33 @@ export function validateWorkbookUpload(
   }
 
   const contentType = String(file.mimetype || 'application/octet-stream').toLowerCase();
-  if (!ALLOWED_MIME_TYPES.has(contentType)) {
-    throw new WorkbookUploadError('UNSUPPORTED_MEDIA_TYPE', 'The uploaded file does not have an XLSX-compatible media type.');
+  const allowedMimeTypes = workbookKind === 'garmin_csv' ? CSV_MIME_TYPES : XLSX_MIME_TYPES;
+  if (!allowedMimeTypes.has(contentType)) {
+    throw new WorkbookUploadError(
+      'UNSUPPORTED_MEDIA_TYPE',
+      workbookKind === 'garmin_csv'
+        ? 'The uploaded file does not have a CSV-compatible media type.'
+        : 'The uploaded file does not have an XLSX-compatible media type.',
+    );
   }
 
-  if (file.buffer[0] !== 0x50 || file.buffer[1] !== 0x4b) {
+  if (workbookKind !== 'garmin_csv' && (file.buffer[0] !== 0x50 || file.buffer[1] !== 0x4b)) {
     throw new WorkbookUploadError('INVALID_XLSX', 'The uploaded file is not an XLSX ZIP container.');
   }
 
-  const sanitizedFilename = sanitizeFilename(originalFilename);
-  let extract: WorkbookExtract;
+  const sanitizedFilename = sanitizeFilename(originalFilename, expectedExtension);
+  let extract: WorkbookExtract | GarminCsvExtract;
   try {
-    extract = readWorkbookBuffer(file.buffer, sanitizedFilename);
-  } catch {
+    extract = workbookKind === 'garmin_csv'
+      ? readGarminCsvBuffer(file.buffer, sanitizedFilename)
+      : readWorkbookBuffer(file.buffer, sanitizedFilename);
+  } catch (error) {
+    if (error instanceof GarminCsvError) {
+      throw new WorkbookUploadError(error.code, error.message);
+    }
     throw new WorkbookUploadError('INVALID_XLSX', 'The uploaded file could not be read as an XLSX workbook.');
   }
-  if (extract.sheetNames.length === 0) {
+  if ('sheetNames' in extract && extract.sheetNames.length === 0) {
     throw new WorkbookUploadError('INVALID_XLSX', 'The uploaded workbook does not contain any worksheets.');
   }
 
@@ -100,25 +133,24 @@ export function validateWorkbookUpload(
 }
 
 export function parseWorkbookKind(value: string | undefined): ImportWorkbookKind {
-  if (value === 'my_sport' || value === 'run_db') return value;
+  if (value === 'my_sport' || value === 'run_db' || value === 'garmin_csv') return value;
   throw new WorkbookUploadError(
     'INVALID_WORKBOOK_KIND',
-    "Workbook type must be 'my_sport' or 'run_db'.",
+    "Import type must be 'my_sport', 'run_db', or 'garmin_csv'.",
   );
 }
 
-function safeBasename(filename: string): string {
+function safeBasename(filename: string, fallback: string): string {
   const value = String(filename || '')
     .replaceAll('\\', '/')
     .split('/')
     .filter(Boolean)
     .at(-1)
     ?.trim();
-  return (value || 'workbook.xlsx').slice(0, 255);
+  return (value || fallback).slice(0, 255);
 }
 
-function sanitizeFilename(filename: string): string {
-  const extension = '.xlsx';
+function sanitizeFilename(filename: string, extension: '.xlsx' | '.csv'): string {
   const stem = filename.slice(0, -extension.length)
     .normalize('NFKC')
     .replace(/[\u0000-\u001f\u007f]/g, '')

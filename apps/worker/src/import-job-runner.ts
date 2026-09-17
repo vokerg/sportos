@@ -10,6 +10,7 @@ import {
 import {
   ImportService,
   LocalUploadStorage,
+  readGarminCsvBuffer,
   readWorkbookBuffer,
   type ImportFailurePhase,
   type ImportLocalFilesResult,
@@ -32,6 +33,7 @@ export class ImportJobCancelledError extends Error {
 const PHASE_PROGRESS: Record<ImportFailurePhase, number> = {
   'transaction-started': 30,
   'raw-stored': 45,
+  'staging-written': 88,
   'canonical-written': 70,
   'daily-scored': 88,
   'batch-finalized': 95,
@@ -78,7 +80,9 @@ export class ImportJobRunner {
         20,
         this.leaseSeconds,
       ));
-      const extract = readWorkbookBuffer(bytes, job.filename);
+      const importInput = job.workbookKind === 'garmin_csv'
+        ? { workbookKind: 'garmin_csv' as const, extract: readGarminCsvBuffer(bytes, job.filename) }
+        : { workbookKind: job.workbookKind, extract: readWorkbookBuffer(bytes, job.filename) };
 
       let committedBatchId: string | null = null;
       const result = await withAccountContext(this.dataDb, job.ownerId, async (importDb) => {
@@ -94,8 +98,7 @@ export class ImportJobRunner {
           },
         });
         return importer.importWorkbook({
-          workbookKind: job.workbookKind,
-          extract,
+          ...importInput,
           uploadId: job.uploadId,
         });
       });

@@ -6,7 +6,7 @@ This is the operational entry point for coding agents and maintainers working on
 
 SportOS is an authenticated account-scoped application for importing sports workbooks, synchronizing Strava activity, preserving raw source provenance, calculating deterministic scores, reviewing/exporting canonical results, and producing cited read-only generated analysis.
 
-Validated capabilities include browser XLSX upload, external source storage, encrypted provider credentials, Strava connection/backfill/incremental sync, durable import/provider/rule jobs, immutable scoring-rule versions, audited recomputation, daily/performance provenance drill-downs, canonical export, narrow deterministic analysis tools, citation-validated generation with safe fallback, append-only analysis audit metadata, OIDC sign-in, opaque server-side sessions, CSRF protection, account-scoped database constraints, forced row-level security, split worker authorization, authenticated Angular routes, canonical Monthly Stats, and calendar-day rolling metric Dynamics.
+Validated capabilities include browser XLSX and manual Garmin CSV upload, external source storage, encrypted provider credentials, Strava connection/backfill/incremental sync, durable import/provider/rule jobs, immutable scoring-rule versions, audited recomputation, daily/performance provenance drill-downs, canonical export, narrow deterministic analysis tools, citation-validated generation with safe fallback, append-only analysis audit metadata, OIDC sign-in, opaque server-side sessions, CSRF protection, account-scoped database constraints, forced row-level security, split worker authorization, authenticated Angular routes, canonical Monthly Stats, and calendar-day rolling metric Dynamics.
 
 The foundational queue in issue #3 is complete through #16 and the active P3 queue contains later frontend/product work. Do not invent the next product item; select only the first unchecked ready item or work explicitly reprioritized by a maintainer.
 
@@ -124,7 +124,7 @@ The dispatcher is a narrow trusted-system exception. It may inspect queue lifecy
 
 - `packages/domain` — pure authoritative scoring, reconciliation, rule validation, and preview.
 - `packages/shared` — serialization, date, and export contracts.
-- `packages/importers` — storage, XLSX extraction, provider adapter/cipher contracts, normalization, warnings, and import transactions.
+- `packages/importers` — storage, XLSX/Garmin CSV extraction, provider adapter/cipher contracts, normalization, warnings, and import transactions.
 - `packages/analytics` — pure analytics without database dependencies.
 - authentication/framework/model-provider dependencies do not belong in pure packages.
 
@@ -141,6 +141,7 @@ The dispatcher is a narrow trusted-system exception. It may inspect queue lifecy
 - V116 versions the run-pace tiers with favourable 0.1 km and 0.1 min/km eligibility rounding while preserving strict V115 rule UUID history and atomically recomputing non-imported scores;
 - V117 versions the bike achievement with a bounded 0.1 km/h tolerance around the 20 km/h target, preserves strict V114 UUID history, and atomically recomputes calculated scores;
 - V118 unifies bonus authority, reclassifies imported manual bonuses without changing totals, migrates canonical bonus activities and current snapshot facts, versions the manual bonus rule, and removes `daily_metrics.power_points`;
+- V119 adds manual Garmin CSV uploads, raw-row provenance, and overlap-safe account-scoped staging without canonical or scoring side effects;
 - ADRs 0001–0007 document import, storage, jobs, rule publication, authentication/ownership, providers, and read-only analysis.
 
 ## Change requirements

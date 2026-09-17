@@ -322,6 +322,7 @@ async function resetProviderTables(db: TestDatabase): Promise<void> {
     await ownerDb.deleteFrom('provider_connections').execute();
     await ownerDb.deleteFrom('performance_events').execute();
     await ownerDb.deleteFrom('activities').execute();
+    await ownerDb.deleteFrom('garmin_observations').execute();
     await ownerDb.deleteFrom('source_records').execute();
     await ownerDb.deleteFrom('import_batches').execute();
   });

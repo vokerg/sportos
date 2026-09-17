@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, UploadsRepository } from '@sportos/db';
 import { ImportService, type ImportFailurePhase } from './import-service.js';
+import { readGarminCsvBuffer } from './garmin-csv.js';
 import { writeMySportFixture, writeRunDbFixture } from './test-fixtures/xlsx-fixtures.js';
 import { readWorkbook } from './xlsx-reader.js';
 
@@ -237,6 +238,54 @@ databaseDescribe('ImportService database integration', () => {
     expect(await canonicalIds(db)).toEqual(baselineIds);
     expect(afterRetry.sourceRecords).toBe(baseline.sourceRecords * 2);
   });
+
+  it('converges partially overlapping Garmin CSVs without changing canonical scoring data', async () => {
+    await resetImportTables(db);
+    const first = readGarminCsvBuffer(
+      Buffer.from(',Actual\n27/09/2019,78736\n04/10/2019,90059\n'),
+      'steps-first.csv',
+    );
+    const overlap = readGarminCsvBuffer(
+      Buffer.from(',Actual\n27/09/2019,80000\n04/10/2019,90059\n11/10/2019,55041\n'),
+      'steps-overlap.csv',
+    );
+
+    const firstResult = await new ImportService(db).importWorkbook({ workbookKind: 'garmin_csv', extract: first });
+    const secondResult = await new ImportService(db).importWorkbook({ workbookKind: 'garmin_csv', extract: overlap });
+
+    expect(firstResult).toMatchObject({
+      garminObservations: 2,
+      garminInserted: 2,
+      garminUpdated: 0,
+      garminUnchanged: 0,
+    });
+    expect(secondResult).toMatchObject({
+      garminObservations: 3,
+      garminInserted: 1,
+      garminUpdated: 1,
+      garminUnchanged: 1,
+    });
+
+    const observations = await db.selectFrom('garmin_observations')
+      .select(['identity_key', 'values_json'])
+      .orderBy('identity_key', 'asc')
+      .execute();
+    expect(observations).toEqual([
+      { identity_key: '2019-09-27', values_json: { steps: 80_000 } },
+      { identity_key: '2019-10-04', values_json: { steps: 90_059 } },
+      { identity_key: '2019-10-11', values_json: { steps: 55_041 } },
+    ]);
+
+    const counts = await importCounts(db);
+    expect(counts).toMatchObject({ activities: 0, dailyMetrics: 0, performanceEvents: 0, scoreLedger: 0 });
+    expect(counts.importBatches).toBe(2);
+    expect(counts.sourceRecords).toBe(7);
+    const normalizedRawRows = await db.selectFrom('source_records')
+      .select((eb) => eb.fn.countAll<number>().as('count'))
+      .where('normalized_entity_type', '=', 'garmin_observation')
+      .executeTakeFirstOrThrow();
+    expect(Number(normalizedRawRows.count)).toBe(5);
+  });
 });
 
 interface ImportCounts {
@@ -317,6 +366,7 @@ async function resetImportTables(db: TestDatabase): Promise<void> {
   await db.deleteFrom('daily_metrics').execute();
   await db.deleteFrom('performance_events').execute();
   await db.deleteFrom('activities').execute();
+  await db.deleteFrom('garmin_observations').execute();
   await db.deleteFrom('source_records').execute();
   await db.deleteFrom('import_batches').execute();
   await db.deleteFrom('uploaded_files').execute();
