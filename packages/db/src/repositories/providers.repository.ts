@@ -75,7 +75,7 @@ export interface ProviderActivitySnapshotInput {
   activity: {
     activityDate: string;
     startTime: Date;
-    activityType: Exclude<ActivitiesTable['activity_type'], 'steps' | 'hiit' | 'power_bonus'>;
+    activityType: Exclude<ActivitiesTable['activity_type'], 'steps' | 'hiit' | 'bonus'>;
     subtype: NonNullable<ActivitiesTable['subtype']>;
     distanceM: number | null;
     durationS: number | null;

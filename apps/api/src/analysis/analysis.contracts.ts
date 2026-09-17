@@ -80,13 +80,12 @@ export interface DailySummaryFact {
     bikeM: number;
     swimM: number;
     workoutPoints: number;
-    powerPoints: number;
   };
   score: {
     scoreStatus: 'imported' | 'calculated' | 'manual';
     officialTotal: number;
     baseTotal: number;
-    bonusTotal: number;
+    bonusPoints: number;
     excelTotal: number | null;
     deltaVsExcel: number | null;
   };
@@ -132,14 +131,13 @@ export interface DailyScoreBreakdownFacts {
     bikeM: number;
     swimM: number;
     workoutPoints: number;
-    powerPoints: number;
   };
   score: {
     appTotal: number;
     excelTotal: number | null;
     delta: number | null;
     baseTotal: number;
-    bonusTotal: number;
+    bonusPoints: number;
     ledgerTotal: number;
   };
   source: AnalysisSourceReference | null;

@@ -15,7 +15,7 @@ export interface ManualDailyFactsInput {
   bikeUnspecifiedM?: number;
   swimM: number;
   workoutPoints: number;
-  powerPoints: number;
+  bonusPoints: number;
 }
 
 export interface DailyMetricFactsInput {
@@ -31,7 +31,7 @@ export interface DailyMetricFactsInput {
   bikeUnspecifiedM?: number;
   swimM: number;
   workoutPoints: number;
-  powerPoints: number;
+  bonusPoints: number;
   excelAllPoints?: number;
   excelRowHash?: string;
 }
@@ -171,14 +171,13 @@ export interface DailyScoreBreakdownReadModel {
     bikeUnspecifiedM?: number | null;
     swimM: number;
     workoutPoints: number;
-    powerPoints: number;
   };
   score: {
     appTotal: number;
     excelTotal: number | null;
     delta: number | null;
     baseTotal: number;
-    bonusTotal: number;
+    bonusPoints: number;
     ledgerTotal: number;
   };
   sourceRecord: SourceRecordReferenceReadModel | null;

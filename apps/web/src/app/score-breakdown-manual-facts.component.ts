@@ -33,7 +33,7 @@ import { formatScoreDate } from './score-breakdown.view-model';
             <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
             <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
             <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
-            <label>Bonus override <input type="number" min="0" step="1" [value]="manualPowerPoints()" (input)="manualPowerPoints.set(numberInputValue($event))" /></label>
+            <label>Bonus points <input type="number" min="0" step="1" [value]="manualBonusPoints()" (input)="manualBonusPoints.set(numberInputValue($event))" /></label>
           </div>
           @if (validationError()) { <p class="recalculation-error" role="alert">{{ validationError() }}</p> }
           @if (saveError()) { <p class="recalculation-error" role="alert">{{ saveError() }}</p> }
@@ -91,7 +91,7 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
   readonly manualBikeUnspecifiedKm = signal(0);
   readonly manualSwimM = signal(0);
   readonly manualWorkoutPoints = signal(0);
-  readonly manualPowerPoints = signal(0);
+  readonly manualBonusPoints = signal(0);
 
   readonly formatScoreDate = formatScoreDate;
   private handledEditRequestId = 0;
@@ -122,7 +122,7 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
     this.manualBikeUnspecifiedKm.set(this.remainderDistanceKm(facts?.bikeM, bikeIndoorM, bikeOutdoorM, facts?.bikeUnspecifiedM));
     this.manualSwimM.set(facts?.swimM ?? 0);
     this.manualWorkoutPoints.set(facts?.workoutPoints ?? 0);
-    this.manualPowerPoints.set(current?.score.bonusTotal ?? 0);
+    this.manualBonusPoints.set(current?.score.bonusPoints ?? 0);
     this.validationError.set(null);
     this.editing.set(true);
   }
@@ -142,15 +142,15 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
       ['Bike unspecified', this.manualBikeUnspecifiedKm()],
       ['Swim', this.manualSwimM()],
       ['Workout points', this.manualWorkoutPoints()],
-      ['Bonus override', this.manualPowerPoints()],
+      ['Bonus points', this.manualBonusPoints()],
     ];
     const invalidField = fields.find(([, value]) => !Number.isFinite(value) || value < 0);
     if (invalidField) {
       this.validationError.set(`${invalidField[0]} must be a non-negative number.`);
       return;
     }
-    if (![this.manualSteps(), this.manualWorkoutPoints(), this.manualPowerPoints()].every(Number.isInteger)) {
-      this.validationError.set('Steps, workout points, and the bonus override must be whole numbers.');
+    if (![this.manualSteps(), this.manualWorkoutPoints(), this.manualBonusPoints()].every(Number.isInteger)) {
+      this.validationError.set('Steps, workout points, and bonus points must be whole numbers.');
       return;
     }
     this.validationError.set(null);
@@ -164,7 +164,7 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
       bikeUnspecifiedM: this.kilometersToMeters(this.manualBikeUnspecifiedKm()),
       swimM: this.manualSwimM(),
       workoutPoints: this.manualWorkoutPoints(),
-      powerPoints: this.manualPowerPoints(),
+      bonusPoints: this.manualBonusPoints(),
     });
   }
 

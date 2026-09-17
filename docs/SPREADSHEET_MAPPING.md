@@ -40,7 +40,7 @@ Unknown headers are preserved in the extracted raw row but are not normalized. T
 | `HIIT` | manual HIIT effort | rounded effort points |
 | `Swim` | swim activity and daily swim total | meters |
 | `WOtotal` | workout activity and daily workout total | rounded points |
-| `Pow` | power-bonus activity and daily power total | rounded points |
+| `Pow` | bonus activity and daily bonus total | rounded points |
 | `Bike` | daily aggregate bike distance | kilometers converted to meters; falls back to `Bike IN + Bike OUT` when absent |
 | `Run` | daily aggregate run distance | kilometers converted to meters; falls back to `R IN + R Out` when absent |
 | `All` | imported spreadsheet ledger total | numeric cached value when available; when present it becomes the current authoritative score and is not replaced by SportOS bonuses during import |

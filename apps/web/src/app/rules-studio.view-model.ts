@@ -16,7 +16,7 @@ export const RULE_ACTIVITY_TYPES: readonly ActivityType[] = [
   'rowing',
   'sup',
   'hiit',
-  'power_bonus',
+  'bonus',
 ];
 
 export const RULE_KINDS: readonly RuleKind[] = ['coefficient', 'achievement', 'manual_points'];
@@ -59,7 +59,7 @@ export function proposalFromRule(rule: RuleVersion, validFrom = todayIso()): Rul
 
 export function metricOptionsFor(activityType: ActivityType): string[] {
   if (activityType === 'steps') return ['steps'];
-  if (['workout', 'hiit', 'power_bonus'].includes(activityType)) return ['effort_points'];
+  if (['workout', 'hiit', 'bonus'].includes(activityType)) return ['effort_points'];
   const distanceMetrics = ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'];
   return activityType === 'run'
     ? [...distanceMetrics.slice(0, 3), 'pace_s_per_km', ...distanceMetrics.slice(3)]

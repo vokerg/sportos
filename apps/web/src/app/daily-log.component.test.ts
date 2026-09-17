@@ -11,7 +11,7 @@ import type { DailyScoreBreakdown } from './score-breakdown.models';
 
 const row: DailySummaryRow = {
   metric_date: '2026-05-18', steps: 12_345, run_m: 5_000, bike_m: 0, swim_m: 0,
-  workout_points: 0, power_points: 0, base_points: 20, bonus_points: 5, total_points: 25,
+  workout_points: 0, base_points: 20, bonus_points: 5, total_points: 25,
   excel_all_points: 24, points_delta_vs_excel: 1, avg_10d: 20, avg_20d: 19, avg_30d: 18,
   avg_60d: 17, avg_365d: 16, score_status: 'calculated',
 };
@@ -20,8 +20,8 @@ const breakdown: DailyScoreBreakdown = {
   date: row.metric_date,
   recomputedAt: '2026-05-18T12:00:00.000Z',
   scoreStatus: 'calculated',
-  facts: { steps: row.steps, runM: row.run_m, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
-  score: { appTotal: 25, excelTotal: 24, delta: 1, baseTotal: 20, bonusTotal: 5, ledgerTotal: 25 },
+  facts: { steps: row.steps, runM: row.run_m, bikeM: 0, swimM: 0, workoutPoints: 0 },
+  score: { appTotal: 25, excelTotal: 24, delta: 1, baseTotal: 20, bonusPoints: 5, ledgerTotal: 25 },
   sourceRecord: null,
   activities: [],
   sourceRecords: [],
@@ -137,7 +137,7 @@ describe('DailyLogComponent cockpit workflow', () => {
     const recalculated = {
       ...breakdown,
       scoreStatus: 'calculated' as const,
-      score: { ...breakdown.score, appTotal: 6000, delta: 5976, baseTotal: 5000, bonusTotal: 1000, ledgerTotal: 6000 },
+      score: { ...breakdown.score, appTotal: 6000, delta: 5976, baseTotal: 5000, bonusPoints: 1000, ledgerTotal: 6000 },
     };
     const scoreApi = {
       getForDate: vi.fn().mockReturnValue(of(breakdown)),
@@ -167,7 +167,7 @@ describe('DailyLogComponent cockpit workflow', () => {
     const input = {
       steps: 1000, runIndoorM: 1000, runOutdoorM: 3000,
       runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0, swimM: 0,
-      workoutPoints: 10, powerPoints: 5,
+      workoutPoints: 10, bonusPoints: 5,
     };
 
     component.saveManualFacts(input);
@@ -188,7 +188,7 @@ describe('DailyLogComponent cockpit workflow', () => {
         facts: {
           steps: 1000, runIndoorM: 1000, runOutdoorM: 3000, runUnspecifiedM: 0,
           bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0, swimM: 500,
-          workoutPoints: 10, powerPoints: 5,
+          workoutPoints: 10, bonusPoints: 5,
         },
       }])),
     };
@@ -206,8 +206,7 @@ describe('DailyLogComponent cockpit workflow', () => {
     const recalculated = {
       ...breakdown,
       scoreStatus: 'calculated' as const,
-      facts: { ...breakdown.facts, powerPoints: 0 },
-      score: { ...breakdown.score, bonusTotal: 3_000 },
+      score: { ...breakdown.score, bonusPoints: 3_000 },
     };
     const scoreApi = {
       getForDate: vi.fn(),
@@ -226,7 +225,7 @@ describe('DailyLogComponent cockpit workflow', () => {
 
     expect(providerApi.enqueueSync).toHaveBeenCalledWith('connection-1', 'webhook_refresh', expect.any(Object));
     expect(scoreApi.recalculate).toHaveBeenCalledWith(row.metric_date);
-    expect(component.quickEntryRows()[0]).toMatchObject({ date: row.metric_date, powerPoints: 3_000, refreshing: false });
+    expect(component.quickEntryRows()[0]).toMatchObject({ date: row.metric_date, bonusPoints: 3_000, refreshing: false });
   });
 
   it('opens existing facts for editing in the quick sheet', () => {

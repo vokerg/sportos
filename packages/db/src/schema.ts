@@ -137,7 +137,7 @@ export interface ActivitiesTable {
   source_record_hash: string | null;
   activity_date: DateString;
   start_time: Timestamp | null;
-  activity_type: 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'power_bonus';
+  activity_type: 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
   subtype: 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown' | null;
   distance_m: number | null;
   duration_s: number | null;
@@ -165,7 +165,6 @@ export interface DailyMetricsTable {
   bike_m: number;
   swim_m: number;
   workout_points: number;
-  power_points: number;
   base_points: number;
   bonus_points: number;
   total_points: number;

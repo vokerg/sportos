@@ -37,7 +37,7 @@ import {
         </div>
         <div class="metric-card">
           <span class="metric-label">{{ current.scoreStatus === 'imported' ? 'Calculated bonus' : 'Bonus' }}</span>
-          <strong class="positive-points">{{ current.scoreStatus === 'imported' ? 'Not applied' : formatSigned(current.score.bonusTotal) }}</strong>
+          <strong class="positive-points">{{ current.scoreStatus === 'imported' ? 'Not applied' : formatSigned(current.score.bonusPoints) }}</strong>
         </div>
         <div class="metric-card delta-card" [attr.data-delta]="deltaKind(current.score.delta)">
           <span class="metric-label">Compared with Excel</span>

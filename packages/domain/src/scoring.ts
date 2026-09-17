@@ -18,6 +18,9 @@ export function scoreFromImportedLedger(facts: DailyMetricFacts, evidence?: Impo
   if (importedPoints === undefined || !Number.isFinite(importedPoints) || !Number.isInteger(importedPoints) || importedPoints < 0) {
     throw new Error('Imported workbook All must be a finite, non-negative integer.');
   }
+  if (!Number.isFinite(facts.bonusPoints) || !Number.isInteger(facts.bonusPoints) || facts.bonusPoints < 0 || facts.bonusPoints > importedPoints) {
+    throw new Error('Imported workbook bonus points must be a finite, non-negative integer no greater than All.');
+  }
 
   const calculationJson: Record<string, unknown> = {
     scoreStatus: 'imported',
@@ -35,8 +38,8 @@ export function scoreFromImportedLedger(facts: DailyMetricFacts, evidence?: Impo
 
   return {
     metricDate: facts.metricDate,
-    basePoints: importedPoints,
-    bonusPoints: 0,
+    basePoints: importedPoints - facts.bonusPoints,
+    bonusPoints: facts.bonusPoints,
     totalPoints: importedPoints,
     ledger: importedPoints === 0 ? [] : [{
       metricDate: facts.metricDate,
@@ -84,7 +87,7 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
     ),
     { activityDate: facts.metricDate, activityType: 'swim', distanceM: facts.swimM },
     { activityDate: facts.metricDate, activityType: 'workout', effortPoints: facts.workoutPoints },
-    { activityDate: facts.metricDate, activityType: 'power_bonus', effortPoints: facts.powerPoints },
+    { activityDate: facts.metricDate, activityType: 'bonus', effortPoints: facts.bonusPoints },
   ] as ActivityFact[]).filter((activity) => !activityBackedTypes.has(activity.activityType as 'run' | 'bike'));
 
   // Daily aggregates drive coefficient/manual rules only. Achievement rules must
@@ -302,7 +305,7 @@ export function isRuleActiveForDate(rule: ScoringRule, isoDate: string): boolean
 }
 
 function classifyRule(rule: ScoringRule): 'base' | 'bonus' {
-  return rule.ruleKind === 'achievement' || rule.activityType === 'power_bonus' ? 'bonus' : 'base';
+  return rule.ruleKind === 'achievement' || rule.activityType === 'bonus' ? 'bonus' : 'base';
 }
 
 function evaluateThresholdValue(

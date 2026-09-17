@@ -10,11 +10,11 @@ export const DYNAMICS_LABELS: Record<DynamicsMetric, string> = {
   bike: 'Bike',
   swim: 'Swim',
   workout: 'Workout points',
-  power: 'Bonus points',
+  bonus: 'Bonus points',
 };
 
 const COLORS: Record<DynamicsMetric, string> = {
-  score: '#2854d9', steps: '#d97706', run: '#059669', bike: '#7c3aed', swim: '#0284c7', workout: '#db2777', power: '#dc2626',
+  score: '#2854d9', steps: '#d97706', run: '#059669', bike: '#7c3aed', swim: '#0284c7', workout: '#db2777', bonus: '#dc2626',
 };
 
 export function dynamicsChartOptions(

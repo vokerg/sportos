@@ -40,7 +40,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
     );
 
     expect(breakdown).toMatchObject({ date: noLedgerDate, scoreStatus: 'calculated' });
-    expect(breakdown.score).toMatchObject({ appTotal: 9500, baseTotal: 8500, bonusTotal: 1000, excelTotal: null });
+    expect(breakdown.score).toMatchObject({ appTotal: 9500, baseTotal: 8500, bonusPoints: 1000, excelTotal: null });
     expect(breakdown.activities).toHaveLength(1);
     expect(breakdown.activities[0]).toMatchObject({ source: 'strava', activityType: 'run' });
     expect(breakdown.ledger).toHaveLength(2);
@@ -62,7 +62,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
         bikeM: 0,
         swimM: 0,
         workoutPoints: 0,
-        powerPoints: 0,
+        bonusPoints: 0,
         excelAllPoints: 5000,
       };
       await new DailyRepository(ownerDb).persistDailyScore(
@@ -104,7 +104,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
         bikeUnspecifiedM: 0,
         swimM: 0,
         workoutPoints: 11_000,
-        powerPoints: 0,
+        bonusPoints: 0,
       });
       await insertStravaRun(ownerDb, mixedDate, 'strava-mixed-1', 'strava-mixed-hash-1', 4_000, 2_000);
       await insertStravaRun(ownerDb, mixedDate, 'strava-mixed-2', 'strava-mixed-hash-2', 4_000, 2_000);
@@ -120,7 +120,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
     expect(breakdown).toMatchObject({
       scoreStatus: 'calculated',
       facts: { runM: 12_000, runOutdoorM: 12_000, workoutPoints: 11_000 },
-      score: { appTotal: 31_400, baseTotal: 31_400, bonusTotal: 0 },
+      score: { appTotal: 31_400, baseTotal: 31_400, bonusPoints: 0 },
     });
     expect(breakdown.ledger.map((entry) => entry.points).sort((a, b) => a - b)).toEqual([6_800, 6_800, 6_800, 11_000]);
   });
@@ -139,7 +139,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
     expect(breakdown).toMatchObject({
       scoreStatus: 'calculated',
       facts: { runM: 17_000, runOutdoorM: 17_000 },
-      score: { appTotal: 40_900, baseTotal: 28_900, bonusTotal: 12_000 },
+      score: { appTotal: 40_900, baseTotal: 28_900, bonusPoints: 12_000 },
     });
     expect(breakdown.ledger).toEqual(expect.arrayContaining([
       expect.objectContaining({ ruleCode: 'run.pace.per5k.sub4.bonus', points: 12_000 }),
@@ -157,7 +157,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
       LEGACY_ACCOUNT_ID,
       (ownerDb) => new DailyScoringRepository(ownerDb).recalculateFromActivities(bonusOverrideDate),
     );
-    expect(calculated.score.bonusTotal).toBe(3_000);
+    expect(calculated.score.bonusPoints).toBe(3_000);
 
     const manual = await withAccountContext(
       db,
@@ -172,10 +172,10 @@ databaseDescribe('DailyScoringRepository database integration', () => {
         bikeUnspecifiedM: 0,
         swimM: 0,
         workoutPoints: 0,
-        powerPoints: 4_000,
+        bonusPoints: 4_000,
       }),
     );
-    expect(manual.score.bonusTotal).toBe(4_000);
+    expect(manual.score.bonusPoints).toBe(4_000);
 
     const recalculated = await withAccountContext(
       db,
@@ -184,8 +184,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
     );
     expect(recalculated).toMatchObject({
       scoreStatus: 'calculated',
-      facts: { powerPoints: 0 },
-      score: { bonusTotal: 3_000 },
+      score: { bonusPoints: 3_000 },
     });
   });
 
@@ -200,7 +199,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
       bikeUnspecifiedM: 500,
       swimM: 100,
       workoutPoints: 10,
-      powerPoints: 5,
+      bonusPoints: 5,
     };
     const first = await withAccountContext(
       db,

@@ -13,8 +13,8 @@ const breakdown: DailyScoreBreakdown = {
   date,
   recomputedAt: '2026-09-11T12:00:00.000Z',
   scoreStatus: 'manual',
-  facts: { steps: 5070, runM: 0, bikeM: 27550, swimM: 0, workoutPoints: 0, powerPoints: 2000 },
-  score: { appTotal: 24978, excelTotal: null, delta: null, baseTotal: 22978, bonusTotal: 2000, ledgerTotal: 24978 },
+  facts: { steps: 5070, runM: 0, bikeM: 27550, swimM: 0, workoutPoints: 0 },
+  score: { appTotal: 24978, excelTotal: null, delta: null, baseTotal: 22978, bonusPoints: 2000, ledgerTotal: 24978 },
   sourceRecord: null,
   activities: [],
   sourceRecords: [],
@@ -56,7 +56,7 @@ describe('DailyDetailPageComponent', () => {
     };
     const component = createComponent(api, { edit: 'true' }, router);
     component.ngOnInit();
-    const input = { steps: 5070, runIndoorM: 0, runOutdoorM: 0, runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 27550, bikeUnspecifiedM: 0, swimM: 0, workoutPoints: 0, powerPoints: 2000 };
+    const input = { steps: 5070, runIndoorM: 0, runOutdoorM: 0, runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 27550, bikeUnspecifiedM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 2000 };
 
     component.saveManualFacts(input);
 

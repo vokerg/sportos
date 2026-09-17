@@ -29,7 +29,6 @@ function bundle() {
       bikeM: 0,
       swimM: 0,
       workoutPoints: 0,
-      powerPoints: 0,
       basePoints: 5000,
       bonusPoints: 0,
       totalPoints: 5000,
@@ -97,7 +96,7 @@ function bundle() {
 describe('canonical export v1 contract', () => {
   it('accepts canonical rows and represents missing provenance explicitly', () => {
     const parsed = CanonicalExportBundleSchema.parse(bundle());
-    expect(parsed.schemaVersion).toBe('sportos.canonical-export.v2');
+    expect(parsed.schemaVersion).toBe('sportos.canonical-export.v3');
     expect(parsed.performanceEvents[0]?.provenance.status).toBe('missing');
   });
 

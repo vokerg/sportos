@@ -9,7 +9,7 @@ export interface DynamicsDailyRow {
   bike: number;
   swim: number;
   workout: number;
-  power: number;
+  bonus: number;
 }
 
 export class DynamicsRepository {
@@ -26,7 +26,7 @@ export class DynamicsRepository {
         'bike_m as bike',
         'swim_m as swim',
         'workout_points as workout',
-        'bonus_points as power',
+        'bonus_points as bonus',
       ])
       .where('metric_date', '>=', from)
       .where('metric_date', '<=', to)
@@ -41,7 +41,7 @@ export class DynamicsRepository {
       bike: numeric(row.bike),
       swim: numeric(row.swim),
       workout: numeric(row.workout),
-      power: numeric(row.power),
+      bonus: numeric(row.bonus),
     }));
   }
 }

@@ -20,8 +20,8 @@ export function parseDailyScoreBreakdown(value: DailyScoreBreakdownReadModel): D
   const ledgerSum = value.ledger.reduce((sum, entry) => sum + entry.points, 0);
   if (ledgerSum !== value.score.ledgerTotal) issues.push('ledgerTotal must equal the sum of ledger entry points');
   if (value.score.ledgerTotal !== value.score.appTotal) issues.push('appTotal must equal ledgerTotal');
-  if (value.score.baseTotal + value.score.bonusTotal !== value.score.appTotal) {
-    issues.push('baseTotal plus bonusTotal must equal appTotal');
+  if (value.score.baseTotal + value.score.bonusPoints !== value.score.appTotal) {
+    issues.push('baseTotal plus bonusPoints must equal appTotal');
   }
 
   const expectedDelta = value.score.excelTotal === null ? null : value.score.appTotal - value.score.excelTotal;

@@ -26,7 +26,7 @@ export interface SourceRecordReference {
   batch: ImportBatchReference;
 }
 
-export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'power_bonus';
+export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
 
 export interface ScoreBreakdownActivity {
   id: string;
@@ -100,14 +100,13 @@ export interface DailyScoreBreakdown {
     bikeUnspecifiedM?: number | null;
     swimM: number;
     workoutPoints: number;
-    powerPoints: number;
   };
   score: {
     appTotal: number;
     excelTotal: number | null;
     delta: number | null;
     baseTotal: number;
-    bonusTotal: number;
+    bonusPoints: number;
     ledgerTotal: number;
   };
   sourceRecord: SourceRecordReference | null;
@@ -126,7 +125,7 @@ export interface ManualDailyFactsInput {
   bikeUnspecifiedM?: number;
   swimM: number;
   workoutPoints: number;
-  powerPoints: number;
+  bonusPoints: number;
 }
 
 export interface ManualDailyFactsRow {

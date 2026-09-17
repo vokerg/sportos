@@ -30,7 +30,6 @@ interface DailyExportDbRow extends ProvenanceColumns {
   bikeM: number;
   swimM: number;
   workoutPoints: number;
-  powerPoints: number;
   basePoints: number;
   bonusPoints: number;
   totalPoints: number;
@@ -124,7 +123,6 @@ export class CanonicalExportRepository {
         'summary.bike_m as bikeM',
         'summary.swim_m as swimM',
         'summary.workout_points as workoutPoints',
-        'summary.power_points as powerPoints',
         'summary.base_points as basePoints',
         'summary.bonus_points as bonusPoints',
         'summary.total_points as totalPoints',
@@ -237,7 +235,6 @@ function mapDailyRow(row: DailyExportDbRow): CanonicalDailyExportRow {
     bikeM: Number(row.bikeM),
     swimM: Number(row.swimM),
     workoutPoints: Number(row.workoutPoints),
-    powerPoints: Number(row.powerPoints),
     basePoints: Number(row.basePoints),
     bonusPoints: Number(row.bonusPoints),
     totalPoints: Number(row.totalPoints),

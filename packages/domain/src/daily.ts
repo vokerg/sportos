@@ -15,7 +15,7 @@ export function aggregateActivitiesToDailyFacts(metricDate: string, activities: 
     bikeUnspecifiedM: sum(onDate.filter((a) => a.activityType === 'bike' && a.subtype === 'unknown').map((a) => a.distanceM ?? 0)),
     swimM: sum(onDate.filter((a) => a.activityType === 'swim').map((a) => a.distanceM ?? 0)),
     workoutPoints: sum(onDate.filter((a) => a.activityType === 'workout').map((a) => a.effortPoints ?? 0)),
-    powerPoints: sum(onDate.filter((a) => a.activityType === 'power_bonus').map((a) => a.effortPoints ?? 0)),
+    bonusPoints: sum(onDate.filter((a) => a.activityType === 'bonus').map((a) => a.effortPoints ?? 0)),
     excelAllPoints,
   };
 }

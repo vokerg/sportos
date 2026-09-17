@@ -7,7 +7,7 @@ export type ActivityType =
   | 'rowing'
   | 'sup'
   | 'hiit'
-  | 'power_bonus';
+  | 'bonus';
 
 export type ActivitySubtype = 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown';
 
@@ -40,7 +40,7 @@ export interface DailyMetricFacts {
   bikeUnspecifiedM?: number;
   swimM: number;
   workoutPoints: number;
-  powerPoints: number;
+  bonusPoints: number;
   excelAllPoints?: number;
   excelRowHash?: string;
 }

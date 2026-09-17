@@ -6,7 +6,7 @@ const response: DynamicsResponse = {
   range: { from: '2026-01-01', to: '2026-02-28' },
   granularity: 'monthly',
   metrics: ['score', 'run'],
-  metricUnits: { score: 'points', steps: 'steps', run: 'metres', bike: 'metres', swim: 'metres', workout: 'points', power: 'points' },
+  metricUnits: { score: 'points', steps: 'steps', run: 'metres', bike: 'metres', swim: 'metres', workout: 'points', bonus: 'points' },
   monthly: [],
   series: [
     { key: '2026-01', from: '2026-01-01', to: '2026-01-31', calendarDays: 31, recordedDays: 2, partial: false, values: { score: { total: 200, recordedDayAverage: 100 }, run: { total: 10_000, recordedDayAverage: 5_000 } } },

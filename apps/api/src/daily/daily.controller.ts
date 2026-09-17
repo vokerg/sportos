@@ -101,7 +101,7 @@ export class DailyController {
 
 const MANUAL_FACT_FIELDS = [
   'steps', 'runIndoorM', 'runOutdoorM', 'runUnspecifiedM', 'bikeIndoorM', 'bikeOutdoorM', 'bikeUnspecifiedM',
-  'swimM', 'workoutPoints', 'powerPoints',
+  'swimM', 'workoutPoints', 'bonusPoints',
 ] as const;
 
 function parseManualDailyFacts(value: unknown): ManualDailyFactsInput {
@@ -115,7 +115,7 @@ function parseManualDailyFacts(value: unknown): ManualDailyFactsInput {
     const value = rawValue === undefined && (field === 'runUnspecifiedM' || field === 'bikeUnspecifiedM') ? 0 : rawValue;
     return [field, boundedNumber(value, field)];
   })) as Record<typeof MANUAL_FACT_FIELDS[number], number>;
-  for (const field of ['steps', 'workoutPoints', 'powerPoints'] as const) {
+  for (const field of ['steps', 'workoutPoints', 'bonusPoints'] as const) {
     if (!Number.isInteger(input[field])) invalidManualFacts(`${field} must be a whole number.`);
   }
   return input;

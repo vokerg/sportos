@@ -25,9 +25,8 @@ const breakdown: DailyScoreBreakdown = {
     bikeUnspecifiedM: 3_000,
     swimM: 750,
     workoutPoints: 12,
-    powerPoints: 4,
   },
-  score: { appTotal: 25, excelTotal: null, delta: null, baseTotal: 20, bonusTotal: 5, ledgerTotal: 25 },
+  score: { appTotal: 25, excelTotal: null, delta: null, baseTotal: 20, bonusPoints: 5, ledgerTotal: 25 },
   sourceRecord: null,
   activities: [],
   sourceRecords: [],
@@ -50,7 +49,7 @@ describe('ScoreBreakdownManualFactsComponent', () => {
       bikeUnspecifiedKm: component.manualBikeUnspecifiedKm(),
       swimM: component.manualSwimM(),
       workoutPoints: component.manualWorkoutPoints(),
-      powerPoints: component.manualPowerPoints(),
+      bonusPoints: component.manualBonusPoints(),
     }).toEqual({
       steps: 12_345,
       runIndoorKm: 2.5,
@@ -61,7 +60,7 @@ describe('ScoreBreakdownManualFactsComponent', () => {
       bikeUnspecifiedKm: 3,
       swimM: 750,
       workoutPoints: 12,
-      powerPoints: 5,
+      bonusPoints: 5,
     });
     expect(component.editing()).toBe(true);
 
@@ -132,7 +131,7 @@ describe('ScoreBreakdownManualFactsComponent', () => {
       bikeUnspecifiedM: 0,
       swimM: 0,
       workoutPoints: 0,
-      powerPoints: 0,
+      bonusPoints: 0,
     }]);
 
     injector.destroy();

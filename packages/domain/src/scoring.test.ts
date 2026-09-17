@@ -5,7 +5,7 @@ import type { ScoringRule } from './types.js';
 const rules: ScoringRule[] = [
   { code: 'steps.base', name: 'Steps', activityType: 'steps', ruleKind: 'coefficient', metric: 'steps', coefficient: 1, validFrom: '1900-01-01', priority: 10, enabled: true },
   { code: 'run.km.default', name: 'Run', activityType: 'run', ruleKind: 'coefficient', metric: 'distance_km', coefficient: 1000, validFrom: '1900-01-01', priority: 20, enabled: true },
-  { code: 'power.manual', name: 'Power', activityType: 'power_bonus', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 60, enabled: true },
+  { code: 'bonus.manual', name: 'Bonus', activityType: 'bonus', ruleKind: 'manual_points', metric: 'effort_points', coefficient: 1, validFrom: '1900-01-01', priority: 60, enabled: true },
   { code: 'run.pace.per5k.sub5.bonus', name: 'Run rounded pace at or under 5:00/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lte', thresholdValue: 300, thresholdUnit: 's/km', points: 1000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'rounded_5k_blocks', validFrom: '1900-01-01', priority: 70, enabled: true },
   { code: 'run.pace.per5k.sub4m24.bonus', name: 'Run rounded pace at or under 4:24/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lte', thresholdValue: 264, thresholdUnit: 's/km', points: 2000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'rounded_5k_blocks', validFrom: '1900-01-01', priority: 71, enabled: true },
   { code: 'run.pace.per5k.sub4m12.bonus', name: 'Run rounded pace at or under 4:12/km', activityType: 'run', ruleKind: 'achievement', metric: 'pace_s_per_km', thresholdOperator: 'lte', thresholdValue: 252, thresholdUnit: 's/km', points: 3000, achievementGroup: 'run.pace.per5k', pointsMultiplier: 'rounded_5k_blocks', validFrom: '1900-01-01', priority: 72, enabled: true },
@@ -14,7 +14,7 @@ const rules: ScoringRule[] = [
 ];
 
 describe('scoreDay', () => {
-  it('keeps an imported workbook ledger total intact without calculated bonuses', () => {
+  it('keeps an imported workbook ledger total intact while classifying its recorded bonus', () => {
     const result = scoreFromImportedLedger({
       metricDate: '2026-05-18',
       steps: 1000,
@@ -22,11 +22,11 @@ describe('scoreDay', () => {
       bikeM: 0,
       swimM: 0,
       workoutPoints: 0,
-      powerPoints: 0,
+      bonusPoints: 1000,
       excelAllPoints: 6000,
     });
 
-    expect(result).toMatchObject({ basePoints: 6000, bonusPoints: 0, totalPoints: 6000 });
+    expect(result).toMatchObject({ basePoints: 5000, bonusPoints: 1000, totalPoints: 6000 });
     expect(result.ledger).toEqual([{
       metricDate: '2026-05-18',
       points: 6000,
@@ -44,7 +44,7 @@ describe('scoreDay', () => {
         bikeM: 0,
         swimM: 0,
         workoutPoints: 0,
-        powerPoints: 0,
+        bonusPoints: 0,
         excelAllPoints: 6000,
       },
       {
@@ -69,16 +69,22 @@ describe('scoreDay', () => {
 
   it('rejects a fractional or negative imported workbook total instead of changing it silently', () => {
     expect(() => scoreFromImportedLedger({
-      metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: 1.5,
+      metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: 1.5,
     })).toThrow(/finite, non-negative integer/);
     expect(() => scoreFromImportedLedger({
-      metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0, excelAllPoints: -1,
+      metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0, excelAllPoints: -1,
     })).toThrow(/finite, non-negative integer/);
   });
 
-  it('scores deterministic base points and classifies power and achievement entries as bonuses', () => {
+  it('rejects an imported bonus that cannot be a component of All', () => {
+    expect(() => scoreFromImportedLedger({
+      metricDate: '2026-05-18', steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 6001, excelAllPoints: 6000,
+    })).toThrow(/no greater than All/);
+  });
+
+  it('scores deterministic base points and classifies manual and achievement entries as bonuses', () => {
     const result = scoreDay(
-      { metricDate: '2026-05-18', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 250 },
+      { metricDate: '2026-05-18', steps: 1000, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 250 },
       [{ id: 'run1', activityDate: '2026-05-18', activityType: 'run', distanceM: 5000, durationS: 1499 }],
       rules,
     );
@@ -86,11 +92,11 @@ describe('scoreDay', () => {
     expect(result).toMatchObject({ basePoints: 6000, bonusPoints: 1250, totalPoints: 7250 });
     expect(result.ledger.map((entry) => entry.ruleCode)).toEqual([
       'steps.base',
-      'power.manual',
+      'bonus.manual',
       'run.km.default',
       'run.pace.per5k.sub5.bonus',
     ]);
-    expect(result.ledger.find((entry) => entry.ruleCode === 'power.manual')?.calculationJson.classification).toBe('bonus');
+    expect(result.ledger.find((entry) => entry.ruleCode === 'bonus.manual')?.calculationJson.classification).toBe('bonus');
     expect(result.ledger.find((entry) => entry.ruleCode === 'run.pace.per5k.sub5.bonus')?.calculationJson).toMatchObject({
       classification: 'bonus',
       metricValue: 299.8,
@@ -106,7 +112,7 @@ describe('scoreDay', () => {
 
   it('does not combine separate activities into an aggregate achievement', () => {
     const result = scoreDay(
-      { metricDate: '2026-05-18', steps: 0, runM: 12_000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      { metricDate: '2026-05-18', steps: 0, runM: 12_000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0 },
       [
         { id: 'run1', activityDate: '2026-05-18', activityType: 'run', distanceM: 6000 },
         { id: 'run2', activityDate: '2026-05-18', activityType: 'run', distanceM: 6000 },
@@ -134,7 +140,7 @@ describe('scoreDay', () => {
         bikeUnspecifiedM: 0,
         swimM: 1_000,
         workoutPoints: 0,
-        powerPoints: 0,
+        bonusPoints: 0,
       },
       [
         { id: 'strava-run', source: 'strava', activityDate: '2026-09-13', activityType: 'run', subtype: 'outdoor', distanceM: 22_032.2, durationS: 9_203 },
@@ -182,7 +188,7 @@ describe('scoreDay', () => {
         bikeUnspecifiedM: 0,
         swimM: 0,
         workoutPoints: 0,
-        powerPoints: 0,
+        bonusPoints: 0,
       },
       [],
       [
@@ -208,7 +214,7 @@ describe('scoreDay', () => {
         bikeOutdoorM: 2_000,
         swimM: 0,
         workoutPoints: 0,
-        powerPoints: 0,
+        bonusPoints: 0,
       },
       [],
       [
@@ -242,7 +248,7 @@ describe('scoreDay', () => {
         bikeM: 0,
         swimM: 0,
         workoutPoints: 0,
-        powerPoints: 0,
+        bonusPoints: 0,
       },
       [],
       [
@@ -270,7 +276,7 @@ describe('scoreDay', () => {
     ];
 
     const result = scoreDay(
-      { metricDate: '2026-05-18', steps: 1, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      { metricDate: '2026-05-18', steps: 1, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0 },
       [],
       tiedRules,
     );
@@ -317,7 +323,7 @@ describe('scoreActivityWithRule', () => {
     const rule = rules.find((candidate) => candidate.code === 'run.pace.per5k.sub5.bonus')!;
 
     const result = scoreDay(
-      { metricDate: '2026-05-18', steps: 0, runM: 4980, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      { metricDate: '2026-05-18', steps: 0, runM: 4980, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0 },
       [{ activityDate: '2026-05-18', activityType: 'run', distanceM: 4980, durationS: 1198 }],
       rules,
     );
@@ -360,7 +366,7 @@ describe('scoreActivityWithRule', () => {
 
   it('awards only the highest pace tier and scales it by completed 5 km blocks', () => {
     const result = scoreDay(
-      { metricDate: '2026-05-18', steps: 0, runM: 17_000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      { metricDate: '2026-05-18', steps: 0, runM: 17_000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0 },
       [{ id: 'run17', activityDate: '2026-05-18', activityType: 'run', distanceM: 17_000, durationS: 4_079 }],
       rules,
     );
@@ -382,7 +388,7 @@ describe('scoreActivityWithRule', () => {
     { durationS: 1200, expectedCode: 'run.pace.per5k.sub4.bonus', expectedPoints: 4000 },
   ])('qualifies the favourably rounded $durationS-second 5k cutoff', ({ durationS, expectedCode, expectedPoints }) => {
     const result = scoreDay(
-      { metricDate: '2026-05-18', steps: 0, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      { metricDate: '2026-05-18', steps: 0, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0 },
       [{ id: 'boundary-run', activityDate: '2026-05-18', activityType: 'run', distanceM: 5000, durationS }],
       rules,
     );
@@ -394,7 +400,7 @@ describe('scoreActivityWithRule', () => {
 
   it('counts completed 5 km blocks independently for each run', () => {
     const result = scoreDay(
-      { metricDate: '2026-05-18', steps: 0, runM: 16_000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
+      { metricDate: '2026-05-18', steps: 0, runM: 16_000, bikeM: 0, swimM: 0, workoutPoints: 0, bonusPoints: 0 },
       [
         { id: 'fast-run-1', activityDate: '2026-05-18', activityType: 'run', distanceM: 8000, durationS: 1919 },
         { id: 'fast-run-2', activityDate: '2026-05-18', activityType: 'run', distanceM: 8000, durationS: 1919 },

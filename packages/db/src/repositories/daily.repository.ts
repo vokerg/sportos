@@ -23,9 +23,8 @@ export interface DailyScoreBreakdownHeaderRow {
   bikeM: number;
   swimM: number;
   workoutPoints: number;
-  powerPoints: number;
   baseTotal: number;
-  bonusTotal: number;
+  bonusPoints: number;
   appTotal: number;
   excelTotal: number | null;
   sourceRecordId: string | null;
@@ -205,7 +204,6 @@ export class DailyRepository {
         bike_m: facts.bikeM,
         swim_m: facts.swimM,
         workout_points: facts.workoutPoints,
-        power_points: facts.powerPoints,
         base_points: score.basePoints,
         bonus_points: score.bonusPoints,
         total_points: score.totalPoints,
@@ -225,7 +223,6 @@ export class DailyRepository {
           bike_m: facts.bikeM,
           swim_m: facts.swimM,
           workout_points: facts.workoutPoints,
-          power_points: facts.powerPoints,
           base_points: score.basePoints,
           bonus_points: score.bonusPoints,
           total_points: score.totalPoints,
@@ -288,9 +285,7 @@ export class DailyRepository {
         'dm.bike_m as bikeM',
         'dm.swim_m as swimM',
         'dm.workout_points as workoutPoints',
-        // Quick entry edits the authoritative bonus total, not the internal
-        // legacy power-points input used to persist a manual override.
-        'dm.bonus_points as powerPoints',
+        'dm.bonus_points as bonusPoints',
         'dss.facts_json as snapshotFacts',
       ])
       .where('dm.metric_date', '<=', input.to ?? new Date().toISOString().slice(0, 10));
@@ -320,7 +315,7 @@ export class DailyRepository {
           bikeUnspecifiedM: finiteSnapshotNumber(snapshot.bikeUnspecifiedM, Math.max(databaseNumber(row.bikeM, 'daily bike distance') - bikeIndoorM - bikeOutdoorM, 0)),
           swimM: databaseNumber(row.swimM, 'daily swim distance'),
           workoutPoints: databaseNumber(row.workoutPoints, 'daily workout points'),
-          powerPoints: databaseNumber(row.powerPoints, 'daily bonus points'),
+          bonusPoints: databaseNumber(row.bonusPoints, 'daily bonus points'),
         },
       };
     });
@@ -340,9 +335,8 @@ export class DailyRepository {
         'dm.bike_m as bikeM',
         'dm.swim_m as swimM',
         'dm.workout_points as workoutPoints',
-        'dm.power_points as powerPoints',
         'dm.base_points as baseTotal',
-        'dm.bonus_points as bonusTotal',
+        'dm.bonus_points as bonusPoints',
         'dm.total_points as appTotal',
         'dm.excel_all_points as excelTotal',
         'dsr.id as sourceRecordId',
@@ -535,7 +529,6 @@ export function assembleDailyScoreBreakdown(
       swimM: databaseNumber(header.swimM, 'daily swim distance'),
       ...subtypeFacts,
       workoutPoints: databaseNumber(header.workoutPoints, 'daily workout points'),
-      powerPoints: databaseNumber(header.powerPoints, 'daily power points'),
     },
     score: {
       appTotal: databaseNumber(header.appTotal, 'daily app total'),
@@ -544,7 +537,7 @@ export function assembleDailyScoreBreakdown(
         ? null
         : databaseNumber(header.appTotal, 'daily app total') - databaseNumber(header.excelTotal, 'daily Excel total'),
       baseTotal: databaseNumber(header.baseTotal, 'daily base total'),
-      bonusTotal: databaseNumber(header.bonusTotal, 'daily bonus total'),
+      bonusPoints: databaseNumber(header.bonusPoints, 'daily bonus points'),
       ledgerTotal,
     },
     sourceRecord: mapHeaderSourceRecord(header),
@@ -580,11 +573,14 @@ function calculatedDistanceActivities(
 }
 
 function mapLedgerEntry(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownLedgerEntryReadModel {
+  const legacyManualBonus = row.ruleCode === 'power.manual';
   return {
     id: row.ledgerId,
     points: databaseNumber(row.ledgerPoints, 'ledger points'),
-    reason: row.ledgerReason,
-    calculation: row.ledgerCalculation,
+    reason: legacyManualBonus
+      ? row.ledgerReason.replace(/^Power\/extra-effort points/, 'Manual bonus points')
+      : row.ledgerReason,
+    calculation: legacyManualBonus ? normalizeLegacyBonusJson(row.ledgerCalculation) : row.ledgerCalculation,
     createdAt: toIsoTimestamp(row.ledgerCreatedAt),
     rule: mapRule(row),
     activity: mapActivity(row),
@@ -608,8 +604,8 @@ function mapRule(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownRuleReadModel
   }
   return {
     id: row.ruleId,
-    code: row.ruleCode,
-    name: row.ruleName,
+    code: row.ruleCode === 'power.manual' ? 'bonus.manual' : row.ruleCode,
+    name: row.ruleCode === 'power.manual' ? 'Manual bonus points' : row.ruleName,
     activityType: row.ruleActivityType,
     ruleKind: row.ruleKind,
     metric: row.ruleMetric,
@@ -627,6 +623,19 @@ function mapRule(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownRuleReadModel
     description: row.ruleDescription,
     createdAt: toIsoTimestamp(row.ruleCreatedAt),
   };
+}
+
+function normalizeLegacyBonusJson(value: Json): Json {
+  if (value === 'power_bonus') return 'bonus';
+  if (Array.isArray(value)) return value.map(normalizeLegacyBonusJson);
+  if (value === null || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key === 'powerPoints' ? 'bonusPoints' : key,
+      normalizeLegacyBonusJson(item),
+    ]),
+  );
 }
 
 function mapActivity(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownActivityReadModel | null {

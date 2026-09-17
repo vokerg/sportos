@@ -14,7 +14,7 @@ This document is the semantic contract for the enabled MVP-0 scoring rules. The 
 - The active bike achievement uses a bounded 0.1 km/h tolerance around its 20 km/h target: one ride of at least 10 km qualifies at `>= 19.9 km/h`. This is an explicit threshold tolerance, not unbounded display rounding.
 - Rules are active when `validFrom <= metricDate <= validTo`; a missing `validTo` means no configured end date. Both boundaries are inclusive.
 - Rule evaluation order is deterministic: ascending `priority`, then ascending rule `code`.
-- Coefficient and ordinary manual-point rules are base contributions. Achievement rules and rules whose activity type is `power_bonus` are bonus contributions.
+- Coefficient and ordinary manual-point rules are base contributions. Achievement rules and rules whose activity type is `bonus` are bonus contributions.
 - Every new ledger entry records the input metric, input unit, input value, raw points where applicable, rounding policy, rounded points, classification, rule kind, effective dates, priority, and threshold/auxiliary inputs where applicable.
 
 ## Enabled MVP-0 rule catalog
@@ -28,7 +28,7 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | 30 | `bike.km.default` | Base | indoor km × 700; outdoor km × 600; unknown-subtype km × 650; nearest integer per contribution | Canonical subtype controls the coefficient for workbook, provider, recalculation, and manual facts | Workbook formula evidence confirms the indoor/outdoor mappings; the generic coefficient remains the conservative fallback. |
 | 40 | `swim.m.default` | Base | swim meters × 7.5; nearest integer per rule | none | Configured assumption. No permitted historical workbook evidence currently justifies changing it. |
 | 50 | `workout.manual` | Base | imported, importer-rounded `WOtotal` points × 1; nearest integer per rule | HIIT and rowing are not added separately | Confirmed application behavior. Whether every workbook's `WOtotal` embeds the same source components remains unresolved. |
-| 60 | `power.manual` | Bonus | imported, importer-rounded `Pow` points × 1; nearest integer per rule | none | Confirmed application behavior and activity classification. Migration V102 corrects older base/bonus aggregates without changing daily totals. |
+| 60 | `bonus.manual` | Bonus | imported, importer-rounded `Pow` or manually entered bonus points × 1; nearest integer per rule | none | Canonical manual bonus rule introduced by V118. |
 | 70 | `run.pace.per5k.sub5.bonus` | Bonus | +1,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 300 s/km` (5:00/km) | Lowest tier in the mutually exclusive `run.pace.per5k` ladder. |
 | 71 | `run.pace.per5k.sub4m24.bonus` | Bonus | +2,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 264 s/km` (4:24/km) | Second tier; replaces the lower tier for the same activity. |
 | 72 | `run.pace.per5k.sub4m12.bonus` | Bonus | +3,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 252 s/km` (4:12/km) | Third tier; replaces lower tiers for the same activity. |
@@ -39,6 +39,8 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 The run ladder is universal rather than tied to named race distances. For example, a 17 km run at a rounded pace of 4:00/km completes three 5 km blocks and earns `3 × 4,000 = 12,000` bonus points. The remaining 2 km does not form another block. A 4.98 km run rounds to 5.0 km for one block, and a 4:01/km pace rounds to 4.0 min/km for tier eligibility. V116 introduces this as new immutable rule versions, atomically recomputes non-imported rows, and retains the disabled strict V115 versions and their UUID-linked ledger history. Source activity facts stay unchanged. The earlier `run.5k.sub25.bonus` and `run.10k.completed.bonus` definitions also remain disabled history.
 
 V117 versions the bike achievement rule with a bounded 0.1 km/h tolerance around the 20 km/h target. A 19.90 km/h ride qualifies; a 19.89 km/h ride does not. It atomically recomputes calculated rows and retains the strict V114 rule UUID and ledger history. Imported and manually authoritative rows remain untouched until their normal explicit authority transition.
+
+V118 makes bonus points the single live concept. It migrates canonical bonus activities, reclassifies each imported manual bonus from the base component into the bonus component without changing the authoritative total, replaces the enabled manual rule with `bonus.manual`, normalizes current snapshot facts to `bonusPoints`, removes `daily_metrics.power_points`, and retains the disabled `power.manual` UUID only where historical ledgers already reference it.
 
 ## Spreadsheet component evidence
 

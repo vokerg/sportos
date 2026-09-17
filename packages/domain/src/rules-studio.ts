@@ -86,7 +86,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
   'rowing',
   'sup',
   'hiit',
-  'power_bonus',
+  'bonus',
 ];
 const RULE_KINDS: RuleKind[] = ['coefficient', 'achievement', 'manual_points'];
 const THRESHOLD_OPERATORS: ThresholdOperator[] = ['lt', 'lte', 'gt', 'gte', 'eq', 'exists'];
@@ -99,7 +99,7 @@ const METRICS_BY_ACTIVITY: Record<ActivityType, string[]> = {
   rowing: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
   sup: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
   hiit: ['effort_points'],
-  power_bonus: ['effort_points'],
+  bonus: ['effort_points'],
 };
 
 export function normalizeRuleProposal(input: RuleProposal): RuleProposal {

@@ -16,8 +16,8 @@ const conflicting: AnalysisToolResult = {
   facts: {
     date: '2026-05-18', recomputedAt: '2026-05-18T12:00:00.000Z',
     scoreStatus: 'calculated',
-    metrics: { steps: 0, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0, powerPoints: 0 },
-    score: { appTotal: 5, excelTotal: 4, delta: 1, baseTotal: 5, bonusTotal: 0, ledgerTotal: 5 },
+    metrics: { steps: 0, runM: 5000, bikeM: 0, swimM: 0, workoutPoints: 0 },
+    score: { appTotal: 5, excelTotal: 4, delta: 1, baseTotal: 5, bonusPoints: 0, ledgerTotal: 5 },
     source: null, ledger: [],
   },
   citations: [{ key: 'daily_metric:2026-05-18', kind: 'daily_metric', date: '2026-05-18', label: 'Official daily metric for 2026-05-18' }],
