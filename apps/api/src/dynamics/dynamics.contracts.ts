@@ -28,6 +28,7 @@ export interface DynamicsBucket {
   recordedDays: number;
   partial: boolean;
   values: Partial<Record<DynamicsMetric, DynamicsMetricAggregate>>;
+  scoreContributions?: Partial<Record<ScoreContributionCategory, number>>;
 }
 
 export interface DynamicsResponse {
@@ -80,7 +81,17 @@ export interface ScoreContributionPoint {
   total: number;
 }
 
-export function buildDynamicsResponse(rows: DynamicsDailyRow[], query: DynamicsQuery): DynamicsResponse {
+export function buildDynamicsResponse(
+  rows: DynamicsDailyRow[],
+  query: DynamicsQuery,
+  contributionRows: ScoreContributionRow[] = [],
+): DynamicsResponse {
+  const monthlyMetrics: DynamicsMetric[] = query.metrics.includes('score') ? query.metrics : [...query.metrics, 'score'];
+  const monthly = aggregate(rows, query.from, query.to, 'monthly', monthlyMetrics).map((bucket) => ({
+    ...bucket,
+    scoreContributions: aggregateScoreContributions(contributionRows, bucket),
+  }));
+
   return {
     range: { from: query.from, to: query.to },
     granularity: query.granularity,
@@ -88,7 +99,7 @@ export function buildDynamicsResponse(rows: DynamicsDailyRow[], query: DynamicsQ
     metricUnits: {
       score: 'points', steps: 'steps', run: 'metres', bike: 'metres', swim: 'metres', workout: 'points', bonus: 'points',
     },
-    monthly: aggregate(rows, query.from, query.to, 'monthly', query.metrics),
+    monthly,
     series: aggregate(rows, query.from, query.to, query.granularity, query.metrics),
   };
 }
@@ -211,6 +222,20 @@ function aggregate(
       values,
     };
   });
+}
+
+function aggregateScoreContributions(
+  rows: ScoreContributionRow[],
+  bucket: DynamicsBucket,
+): Partial<Record<ScoreContributionCategory, number>> {
+  const totals: Partial<Record<ScoreContributionCategory, number>> = {};
+  for (const row of rows) {
+    if (row.metricDate < bucket.from || row.metricDate > bucket.to) continue;
+    const category = row.activityType as ScoreContributionCategory;
+    if (!SCORE_CONTRIBUTION_CATEGORIES.includes(category)) continue;
+    totals[category] = (totals[category] ?? 0) + row.points;
+  }
+  return totals;
 }
 
 function bucketKey(date: string, granularity: DynamicsGranularity): string {

@@ -28,6 +28,24 @@ describe('buildDynamicsResponse', () => {
     expect(result.series[2]).toMatchObject({ key: '2026-02-01', recordedDays: 0, values: { run: { total: null } } });
   });
 
+  it('adds monthly score-ledger components while keeping Sum on the official score total', () => {
+    const result = buildDynamicsResponse(rows, {
+      from: '2026-01-01', to: '2026-02-28', granularity: 'monthly', metrics: ['run'],
+    }, [
+      { metricDate: '2026-01-31', activityType: 'bike', points: 346 },
+      { metricDate: '2026-01-31', activityType: 'run', points: 206 },
+      { metricDate: '2026-01-31', activityType: 'steps', points: 160 },
+      { metricDate: '2026-02-02', activityType: 'bonus', points: 20 },
+    ]);
+
+    expect(result.monthly[0]).toMatchObject({
+      values: { score: { total: 100 } },
+      scoreContributions: { bike: 346, run: 206, steps: 160 },
+    });
+    expect(result.monthly[1]?.scoreContributions).toEqual({ bonus: 20 });
+    expect(result.metrics).toEqual(['run']);
+  });
+
   it('uses ISO Monday week buckets without treating absent days as zero', () => {
     const result = buildDynamicsResponse(rows, {
       from: '2026-01-31', to: '2026-02-03', granularity: 'weekly', metrics: ['steps'],

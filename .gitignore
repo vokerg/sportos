@@ -25,6 +25,7 @@ Thumbs.db
 .vscode/
 
 # Local import and upload data
+/work/
 data/imports/*
 !data/imports/.gitkeep
 data/uploads/*

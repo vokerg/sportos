@@ -11,6 +11,7 @@ import {
   dailyScoreStatusLabel,
   formatDailyCellNumber,
   formatDailyMeters,
+  compareDailyNumbers,
   positiveMetricRange,
   relativePastelBackground,
 } from './daily-log.view-model';
@@ -47,6 +48,9 @@ import { formatDate } from './date-time';
       [pagination]="true"
       [paginationPageSize]="pageSize()"
       [paginationPageSizeSelector]="false"
+      [rowHeight]="32"
+      [headerHeight]="36"
+      domLayout="autoHeight"
       (gridReady)="onGridReady($event)">
     </ag-grid-angular>
   `,
@@ -57,7 +61,7 @@ import { formatDate } from './date-time';
     .table-kicker { color: #5368ae; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
     .daily-grid-toolbar label { display: grid; gap: 5px; }
     .daily-grid-toolbar select { min-width: 104px; min-height: 34px; padding: 6px 24px 6px 9px; border-radius: 9px; font-size: 12px; font-weight: 700; }
-    .daily-grid { width: 100%; height: min(62vh, 720px); min-height: 480px; }
+    .daily-grid { width: 100%; }
     .daily-grid .ag-paging-panel { min-height: 54px; height: auto; padding: 8px 12px; gap: 6px; }
     .daily-grid .ag-paging-description { color: #667085; font-size: 12px; font-weight: 650; white-space: nowrap; }
     .daily-grid .ag-paging-button { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 34px; padding: 0 9px; border: 1px solid #d0d5dd; border-radius: 9px; background: #fff; color: #344054; font-size: 12px; font-weight: 750; line-height: 1; }
@@ -126,14 +130,14 @@ export class DailyLogGridComponent {
       valueFormatter: (params) => formatDate(params.value),
     },
     { field: 'score_status', headerName: 'Authority', valueFormatter: (params) => dailyScoreStatusLabel(params.value) },
-    { field: 'steps', headerName: 'Steps', filter: 'agNumberColumnFilter', valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('steps', params.value, '203, 176, 110') },
-    { field: 'run_m', headerName: 'Run', filter: 'agNumberColumnFilter', valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('run_m', params.value, '116, 168, 132') },
-    { field: 'bike_m', headerName: 'Bike', filter: 'agNumberColumnFilter', valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('bike_m', params.value, '119, 151, 194') },
-    { field: 'swim_m', headerName: 'Swim', filter: 'agNumberColumnFilter', valueFormatter: (params) => formatDailyMeters(params.value, 0), cellStyle: (params) => this.metricCellStyle('swim_m', params.value, '104, 174, 183') },
-    { field: 'workout_points', headerName: 'Workout', filter: 'agNumberColumnFilter', valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('workout_points', params.value, '176, 139, 190') },
-    { field: 'bonus_points', headerName: 'Bonus', filter: 'agNumberColumnFilter', valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('bonus_points', params.value, '193, 151, 174') },
-    { field: 'total_points', headerName: 'SportOS total', filter: 'agNumberColumnFilter', valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('total_points', params.value, '99, 129, 184') },
-    { field: 'avg_30d', headerName: '30d average', filter: 'agNumberColumnFilter', valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('avg_30d', params.value, '128, 164, 111') },
+    { field: 'steps', headerName: 'Steps', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('steps', params.value, '203, 176, 110') },
+    { field: 'run_m', headerName: 'Run', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('run_m', params.value, '116, 168, 132') },
+    { field: 'bike_m', headerName: 'Bike', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('bike_m', params.value, '119, 151, 194') },
+    { field: 'swim_m', headerName: 'Swim', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value, 0), cellStyle: (params) => this.metricCellStyle('swim_m', params.value, '104, 174, 183') },
+    { field: 'workout_points', headerName: 'Workout', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('workout_points', params.value, '176, 139, 190') },
+    { field: 'bonus_points', headerName: 'Bonus', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('bonus_points', params.value, '193, 151, 174') },
+    { field: 'total_points', headerName: 'SportOS total', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('total_points', params.value, '99, 129, 184') },
+    { field: 'avg_30d', headerName: '30d average', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('avg_30d', params.value, '128, 164, 111') },
   ];
 
   private metricCellStyle(

@@ -73,10 +73,19 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
     },
     yAxis: { type: 'value' },
     series: [
-      { name: 'Total points', type: 'bar', data: chronological.map((row) => row.total_points) },
+      { name: 'Total points', type: 'bar', cursor: 'pointer', data: chronological.map((row) => row.total_points) },
       { name: '30d average', type: 'line', data: chronological.map((row) => Math.round(row.avg_30d ?? 0)) },
     ],
   };
+}
+
+export function dailyLogRowAtChartIndex(
+  rows: readonly DailySummaryRow[],
+  dataIndex: number,
+): DailySummaryRow | undefined {
+  return Number.isInteger(dataIndex) && dataIndex >= 0
+    ? rows[rows.length - 1 - dataIndex]
+    : undefined;
 }
 
 export function formatDailyCellNumber(value: unknown): string {
@@ -85,6 +94,14 @@ export function formatDailyCellNumber(value: unknown): string {
   return Number.isFinite(number)
     ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(number)
     : String(value);
+}
+
+export function compareDailyNumbers(valueA: unknown, valueB: unknown): number {
+  const a = Number(valueA);
+  const b = Number(valueB);
+  const safeA = Number.isFinite(a) ? a : 0;
+  const safeB = Number.isFinite(b) ? b : 0;
+  return safeA - safeB;
 }
 
 export function formatDailyMeters(value: unknown, fractionDigits = 2): string {

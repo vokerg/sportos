@@ -1,9 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { ApiService, type DailySummaryRow } from './api.service';
-import { DailyLogActionsComponent } from './daily-log-actions.component';
 import { DailyLogFiltersComponent } from './daily-log-filters.component';
 import { DailyLogGridComponent } from './daily-log-grid.component';
 import { DailyLogTrendComponent } from './daily-log-trend.component';
@@ -30,8 +30,8 @@ import type {
   selector: 'sportos-daily-log',
   standalone: true,
   imports: [
+    DecimalPipe,
     DailyLogFiltersComponent,
-    DailyLogActionsComponent,
     DailyLogTrendComponent,
     DailyLogGridComponent,
     DailyQuickEntryGridComponent,
@@ -39,8 +39,16 @@ import type {
   ],
   template: `
     <section class="card" aria-labelledby="daily-log-title">
-      <h2 id="daily-log-title">Daily Log</h2>
-      <p class="daily-log-help">A day can be authoritative from an imported workbook ledger, calculated activities, or saved manual facts. Open a row to inspect and edit it without losing prior provenance.</p>
+      <div class="daily-log-header">
+        <div>
+          <h2 id="daily-log-title">Daily Log</h2>
+          <p class="daily-log-help">Open a chart bar or table row to inspect the complete day.</p>
+        </div>
+        <div class="current-average" aria-label="Current 30 day average">
+          <span>Current 30d average</span>
+          <strong>{{ latestAverage() === null ? '—' : (latestAverage() | number:'1.0-0') }}</strong>
+        </div>
+      </div>
 
       <sportos-daily-log-filters
         [quickRange]="quickRange()"
@@ -52,15 +60,6 @@ import type {
         (toChange)="setTo($event)"
         (apply)="applyFilters()"
         (reset)="resetFilters()" />
-
-      <sportos-daily-log-actions
-        [date]="activityDate()"
-        [working]="recalculationState() === 'working'"
-        [errorMessage]="recalculationError()"
-        (dateChange)="activityDate.set($event)"
-        (recalculate)="recalculateSelectedDate(activityDate())"
-        (manualEntry)="openManualEntry(activityDate())"
-        (quickEntry)="addQuickEntryDate(activityDate())" />
 
       <div class="view-switch" role="group" aria-label="Daily log view">
         <button type="button" [class.active]="viewMode() === 'summary'" (click)="showSummary()">Summary</button>
@@ -75,7 +74,7 @@ import type {
         } @else if (summaryState() === 'empty') {
           <p class="state-message" role="status">No canonical daily summaries match this range.</p>
         } @else {
-          <sportos-daily-log-trend [rows]="rows()" />
+          <sportos-daily-log-trend [rows]="rows()" (openDay)="openBreakdownForDate($event)" />
           <sportos-daily-log-grid [rows]="rows()" (openBreakdown)="openBreakdown($event)" />
         }
       } @else {
@@ -109,21 +108,27 @@ import type {
     </section>
   `,
   styles: [`
-    .daily-log-help { margin: -6px 0 16px; color: #667085; font-size: 13px; }
+    .daily-log-header { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+    .daily-log-header h2 { margin-bottom: 6px; }
+    .daily-log-help { margin: 0; color: #667085; font-size: 13px; }
+    .current-average { display: grid; flex: 0 0 auto; gap: 3px; min-width: 150px; padding: 10px 14px; border-radius: 12px; background: #eef3ff; }
+    .current-average span { color: #667085; font-size: 11px; font-weight: 650; }
+    .current-average strong { color: #172b4d; font-size: 22px; }
     .view-switch { display: flex; gap: 4px; width: fit-content; padding: 4px; border: 1px solid #dbe4f0; border-radius: 10px; background: #f8fafc; }
     .view-switch button { border-color: transparent; background: transparent; color: #667085; }
     .view-switch button.active { border-color: #b8c8ed; background: #fff; color: #243b73; box-shadow: 0 1px 2px rgba(16, 24, 40, .08); }
+    @media (max-width: 640px) { .daily-log-header { align-items: stretch; flex-direction: column; } .current-average { min-width: 0; } }
   `],
 })
 export class DailyLogComponent implements OnInit, OnDestroy {
   readonly rows = signal<DailySummaryRow[]>([]);
+  readonly latestAverage = computed(() => this.rows()[0]?.avg_30d ?? null);
   readonly from = signal(quickRangeDates(DEFAULT_QUICK_RANGE).from);
   readonly to = signal(quickRangeDates(DEFAULT_QUICK_RANGE).to);
   readonly quickRange = signal<QuickRange>(DEFAULT_QUICK_RANGE);
   readonly summaryState = signal<DailyLogSummaryState>('loading');
   readonly summaryError = signal<string | null>(null);
   readonly selectedDate = signal<string | null>(null);
-  readonly activityDate = signal('');
   readonly breakdownState = signal<ScoreBreakdownViewState>('idle');
   readonly breakdown = signal<DailyScoreBreakdown | null>(null);
   readonly breakdownError = signal<string | null>(null);

@@ -50,6 +50,7 @@ export interface DynamicsBucket {
   recordedDays: number;
   partial: boolean;
   values: Partial<Record<DynamicsMetric, DynamicsMetricAggregate>>;
+  scoreContributions?: Partial<Record<ScoreContributionCategory, number>>;
 }
 
 export interface DynamicsResponse {
