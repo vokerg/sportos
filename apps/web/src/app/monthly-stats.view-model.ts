@@ -1,5 +1,11 @@
 import type { EChartsCoreOption } from 'echarts/core';
-import type { DynamicsBucket, DynamicsMeasure, DynamicsMetric, DynamicsResponse } from './api.service';
+import type {
+  DynamicsBucket,
+  DynamicsMeasure,
+  DynamicsMetric,
+  DynamicsResponse,
+  ScoreContributionCategory,
+} from './api.service';
 
 export type DynamicsMode = 'absolute' | 'indexed';
 
@@ -13,6 +19,54 @@ export const DYNAMICS_LABELS: Record<DynamicsMetric, string> = {
   bonus: 'Bonus points',
 };
 
+export const MONTHLY_LEDGER_COLUMNS = [
+  { key: 'bike', label: 'Bike' },
+  { key: 'run', label: 'Run' },
+  { key: 'swim', label: 'SwimT' },
+  { key: 'workout', label: 'Woth' },
+  { key: 'steps', label: 'stepsT' },
+  { key: 'bonus', label: 'Power' },
+  { key: 'score', label: 'Sum' },
+] as const satisfies ReadonlyArray<{ key: ScoreContributionCategory | 'score'; label: string }>;
+
+export type MonthlyLedgerColumn = typeof MONTHLY_LEDGER_COLUMNS[number]['key'];
+
+export interface MonthlyLedgerYear {
+  year: string;
+  months: DynamicsBucket[];
+  totals: Partial<Record<MonthlyLedgerColumn, number>>;
+  recordedDays: number;
+  calendarDays: number;
+}
+
+export function buildMonthlyLedger(buckets: DynamicsBucket[]): MonthlyLedgerYear[] {
+  const byYear = new Map<string, DynamicsBucket[]>();
+  for (const bucket of buckets) {
+    const year = bucket.key.slice(0, 4);
+    const months = byYear.get(year) ?? [];
+    months.push(bucket);
+    byYear.set(year, months);
+  }
+
+  return [...byYear].map(([year, months]) => ({
+    year,
+    months,
+    totals: Object.fromEntries(MONTHLY_LEDGER_COLUMNS.flatMap(({ key }) => {
+      const values = months.map((bucket) => monthlyLedgerValue(bucket, key));
+      const recorded = values.filter((value): value is number => value !== null);
+      return recorded.length ? [[key, recorded.reduce((sum, value) => sum + value, 0)]] : [];
+    })) as Partial<Record<MonthlyLedgerColumn, number>>,
+    recordedDays: months.reduce((sum, bucket) => sum + bucket.recordedDays, 0),
+    calendarDays: months.reduce((sum, bucket) => sum + bucket.calendarDays, 0),
+  }));
+}
+
+export function monthlyLedgerValue(bucket: DynamicsBucket, key: MonthlyLedgerColumn): number | null {
+  if (bucket.recordedDays === 0) return null;
+  if (key === 'score') return bucket.values.score?.total ?? null;
+  return bucket.scoreContributions?.[key] ?? 0;
+}
+
 const COLORS: Record<DynamicsMetric, string> = {
   score: '#2854d9', steps: '#d97706', run: '#059669', bike: '#7c3aed', swim: '#0284c7', workout: '#db2777', bonus: '#dc2626',
 };
@@ -21,11 +75,13 @@ export function dynamicsChartOptions(
   response: DynamicsResponse | null,
   measure: DynamicsMeasure,
   mode: DynamicsMode,
+  selectedMetrics: DynamicsMetric[] = response?.metrics ?? [],
 ): EChartsCoreOption {
   if (!response) return {};
-  const units = response.metrics.map((metric) => displayUnit(response.metricUnits[metric]));
+  const metrics = selectedMetrics.filter((metric) => response.metrics.includes(metric));
+  const units = metrics.map((metric) => displayUnit(response.metricUnits[metric]));
   const indexed = mode === 'indexed';
-  const axes = indexed ? [{ type: 'value', name: 'Index (first non-zero = 100)' }] : response.metrics.map((metric, index) => ({
+  const axes = indexed ? [{ type: 'value', name: 'Index (first non-zero = 100)' }] : metrics.map((metric, index) => ({
     type: 'value',
     name: units[index],
     position: index % 2 === 0 ? 'left' : 'right',
@@ -34,17 +90,17 @@ export function dynamicsChartOptions(
     axisLabel: { color: COLORS[metric] },
     nameTextStyle: { color: COLORS[metric], fontWeight: 650 },
   }));
-  const leftAxes = indexed ? 1 : Math.ceil(response.metrics.length / 2);
-  const rightAxes = indexed ? 0 : Math.floor(response.metrics.length / 2);
+  const leftAxes = indexed ? 1 : Math.ceil(metrics.length / 2);
+  const rightAxes = indexed ? 0 : Math.floor(metrics.length / 2);
 
   return {
-    color: response.metrics.map((metric) => COLORS[metric]),
+    color: metrics.map((metric) => COLORS[metric]),
     tooltip: { trigger: 'axis' },
     legend: { bottom: 0 },
     grid: { left: 48 + ((leftAxes - 1) * 56), right: 24 + (rightAxes * 56), top: 54, bottom: 56, containLabel: true },
     xAxis: { type: 'category', data: response.series.map((bucket) => bucket.key), axisLabel: { hideOverlap: true } },
     yAxis: axes,
-    series: response.metrics.map((metric, index) => {
+    series: metrics.map((metric, index) => {
       const absolute = response.series.map((bucket) => displayValue(bucket, metric, measure, response.metricUnits[metric]));
       return {
         name: `${DYNAMICS_LABELS[metric]} · ${measure === 'total' ? 'total' : 'recorded-day avg'}${indexed ? '' : ` (${units[index]})`}`,

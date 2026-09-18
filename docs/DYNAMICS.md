@@ -45,6 +45,8 @@ No-row days are missing, not zero. A persisted row whose metric value is zero re
 
 The Monthly Stats chart supports absolute totals or recorded-day averages. Absolute mixed-unit series use separately labelled axes. Indexed comparison sets each series' first non-zero value to 100; this compares shapes, not physical magnitudes.
 
+Monthly Stats also includes an Excel-style year/month score ledger. Years can be expanded or collapsed; expanded years show each calendar month followed by a year total. Its fixed columns are `Bike`, `Run`, `SwimT`, `Woth`, `stepsT`, `Power`, and `Sum`. The first six columns are summed score-ledger contributions (`bike`, `run`, `swim`, `workout`, `steps`, and `bonus`); `Sum` is the authoritative `daily_metrics.total_points` total. These columns intentionally do not reuse raw distance or raw step totals from the selectable dynamics metrics.
+
 ## Ownership and privacy
 
 The controller derives the account only from the authenticated session. Repository access runs inside `withAccountContext`, and forced RLS prevents another account's rows from contributing to buckets. The response contains canonical numeric facts and dates only—no owner IDs, raw payloads, filenames, hashes, formulas, authentication data, or provider credentials.

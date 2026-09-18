@@ -16,9 +16,16 @@ export class DynamicsService {
   async read(query: DynamicsQuery, accountId = LEGACY_ACCOUNT_ID) {
     const rows = await this.dbProvider.withAccount(
       accountId,
-      (db) => new DynamicsRepository(db).listDailyRows(query.from, query.to),
+      async (db) => {
+        const repository = new DynamicsRepository(db);
+        const [dailyRows, contributionRows] = await Promise.all([
+          repository.listDailyRows(query.from, query.to),
+          repository.listScoreContributions(query.from, query.to),
+        ]);
+        return { dailyRows, contributionRows };
+      },
     );
-    return buildDynamicsResponse(rows, query);
+    return buildDynamicsResponse(rows.dailyRows, query, rows.contributionRows);
   }
 
   async rolling(query: RollingDynamicsQuery, accountId = LEGACY_ACCOUNT_ID) {

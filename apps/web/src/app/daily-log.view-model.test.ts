@@ -3,7 +3,9 @@ import type { DailySummaryRow } from './api.service';
 import { formatDate } from './date-time';
 import {
   dailyLogChartOptions,
+  dailyLogRowAtChartIndex,
   dailyScoreStatusLabel,
+  compareDailyNumbers,
   formatDailyCellNumber,
   formatDailyMeters,
   positiveMetricRange,
@@ -57,6 +59,9 @@ describe('daily log view model', () => {
     expect(xAxis.data?.[120]).toBe(formatDate(rows[0]!.metric_date));
     expect(series[0]?.data).toHaveLength(121);
     expect(series[1]?.data).toHaveLength(121);
+    expect(dailyLogRowAtChartIndex(rows, 0)?.metric_date).toBe(rows[120]!.metric_date);
+    expect(dailyLogRowAtChartIndex(rows, 120)?.metric_date).toBe(rows[0]!.metric_date);
+    expect(dailyLogRowAtChartIndex(rows, -1)).toBeUndefined();
   });
 
   it('keeps table formatting and authority labels explicit', () => {
@@ -67,6 +72,8 @@ describe('daily log view model', () => {
     expect(dailyScoreStatusLabel('imported')).toBe('Imported ledger');
     expect(dailyScoreStatusLabel('manual')).toBe('Manual edit');
     expect(dailyScoreStatusLabel('calculated')).toBe('Calculated');
+    expect(compareDailyNumbers('9.95', '26.9')).toBeLessThan(0);
+    expect(compareDailyNumbers('10000', 9_000)).toBeGreaterThan(0);
   });
 
   it('maps positive values to a restrained relative pastel scale', () => {

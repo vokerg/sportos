@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ApiService, DynamicsResponse } from './api.service';
 import { boundedAllTimeRange, quickRangeDates } from './daily-log.view-model';
 import { MonthlyStatsPageComponent } from './monthly-stats-page.component';
+import { buildMonthlyLedger } from './monthly-stats.view-model';
 
 const response: DynamicsResponse = {
   range: { from: '2026-01-01', to: '2026-02-28' }, granularity: 'monthly', metrics: ['score', 'run'],
@@ -82,5 +83,23 @@ describe('MonthlyStatsPageComponent', () => {
     component.ngOnInit();
     expect(component.cellBackground(january, 'run', 'total')).toBe('rgba(116, 168, 132, 0.10)');
     expect(component.cellBackground(february, 'run', 'total')).toBe('rgba(116, 168, 132, 0.26)');
+  });
+
+  it('builds an Excel-style year hierarchy from monthly buckets', () => {
+    const january = {
+      ...response.monthly[0]!,
+      scoreContributions: { bike: 346, run: 206, swim: 4, workout: 113, steps: 160, bonus: 37 },
+    };
+    const february = {
+      ...january,
+      key: '2026-02', from: '2026-02-01', to: '2026-02-28',
+      values: { ...january.values, score: { total: 20, recordedDayAverage: 20 } },
+      scoreContributions: { bike: 200, run: 100, swim: 0, workout: 20, steps: 80, bonus: 10 },
+    };
+
+    const ledger = buildMonthlyLedger([january, february]);
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({ year: '2026', recordedDays: 2, calendarDays: 62 });
+    expect(ledger[0]?.totals).toMatchObject({ bike: 546, run: 306, swim: 4, workout: 133, steps: 240, bonus: 47, score: 30 });
   });
 });

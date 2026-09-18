@@ -256,6 +256,19 @@ describe('DailyLogComponent cockpit workflow', () => {
     expect(router.navigate).toHaveBeenLastCalledWith(['/daily', row.metric_date], { queryParams: { edit: 'true' } });
   });
 
+  it('opens a chart bar in the daily quick sheet', () => {
+    const scoreApi = { getForDate: vi.fn().mockReturnValue(of(breakdown)) };
+    const router = { navigate: vi.fn().mockResolvedValue(true) };
+    const component = createComponent(scoreApi, undefined, router);
+
+    component.openBreakdownForDate(row.metric_date);
+
+    expect(scoreApi.getForDate).toHaveBeenCalledWith(row.metric_date);
+    expect(component.selectedDate()).toBe(row.metric_date);
+    expect(component.breakdown()).toEqual(breakdown);
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
   it('opens a blank manual entry in the quick sheet', () => {
     const scoreApi = {
       getForDate: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({

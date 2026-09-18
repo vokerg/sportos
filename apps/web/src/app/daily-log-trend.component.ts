@@ -1,27 +1,20 @@
-import { DecimalPipe } from '@angular/common';
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { DailySummaryRow } from './api.service';
-import { dailyLogChartOptions } from './daily-log.view-model';
+import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-model';
 
 @Component({
   selector: 'sportos-daily-log-trend',
   standalone: true,
-  imports: [DecimalPipe, NgxEchartsDirective],
+  imports: [NgxEchartsDirective],
   template: `
-    <div class="kpi-row">
-      <div class="kpi"><div class="label">Rows</div><div class="value">{{ rows().length }}</div></div>
-      <div class="kpi"><div class="label">Latest total</div><div class="value">{{ latest()?.total_points ?? '—' }}</div></div>
-      <div class="kpi"><div class="label">Latest 30d avg</div><div class="value">{{ latest()?.avg_30d ? (latest()!.avg_30d | number:'1.0-0') : '—' }}</div></div>
-      <div class="kpi"><div class="label">Excel delta</div><div class="value">{{ latest()?.points_delta_vs_excel ?? '—' }}</div></div>
-    </div>
-
     <div
       class="daily-chart"
       echarts
       [options]="chartOptions()"
+      (chartClick)="handleChartClick($event)"
       role="img"
-      aria-label="Daily total and 30 day average trend">
+      aria-label="Daily total and 30 day average trend. Select a bar to open that day.">
     </div>
   `,
   styles: [`
@@ -30,6 +23,12 @@ import { dailyLogChartOptions } from './daily-log.view-model';
 })
 export class DailyLogTrendComponent {
   readonly rows = input<DailySummaryRow[]>([]);
-  readonly latest = computed(() => this.rows()[0]);
+  readonly openDay = output<string>();
   readonly chartOptions = computed(() => dailyLogChartOptions(this.rows()));
+
+  handleChartClick(event: { seriesType?: string; dataIndex?: number }): void {
+    if (event.seriesType !== 'bar' || !Number.isInteger(event.dataIndex)) return;
+    const row = dailyLogRowAtChartIndex(this.rows(), event.dataIndex!);
+    if (row) this.openDay.emit(row.metric_date);
+  }
 }
