@@ -24,8 +24,16 @@ export class DynamicsService {
   async rolling(query: RollingDynamicsQuery, accountId = LEGACY_ACCOUNT_ID) {
     const rows = await this.dbProvider.withAccount(
       accountId,
-      (db) => new DynamicsRepository(db).listDailyRows(rollingLookbackFrom(query.from, query.windows), query.to),
+      async (db) => {
+        const repository = new DynamicsRepository(db);
+        const lookbackFrom = rollingLookbackFrom(query.from, [...query.windows, 30]);
+        const [dailyRows, contributionRows] = await Promise.all([
+          repository.listDailyRows(lookbackFrom, query.to),
+          repository.listScoreContributions(lookbackFrom, query.to),
+        ]);
+        return { dailyRows, contributionRows };
+      },
     );
-    return buildRollingDynamicsResponse(rows, query);
+    return buildRollingDynamicsResponse(rows.dailyRows, query, rows.contributionRows);
   }
 }

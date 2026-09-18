@@ -44,7 +44,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Award the highest qualifying universal run-pace tier per activity, using favourable 0.1 km and 0.1 min/km eligibility rounding and multiplying by rounded completed 5 km blocks.
 - Export bounded, versioned `sportos.canonical-export.v3` JSON from one repeatable-read snapshot, including each daily score's authority status.
 - Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.
-- Review canonical score, steps, run, bike, swim, workout, and bonus totals in Monthly Stats, and graph their true day-by-day trailing 10/20/30/60/365-day movement in Dynamics with explicit data coverage.
+- Review canonical score, steps, run, bike, swim, workout, and bonus totals in Monthly Stats, and graph their true day-by-day trailing 10/20/30/60/365-day totals, averages, or positive activity-day frequency in Dynamics with explicit data coverage and an authoritative stacked 30-day score-contribution view.
 
 ### Ask cited, read-only questions
 

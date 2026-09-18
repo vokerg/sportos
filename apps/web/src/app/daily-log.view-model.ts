@@ -51,6 +51,15 @@ export function quickRangeDates(
   return { from: shiftCalendarMonths(to, months), to };
 }
 
+export function boundedAllTimeRange(
+  to = new Date().toISOString().slice(0, 10),
+  maxDays = 3_660,
+): { from: string; to: string } {
+  const from = new Date(`${to}T00:00:00.000Z`);
+  from.setUTCDate(from.getUTCDate() - (maxDays - 1));
+  return { from: from.toISOString().slice(0, 10), to };
+}
+
 export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsCoreOption {
   const chronological = [...rows].reverse();
   return {

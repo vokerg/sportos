@@ -31,8 +31,11 @@ export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'worko
 export type DynamicsMetric = typeof DYNAMICS_METRICS[number];
 export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
 export type DynamicsMeasure = 'total' | 'recordedDayAverage';
+export type RollingDynamicsMeasure = DynamicsMeasure | 'activeDays';
 export const ROLLING_WINDOWS = [10, 20, 30, 60, 365] as const;
 export type RollingWindow = typeof ROLLING_WINDOWS[number];
+export const SCORE_CONTRIBUTION_CATEGORIES = ['steps', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'bonus'] as const;
+export type ScoreContributionCategory = typeof SCORE_CONTRIBUTION_CATEGORIES[number];
 
 export interface DynamicsMetricAggregate {
   total: number | null;
@@ -61,6 +64,7 @@ export interface DynamicsResponse {
 export interface RollingMetricValue {
   total: number | null;
   calendarDayAverage: number | null;
+  activeDays: number | null;
   recordedDays: number;
   windowDays: number;
   complete: boolean;
@@ -78,6 +82,15 @@ export interface RollingDynamicsResponse {
   unit: 'points' | 'steps' | 'metres';
   windows: RollingWindow[];
   points: RollingDynamicsPoint[];
+  scoreContributions: {
+    windowDays: 30;
+    categories: ScoreContributionCategory[];
+    points: Array<{
+      date: string;
+      contributions: Partial<Record<ScoreContributionCategory, number>>;
+      total: number;
+    }>;
+  };
 }
 
 export interface PerformanceRow {

@@ -12,8 +12,27 @@ import {
   type DynamicsResponse,
 } from './api.service';
 import { DYNAMICS_LABELS, dynamicsChartOptions, formatDynamicsValue, type DynamicsMode } from './monthly-stats.view-model';
+import {
+  boundedAllTimeRange,
+  positiveMetricRange,
+  QUICK_RANGE_VALUES,
+  quickRangeDates,
+  relativePastelBackground,
+  type DailyMetricRange,
+  type QuickRange,
+} from './daily-log.view-model';
 
 type DynamicsState = 'loading' | 'loaded' | 'empty' | 'error';
+const DEFAULT_MONTHLY_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
+const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
+  score: '99, 129, 184',
+  steps: '203, 176, 110',
+  run: '116, 168, 132',
+  bike: '119, 151, 194',
+  swim: '104, 174, 183',
+  workout: '176, 139, 190',
+  bonus: '193, 151, 174',
+};
 
 @Component({
   selector: 'sportos-monthly-stats-page',
@@ -26,8 +45,20 @@ type DynamicsState = 'loading' | 'loaded' | 'empty' | 'error';
 
     <section class="card controls" aria-label="Monthly statistics controls">
       <div class="filter-bar">
-        <label>From <input type="date" [value]="from()" (input)="from.set(inputValue($event))"></label>
-        <label>To <input type="date" [value]="to()" (input)="to.set(inputValue($event))"></label>
+        <label>Quick range
+          <select [value]="quickRange()" (change)="setQuickRange(inputValue($event))">
+            <option value="custom">Custom range</option>
+            <option value="1m">1 month</option>
+            <option value="3m">3 months</option>
+            <option value="6m">6 months</option>
+            <option value="ytd">YTD</option>
+            <option value="1y">1 year</option>
+            <option value="3y">3 years</option>
+            <option value="all">All time</option>
+          </select>
+        </label>
+        <label>From <input type="date" [value]="from()" (input)="setFrom(inputValue($event))"></label>
+        <label>To <input type="date" [value]="to()" (input)="setTo(inputValue($event))"></label>
         <label>Chart grain
           <select [value]="granularity()" (change)="setGranularity(inputValue($event))">
             <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
@@ -83,7 +114,8 @@ type DynamicsState = 'loading' | 'loaded' | 'empty' | 'error';
                   <th scope="row">{{ bucket.key }} @if (bucket.partial) { <span class="partial">Partial</span> }</th>
                   <td>{{ bucket.recordedDays }} / {{ bucket.calendarDays }}</td>
                   @for (metric of current.metrics; track metric) {
-                    <td>{{ value(bucket, metric, 'total') }}</td><td>{{ value(bucket, metric, 'recordedDayAverage') }}</td>
+                    <td [style.background-color]="cellBackground(bucket, metric, 'total')">{{ value(bucket, metric, 'total') }}</td>
+                    <td [style.background-color]="cellBackground(bucket, metric, 'recordedDayAverage')">{{ value(bucket, metric, 'recordedDayAverage') }}</td>
                   }
                 </tr>
               }
@@ -107,8 +139,9 @@ type DynamicsState = 'loading' | 'loaded' | 'empty' | 'error';
 export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
   readonly availableMetrics = DYNAMICS_METRICS;
   readonly labels = DYNAMICS_LABELS;
-  readonly from = signal(defaultFrom());
-  readonly to = signal(today());
+  readonly quickRange = signal<QuickRange>(DEFAULT_MONTHLY_QUICK_RANGE);
+  readonly from = signal(defaultRange().from);
+  readonly to = signal(defaultRange().to);
   readonly granularity = signal<DynamicsGranularity>('monthly');
   readonly measure = signal<DynamicsMeasure>('total');
   readonly mode = signal<DynamicsMode>('absolute');
@@ -118,6 +151,16 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
   readonly selectionMessage = signal<string | null>(null);
   readonly data = signal<DynamicsResponse | null>(null);
   readonly chartOptions = computed(() => dynamicsChartOptions(this.data(), this.measure(), this.mode()));
+  private readonly monthlyMetricRanges = computed(() => {
+    const buckets = this.data()?.monthly ?? [];
+    const ranges: Record<string, DailyMetricRange | null> = {};
+    for (const metric of DYNAMICS_METRICS) {
+      for (const measure of ['total', 'recordedDayAverage'] as const) {
+        ranges[`${metric}:${measure}`] = positiveMetricRange(buckets.map((bucket) => bucket.values[metric]?.[measure]));
+      }
+    }
+    return ranges;
+  });
   readonly hasMixedUnits = computed(() => {
     const data = this.data();
     return data ? new Set(data.metrics.map((metric) => data.metricUnits[metric])).size > 1 : false;
@@ -130,8 +173,12 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
-      this.from.set(validDate(params.get('from')) ?? defaultFrom());
-      this.to.set(validDate(params.get('to')) ?? today());
+      const fallback = defaultRange();
+      const from = validDate(params.get('from')) ?? fallback.from;
+      const to = validDate(params.get('to')) ?? fallback.to;
+      this.from.set(from);
+      this.to.set(to);
+      this.quickRange.set(matchingQuickRange(from, to));
       this.granularity.set(validGranularity(params.get('granularity')) ?? 'monthly');
       this.measure.set(params.get('measure') === 'recordedDayAverage' ? 'recordedDayAverage' : 'total');
       this.mode.set(params.get('mode') === 'indexed' ? 'indexed' : 'absolute');
@@ -169,17 +216,45 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
     this.selectedMetrics.set(selected ? [...current, metric] : current.filter((value) => value !== metric));
   }
 
+  setQuickRange(value: string): void {
+    if (!QUICK_RANGE_VALUES.includes(value as QuickRange)) return;
+    const range = value as QuickRange;
+    this.quickRange.set(range);
+    if (range === 'custom') return;
+    const dates = range === 'all' ? boundedAllTimeRange() : quickRangeDates(range);
+    this.from.set(dates.from);
+    this.to.set(dates.to);
+    this.apply();
+  }
+
+  setFrom(value: string): void { this.from.set(value); this.quickRange.set('custom'); }
+  setTo(value: string): void { this.to.set(value); this.quickRange.set('custom'); }
   setGranularity(value: string): void { const valid = validGranularity(value); if (valid) this.granularity.set(valid); }
   setMeasure(value: string): void { if (value === 'total' || value === 'recordedDayAverage') this.measure.set(value); }
   setMode(value: string): void { if (value === 'absolute' || value === 'indexed') this.mode.set(value); }
   inputValue(event: Event): string { return (event.target as HTMLInputElement | HTMLSelectElement).value; }
   checked(event: Event): boolean { return (event.target as HTMLInputElement).checked; }
   value(bucket: DynamicsResponse['monthly'][number], metric: DynamicsMetric, measure: DynamicsMeasure): string { return formatDynamicsValue(bucket, metric, measure, this.data()!.metricUnits[metric]); }
+  cellBackground(bucket: DynamicsResponse['monthly'][number], metric: DynamicsMetric, measure: DynamicsMeasure): string | undefined {
+    return relativePastelBackground(
+      bucket.values[metric]?.[measure],
+      this.monthlyMetricRanges()[`${metric}:${measure}`] ?? null,
+      MONTHLY_CELL_RGB[metric],
+    );
+  }
 }
 
 function validDate(value: string | null): string | null { return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null; }
 function validGranularity(value: string | null): DynamicsGranularity | null { return value === 'daily' || value === 'weekly' || value === 'monthly' ? value : null; }
 function validMetrics(value: string | null): DynamicsMetric[] { const values = value?.split(',') ?? []; return values.length <= 4 && new Set(values).size === values.length && values.every((metric) => DYNAMICS_METRICS.includes(metric as DynamicsMetric)) ? values as DynamicsMetric[] : []; }
-function today(): string { return new Date().toISOString().slice(0, 10); }
-function defaultFrom(): string { const date = new Date(`${today()}T00:00:00.000Z`); date.setUTCFullYear(date.getUTCFullYear() - 1); return date.toISOString().slice(0, 10); }
+function defaultRange(): { from: string; to: string } { return quickRangeDates(DEFAULT_MONTHLY_QUICK_RANGE); }
+function matchingQuickRange(from: string, to: string): QuickRange {
+  const all = boundedAllTimeRange(to);
+  if (all.from === from && all.to === to) return 'all';
+  for (const range of ['1m', '3m', '6m', 'ytd', '1y', '3y'] as const) {
+    const dates = quickRangeDates(range, new Date(`${to}T00:00:00.000Z`));
+    if (dates.from === from && dates.to === to) return range;
+  }
+  return 'custom';
+}
 function describeError(error: unknown): string { if (!(error instanceof HttpErrorResponse)) return 'Monthly stats could not be loaded.'; if (error.status === 0) return 'The SportOS API is unavailable.'; const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {}; return typeof body.message === 'string' ? body.message : `Monthly stats could not be loaded (HTTP ${error.status}).`; }

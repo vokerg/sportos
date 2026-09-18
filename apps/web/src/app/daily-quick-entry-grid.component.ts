@@ -42,9 +42,6 @@ export interface DailyQuickEntryChange {
       [enterNavigatesVertically]="true"
       [enterNavigatesVerticallyAfterEdit]="true"
       [getRowId]="getRowId"
-      [pagination]="true"
-      [paginationPageSize]="100"
-      [paginationPageSizeSelector]="[50, 100, 250]"
       (cellValueChanged)="cellChanged($event)">
     </ag-grid-angular>
   `,

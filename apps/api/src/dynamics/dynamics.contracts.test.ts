@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DynamicsDailyRow } from '@sportos/db';
+import type { DynamicsDailyRow, ScoreContributionRow } from '@sportos/db';
 import { buildDynamicsResponse, buildRollingDynamicsResponse, rollingLookbackFrom } from './dynamics.contracts.js';
 
 const rows: DynamicsDailyRow[] = [
@@ -47,14 +47,24 @@ describe('buildRollingDynamicsResponse', () => {
       { metricDate: '2026-01-30', score: 0, steps: 0, run: 0, bike: 0, swim: 0, workout: 0, bonus: 0 },
       { metricDate: '2026-01-31', score: 0, steps: 0, run: 0, bike: 0, swim: 0, workout: 0, bonus: 0 },
     ];
+    const contributionRows: ScoreContributionRow[] = [
+      { metricDate: '2026-01-01', activityType: 'run', points: 300 },
+      { metricDate: '2026-01-01', activityType: 'steps', points: 60 },
+      { metricDate: '2026-01-31', activityType: 'bonus', points: 30 },
+    ];
     const result = buildRollingDynamicsResponse(rollingRows, {
       from: '2026-01-30', to: '2026-01-31', metric: 'run', windows: [30],
-    });
+    }, contributionRows);
 
     expect(result.points).toHaveLength(2);
-    expect(result.points[0]?.windows[30]).toMatchObject({ total: 42_195, calendarDayAverage: 1_406.5, recordedDays: 2, windowDays: 30, complete: false });
-    expect(result.points[1]?.windows[30]).toMatchObject({ total: 0, calendarDayAverage: 0, recordedDays: 2, windowDays: 30, complete: false });
+    expect(result.points[0]?.windows[30]).toMatchObject({ total: 42_195, calendarDayAverage: 1_406.5, activeDays: 1, recordedDays: 2, windowDays: 30, complete: false });
+    expect(result.points[1]?.windows[30]).toMatchObject({ total: 0, calendarDayAverage: 0, activeDays: 0, recordedDays: 2, windowDays: 30, complete: false });
     expect(result.points[1]?.dailyValue).toBe(0);
+    expect(result.scoreContributions.categories).toEqual(['steps', 'run', 'bonus']);
+    expect(result.scoreContributions.points).toEqual([
+      { date: '2026-01-30', contributions: { steps: 2, run: 10, bonus: 0 }, total: 12 },
+      { date: '2026-01-31', contributions: { steps: 0, run: 0, bonus: 1 }, total: 1 },
+    ]);
   });
 
   it('requests enough history for the largest selected window', () => {
