@@ -68,6 +68,26 @@ describe('ScoreBreakdownManualFactsComponent', () => {
     injector.destroy();
   });
 
+  it('normalizes decimal kilometer prefills without changing their meter value', () => {
+    const { component, injector } = createComponent();
+
+    component.startManualEdit({ ...breakdown, facts: {
+      ...breakdown.facts,
+      bikeM: 11_806.7,
+      bikeOutdoorM: 11_806.7,
+      runM: 11_737.4,
+      runOutdoorM: 11_737.4,
+    } });
+
+    expect(component.manualBikeOutdoorKm()).toBe(11.8067);
+    expect(component.manualRunOutdoorKm()).toBe(11.7374);
+    const emitted: unknown[] = [];
+    component.save.subscribe((value) => emitted.push(value));
+    component.submitManualFacts();
+    expect(emitted[0]).toEqual(expect.objectContaining({ bikeOutdoorM: 11_806.7, runOutdoorM: 11_737.4 }));
+    injector.destroy();
+  });
+
   it('emits split distances without inventing authoritative totals', () => {
     const { component, injector } = createComponent();
     const emitted: unknown[] = [];

@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, output, signal, type OnChanges, type OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
+import { kilometersToMeters, metersToKilometers } from './distance-units';
 import type { DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
 import { formatScoreDate } from './score-breakdown.view-model';
 
@@ -27,8 +28,8 @@ import { formatScoreDate } from './score-breakdown.view-model';
           </div>
           <div class="manual-facts-grid">
             <label>{{ useTotalSteps() ? 'All-day steps' : 'Steps (excluding runs)' }} <input autofocus type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
-            <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
-            <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
+            <label>Run outdoor (km) <input type="number" min="0" step="0.0001" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
+            <label>Bike outdoor (km) <input type="number" min="0" step="0.0001" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
             <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
             <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
             <label>Bonus points <input type="number" min="0" step="1" [value]="manualBonusPoints()" (input)="manualBonusPoints.set(numberInputValue($event))" /></label>
@@ -46,10 +47,10 @@ import { formatScoreDate } from './score-breakdown.view-model';
           <details class="more-fields">
             <summary>More activity types</summary>
             <div class="manual-facts-grid">
-              <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
-              <label>Run unspecified (km) <input type="number" min="0" step="0.01" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
-              <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
-              <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
+              <label>Run treadmill (km) <input type="number" min="0" step="0.0001" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
+              <label>Run unspecified (km) <input type="number" min="0" step="0.0001" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
+              <label>Bike indoor (km) <input type="number" min="0" step="0.0001" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
+              <label>Bike unspecified (km) <input type="number" min="0" step="0.0001" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
             </div>
           </details>
           @if (validationError()) { <p class="recalculation-error" role="alert">{{ validationError() }}</p> }
@@ -163,11 +164,11 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges, OnDestroy 
     const runOutdoorM = facts?.runOutdoorM ?? 0;
     const bikeIndoorM = facts?.bikeIndoorM ?? 0;
     const bikeOutdoorM = facts?.bikeOutdoorM ?? 0;
-    this.manualRunIndoorKm.set(runIndoorM / 1000);
-    this.manualRunOutdoorKm.set(runOutdoorM / 1000);
+    this.manualRunIndoorKm.set(metersToKilometers(runIndoorM));
+    this.manualRunOutdoorKm.set(metersToKilometers(runOutdoorM));
     this.manualRunUnspecifiedKm.set(this.remainderDistanceKm(facts?.runM, runIndoorM, runOutdoorM, facts?.runUnspecifiedM));
-    this.manualBikeIndoorKm.set(bikeIndoorM / 1000);
-    this.manualBikeOutdoorKm.set(bikeOutdoorM / 1000);
+    this.manualBikeIndoorKm.set(metersToKilometers(bikeIndoorM));
+    this.manualBikeOutdoorKm.set(metersToKilometers(bikeOutdoorM));
     this.manualBikeUnspecifiedKm.set(this.remainderDistanceKm(facts?.bikeM, bikeIndoorM, bikeOutdoorM, facts?.bikeUnspecifiedM));
     this.manualSwimM.set(facts?.swimM ?? 0);
     this.manualWorkoutPoints.set(facts?.workoutPoints ?? 0);
@@ -207,12 +208,12 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges, OnDestroy 
     this.save.emit({
       steps: this.useTotalSteps() ? this.adjustedSteps() : this.manualSteps(),
       ...(this.useTotalSteps() ? { totalSteps: this.manualSteps() } : {}),
-      runIndoorM: this.kilometersToMeters(this.manualRunIndoorKm()),
-      runOutdoorM: this.kilometersToMeters(this.manualRunOutdoorKm()),
-      runUnspecifiedM: this.kilometersToMeters(this.manualRunUnspecifiedKm()),
-      bikeIndoorM: this.kilometersToMeters(this.manualBikeIndoorKm()),
-      bikeOutdoorM: this.kilometersToMeters(this.manualBikeOutdoorKm()),
-      bikeUnspecifiedM: this.kilometersToMeters(this.manualBikeUnspecifiedKm()),
+      runIndoorM: kilometersToMeters(this.manualRunIndoorKm()),
+      runOutdoorM: kilometersToMeters(this.manualRunOutdoorKm()),
+      runUnspecifiedM: kilometersToMeters(this.manualRunUnspecifiedKm()),
+      bikeIndoorM: kilometersToMeters(this.manualBikeIndoorKm()),
+      bikeOutdoorM: kilometersToMeters(this.manualBikeOutdoorKm()),
+      bikeUnspecifiedM: kilometersToMeters(this.manualBikeUnspecifiedKm()),
       swimM: this.manualSwimM(),
       workoutPoints: this.manualWorkoutPoints(),
       bonusPoints: this.manualBonusPoints(),
@@ -224,17 +225,13 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges, OnDestroy 
     return input.value.trim() === '' ? 0 : input.valueAsNumber;
   }
 
-  private kilometersToMeters(value: number): number {
-    return Math.round(value * 1_000_000) / 1000;
-  }
-
   private remainderDistanceKm(
     totalM: number | null | undefined,
     indoorM: number,
     outdoorM: number,
     unspecifiedM: number | null | undefined,
   ): number {
-    if (unspecifiedM !== null && unspecifiedM !== undefined && unspecifiedM > 0) return unspecifiedM / 1000;
-    return Math.max((totalM ?? 0) - indoorM - outdoorM, 0) / 1000;
+    if (unspecifiedM !== null && unspecifiedM !== undefined && unspecifiedM > 0) return metersToKilometers(unspecifiedM);
+    return metersToKilometers(Math.max((totalM ?? 0) - indoorM - outdoorM, 0));
   }
 }

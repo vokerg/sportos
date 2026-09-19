@@ -4,6 +4,7 @@ import type { CellValueChangedEvent, ColDef, SuppressKeyboardEventParams } from 
 import { DailyQuickEntryActionComponent, type DailyQuickEntryGridContext } from './daily-quick-entry-action.component';
 import { formatDate } from './date-time';
 import type { ManualDailyFactsInput } from './score-breakdown.models';
+import { kilometersToMeters, metersToKilometers } from './distance-units';
 
 export interface DailyQuickEntryGridRow extends ManualDailyFactsInput {
   date: string;
@@ -102,19 +103,19 @@ export class DailyQuickEntryGridComponent {
       headerName,
       editable: (p) => !p.data?.saving && !p.data?.refreshing,
       cellEditor: 'agNumberCellEditor',
-      cellEditorParams: { min: 0, max: 10_000_000, precision: integer ? 0 : 3 },
+      cellEditorParams: { min: 0, max: 10_000_000, precision: integer ? 0 : 4 },
       valueParser: (p) => validNumber(p.newValue, integer) ?? p.oldValue,
-      valueFormatter: (p) => Number(p.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 }),
+      valueFormatter: (p) => Number(p.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 4 }),
     };
   }
 
   private kilometerColumn(field: keyof ManualDailyFactsInput, headerName: string): ColDef<DailyQuickEntryGridRow> {
     const column = this.numberColumn(field, `${headerName} (km)`);
-    column.valueGetter = (p) => Number(p.data?.[field] ?? 0) / 1000;
+    column.valueGetter = (p) => metersToKilometers(Number(p.data?.[field] ?? 0));
     column.valueSetter = (p) => {
       const km = validNumber(p.newValue, false);
       if (km === null || !p.data) return false;
-      const meters = Math.round(km * 1_000_000) / 1000;
+      const meters = kilometersToMeters(km);
       if (p.data[field] === meters) return false;
       p.data[field] = meters;
       return true;
