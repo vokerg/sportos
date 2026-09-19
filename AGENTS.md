@@ -206,7 +206,7 @@ The dispatcher is a narrow trusted-system exception. It may inspect queue lifecy
 - Target dependency direction is page -> feature state -> feature data-access, with feature code using feature models and reusable `shared/` code.
 - `shared/` and `core/` must not depend on features; data-access must not depend on UI; state must not import components; presentational components must not inject `HttpClient`.
 - Prefer feature-scoped injectable signal facades/stores for multi-request orchestration, cancellation/stale-response protection, durable jobs, retries, and shared workflow state. Do not introduce NgRx.
-- Authentication, HTTP-wide behavior, API configuration, and generic durable-job infrastructure belong under `core/`; feature transport contracts belong with feature data access.
+- Authentication, HTTP-wide behavior, API configuration, and generic durable-job infrastructure belong under `core/`; use `core/jobs/durable-job-poller.ts` for bounded durable-job status checks and cancel by unsubscribing on teardown/replacement. Do not add feature-local polling timers; feature transport contracts belong with feature data access.
 - For frontend-only work, run the smallest relevant Vitest files and `pnpm --filter @sportos/web typecheck`. Run `pnpm --filter @sportos/web build` when templates, lazy routes, providers, or bundling integration changed.
 - Do not routinely run migrations, backend/database integrations, worker/importer suites, or the full repository matrix for frontend-only refactors. Broaden validation only when the change crosses runtime/package boundaries or targeted evidence is insufficient.
 
