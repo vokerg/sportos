@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Inject, Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { SPORTOS_API_BASE } from './core/config/api-base';
 
 export type ProviderConnectionStatus = 'connected' | 'reauthorization_required' | 'revoked' | 'disconnected' | 'error';
@@ -44,10 +44,9 @@ export interface ProviderSyncJob {
 
 @Injectable({ providedIn: 'root' })
 export class ProviderApiService {
-  constructor(
-    private readonly http: HttpClient,
-    @Inject(SPORTOS_API_BASE) private readonly apiBase: string,
-  ) {}
+  private readonly apiBase = inject(SPORTOS_API_BASE);
+
+  constructor(private readonly http: HttpClient) {}
 
   connections() {
     return this.http.get<ProviderConnection[]>(`${this.apiBase}/providers/connections`);
