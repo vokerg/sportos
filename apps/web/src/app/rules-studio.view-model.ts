@@ -5,7 +5,7 @@ import type {
   RuleKind,
   RuleProposal,
   RuleVersion,
-} from './api.service';
+} from './features/rules/model/rules.models';
 
 export const RULE_ACTIVITY_TYPES: readonly ActivityType[] = [
   'steps',
