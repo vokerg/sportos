@@ -2,7 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { ApiService, type DailySummaryRow } from './api.service';
+import { DailyApiService } from './features/daily/data-access/daily-api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
 import { formatDate } from './date-time';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
@@ -105,7 +106,7 @@ export class OverviewPageComponent implements OnInit, OnDestroy {
   private breakdownSubscription?: Subscription;
 
   constructor(
-    private readonly api: ApiService,
+    private readonly api: DailyApiService,
     private readonly scoreApi: ScoreBreakdownApiService,
     private readonly router: Router,
   ) {}
