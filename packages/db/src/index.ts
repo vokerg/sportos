@@ -31,3 +31,4 @@ export * from './repositories/canonical-export.repository.js';
 export * from './repositories/scoring.repository.js';
 export * from './repositories/analysis-audit.repository.js';
 export * from './repositories/dynamics.repository.js';
+export * from './repositories/activities.repository.js';

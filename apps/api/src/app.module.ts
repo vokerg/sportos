@@ -24,6 +24,7 @@ import { LocalUploadStorage } from './storage/local-upload-storage.js';
 import { UploadStorage } from './storage/upload-storage.js';
 import { DynamicsController } from './dynamics/dynamics.controller.js';
 import { DynamicsService } from './dynamics/dynamics.service.js';
+import { ActivitiesController } from './activities/activities.controller.js';
 
 @Module({
   controllers: [
@@ -37,6 +38,7 @@ import { DynamicsService } from './dynamics/dynamics.service.js';
     ProvidersController,
     AnalysisController,
     DynamicsController,
+    ActivitiesController,
   ],
   providers: [
     DbProvider,

@@ -32,6 +32,16 @@ export const APP_ROUTES: Routes = [
     title: 'Run Lab · SportOS',
   },
   {
+    path: 'activities',
+    loadComponent: () => import('./features/activities/activities-page.component').then((module) => module.ActivitiesPageComponent),
+    title: 'Activities · SportOS',
+  },
+  {
+    path: 'activity/:id',
+    loadComponent: () => import('./features/activities/activity-detail-page.component').then((module) => module.ActivityDetailPageComponent),
+    title: 'Activity · SportOS',
+  },
+  {
     path: 'analysis',
     loadComponent: () => import('./analysis-panel.component').then((module) => module.AnalysisPanelComponent),
     title: 'Analysis · SportOS',

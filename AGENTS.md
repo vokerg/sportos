@@ -84,6 +84,7 @@ The foundational queue in issue #3 is complete through #16. Later product work a
 - `src/analysis/analysis.service.ts` — answer orchestration, write refusal, health limitations, and redacted audit recording.
 - `src/db.provider.ts` — database lifecycle and account-bound execution.
 - `src/imports/`, `rules/`, `daily/`, `performance/`, `exports/` — owner-scoped application routes.
+- `src/activities/` — filtered canonical activity list and detail routes, independent of daily scoring and performance events.
 
 Never accept owner or audit-actor identifiers from request bodies. Derive them from the authenticated request and execute database work inside account context. Provider callbacks require the initiating authenticated account and one-time state. Analysis questions never grant write authority or broaden the tool allowlist.
 
@@ -94,6 +95,7 @@ Never accept owner or audit-actor identifiers from request bodies. Derive them f
 - `src/app/app.routes.ts` — lazy route entry points.
 - `src/app` is currently a transitional flat layout. New substantial feature code belongs under `src/app/features/<feature>/`; application-wide infrastructure belongs under `src/app/core/`; reusable feature-agnostic UI/utilities belong under `src/app/shared/`.
 - Existing `web-auth.service.ts`, `auth-http.interceptor.ts`, `api.service.ts`, feature API services, route components, and presenters migrate incrementally through issues #74-#80. Do not perform unrelated mass moves.
+- `src/app/features/activities/` — canonical Activities API client, metric view model, list presenter, and list/detail route pages.
 
 Angular renders API truth only. It never receives provider tokens/envelopes, assigns ownership, normalizes canonical facts, calculates official scores, or treats generated guidance as authoritative.
 
@@ -117,6 +119,9 @@ The dispatcher is a narrow trusted-system exception. It may inspect queue lifecy
 - `src/repositories/analysis-audit.repository.ts` — bounded owner-scoped analysis audit inserts and reads.
 - `src/repositories/worker-dispatch.repository.ts` — narrow cross-owner import/provider/rule claim and stale recovery.
 - remaining queue, import, rule, daily, performance, and export repositories remain typed query/transaction boundaries.
+- `src/repositories/activities.repository.ts` — selected canonical activity reads, filtered summary, and bounded paging under account context.
+
+Canonical Activities represent training history from `activities`. Daily Log and its ledger represent day-level scoring; performance events and Run Lab represent separate running achievement data. Keep those reads and presentations independent. See `docs/ACTIVITIES.md` for the API and MVP limits.
 
 ### Domain/shared/importers
 
