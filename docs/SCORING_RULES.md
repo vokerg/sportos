@@ -125,6 +125,16 @@ source provenance and an immutable `manual_edit` snapshot. A later workbook
 import, explicit activity recalculation, or manual edit can become current
 authority without deleting earlier score versions.
 
+Manual entry can also accept `totalSteps` when the entered step count includes
+running. The editor gets a read-only estimate for the selected date from
+`GET /daily/:date/running-step-estimate` and updates its canonical-step preview
+as the total changes. Save recomputes the estimate from the same owner-scoped
+Strava runs and stores `max(totalSteps − estimatedRunningSteps, 0)` as the
+manual step fact. The snapshot records the total, run estimates, and resolved
+steps. Direct step entry remains available when the value already excludes
+running. Run distance entered in the manual form has no timing or cadence and
+does not itself produce a step estimate.
+
 ## Historical recomputation and migration V102
 
 V102 does not alter any coefficient, threshold, configured points, or effective period. It:

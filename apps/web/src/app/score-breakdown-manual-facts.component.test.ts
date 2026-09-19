@@ -111,6 +111,25 @@ describe('ScoreBreakdownManualFactsComponent', () => {
     injector.destroy();
   });
 
+  it('previews an all-day total and sends the total for server-side deduction', () => {
+    const { component, injector } = createComponent();
+    const emitted: unknown[] = [];
+    component.save.subscribe((value) => emitted.push(value));
+    component.startManualEdit({ ...breakdown, facts: {
+      ...breakdown.facts,
+      steps: 5000,
+      stepsCalculation: { source: 'manual_adjusted', totalSteps: 8000, estimatedRunningSteps: 3000, resolvedSteps: 5000 },
+    } });
+
+    expect(component.useTotalSteps()).toBe(true);
+    expect(component.manualSteps()).toBe(8000);
+    component.manualSteps.set(7500);
+    expect(component.adjustedSteps()).toBe(4500);
+    component.submitManualFacts();
+    expect(emitted).toEqual([expect.objectContaining({ totalSteps: 7500, steps: 4500 })]);
+    injector.destroy();
+  });
+
   it('treats cleared optional numeric inputs as zero', () => {
     const { component, injector } = createComponent();
     const emitted: unknown[] = [];

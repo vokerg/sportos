@@ -234,6 +234,25 @@ databaseDescribe('DailyScoringRepository database integration', () => {
       expect.objectContaining({ source_kind: 'manual', status: 'scored' }),
     ]));
   });
+
+  it('deducts the same Strava run estimate for preview and manual all-day save', async () => {
+    await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
+      await insertStravaRun(ownerDb, manualDate, 'strava-manual-steps', 'strava-manual-steps-hash');
+      const repository = new DailyScoringRepository(ownerDb);
+      const estimate = await repository.runningStepEstimate(manualDate);
+      const result = await repository.saveManualFacts(manualDate, {
+        steps: 15_000, totalSteps: 15_000,
+        runIndoorM: 0, runOutdoorM: 8500, runUnspecifiedM: 0,
+        bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0,
+        swimM: 0, workoutPoints: 0, bonusPoints: 0,
+      });
+      expect(result.facts.steps).toBe(Math.max(15_000 - estimate.estimatedRunningSteps, 0));
+      expect(result.facts.stepsCalculation).toMatchObject({
+        source: 'manual_adjusted', totalSteps: 15_000,
+        estimatedRunningSteps: estimate.estimatedRunningSteps,
+      });
+    });
+  });
 });
 
 async function insertStravaRun(

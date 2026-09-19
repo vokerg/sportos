@@ -20,6 +20,15 @@ const response: DailyScoreBreakdown = {
 };
 
 describe('ScoreBreakdownApiService', () => {
+  it('requests the owner-scoped running estimate for a date', () => {
+    const get = vi.fn().mockReturnValue(of({ estimatedRunningSteps: 3000, unestimatedRunCount: 0 }));
+    const service = new ScoreBreakdownApiService(
+      { get } as unknown as HttpClient,
+      { apiBase: signal('http://sportos.test') } as unknown as ApiService,
+    );
+    service.runningStepEstimate('2026/05?18').subscribe();
+    expect(get).toHaveBeenCalledWith('http://sportos.test/daily/2026%2F05%3F18/running-step-estimate');
+  });
   it('requests bounded quick-entry facts from the configured API base', () => {
     const get = vi.fn().mockReturnValue(of([]));
     const service = new ScoreBreakdownApiService(

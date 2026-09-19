@@ -19,6 +19,15 @@ export class DailyRecalculationUnavailableError extends Error {
 export class DailyScoringRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
+  async runningStepEstimate(metricDate: string) {
+    const rows = await new DailyRepository(this.db).listActivitiesForDates([metricDate]);
+    const deduction = deductRunningSteps(0, rows.filter((row) => row.source === 'strava').map(toActivityFact));
+    return {
+      estimatedRunningSteps: deduction.estimatedRunningSteps,
+      unestimatedRunCount: deduction.unestimatedRunCount,
+    };
+  }
+
   async saveManualFacts(metricDate: string, input: ManualDailyFactsInput) {
     return this.db.transaction().execute(async (transaction) => {
       await lockDailyScore(transaction, metricDate);
@@ -32,15 +41,28 @@ export class DailyScoringRepository {
         .where('metric_date', '=', metricDate)
         .forUpdate()
         .executeTakeFirst();
+      const deduction = input.totalSteps === undefined ? null : deductRunningSteps(
+        input.totalSteps,
+        (await new DailyRepository(transaction).listActivitiesForDates([metricDate]))
+          .filter((row) => row.source === 'strava').map(toActivityFact),
+      );
+      const resolvedSteps = deduction?.nonRunningSteps ?? input.steps;
       const facts: DailyMetricFactsInput = {
         metricDate,
         ...input,
+        steps: resolvedSteps,
         runM: input.runIndoorM + input.runOutdoorM + runUnspecifiedM,
         bikeM: input.bikeIndoorM + input.bikeOutdoorM + bikeUnspecifiedM,
         bonusPoints: input.bonusPoints,
         stepsCalculation: {
-          source: input.steps > 0 ? 'manual' : 'none',
-          resolvedSteps: input.steps,
+          source: deduction ? 'manual_adjusted' : resolvedSteps > 0 ? 'manual' : 'none',
+          resolvedSteps,
+          ...(deduction ? {
+            totalSteps: deduction.garminTotalSteps,
+            estimatedRunningSteps: deduction.estimatedRunningSteps,
+            runs: deduction.runs,
+            unestimatedRunCount: deduction.unestimatedRunCount,
+          } : {}),
         },
         excelAllPoints: optionalNumber(existing?.excel_all_points),
         excelRowHash: existing?.excel_row_hash ?? undefined,
@@ -80,7 +102,7 @@ export class DailyScoringRepository {
         .where('source', '=', 'manual')
         .execute();
       const dailyRepository = new DailyRepository(transaction);
-      await dailyRepository.upsertActivities(manualActivities(metricDate, { ...input, runUnspecifiedM, bikeUnspecifiedM }, sourceRecord.id, rowHash));
+      await dailyRepository.upsertActivities(manualActivities(metricDate, { ...input, steps: resolvedSteps, runUnspecifiedM, bikeUnspecifiedM }, sourceRecord.id, rowHash));
       await dailyRepository.persistDailyScore(
         facts,
         score,
@@ -406,7 +428,7 @@ function snapshotStepsSource(value: Json | null): DailyStepsCalculation['source'
   const facts = jsonRecord(value);
   const calculation = jsonRecord(facts.stepsCalculation);
   const source = calculation.source;
-  return source === 'manual' || source === 'imported' || source === 'garmin_adjusted' || source === 'stored' || source === 'none'
+  return source === 'manual' || source === 'manual_adjusted' || source === 'imported' || source === 'garmin_adjusted' || source === 'stored' || source === 'none'
     ? source
     : undefined;
 }

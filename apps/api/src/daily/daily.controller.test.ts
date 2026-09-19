@@ -18,11 +18,11 @@ const response = {
 };
 
 describe('DailyController cockpit contracts', () => {
-  let service: { summary: ReturnType<typeof vi.fn>; manualFacts: ReturnType<typeof vi.fn>; evidence: ReturnType<typeof vi.fn>; scoreBreakdown: ReturnType<typeof vi.fn>; recalculateFromActivities: ReturnType<typeof vi.fn>; saveManualFacts: ReturnType<typeof vi.fn> };
+  let service: { summary: ReturnType<typeof vi.fn>; manualFacts: ReturnType<typeof vi.fn>; evidence: ReturnType<typeof vi.fn>; scoreBreakdown: ReturnType<typeof vi.fn>; recalculateFromActivities: ReturnType<typeof vi.fn>; saveManualFacts: ReturnType<typeof vi.fn>; runningStepEstimate: ReturnType<typeof vi.fn> };
   let controller: DailyController;
 
   beforeEach(() => {
-    service = { summary: vi.fn(), manualFacts: vi.fn(), evidence: vi.fn(), scoreBreakdown: vi.fn(), recalculateFromActivities: vi.fn(), saveManualFacts: vi.fn() };
+    service = { summary: vi.fn(), manualFacts: vi.fn(), evidence: vi.fn(), scoreBreakdown: vi.fn(), recalculateFromActivities: vi.fn(), saveManualFacts: vi.fn(), runningStepEstimate: vi.fn() };
     controller = new DailyController(service as unknown as DailyService);
   });
 
@@ -121,6 +121,22 @@ describe('DailyController cockpit contracts', () => {
 
     await expect(controller.saveManualFacts('2026-05-18', input)).resolves.toMatchObject({ scoreStatus: 'manual' });
     expect(service.saveManualFacts).toHaveBeenCalledWith('2026-05-18', input, LEGACY_ACCOUNT_ID);
+  });
+
+  it('validates all-day steps and scopes the run estimate to the selected date', async () => {
+    const input = {
+      steps: 5000, totalSteps: 8000, runIndoorM: 0, runOutdoorM: 5000,
+      runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0,
+      swimM: 0, workoutPoints: 0, bonusPoints: 0,
+    };
+    await controller.saveManualFacts('2026-05-18', input);
+    expect(service.saveManualFacts).toHaveBeenCalledWith('2026-05-18', input, LEGACY_ACCOUNT_ID);
+
+    service.runningStepEstimate.mockResolvedValue({ estimatedRunningSteps: 3000 });
+    await expect(controller.runningStepEstimate('2026-05-18')).resolves.toEqual({ estimatedRunningSteps: 3000 });
+    expect(service.runningStepEstimate).toHaveBeenCalledWith('2026-05-18', LEGACY_ACCOUNT_ID);
+    expect(() => controller.runningStepEstimate('2026-02-29')).toThrow(BadRequestException);
+    await expect(controller.saveManualFacts('2026-05-18', { ...input, totalSteps: 1.5 })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('rejects incomplete, unknown, and fractional integer manual facts', async () => {

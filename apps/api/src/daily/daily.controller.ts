@@ -58,6 +58,12 @@ export class DailyController {
     return result;
   }
 
+  @Get(':date/running-step-estimate')
+  runningStepEstimate(@Param('date') date: string, @CurrentAccount() account?: AuthenticatedAccount) {
+    requireDate(date);
+    return this.dailyService.runningStepEstimate(date, account?.id ?? LEGACY_ACCOUNT_ID);
+  }
+
   @Post(':date/recalculate')
   async recalculate(@Param('date') date: string, @CurrentAccount() account?: AuthenticatedAccount) {
     requireDate(date);
@@ -104,7 +110,7 @@ const MANUAL_FACT_FIELDS = [
 function parseManualDailyFacts(value: unknown): ManualDailyFactsInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalidManualFacts();
   const record = value as Record<string, unknown>;
-  const unknownFields = Object.keys(record).filter((key) => !MANUAL_FACT_FIELDS.includes(key as typeof MANUAL_FACT_FIELDS[number]));
+  const unknownFields = Object.keys(record).filter((key) => key !== 'totalSteps' && !MANUAL_FACT_FIELDS.includes(key as typeof MANUAL_FACT_FIELDS[number]));
   if (unknownFields.length > 0) invalidManualFacts(`Unknown field: ${unknownFields[0]}.`);
 
   const input = Object.fromEntries(MANUAL_FACT_FIELDS.map((field) => {
@@ -115,7 +121,10 @@ function parseManualDailyFacts(value: unknown): ManualDailyFactsInput {
   for (const field of ['steps', 'workoutPoints', 'bonusPoints'] as const) {
     if (!Number.isInteger(input[field])) invalidManualFacts(`${field} must be a whole number.`);
   }
-  return input;
+  if (record['totalSteps'] === undefined) return input;
+  const totalSteps = boundedNumber(record['totalSteps'], 'totalSteps');
+  if (!Number.isInteger(totalSteps)) invalidManualFacts('totalSteps must be a whole number.');
+  return { ...input, totalSteps };
 }
 
 function boundedNumber(value: unknown, field: string): number {

@@ -72,13 +72,14 @@ function validateStepsCalculation(value: DailyScoreBreakdownReadModel, issues: s
   if (calculation.resolvedSteps !== value.facts.steps) {
     issues.push('facts.stepsCalculation.resolvedSteps must equal facts.steps');
   }
-  if (calculation.source !== 'garmin_adjusted') return;
-  if (calculation.garminTotalSteps === undefined || calculation.estimatedRunningSteps === undefined) {
-    issues.push('Garmin step calculation must include total and estimated running steps');
+  if (calculation.source !== 'garmin_adjusted' && calculation.source !== 'manual_adjusted') return;
+  const total = calculation.source === 'garmin_adjusted' ? calculation.garminTotalSteps : calculation.totalSteps;
+  if (total === undefined || calculation.estimatedRunningSteps === undefined) {
+    issues.push('Adjusted step calculation must include total and estimated running steps');
     return;
   }
-  if (Math.max(calculation.garminTotalSteps - calculation.estimatedRunningSteps, 0) !== calculation.resolvedSteps) {
-    issues.push('Garmin step calculation must subtract estimated running steps and clamp at zero');
+  if (Math.max(total - calculation.estimatedRunningSteps, 0) !== calculation.resolvedSteps) {
+    issues.push('Adjusted step calculation must subtract estimated running steps and clamp at zero');
   }
   const estimatedSum = (calculation.runs ?? []).reduce((sum, run) => sum + run.estimatedSteps, 0);
   if (estimatedSum !== calculation.estimatedRunningSteps) {

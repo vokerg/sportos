@@ -1,4 +1,5 @@
 import { Component, input, output, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { ScoreBreakdownManualFactsComponent } from './score-breakdown-manual-facts.component';
 import type { DailyScoreBreakdown, ManualDailyFactsInput, ScoreBreakdownViewState } from './score-breakdown.models';
 import { formatDate } from './date-time';
@@ -6,7 +7,7 @@ import { formatDate } from './date-time';
 @Component({
   selector: 'sportos-daily-quick-sheet',
   standalone: true,
-  imports: [ScoreBreakdownManualFactsComponent],
+  imports: [ScoreBreakdownManualFactsComponent, RouterLink],
   template: `
     @if (date()) {
       <div class="sheet-layer" role="dialog" aria-modal="true" [attr.aria-labelledby]="headingId">
@@ -52,7 +53,7 @@ import { formatDate } from './date-time';
             <div class="sheet-actions">
               <button type="button" (click)="requestManualEdit()">Edit complete facts</button>
               <button type="button" class="secondary" (click)="recalculate.emit()" [disabled]="recalculating()">{{ recalculating() ? 'Recalculating…' : 'Recalculate' }}</button>
-              <button type="button" class="full" (click)="opened.emit()">Open complete day →</button>
+              <a class="full" [routerLink]="['/daily', date()]" target="_blank" rel="noopener">Open complete day ↗</a>
             </div>
             @if (recalculationError()) { <p class="inline-error" role="alert">{{ recalculationError() }}</p> }
           } @else {
@@ -96,7 +97,7 @@ import { formatDate } from './date-time';
     article strong, article small { display: block; } article small, .highlights p, .provenance small { margin-top: 3px; color: #667085; font-size: 10px; }
     .provenance { display: grid; gap: 4px; }.provenance strong { font-size: 22px; }
     .sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 22px; }
-    .sheet-actions .full { grid-column: 1 / -1; background: #172b4d; }
+    .sheet-actions .full { grid-column: 1 / -1; padding: 10px 14px; border-radius: 9px; background: #172b4d; color: #fff; font-weight: 700; text-align: center; text-decoration: none; }
     .inline-error { color: #b54747; font-size: 12px; }
   `],
 })
