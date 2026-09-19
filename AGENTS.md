@@ -98,6 +98,9 @@ Never accept owner or audit-actor identifiers from request bodies. Derive them f
 - `src/app/core/http/` — authentication/CSRF HTTP infrastructure. Credential attachment and API-origin checks must use the same configured API base.
 - `src/app` is currently a transitional flat layout. New substantial feature code belongs under `src/app/features/<feature>/`; application-wide infrastructure belongs under `src/app/core/`; reusable feature-agnostic UI/utilities belong under `src/app/shared/`.
 - Existing `api.service.ts`, feature orchestration, route components, and presenters migrate incrementally through issues #75-#80. Root HTTP/origin re-exports are compatibility shims only; new infrastructure imports should target `core/`. Do not perform unrelated mass moves.
+- `src/app/features/daily/state/daily-log.store.ts` — reference route-scoped signal facade for multi-request Daily workflows, cancellation/stale-response protection, and bounded Strava job polling through `core/jobs/durable-job-poller.ts`. Keep route navigation in the page and workflow tests beside the store.
+- `src/app/features/daily/model/daily-quick-entry.models.ts` — feature-owned quick-entry contracts and pure row transformations used by Daily state and UI. State must not import Angular components.
+- Daily still consumes transitional root API services until #77 moves feature transport contracts into `features/daily/data-access/`; do not add new global API methods as part of unrelated Daily work.
 - `src/app/features/activities/` — canonical Activities API client, metric view model, list presenter, and list/detail route pages.
 
 Angular renders API truth only. It never receives provider tokens/envelopes, assigns ownership, normalizes canonical facts, calculates official scores, or treats generated guidance as authoritative.
