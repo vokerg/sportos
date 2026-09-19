@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { ApiService } from './api.service';
+import { inject, Injectable } from '@angular/core';
+import { SPORTOS_API_BASE } from './core/config/api-base';
 
 export type AnalysisToolName = 'daily_summary' | 'daily_score_breakdown';
 export type AnalysisDataQualityStatus = 'complete' | 'partial' | 'missing' | 'conflicting';
@@ -62,9 +62,11 @@ export type AnalysisAnswerRequest =
 
 @Injectable({ providedIn: 'root' })
 export class AnalysisApiService {
-  constructor(private readonly http: HttpClient, private readonly api: ApiService) {}
+  private readonly apiBase = inject(SPORTOS_API_BASE);
+
+  constructor(private readonly http: HttpClient) {}
 
   answer(request: AnalysisAnswerRequest) {
-    return this.http.post<AnalysisAnswer>(`${this.api.apiBase()}/analysis/answers`, request);
+    return this.http.post<AnalysisAnswer>(`${this.apiBase}/analysis/answers`, request);
   }
 }
