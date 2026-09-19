@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { ApiService } from '../../api.service';
+import { inject, Injectable } from '@angular/core';
+import { SPORTOS_API_BASE } from '../../core/config/api-base';
 
 export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
 export type ActivitySource = 'manual' | 'my_sport_xlsx' | 'run_db_xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit';
@@ -54,19 +54,21 @@ export interface ActivitiesResponse {
 
 @Injectable({ providedIn: 'root' })
 export class ActivitiesApiService {
-  constructor(private readonly http: HttpClient, private readonly api: ApiService) {}
+  private readonly apiBase = inject(SPORTOS_API_BASE);
+
+  constructor(private readonly http: HttpClient) {}
 
   list(query: ActivitiesQuery) {
     let params = new HttpParams();
     for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params = params.set(key, String(value));
-    return this.http.get<ActivitiesResponse>(`${this.api.apiBase()}/activities`, { params });
+    return this.http.get<ActivitiesResponse>(`${this.apiBase}/activities`, { params });
   }
 
   detail(id: string) {
-    return this.http.get<ActivityDetail>(`${this.api.apiBase()}/activities/${encodeURIComponent(id)}`);
+    return this.http.get<ActivityDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}`);
   }
 
   sourceJson(id: string) {
-    return this.http.get<ActivitySourceJson>(`${this.api.apiBase()}/activities/${encodeURIComponent(id)}/source`);
+    return this.http.get<ActivitySourceJson>(`${this.apiBase}/activities/${encodeURIComponent(id)}/source`);
   }
 }
