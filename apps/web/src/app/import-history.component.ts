@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import type { ImportBatchHistoryItem } from './api.service';
+import type { ImportBatchHistoryItem } from './features/imports/model/imports.models';
 import { formatDateTime } from './date-time';
 import type { ImportRequestState } from './import-workflow.view-model';
 
