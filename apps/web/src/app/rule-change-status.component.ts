@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import type { RuleChange } from './api.service';
+import type { RuleChange } from './features/rules/model/rules.models';
 
 @Component({
   selector: 'sportos-rule-change-status',
