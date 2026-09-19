@@ -1,8 +1,17 @@
 import type { HttpClient } from '@angular/common/http';
+import { Injector, runInInjectionContext } from '@angular/core';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
+import { SPORTOS_API_BASE } from './core/config/api-base';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import type { DailyScoreBreakdown } from './score-breakdown.models';
+
+function createService(http: HttpClient): ScoreBreakdownApiService {
+  const injector = Injector.create({
+    providers: [{ provide: SPORTOS_API_BASE, useValue: 'http://sportos.test' }],
+  });
+  return runInInjectionContext(injector, () => new ScoreBreakdownApiService(http));
+}
 
 const response: DailyScoreBreakdown = {
   date: '2026-05-18',
@@ -20,19 +29,13 @@ const response: DailyScoreBreakdown = {
 describe('ScoreBreakdownApiService', () => {
   it('requests the owner-scoped running estimate for a date', () => {
     const get = vi.fn().mockReturnValue(of({ estimatedRunningSteps: 3000, unestimatedRunCount: 0 }));
-    const service = new ScoreBreakdownApiService(
-      { get } as unknown as HttpClient,
-      'http://sportos.test',
-    );
+    const service = createService({ get } as unknown as HttpClient);
     service.runningStepEstimate('2026/05?18').subscribe();
     expect(get).toHaveBeenCalledWith('http://sportos.test/daily/2026%2F05%3F18/running-step-estimate');
   });
   it('requests bounded quick-entry facts from the configured API base', () => {
     const get = vi.fn().mockReturnValue(of([]));
-    const service = new ScoreBreakdownApiService(
-      { get } as unknown as HttpClient,
-      'http://sportos.test',
-    );
+    const service = createService({ get } as unknown as HttpClient);
 
     service.manualFacts({ from: '2026-05-01', to: '2026-05-31', limit: 100 }).subscribe();
 
@@ -44,8 +47,7 @@ describe('ScoreBreakdownApiService', () => {
   it('requests the encoded date from the configured SportOS API base', () => {
     const get = vi.fn().mockReturnValue(of(response));
     const http = { get } as unknown as HttpClient;
-    const api = 'http://sportos.test';
-    const service = new ScoreBreakdownApiService(http, api);
+    const service = createService(http);
     let received: DailyScoreBreakdown | undefined;
 
     service.getForDate('2026/05?18').subscribe((value) => { received = value; });
@@ -57,10 +59,7 @@ describe('ScoreBreakdownApiService', () => {
   it('requests date-scoped evidence independently of a persisted score', () => {
     const evidence = { date: response.date, garminObservations: [], sourceRecords: [] };
     const get = vi.fn().mockReturnValue(of(evidence));
-    const service = new ScoreBreakdownApiService(
-      { get } as unknown as HttpClient,
-      'http://sportos.test',
-    );
+    const service = createService({ get } as unknown as HttpClient);
 
     service.getEvidence('2026/05?18').subscribe();
 
@@ -70,8 +69,7 @@ describe('ScoreBreakdownApiService', () => {
   it('posts an explicit recalculation request for the encoded date', () => {
     const post = vi.fn().mockReturnValue(of(response));
     const http = { post } as unknown as HttpClient;
-    const api = 'http://sportos.test';
-    const service = new ScoreBreakdownApiService(http, api);
+    const service = createService(http);
 
     service.recalculate('2026/05?18').subscribe();
 
@@ -81,8 +79,7 @@ describe('ScoreBreakdownApiService', () => {
   it('puts validated manual facts for the encoded date', () => {
     const put = vi.fn().mockReturnValue(of({ ...response, scoreStatus: 'manual' }));
     const http = { put } as unknown as HttpClient;
-    const api = 'http://sportos.test';
-    const service = new ScoreBreakdownApiService(http, api);
+    const service = createService(http);
     const input = {
       steps: 1000, runIndoorM: 1000, runOutdoorM: 3000,
       runUnspecifiedM: 0, bikeIndoorM: 0, bikeOutdoorM: 0, bikeUnspecifiedM: 0, swimM: 0,
