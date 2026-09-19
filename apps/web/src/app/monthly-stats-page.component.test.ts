@@ -2,7 +2,8 @@ import '@angular/compiler';
 import { convertToParamMap, type ActivatedRoute, type Router } from '@angular/router';
 import { BehaviorSubject, of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { ApiService, DynamicsResponse } from './api.service';
+import type { DynamicsDynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
+import type { DynamicsResponse } from './features/dynamics/model/dynamics.models';
 import { boundedAllTimeRange, quickRangeDates } from './daily-log.view-model';
 import { MonthlyStatsPageComponent } from './monthly-stats-page.component';
 import { buildMonthlyLedger } from './monthly-stats.view-model';
@@ -19,7 +20,7 @@ describe('MonthlyStatsPageComponent', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-02-28', granularity: 'monthly', metrics: 'score,run', measure: 'recordedDayAverage', mode: 'indexed' }));
     const api = { monthlyStats: vi.fn().mockReturnValue(of(response)) };
     const router = { navigate: vi.fn().mockResolvedValue(true) };
-    const component = new MonthlyStatsPageComponent(api as unknown as ApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
+    const component = new MonthlyStatsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
 
     component.ngOnInit();
     expect(api.monthlyStats).toHaveBeenCalledWith({ from: '2026-01-01', to: '2026-02-28', granularity: 'monthly', metrics: ['score', 'run'] });
@@ -38,7 +39,7 @@ describe('MonthlyStatsPageComponent', () => {
     const params = new BehaviorSubject(convertToParamMap({ ...oneMonth, metrics: 'run' }));
     const api = { monthlyStats: vi.fn().mockReturnValue(of(response)) };
     const router = { navigate: vi.fn().mockResolvedValue(true) };
-    const component = new MonthlyStatsPageComponent(api as unknown as ApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
+    const component = new MonthlyStatsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
 
     component.ngOnInit();
     expect(component.quickRange()).toBe('1m');
@@ -57,7 +58,7 @@ describe('MonthlyStatsPageComponent', () => {
   it('enforces one-to-four selected metrics and surfaces API failures', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-02-28', metrics: 'score,steps,run,bike' }));
     const api = { monthlyStats: vi.fn().mockReturnValue(throwError(() => new Error('offline'))) };
-    const component = new MonthlyStatsPageComponent(api as unknown as ApiService, { queryParamMap: params } as unknown as ActivatedRoute, { navigate: vi.fn() } as unknown as Router);
+    const component = new MonthlyStatsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, { navigate: vi.fn() } as unknown as Router);
     component.ngOnInit();
     expect(component.state()).toBe('error');
     component.toggleMetric('swim', true);
@@ -78,7 +79,7 @@ describe('MonthlyStatsPageComponent', () => {
     };
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-02-28', metrics: 'run' }));
     const api = { monthlyStats: vi.fn().mockReturnValue(of({ ...response, monthly: [january, february] })) };
-    const component = new MonthlyStatsPageComponent(api as unknown as ApiService, { queryParamMap: params } as unknown as ActivatedRoute, { navigate: vi.fn() } as unknown as Router);
+    const component = new MonthlyStatsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, { navigate: vi.fn() } as unknown as Router);
 
     component.ngOnInit();
     expect(component.cellBackground(january, 'run', 'total')).toBe('rgba(116, 168, 132, 0.10)');
