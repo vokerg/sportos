@@ -1,11 +1,11 @@
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
-import {
-  ApiService,
-  type RuleChange,
-  type RulePreviewResponse,
-  type RuleProposal,
-  type RuleVersion,
-} from './api.service';
+import { RulesRulesApiService } from './features/rules/data-access/rules-api.service';
+import type {
+  RuleChange,
+  RulePreviewResponse,
+  RuleProposal,
+  RuleVersion,
+} from './features/rules/model/rules.models';
 import { formatDate } from './date-time';
 import { RuleChangeAuditComponent } from './rule-change-audit.component';
 import { RuleChangeStatusComponent } from './rule-change-status.component';
@@ -85,7 +85,7 @@ export class RulesStudioComponent implements OnInit, OnDestroy {
   private pollCount = 0;
   private readonly maximumPolls = 120;
 
-  constructor(private readonly api: ApiService) {}
+  constructor(private readonly api: RulesApiService) {}
 
   ngOnInit(): void {
     this.refresh();
