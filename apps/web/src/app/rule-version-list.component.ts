@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import type { RuleVersion } from './api.service';
+import type { RuleVersion } from './features/rules/model/rules.models';
 import { formatDate } from './date-time';
 import { ruleFormula } from './rules-studio.view-model';
 
