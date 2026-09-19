@@ -2,7 +2,8 @@ import '@angular/compiler';
 import { convertToParamMap, type ActivatedRoute, type Router } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { ApiService, RollingDynamicsResponse } from './api.service';
+import type { DynamicsDynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
+import type { RollingDynamicsResponse } from './features/dynamics/model/dynamics.models';
 import { RollingDynamicsPageComponent } from './rolling-dynamics-page.component';
 
 const response: RollingDynamicsResponse = {
@@ -16,7 +17,7 @@ describe('RollingDynamicsPageComponent', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', metric: 'run', windows: '30,365', measure: 'recordedDayAverage' }));
     const api = { rollingDynamics: vi.fn().mockReturnValue(of(response)) };
     const router = { navigate: vi.fn().mockResolvedValue(true) };
-    const component = new RollingDynamicsPageComponent(api as unknown as ApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
+    const component = new RollingDynamicsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
     component.ngOnInit();
 
     expect(api.rollingDynamics).toHaveBeenCalledWith({ from: '2026-01-01', to: '2026-01-31', metric: 'run', windows: [30, 365] });
@@ -37,7 +38,7 @@ describe('RollingDynamicsPageComponent', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', metric: 'run', windows: '30' }));
     const router = { navigate: vi.fn().mockResolvedValue(true) };
     const component = new RollingDynamicsPageComponent(
-      { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as ApiService,
+      { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as DynamicsApiService,
       { queryParamMap: params } as unknown as ActivatedRoute,
       router as unknown as Router,
     );
@@ -68,7 +69,7 @@ describe('RollingDynamicsPageComponent', () => {
   it('does not allow the last trailing window to be removed', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', windows: '30' }));
     const component = new RollingDynamicsPageComponent(
-      { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as ApiService,
+      { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as DynamicsApiService,
       { queryParamMap: params } as unknown as ActivatedRoute,
       { navigate: vi.fn() } as unknown as Router,
     );
@@ -81,7 +82,7 @@ describe('RollingDynamicsPageComponent', () => {
   it('offers active-day frequency for activities but not official score', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', metric: 'run', windows: '30', measure: 'activeDays' }));
     const component = new RollingDynamicsPageComponent(
-      { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as ApiService,
+      { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as DynamicsApiService,
       { queryParamMap: params } as unknown as ActivatedRoute,
       { navigate: vi.fn() } as unknown as Router,
     );
