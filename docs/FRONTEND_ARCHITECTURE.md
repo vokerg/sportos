@@ -203,7 +203,19 @@ The poller emits explicit `loading`, `terminal`, `error`, and `exhausted` states
 
 Do not add direct `setTimeout`, `setInterval`, or RxJS `timer` polling loops for durable jobs. Keep provider/import/rule models out of `core/jobs/`; the poller depends only on the caller-supplied request and terminal predicate.
 
-Imports is the proof adoption while its orchestration remains in the transitional root component. Remaining legacy polling migrations are Daily quick-entry Strava refresh, Providers, and Rules Studio; #76 and #78 should move the relevant orchestration into feature state while adopting this core primitive.
+Imports is the proof adoption while its orchestration remains in the transitional root component. Daily quick-entry Strava refresh is the feature-state reference adoption: the Daily store owns the provider job lifecycle and uses the core poller rather than a component timer. Providers and Rules Studio remain legacy polling migrations owned by #78 and later focused work.
+
+### Daily feature-state reference
+
+The Daily Log implementation is the reference pattern for migrating an existing route from component-owned orchestration to feature-scoped state without combining that work with the API-client split:
+
+- `daily-log.component.ts` provides `DailyLogStore`, binds its signals, forwards UI intents, and keeps route navigation policy in the page;
+- `features/daily/state/daily-log.store.ts` owns summary/range loading, selected-date breakdowns, recalculation, manual facts, quick entry, Strava refresh, request replacement, stale-response protection, and workflow errors;
+- `features/daily/model/daily-quick-entry.models.ts` owns quick-entry state contracts and pure row transformations so state does not import an Angular component;
+- the store consumes `core/jobs/durable-job-poller.ts` for the bounded Strava job lifecycle and cancels active requests/polls on replacement or teardown;
+- state-layer tests own workflow/cancellation coverage; page tests should stay focused on composition, intent forwarding, and navigation.
+
+The Daily store currently consumes the transitional root `ApiService`, `ScoreBreakdownApiService`, and `ProviderApiService`. Do not use #76 as precedent for adding more methods to those global services: #77 owns moving Daily and other feature transport contracts into `features/<feature>/data-access/`. The reusable part of the #76 pattern is the route-scoped state boundary and its dependency direction, not the temporary location of existing HTTP clients.
 
 ## Concrete example: a new Activities feature
 
