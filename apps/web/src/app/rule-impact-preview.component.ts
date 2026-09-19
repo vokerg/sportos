@@ -1,6 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import type { RulePreviewResponse } from './api.service';
+import type { RulePreviewResponse } from './features/rules/model/rules.models';
 import { formatDate } from './date-time';
 import { signedRuleDelta } from './rules-studio.view-model';
 
