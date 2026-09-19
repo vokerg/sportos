@@ -10,7 +10,7 @@ import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
 import { provideEchartsCore } from 'ngx-echarts';
 import { APP_ROUTES } from './app.routes';
 import { SPORTOS_API_BASE_PROVIDER } from './core/config/api-base';
-import { authHttpInterceptor } from './auth-http.interceptor';
+import { authHttpInterceptor } from './core/http/auth-http.interceptor';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);

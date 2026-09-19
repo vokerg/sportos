@@ -1,5 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable, signal } from '@angular/core';
+import { Inject, Injectable, signal, type WritableSignal } from '@angular/core';
+import { SPORTOS_API_BASE } from './core/config/api-base';
 
 export interface DateRangeQuery {
   from?: string;
@@ -325,9 +326,14 @@ export interface RuleChange {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  readonly apiBase = signal('http://localhost:3010');
+  readonly apiBase: WritableSignal<string>;
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    @Inject(SPORTOS_API_BASE) apiBase: string,
+  ) {
+    this.apiBase = signal(apiBase);
+  }
 
   dailySummary(query: DateRangeQuery | number = { limit: 365 }) {
     const normalized = typeof query === 'number' ? { limit: query } : query;
