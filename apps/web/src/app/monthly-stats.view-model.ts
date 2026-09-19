@@ -5,7 +5,7 @@ import type {
   DynamicsMetric,
   DynamicsResponse,
   ScoreContributionCategory,
-} from './api.service';
+} from './features/dynamics/model/dynamics.models';
 
 export type DynamicsMode = 'absolute' | 'indexed';
 
