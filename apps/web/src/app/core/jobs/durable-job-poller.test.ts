@@ -69,25 +69,24 @@ describe('pollDurableJob', () => {
     expect(states.at(-1)).toEqual({ state: 'exhausted', attempt: 2, job: queued, reason: 'attempts' });
   });
 
-  it('stops at the configured duration bound without another request', async () => {
+  it('stops at the configured duration bound and cancels an in-flight request', async () => {
     vi.useFakeTimers();
-    const fetchJob = vi.fn(() => of(queued));
+    const teardown = vi.fn();
+    const fetchJob = vi.fn(() => new Observable<TestJob>(() => teardown));
     const states: DurableJobPollState<TestJob>[] = [];
 
     pollDurableJob(fetchJob, { intervalMs: 100, maxDurationMs: 250, isTerminal }).subscribe((state) => states.push(state));
     await vi.advanceTimersByTimeAsync(250);
 
-    expect(fetchJob).toHaveBeenCalledTimes(3);
-    expect(states.at(-1)).toEqual({ state: 'exhausted', attempt: 3, job: queued, reason: 'timeout' });
+    expect(fetchJob).toHaveBeenCalledTimes(1);
+    expect(teardown).toHaveBeenCalledTimes(1);
+    expect(states.at(-1)).toEqual({ state: 'exhausted', attempt: 1, job: null, reason: 'timeout' });
   });
 
   it('cancels scheduled and in-flight work when unsubscribed', async () => {
     vi.useFakeTimers();
     const teardown = vi.fn();
-    const fetchJob = vi.fn(() => new Observable<TestJob>((subscriber) => {
-      subscriber.next(queued);
-      return teardown;
-    }));
+    const fetchJob = vi.fn(() => new Observable<TestJob>(() => teardown));
 
     const subscription = pollDurableJob(
       fetchJob,
