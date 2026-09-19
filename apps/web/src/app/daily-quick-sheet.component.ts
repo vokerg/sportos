@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { ScoreBreakdownManualFactsComponent } from './score-breakdown-manual-facts.component';
 import type { DailyScoreBreakdown, ManualDailyFactsInput, ScoreBreakdownViewState } from './score-breakdown.models';
 import { formatDate } from './date-time';
+import { formatSwimMeters } from './swim-distance';
 
 @Component({
   selector: 'sportos-daily-quick-sheet',
@@ -32,7 +33,7 @@ import { formatDate } from './date-time';
               <div><span>Steps</span><strong>{{ number(current.facts.steps) }}</strong></div>
               <div><span>Run</span><strong>{{ distance(current.facts.runM) }}</strong></div>
               <div><span>Bike</span><strong>{{ distance(current.facts.bikeM) }}</strong></div>
-              <div><span>Swim</span><strong>{{ distance(current.facts.swimM, 0) }}</strong></div>
+              <div><span>Swim</span><strong>{{ formatSwimMeters(current.facts.swimM) }}</strong></div>
               <div><span>Workout</span><strong>{{ number(current.facts.workoutPoints) }}</strong></div>
               <div><span>Bonus</span><strong>{{ number(current.score.bonusPoints) }}</strong></div>
             </div>
@@ -40,7 +41,7 @@ import { formatDate } from './date-time';
               <div class="section-heading"><h4>Activities</h4><span>{{ current.activities.length }}</span></div>
               @for (activity of current.activities.slice(0, 3); track activity.id) {
                 <article>
-                  <div><strong>{{ activity.activityType }}{{ activity.subtype ? ' · ' + activity.subtype : '' }}</strong><small>{{ activity.source }} · {{ activity.distanceM === null ? 'no distance' : distance(activity.distanceM) }}</small></div>
+                  <div><strong>{{ activity.activityType }}{{ activity.subtype ? ' · ' + activity.subtype : '' }}</strong><small>{{ activity.source }} · {{ activity.distanceM === null ? 'no distance' : activity.activityType === 'swim' ? formatSwimMeters(activity.distanceM) : distance(activity.distanceM) }}</small></div>
                   <span>{{ activity.durationS === null ? '—' : duration(activity.durationS) }}</span>
                 </article>
               }
@@ -119,6 +120,7 @@ export class DailyQuickSheetComponent {
   readonly localManualEditRequestId = signal(0);
   readonly headingId = 'daily-quick-sheet-heading';
   readonly formatDate = formatDate;
+  readonly formatSwimMeters = formatSwimMeters;
 
   number(value: number): string { return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value); }
   distance(value: number, digits = 2): string { return `${(value / 1000).toLocaleString('en-US', { maximumFractionDigits: digits })} km`; }

@@ -1,5 +1,6 @@
 import { Component, input } from '@angular/core';
 import type { DailyScoreBreakdown } from './score-breakdown.models';
+import { formatSwimMeters } from './swim-distance';
 import {
   activityName,
   activityScoreLabel,
@@ -39,7 +40,7 @@ import {
                 <tr>
                   <td><span class="source-badge" [attr.data-source]="activity.source">{{ sourceName(activity.source) }}</span></td>
                   <td><strong>{{ activityName(activity) }}</strong><small>{{ formatTimestamp(activity.startTime, 'No start time') }}</small></td>
-                  <td>{{ activity.distanceM === null ? '—' : formatDistance(activity.distanceM) }}</td>
+                  <td>{{ activity.distanceM === null ? '—' : activity.activityType === 'swim' ? formatSwimMeters(activity.distanceM) : formatDistance(activity.distanceM) }}</td>
                   <td>{{ activity.durationS === null ? '—' : formatDuration(activity.durationS) }}</td>
                   <td>{{ activity.movingTimeS === null ? '—' : formatDuration(activity.movingTimeS) }}</td>
                   <td>{{ formatActivityRate(activity) }}</td>
@@ -82,6 +83,7 @@ export class ScoreBreakdownActivitiesComponent {
   readonly activityName = activityName;
   readonly activityScoreLabel = activityScoreLabel;
   readonly formatDistance = formatDistance;
+  readonly formatSwimMeters = formatSwimMeters;
   readonly formatDuration = formatDuration;
   readonly formatActivityRate = formatActivityRate;
   readonly formatScoreDate = formatScoreDate;

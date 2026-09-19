@@ -36,6 +36,11 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | 90 | `swim.1k.sub20.bonus` | Bonus | +1,000 points | one activity: duration strictly `< 1,200 s`; distance `>= 1,000 m` | SportOS rule. It is not assumed to be included in spreadsheet `All`. |
 | 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | one activity: distance `>= 10,000 m`; average speed `>= 19.9 km/h` | The 0.1 km/h tolerance makes the 20 km/h target favourable at the boundary. Provider average speed is stored in m/s and converted to km/h for the threshold. |
 
+The base swim rule counts every canonical swim distance in meters, including
+outdoor swims and swims shorter than 1,000 m. For example, 400 m earns 3,000
+base points. The 1,000 m condition applies only to the separate timed bonus.
+Daily views display swim distance in meters so shorter swims remain visible.
+
 The run ladder is universal rather than tied to named race distances. For example, a 17 km run at a rounded pace of 4:00/km completes three 5 km blocks and earns `3 × 4,000 = 12,000` bonus points. The remaining 2 km does not form another block. A 4.98 km run rounds to 5.0 km for one block, and a 4:01/km pace rounds to 4.0 min/km for tier eligibility. V116 introduces this as new immutable rule versions, atomically recomputes non-imported rows, and retains the disabled strict V115 versions and their UUID-linked ledger history. Source activity facts stay unchanged. The earlier `run.5k.sub25.bonus` and `run.10k.completed.bonus` definitions also remain disabled history.
 
 V117 versions the bike achievement rule with a bounded 0.1 km/h tolerance around the 20 km/h target. A 19.90 km/h ride qualifies; a 19.89 km/h ride does not. It atomically recomputes calculated rows and retains the strict V114 rule UUID and ledger history. Imported and manually authoritative rows remain untouched until their normal explicit authority transition.

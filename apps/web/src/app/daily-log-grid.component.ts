@@ -16,6 +16,7 @@ import {
   relativePastelBackground,
 } from './daily-log.view-model';
 import { formatDate } from './date-time';
+import { formatSwimMeters } from './swim-distance';
 
 @Component({
   selector: 'sportos-daily-log-grid',
@@ -133,7 +134,7 @@ export class DailyLogGridComponent {
     { field: 'steps', headerName: 'Steps', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('steps', params.value, '203, 176, 110') },
     { field: 'run_m', headerName: 'Run', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('run_m', params.value, '116, 168, 132') },
     { field: 'bike_m', headerName: 'Bike', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('bike_m', params.value, '119, 151, 194') },
-    { field: 'swim_m', headerName: 'Swim', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value, 0), cellStyle: (params) => this.metricCellStyle('swim_m', params.value, '104, 174, 183') },
+    { field: 'swim_m', headerName: 'Swim', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatSwimMeters(params.value), cellStyle: (params) => this.metricCellStyle('swim_m', params.value, '104, 174, 183') },
     { field: 'workout_points', headerName: 'Workout', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('workout_points', params.value, '176, 139, 190') },
     { field: 'bonus_points', headerName: 'Bonus', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('bonus_points', params.value, '193, 151, 174') },
     { field: 'total_points', headerName: 'SportOS total', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('total_points', params.value, '99, 129, 184') },
