@@ -6,7 +6,7 @@ import {
   runInInjectionContext,
 } from '@angular/core';
 import { describe, expect, it } from 'vitest';
-import type { ImportBatchHistoryItem } from './api.service';
+import type { ImportBatchHistoryItem } from './features/imports/model/imports.models';
 import { ImportBatchDetailComponent } from './import-batch-detail.component';
 import { ImportDiagnosticsComponent } from './import-diagnostics.component';
 import { ImportHistoryComponent } from './import-history.component';
