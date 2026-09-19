@@ -1,6 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import type { ActivityType, RuleKind, RuleProposal } from './api.service';
+import type { ActivityType, RuleKind, RuleProposal } from './features/rules/model/rules.models';
 import {
   RULE_ACTIVITY_TYPES,
   RULE_KINDS,
