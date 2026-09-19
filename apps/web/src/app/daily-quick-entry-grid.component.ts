@@ -3,23 +3,11 @@ import { AgGridAngular } from 'ag-grid-angular';
 import type { CellValueChangedEvent, ColDef, SuppressKeyboardEventParams } from 'ag-grid-community';
 import { DailyQuickEntryActionComponent, type DailyQuickEntryGridContext } from './daily-quick-entry-action.component';
 import { formatDate } from './date-time';
+import type { DailyQuickEntryChange, DailyQuickEntryGridRow } from './features/daily/model/daily-quick-entry.models';
 import type { ManualDailyFactsInput } from './score-breakdown.models';
 import { kilometersToMeters, metersToKilometers } from './distance-units';
 
-export interface DailyQuickEntryGridRow extends ManualDailyFactsInput {
-  date: string;
-  totalPoints: number;
-  scoreStatus: 'imported' | 'calculated' | 'manual';
-  saving?: boolean;
-  refreshing?: boolean;
-  error?: string | null;
-}
-
-export interface DailyQuickEntryChange {
-  date: string;
-  input: ManualDailyFactsInput;
-  previous: DailyQuickEntryGridRow;
-}
+export type { DailyQuickEntryChange, DailyQuickEntryGridRow } from './features/daily/model/daily-quick-entry.models';
 
 @Component({
   selector: 'sportos-daily-quick-entry-grid',
