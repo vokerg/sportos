@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
 import { describe, expect, it } from 'vitest';
-import type { ImportDiagnostic, ImportJob } from './api.service';
+import type { ImportDiagnostic, ImportJob } from './features/imports/model/imports.models';
 import {
   describeImportRequestError,
   describeImportUploadError,
