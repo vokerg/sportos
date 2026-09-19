@@ -29,7 +29,7 @@ apps/web/src/app/
     auth/                       # session bootstrap, sign-in/out, auth expiry
     config/                     # API base token/configuration
     http/                       # interceptors and HTTP-wide infrastructure
-    jobs/                       # generic durable-job polling/cancellation; introduced by #75
+    jobs/                       # generic durable-job polling/cancellation
 
   shared/
     ui/                         # reusable presentational components
@@ -195,7 +195,15 @@ Bootstrap and API-base configuration is centralized by the #74 pattern:
 
 For tests or a different browser deployment, override the `SPORTOS_API_BASE` provider at the application/test injector boundary. Do not introduce feature-local hard-coded origins or a second runtime-configuration mechanism.
 
-Issue #75 owns the generic durable-job polling abstraction. Until it lands, do not create a second "generic" polling utility in another feature. Feature-local polling needed by active product work should remain narrow and be an explicit migration target for #75.
+### Durable-job polling
+
+Generic durable-job polling lives in `core/jobs/durable-job-poller.ts`. Feature state should call `pollDurableJob` with a one-shot status request, a feature-owned terminal-state predicate, a polling interval, and at least one bound (`maxAttempts` and/or `maxDurationMs`).
+
+The poller emits explicit `loading`, `terminal`, `error`, and `exhausted` states. The feature remains responsible for interpreting terminal success/failure/cancellation and for translating request errors into user-facing copy. Unsubscribing cancels the scheduled timer and current request, so feature state must unsubscribe on teardown and before starting a replacement poll.
+
+Do not add direct `setTimeout`, `setInterval`, or RxJS `timer` polling loops for durable jobs. Keep provider/import/rule models out of `core/jobs/`; the poller depends only on the caller-supplied request and terminal predicate.
+
+Imports is the proof adoption while its orchestration remains in the transitional root component. Remaining legacy polling migrations are Daily quick-entry Strava refresh, Providers, and Rules Studio; #76 and #78 should move the relevant orchestration into feature state while adopting this core primitive.
 
 ## Concrete example: a new Activities feature
 
@@ -227,7 +235,7 @@ Do not place `activities-page.component.ts`, `activities-api.service.ts`, and al
 Migration is deliberately issue-scoped:
 
 - #74: bootstrap and API configuration -> `app.config.ts`, `core/config/`, `core/http/`; use the established `SPORTOS_API_BASE` token for all SportOS HTTP clients;
-- #75: durable-job polling -> `core/jobs/`;
+- #75: durable-job polling -> `core/jobs/`; use `pollDurableJob` rather than feature-local timers;
 - #76: Daily orchestration -> `features/daily/state/` and related feature layers;
 - #77: global API methods/contracts -> feature `data-access/` and `model/`;
 - #78: Providers and Imports orchestration -> feature state;
