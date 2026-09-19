@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import type { ImportDiagnostic } from './api.service';
+import type { ImportDiagnostic } from './features/imports/model/imports.models';
 import { importDiagnosticKey, importDiagnosticLocation } from './import-workflow.view-model';
 
 @Component({
