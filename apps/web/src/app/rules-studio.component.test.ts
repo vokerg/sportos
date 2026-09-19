@@ -1,7 +1,8 @@
 import '@angular/compiler';
 import { of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ApiService, RuleChange, RulePreviewResponse, RuleVersion } from './api.service';
+import type { RulesRulesApiService } from './features/rules/data-access/rules-api.service';
+import type { RuleChange, RulePreviewResponse, RuleVersion } from './features/rules/model/rules.models';
 import { RulesStudioComponent } from './rules-studio.component';
 
 const coefficientRule: RuleVersion = {
@@ -166,7 +167,7 @@ afterEach(() => vi.useRealTimers());
 describe('RulesStudioComponent', () => {
   it('loads immutable rule versions and audit history', () => {
     const api = createApi();
-    const component = new RulesStudioComponent(api as unknown as ApiService);
+    const component = new RulesStudioComponent(api as unknown as RulesApiService);
 
     component.ngOnInit();
 
@@ -178,7 +179,7 @@ describe('RulesStudioComponent', () => {
 
   it('prepares a representative coefficient supersession and renders the server-computed preview', () => {
     const api = createApi();
-    const component = new RulesStudioComponent(api as unknown as ApiService);
+    const component = new RulesStudioComponent(api as unknown as RulesApiService);
 
     component.editRule(coefficientRule);
     component.proposal.validFrom = '2026-05-18';
@@ -200,7 +201,7 @@ describe('RulesStudioComponent', () => {
   it('prepares a representative achievement supersession without calculating score impact in Angular', () => {
     const api = createApi();
     api.previewRule.mockReturnValue(of(achievementPreview));
-    const component = new RulesStudioComponent(api as unknown as ApiService);
+    const component = new RulesStudioComponent(api as unknown as RulesApiService);
 
     component.editRule(achievementRule);
     component.proposal.validFrom = '2026-06-01';
@@ -228,7 +229,7 @@ describe('RulesStudioComponent', () => {
     vi.useFakeTimers();
     const api = createApi();
     api.ruleChange.mockReturnValue(of(succeededChange));
-    const component = new RulesStudioComponent(api as unknown as ApiService);
+    const component = new RulesStudioComponent(api as unknown as RulesApiService);
     component.previewResult.set(coefficientPreview);
     component.reason = 'Increase coefficient.';
 
@@ -253,7 +254,7 @@ describe('RulesStudioComponent', () => {
     const api = createApi();
     api.retryRuleChange.mockReturnValue(of(queuedChange));
     api.ruleChange.mockReturnValue(of(succeededChange));
-    const component = new RulesStudioComponent(api as unknown as ApiService);
+    const component = new RulesStudioComponent(api as unknown as RulesApiService);
     component.activeChange.set(failedChange);
 
     expect(component.activeChange()?.status).toBe('failed');
@@ -280,7 +281,7 @@ describe('RulesStudioComponent', () => {
     const cancelling = { ...running, cancellationRequested: true };
     const api = createApi();
     api.cancelRuleChange.mockReturnValue(of(cancelling));
-    const component = new RulesStudioComponent(api as unknown as ApiService);
+    const component = new RulesStudioComponent(api as unknown as RulesApiService);
     component.activeChange.set(running);
 
     component.cancelActiveChange();
