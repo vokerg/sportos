@@ -22,10 +22,10 @@ export function pollDurableJob<T>(
   validateOptions(options);
 
   return new Observable<DurableJobPollState<T>>((subscriber) => {
-    const startedAt = Date.now();
     let attempt = 0;
     let lastJob: T | null = null;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    let durationTimer: ReturnType<typeof setTimeout> | undefined;
     let requestSubscription: Subscription | undefined;
     let disposed = false;
 
@@ -35,37 +35,18 @@ export function pollDurableJob<T>(
       subscriber.complete();
     };
 
-    const remainingDuration = (): number | null => {
-      if (options.maxDurationMs === undefined) return null;
-      return options.maxDurationMs - (Date.now() - startedAt);
-    };
-
     const schedule = (delayMs: number): void => {
       if (disposed || subscriber.closed) return;
       if (options.maxAttempts !== undefined && attempt >= options.maxAttempts) {
         exhaust('attempts');
         return;
       }
-
-      const remaining = remainingDuration();
-      if (remaining !== null && remaining <= 0) {
-        exhaust('timeout');
-        return;
-      }
-
-      const boundedDelay = remaining === null ? delayMs : Math.min(delayMs, remaining);
-      timer = setTimeout(run, boundedDelay);
+      pollTimer = setTimeout(run, delayMs);
     };
 
     const run = (): void => {
-      timer = undefined;
+      pollTimer = undefined;
       if (disposed || subscriber.closed) return;
-
-      const remaining = remainingDuration();
-      if (remaining !== null && remaining <= 0) {
-        exhaust('timeout');
-        return;
-      }
       if (options.maxAttempts !== undefined && attempt >= options.maxAttempts) {
         exhaust('attempts');
         return;
@@ -73,7 +54,16 @@ export function pollDurableJob<T>(
 
       attempt += 1;
       let receivedJob = false;
-      requestSubscription = fetchJob().pipe(take(1)).subscribe({
+      let request: Observable<T>;
+      try {
+        request = fetchJob();
+      } catch (error: unknown) {
+        subscriber.next({ state: 'error', attempt, job: lastJob, error });
+        subscriber.complete();
+        return;
+      }
+
+      requestSubscription = request.pipe(take(1)).subscribe({
         next: (job) => {
           receivedJob = true;
           lastJob = job;
@@ -104,12 +94,21 @@ export function pollDurableJob<T>(
       });
     };
 
+    if (options.maxDurationMs !== undefined) {
+      durationTimer = setTimeout(() => {
+        requestSubscription?.unsubscribe();
+        requestSubscription = undefined;
+        exhaust('timeout');
+      }, options.maxDurationMs);
+    }
     schedule(0);
 
     return () => {
       disposed = true;
-      if (timer !== undefined) clearTimeout(timer);
-      timer = undefined;
+      if (pollTimer !== undefined) clearTimeout(pollTimer);
+      if (durationTimer !== undefined) clearTimeout(durationTimer);
+      pollTimer = undefined;
+      durationTimer = undefined;
       requestSubscription?.unsubscribe();
       requestSubscription = undefined;
     };
