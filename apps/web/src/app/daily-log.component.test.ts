@@ -2,7 +2,8 @@ import '@angular/compiler';
 import type { Router } from '@angular/router';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { ApiService, DailySummaryRow } from './api.service';
+import type { DailyApiService } from './features/daily/data-access/daily-api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { DailyLogComponent } from './daily-log.component';
 import { DailyLogStore } from './features/daily/state/daily-log.store';
 import type { ProviderApiService } from './provider-api.service';
@@ -85,7 +86,7 @@ function createComponent(
   };
   const providerApi = { connections: vi.fn().mockReturnValue(of([])) };
   const store = new DailyLogStore(
-    api as unknown as ApiService,
+    api as unknown as DailyApiService,
     scoreApi as unknown as ScoreBreakdownApiService,
     providerApi as unknown as ProviderApiService,
   );
