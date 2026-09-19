@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import type { ImportJob } from './api.service';
+import type { ImportJob } from './features/imports/model/imports.models';
 
 @Component({
   selector: 'sportos-import-job-progress',
