@@ -1,4 +1,5 @@
 import { Component, input, output, signal } from '@angular/core';
+import { formatDurationClock } from './shared/util/duration';
 import { RouterLink } from '@angular/router';
 import { ScoreBreakdownManualFactsComponent } from './score-breakdown-manual-facts.component';
 import type { DailyScoreBreakdown, ManualDailyFactsInput, ScoreBreakdownViewState } from './score-breakdown.models';
@@ -125,8 +126,7 @@ export class DailyQuickSheetComponent {
   number(value: number): string { return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value); }
   distance(value: number, digits = 2): string { return `${(value / 1000).toLocaleString('en-US', { maximumFractionDigits: digits })} km`; }
   duration(value: number): string {
-    const minutes = Math.floor(value / 60);
-    return `${minutes}:${String(Math.round(value % 60)).padStart(2, '0')}`;
+    return formatDurationClock(value);
   }
   statusLabel(status: DailyScoreBreakdown['scoreStatus']): string {
     return status === 'imported' ? 'Imported ledger' : status === 'manual' ? 'Manual edit' : 'Calculated';

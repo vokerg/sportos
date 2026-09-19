@@ -1,4 +1,5 @@
 import type { Activity, ActivityType } from './activities-api.service';
+import { formatDurationClock } from '../../shared/util/duration';
 
 export const TYPE_OPTIONS: Array<{ value: ActivityType | ''; label: string }> = [
   { value: '', label: 'All types' }, { value: 'run', label: 'Run' }, { value: 'bike', label: 'Bike' },
@@ -66,12 +67,12 @@ export function matchQuickRange(from: string, to: string, today = new Date()): Q
 export function title(activity: Activity): string {
   return TYPE_OPTIONS.find((option) => option.value === activity.activity_type)?.label ?? activity.activity_type;
 }
-export function duration(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min` : `${minutes} min`;
-}
+export const duration = formatDurationClock;
 export function distance(metres: number): string {
   return `${(metres / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} km`;
+}
+export function sportDistance(metres: number, sport: ActivityType): string {
+  return sport === 'swim' ? `${metres.toLocaleString('en-US', { maximumFractionDigits: 0 })} m` : distance(metres);
 }
 export function pace(secondsPerKm: number): string {
   const seconds = Math.round(secondsPerKm);
@@ -80,25 +81,38 @@ export function pace(secondsPerKm: number): string {
 export function startTime(value: string | null): string | null {
   return value ? new Date(value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : null;
 }
-export interface Metric { label: string; value: string }
+export type MetricGroup = 'Time and distance' | 'Pace and terrain' | 'Heart rate and energy' | 'Other';
+export interface Metric { label: string; value: string; group: MetricGroup }
 export function metrics(activity: Activity, detailed = false): Metric[] {
   const output: Metric[] = [];
-  const add = (label: string, value: number | null, format: (value: number) => string) => {
-    if (value !== null) output.push({ label, value: format(value) });
+  const add = (label: string, value: number | null, format: (value: number) => string, group: MetricGroup) => {
+    if (value !== null) output.push({ label, value: format(value), group });
   };
   const isDistance = ['run', 'bike', 'swim', 'rowing', 'sup'].includes(activity.activity_type);
-  if (isDistance) add('Distance', activity.distance_m, distance);
-  add('Duration', activity.duration_s, duration);
-  if (detailed) add('Moving time', activity.moving_time_s, duration);
-  if (['run', 'swim'].includes(activity.activity_type)) add('Average pace', activity.avg_pace_s_per_km, pace);
-  if (['bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Average speed', activity.avg_speed_mps, (v) => `${(v * 3.6).toFixed(1)} km/h`);
-  if (activity.activity_type !== 'bonus' && activity.activity_type !== 'steps') {
-    add('Average HR', activity.avg_hr, (v) => `${v} bpm`);
-    add('Max HR', activity.max_hr, (v) => `${v} bpm`);
+  if (isDistance) add('Distance', activity.distance_m, (v) => sportDistance(v, activity.activity_type), 'Time and distance');
+  add(activity.source === 'strava' ? 'Elapsed time' : 'Duration', activity.duration_s, duration, 'Time and distance');
+  if (activity.moving_time_s !== null && activity.moving_time_s !== activity.duration_s) {
+    add('Moving time', activity.moving_time_s, duration, 'Time and distance');
+    if (detailed && activity.duration_s !== null && activity.duration_s > activity.moving_time_s) {
+      add('Stopped time', activity.duration_s - activity.moving_time_s, duration, 'Time and distance');
+    }
   }
-  if (['run', 'bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Elevation gain', activity.elevation_gain_m, (v) => `${Math.round(v)} m`);
-  if (detailed || !isDistance) add('Calories', activity.calories, (v) => `${v} kcal`);
-  if (detailed || activity.activity_type === 'steps') add('Steps', activity.steps, (v) => v.toLocaleString('en-US'));
-  if (detailed) add('Effort points', activity.effort_points, String);
+  if (activity.activity_type === 'run') add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, pace, 'Pace and terrain');
+  if (activity.activity_type === 'swim') add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, (v) => `${formatDurationClock(v / 10)} /100 m`, 'Pace and terrain');
+  if (['run', 'bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Average speed', activity.avg_speed_mps, (v) => `${(v * 3.6).toFixed(1)} km/h`, 'Pace and terrain');
+  if (activity.activity_type !== 'bonus' && activity.activity_type !== 'steps') {
+    add('Average HR', activity.avg_hr, (v) => `${v} bpm`, 'Heart rate and energy');
+    add('Max HR', activity.max_hr, (v) => `${v} bpm`, 'Heart rate and energy');
+  }
+  if (['run', 'bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Elevation gain', activity.elevation_gain_m, (v) => `${Math.round(v)} m`, 'Pace and terrain');
+  add('Calories', activity.calories, (v) => `${v} kcal`, 'Heart rate and energy');
+  if (detailed || activity.activity_type === 'steps') add('Steps', activity.steps, (v) => v.toLocaleString('en-US'), 'Other');
+  if (detailed) add('Effort points', activity.effort_points, String, 'Other');
   return output;
+}
+
+export function metricGroups(activity: Activity): Array<{ title: MetricGroup; items: Metric[] }> {
+  const all = metrics(activity, true);
+  const titles: MetricGroup[] = ['Time and distance', 'Pace and terrain', 'Heart rate and energy', 'Other'];
+  return titles.map((title) => ({ title, items: all.filter((metric) => metric.group === title) })).filter((group) => group.items.length > 0);
 }

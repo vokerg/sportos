@@ -7,7 +7,7 @@ import { ActivitiesStore } from './activities.store';
 import {
   BIKE_SPEED_OPTIONS, DEFAULT_QUICK_RANGE, DISTANCE_OPTIONS_M, QUICK_RANGE_OPTIONS,
   RUN_PACE_OPTIONS, SOURCE_OPTIONS, SWIM_PACE_OPTIONS, TYPE_OPTIONS,
-  distance, duration, isQuickRange, matchQuickRange, quickRangeDates, type QuickRange,
+  distance, duration, isQuickRange, matchQuickRange, quickRangeDates, sportDistance, type QuickRange,
 } from './activity.view-model';
 
 @Component({
@@ -26,7 +26,7 @@ import {
         <fieldset class="sport-filters"><legend>{{ sportLabel() }} filters</legend>
           <label>Minimum distance <select [value]="minDistanceM()" (change)="minDistanceM.set(+$any($event.target).value)">
             <option value="0">Any distance</option>
-            @for (metres of distanceOptions(); track metres) { @if (metres > 0) { <option [value]="metres">At least {{ distance(metres) }}</option> } }
+            @for (metres of distanceOptions(); track metres) { @if (metres > 0) { <option [value]="metres">At least {{ sportDistance(metres, selectedDistanceSport()) }}</option> } }
           </select></label>
           @if (activityType() === 'run') {
             <label>Average pace <select [value]="paceUnderSPerKm()" (change)="paceUnderSPerKm.set(+$any($event.target).value)">@for (option of runPaceOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
@@ -73,7 +73,7 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
   readonly typeOptions = TYPE_OPTIONS; readonly sourceOptions = SOURCE_OPTIONS;
   readonly quickRangeOptions = QUICK_RANGE_OPTIONS; readonly runPaceOptions = RUN_PACE_OPTIONS;
   readonly bikeSpeedOptions = BIKE_SPEED_OPTIONS; readonly swimPaceOptions = SWIM_PACE_OPTIONS;
-  readonly distance = distance; readonly duration = duration; readonly Math = Math;
+  readonly distance = distance; readonly sportDistance = sportDistance; readonly duration = duration; readonly Math = Math;
   private routeSubscription?: Subscription;
   private offset = 0;
 
@@ -102,6 +102,7 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
   }
   ngOnDestroy(): void { this.routeSubscription?.unsubscribe(); this.store.destroy(); }
   isDistanceSport(): boolean { return ['run', 'bike', 'swim'].includes(this.activityType()); }
+  selectedDistanceSport(): ActivityType { return this.activityType() as ActivityType; }
   sportLabel(): string { return this.typeOptions.find((option) => option.value === this.activityType())?.label ?? ''; }
   distanceOptions(): readonly number[] { return DISTANCE_OPTIONS_M[this.activityType() as keyof typeof DISTANCE_OPTIONS_M] ?? []; }
   setFrom(value: string): void { this.from.set(value); this.quickRange.set('custom'); }

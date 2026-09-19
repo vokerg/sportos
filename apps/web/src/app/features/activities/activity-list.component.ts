@@ -11,6 +11,7 @@ import { metrics, startTime, title } from './activity.view-model';
         <a class="card activity" [routerLink]="['/activity', activity.id]">
           <div class="heading"><strong>{{ title(activity) }} @if (activity.subtype && activity.subtype !== 'unknown') { <small>· {{ activity.subtype }}</small> }</strong><span>{{ activity.activity_date }} @if (startTime(activity.start_time)) { · {{ startTime(activity.start_time) }} }</span></div>
           <div class="source">{{ activity.source.replaceAll('_', ' ') }}</div>
+          @if (activity.source === 'strava' && activity.notes) { <div class="description">{{ activity.notes }}</div> }
           <div class="metrics">@for (metric of metrics(activity); track metric.label) { <span><b>{{ metric.value }}</b><small>{{ metric.label }}</small></span> }</div>
         </a>
       }
@@ -23,6 +24,7 @@ import { metrics, startTime, title } from './activity.view-model';
     .heading { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .heading strong { font-size: 18px; }.heading small { font-size: 13px; color: #667085; font-weight: 500; }
     .heading span,.source { color: #667085; font-size: 13px; }.source { text-transform: capitalize; }
+    .description { color: #344054; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .metrics { display: flex; flex-wrap: wrap; gap: 10px 24px; }
     .metrics span { display: grid; gap: 2px; }.metrics small { color: #667085; font-size: 11px; }
   `],
