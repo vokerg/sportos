@@ -1,4 +1,6 @@
-import { Component, input, output, signal, type OnChanges } from '@angular/core';
+import { Component, computed, inject, input, output, signal, type OnChanges, type OnDestroy } from '@angular/core';
+import { Subscription } from 'rxjs';
+import { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import type { DailyScoreBreakdown, ManualDailyFactsInput } from './score-breakdown.models';
 import { formatScoreDate } from './score-breakdown.view-model';
 
@@ -19,26 +21,41 @@ import { formatScoreDate } from './score-breakdown.view-model';
             <div>
               <span class="section-label">Manual canonical entry</span>
               <h4 id="manual-facts-title">{{ breakdown() ? 'Replace the current daily facts' : 'Create daily facts for ' + formatScoreDate(date()) }}</h4>
-              <p class="section-help">Enter indoor, outdoor, and unspecified distances separately. Each value is retained as a manual activity.</p>
+              <p class="section-help">Enter the daily facts. Distances are retained as manual activities.</p>
             </div>
             <button type="button" class="dialog-close" aria-label="Close manual facts editor" [disabled]="saving()" (click)="cancelManualEdit()">×</button>
           </div>
           <div class="manual-facts-grid">
-            <label>Steps <input autofocus type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
-            <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
+            <label>{{ useTotalSteps() ? 'All-day steps' : 'Steps (excluding runs)' }} <input autofocus type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
             <label>Run outdoor (km) <input type="number" min="0" step="0.01" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
-            <label>Run unspecified (km) <input type="number" min="0" step="0.01" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
-            <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
             <label>Bike outdoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
-            <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
             <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
             <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
             <label>Bonus points <input type="number" min="0" step="1" [value]="manualBonusPoints()" (input)="manualBonusPoints.set(numberInputValue($event))" /></label>
           </div>
+          <label class="steps-option"><input type="checkbox" [checked]="useTotalSteps()" (change)="useTotalSteps.set($any($event.target).checked)" /> My step count includes running; subtract estimated run steps</label>
+          @if (useTotalSteps()) {
+            <p class="steps-preview" role="status">
+              @if (estimateLoading()) { Loading run estimate… }
+              @else if (estimateError()) { {{ estimateError() }} }
+              @else { {{ manualSteps() }} all-day − {{ estimatedRunningSteps() }} from synced Strava runs = <strong>{{ adjustedSteps() }} steps scored</strong>
+                @if (unestimatedRunCount()) { · {{ unestimatedRunCount() }} run(s) lack enough data for an estimate. }
+              }
+            </p>
+          }
+          <details class="more-fields">
+            <summary>More activity types</summary>
+            <div class="manual-facts-grid">
+              <label>Run treadmill (km) <input type="number" min="0" step="0.01" [value]="manualRunIndoorKm()" (input)="manualRunIndoorKm.set(numberInputValue($event))" /></label>
+              <label>Run unspecified (km) <input type="number" min="0" step="0.01" [value]="manualRunUnspecifiedKm()" (input)="manualRunUnspecifiedKm.set(numberInputValue($event))" /></label>
+              <label>Bike indoor (km) <input type="number" min="0" step="0.01" [value]="manualBikeIndoorKm()" (input)="manualBikeIndoorKm.set(numberInputValue($event))" /></label>
+              <label>Bike unspecified (km) <input type="number" min="0" step="0.01" [value]="manualBikeUnspecifiedKm()" (input)="manualBikeUnspecifiedKm.set(numberInputValue($event))" /></label>
+            </div>
+          </details>
           @if (validationError()) { <p class="recalculation-error" role="alert">{{ validationError() }}</p> }
           @if (saveError()) { <p class="recalculation-error" role="alert">{{ saveError() }}</p> }
           <div class="manual-form-actions">
-            <button type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save manual facts' }}</button>
+            <button type="submit" [disabled]="saving() || (useTotalSteps() && (estimateLoading() || !!estimateError()))">{{ saving() ? 'Saving…' : 'Save manual facts' }}</button>
             <button type="button" class="secondary-button" [disabled]="saving()" (click)="cancelManualEdit()">Cancel</button>
           </div>
         </form>
@@ -57,6 +74,11 @@ import { formatScoreDate } from './score-breakdown.view-model';
     .manual-facts-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 10px; }
     .manual-facts-grid label { display: grid; gap: 5px; color: #475467; font-size: 11px; font-weight: 700; }
     .manual-facts-grid input { min-width: 0; padding: 8px; border: 1px solid #cbd6ed; border-radius: 7px; background: white; }
+    .steps-option { display: flex; align-items: center; gap: 8px; margin-top: 14px; color: #344054; font-size: 12px; font-weight: 650; }
+    .steps-preview { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: #eef3ff; color: #243b73; font-size: 12px; }
+    .more-fields { margin-top: 14px; border-top: 1px solid #e1e7f0; padding-top: 12px; }
+    .more-fields summary { cursor: pointer; color: #40558f; font-size: 12px; font-weight: 750; }
+    .more-fields .manual-facts-grid { margin-top: 12px; }
     .manual-form-actions { display: flex; gap: 8px; margin-top: 14px; }
     .recalculation-error { color: #b54747; font-size: 12px; }
     .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
@@ -71,7 +93,9 @@ import { formatScoreDate } from './score-breakdown.view-model';
     }
   `],
 })
-export class ScoreBreakdownManualFactsComponent implements OnChanges {
+export class ScoreBreakdownManualFactsComponent implements OnChanges, OnDestroy {
+  private readonly api = inject(ScoreBreakdownApiService, { optional: true });
+  private estimateSubscription?: Subscription;
   readonly active = input(false);
   readonly date = input<string | null>(null);
   readonly breakdown = input<DailyScoreBreakdown | null>(null);
@@ -83,6 +107,12 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
   readonly editing = signal(false);
   readonly validationError = signal<string | null>(null);
   readonly manualSteps = signal(0);
+  readonly useTotalSteps = signal(false);
+  readonly estimatedRunningSteps = signal(0);
+  readonly unestimatedRunCount = signal(0);
+  readonly estimateLoading = signal(false);
+  readonly estimateError = signal<string | null>(null);
+  readonly adjustedSteps = computed(() => Math.max(this.manualSteps() - this.estimatedRunningSteps(), 0));
   readonly manualRunIndoorKm = signal(0);
   readonly manualRunOutdoorKm = signal(0);
   readonly manualRunUnspecifiedKm = signal(0);
@@ -107,9 +137,28 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
     this.startManualEdit(this.breakdown());
   }
 
+  ngOnDestroy(): void { this.estimateSubscription?.unsubscribe(); }
+
   startManualEdit(current: DailyScoreBreakdown | null): void {
     const facts = current?.facts;
-    this.manualSteps.set(facts?.steps ?? 0);
+    const priorCalculation = facts?.stepsCalculation;
+    this.useTotalSteps.set(priorCalculation?.source === 'manual_adjusted');
+    this.manualSteps.set(priorCalculation?.source === 'manual_adjusted' ? priorCalculation.totalSteps ?? facts?.steps ?? 0 : facts?.steps ?? 0);
+    this.estimatedRunningSteps.set(priorCalculation?.estimatedRunningSteps ?? 0);
+    this.unestimatedRunCount.set(priorCalculation?.unestimatedRunCount ?? 0);
+    this.estimateSubscription?.unsubscribe();
+    this.estimateLoading.set(!!this.api && !!this.date());
+    this.estimateError.set(null);
+    const date = this.date();
+    if (this.api && date) this.estimateSubscription = this.api.runningStepEstimate(date).subscribe({
+      next: (estimate) => {
+        this.estimatedRunningSteps.set(estimate.estimatedRunningSteps);
+        this.unestimatedRunCount.set(estimate.unestimatedRunCount);
+        this.estimateLoading.set(false);
+      },
+      error: () => { this.estimateError.set('Run-step estimate could not be loaded.'); this.estimateLoading.set(false); },
+    });
+    else this.estimateLoading.set(false);
     const runIndoorM = facts?.runIndoorM ?? 0;
     const runOutdoorM = facts?.runOutdoorM ?? 0;
     const bikeIndoorM = facts?.bikeIndoorM ?? 0;
@@ -153,9 +202,11 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges {
       this.validationError.set('Steps, workout points, and bonus points must be whole numbers.');
       return;
     }
+    if (this.useTotalSteps() && (this.estimateLoading() || this.estimateError())) return;
     this.validationError.set(null);
     this.save.emit({
-      steps: this.manualSteps(),
+      steps: this.useTotalSteps() ? this.adjustedSteps() : this.manualSteps(),
+      ...(this.useTotalSteps() ? { totalSteps: this.manualSteps() } : {}),
       runIndoorM: this.kilometersToMeters(this.manualRunIndoorKm()),
       runOutdoorM: this.kilometersToMeters(this.manualRunOutdoorKm()),
       runUnspecifiedM: this.kilometersToMeters(this.manualRunUnspecifiedKm()),

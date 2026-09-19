@@ -923,7 +923,7 @@ function finiteSnapshotNumber(value: unknown, fallback = 0): number {
 
 export function stepsCalculationFromSnapshot(value: Json | null | undefined): DailyStepsCalculation | null {
   const candidate = jsonRecord(jsonRecord(value ?? null).stepsCalculation as Json | null);
-  const sources: DailyStepsCalculation['source'][] = ['manual', 'imported', 'garmin_adjusted', 'stored', 'none'];
+  const sources: DailyStepsCalculation['source'][] = ['manual', 'manual_adjusted', 'imported', 'garmin_adjusted', 'stored', 'none'];
   if (!sources.includes(candidate.source as DailyStepsCalculation['source'])) return null;
   if (typeof candidate.resolvedSteps !== 'number' || !Number.isSafeInteger(candidate.resolvedSteps) || candidate.resolvedSteps < 0) return null;
 
@@ -951,6 +951,7 @@ export function stepsCalculationFromSnapshot(value: Json | null | undefined): Da
   return {
     source: candidate.source as DailyStepsCalculation['source'],
     resolvedSteps: candidate.resolvedSteps,
+    ...(typeof candidate.totalSteps === 'number' ? { totalSteps: finiteSnapshotNumber(candidate.totalSteps) } : {}),
     ...(typeof candidate.garminTotalSteps === 'number' ? { garminTotalSteps: finiteSnapshotNumber(candidate.garminTotalSteps) } : {}),
     ...(typeof candidate.estimatedRunningSteps === 'number' ? { estimatedRunningSteps: finiteSnapshotNumber(candidate.estimatedRunningSteps) } : {}),
     ...(runs ? { runs } : {}),

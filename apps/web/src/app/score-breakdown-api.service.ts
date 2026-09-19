@@ -37,6 +37,12 @@ export class ScoreBreakdownApiService {
     );
   }
 
+  runningStepEstimate(date: string) {
+    return this.http.get<{ estimatedRunningSteps: number; unestimatedRunCount: number }>(
+      `${this.api.apiBase()}/daily/${encodeURIComponent(date)}/running-step-estimate`,
+    );
+  }
+
   saveManualFacts(date: string, input: ManualDailyFactsInput) {
     return this.http.put<DailyScoreBreakdown>(
       `${this.api.apiBase()}/daily/${encodeURIComponent(date)}/facts`,

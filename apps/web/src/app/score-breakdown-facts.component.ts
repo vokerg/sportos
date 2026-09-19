@@ -28,7 +28,7 @@ import { formatDistance, formatDuration, formatNumber } from './score-breakdown.
         <div><span>Swim</span><strong>{{ formatDistance(current.facts.swimM, 0) }}</strong></div>
         <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong></div>
       </div>
-      @if (current.facts.stepsCalculation?.source === 'garmin_adjusted') {
+      @if (current.facts.stepsCalculation?.source === 'garmin_adjusted' || current.facts.stepsCalculation?.source === 'manual_adjusted') {
         <div class="steps-calculation">
           <strong>{{ garminEquation(current.facts.stepsCalculation!) }}</strong>
           @if ((current.facts.stepsCalculation!.runs?.length ?? 0) > 0) {
@@ -100,6 +100,7 @@ export class ScoreBreakdownFactsComponent {
   stepsSource(calculation?: DailyStepsCalculation): string {
     if (!calculation) return '';
     if (calculation.source === 'manual') return 'Manual value; recalculation preserves it';
+    if (calculation.source === 'manual_adjusted') return 'All-day total after running-step deduction';
     if (calculation.source === 'imported') return 'Imported value; recalculation preserves it';
     if (calculation.source === 'stored') return 'Existing value preserved';
     if (calculation.source === 'garmin_adjusted') return 'Garmin total after running-step deduction';
@@ -107,7 +108,9 @@ export class ScoreBreakdownFactsComponent {
   }
 
   garminEquation(calculation: DailyStepsCalculation): string {
-    return `Garmin ${formatNumber(calculation.garminTotalSteps ?? 0)} − running ${formatNumber(calculation.estimatedRunningSteps ?? 0)} = ${formatNumber(calculation.resolvedSteps)} steps`;
+    const source = calculation.source === 'manual_adjusted' ? 'All-day' : 'Garmin';
+    const total = calculation.source === 'manual_adjusted' ? calculation.totalSteps : calculation.garminTotalSteps;
+    return `${source} ${formatNumber(total ?? 0)} − running ${formatNumber(calculation.estimatedRunningSteps ?? 0)} = ${formatNumber(calculation.resolvedSteps)} steps`;
   }
 
   runEquation(run: DailyRunStepCalculation): string {

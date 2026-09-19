@@ -109,4 +109,11 @@ export class DailyService {
       throw error;
     }
   }
+
+  runningStepEstimate(metricDate: string, accountId = LEGACY_ACCOUNT_ID) {
+    return this.dbProvider.withAccount(
+      accountId,
+      (db) => new DailyScoringRepository(db).runningStepEstimate(metricDate),
+    );
+  }
 }

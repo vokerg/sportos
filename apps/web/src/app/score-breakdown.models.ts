@@ -39,8 +39,9 @@ export interface DailyRunStepCalculation {
 }
 
 export interface DailyStepsCalculation {
-  source: 'manual' | 'imported' | 'garmin_adjusted' | 'stored' | 'none';
+  source: 'manual' | 'manual_adjusted' | 'imported' | 'garmin_adjusted' | 'stored' | 'none';
   resolvedSteps: number;
+  totalSteps?: number;
   garminTotalSteps?: number;
   estimatedRunningSteps?: number;
   runs?: DailyRunStepCalculation[];
@@ -160,6 +161,7 @@ export interface DailyScoreBreakdown {
 
 export interface ManualDailyFactsInput {
   steps: number;
+  totalSteps?: number;
   runIndoorM: number;
   runOutdoorM: number;
   runUnspecifiedM?: number;
