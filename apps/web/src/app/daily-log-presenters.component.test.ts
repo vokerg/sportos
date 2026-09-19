@@ -88,6 +88,10 @@ describe('daily log presentation components', () => {
     expect(fields).not.toContain('excel_all_points');
     expect(fields).not.toContain('points_delta_vs_excel');
     expect(grid.columnDefs[0]).toMatchObject({ colId: 'scoreBreakdown', width: 72 });
+    const swimColumn = grid.columnDefs.find((column) => column.field === 'swim_m');
+    const swimFormatter = swimColumn?.valueFormatter;
+    expect(typeof swimFormatter).toBe('function');
+    if (typeof swimFormatter === 'function') expect(swimFormatter({ value: 400 } as never)).toBe('400 m');
 
     grid.setPageSize('50');
     expect(grid.pageSize()).toBe(200);

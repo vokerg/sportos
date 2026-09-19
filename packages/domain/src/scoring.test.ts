@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scoreActivityWithRule, scoreDay, scoreFromImportedLedger } from './scoring.js';
+import { aggregateActivitiesToDailyFacts } from './daily.js';
 import type { ScoringRule } from './types.js';
 
 const rules: ScoringRule[] = [
@@ -14,6 +15,18 @@ const rules: ScoringRule[] = [
 ];
 
 describe('scoreDay', () => {
+  it('counts and scores a 400 m outdoor swim as an ordinary swim', () => {
+    const date = '2026-05-18';
+    const activity = { id: 'outdoor-swim', activityDate: date, activityType: 'swim' as const, subtype: 'outdoor' as const, distanceM: 400 };
+    const facts = aggregateActivitiesToDailyFacts(date, [activity]);
+    const result = scoreDay(facts, [activity], [
+      { code: 'swim.m.default', name: 'Swim', activityType: 'swim', ruleKind: 'coefficient', metric: 'distance_m', coefficient: 7.5, validFrom: '1900-01-01', priority: 40, enabled: true },
+    ]);
+
+    expect(facts.swimM).toBe(400);
+    expect(result).toMatchObject({ basePoints: 3000, totalPoints: 3000 });
+    expect(result.ledger[0]).toMatchObject({ ruleCode: 'swim.m.default', points: 3000 });
+  });
   it('keeps an imported workbook ledger total intact while classifying its recorded bonus', () => {
     const result = scoreFromImportedLedger({
       metricDate: '2026-05-18',

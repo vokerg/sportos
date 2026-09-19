@@ -1,6 +1,7 @@
 import { Component, input, output } from '@angular/core';
 import type { DailyRunStepCalculation, DailyScoreBreakdown, DailyStepsCalculation } from './score-breakdown.models';
 import { formatDistance, formatDuration, formatNumber } from './score-breakdown.view-model';
+import { formatSwimMeters } from './swim-distance';
 
 @Component({
   selector: 'sportos-score-breakdown-facts',
@@ -25,7 +26,7 @@ import { formatDistance, formatDuration, formatNumber } from './score-breakdown.
         <div><span>Bike · indoor</span><strong>{{ formatDistance(current.facts.bikeIndoorM) }}</strong></div>
         <div><span>Bike · outdoor</span><strong>{{ formatDistance(current.facts.bikeOutdoorM) }}</strong></div>
         <div><span>Bike · unspecified</span><strong>{{ formatDistance(current.facts.bikeUnspecifiedM) }}</strong></div>
-        <div><span>Swim</span><strong>{{ formatDistance(current.facts.swimM, 0) }}</strong></div>
+        <div><span>Swim</span><strong>{{ formatSwimMeters(current.facts.swimM) }}</strong></div>
         <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong></div>
       </div>
       @if (current.facts.stepsCalculation?.source === 'garmin_adjusted' || current.facts.stepsCalculation?.source === 'manual_adjusted') {
@@ -94,6 +95,7 @@ export class ScoreBreakdownFactsComponent {
   readonly edit = output<void>();
 
   readonly formatDistance = formatDistance;
+  readonly formatSwimMeters = formatSwimMeters;
   readonly formatDuration = formatDuration;
   readonly formatNumber = formatNumber;
 
