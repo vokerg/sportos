@@ -1,7 +1,8 @@
 import '@angular/compiler';
 import { of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ApiService, CanonicalExportBundle } from './api.service';
+import type { ExportExportApiService } from './features/exports/data-access/export-api.service';
+import type { CanonicalExportBundle } from './features/exports/model/export.models';
 import { ExportPanelComponent } from './export-panel.component';
 
 const bundle: CanonicalExportBundle = {
@@ -19,7 +20,7 @@ describe('ExportPanelComponent', () => {
 
   it('rejects an invalid range without requesting an export', () => {
     const api = { canonicalExport: vi.fn() };
-    const component = new ExportPanelComponent(api as unknown as ApiService);
+    const component = new ExportPanelComponent(api as unknown as ExportApiService);
     component.from.set('2026-06-01');
     component.to.set('2026-05-01');
     component.export();
@@ -34,7 +35,7 @@ describe('ExportPanelComponent', () => {
     vi.stubGlobal('document', { createElement: vi.fn().mockReturnValue({ href: '', download: '', click }) });
     vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
     const api = { canonicalExport: vi.fn().mockReturnValue(of(bundle)) };
-    const component = new ExportPanelComponent(api as unknown as ApiService);
+    const component = new ExportPanelComponent(api as unknown as ExportApiService);
     component.from.set(bundle.dateRange.from);
     component.to.set(bundle.dateRange.to);
 
@@ -48,7 +49,7 @@ describe('ExportPanelComponent', () => {
   });
 
   it('serializes a stable UTF-8 JSON document with a trailing newline', () => {
-    const component = new ExportPanelComponent({} as ApiService);
+    const component = new ExportPanelComponent({} as ExportApiService);
     const serialized = component.serialize(bundle);
     expect(JSON.parse(serialized)).toEqual(bundle);
     expect(serialized.endsWith('\n')).toBe(true);
