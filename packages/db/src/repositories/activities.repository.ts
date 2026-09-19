@@ -9,6 +9,10 @@ export interface ActivitiesQuery {
   to?: string;
   activityType?: Activity['activity_type'];
   source?: Activity['source'];
+  minDistanceM?: number;
+  paceUnderSPerKm?: number;
+  minAvgSpeedMps?: number;
+  swimPaceUnderSPer100m?: number;
   limit: number;
   offset: number;
 }
@@ -38,6 +42,10 @@ export class ActivitiesRepository {
     if (input.to) filtered = filtered.where('activity_date', '<=', input.to);
     if (input.activityType) filtered = filtered.where('activity_type', '=', input.activityType);
     if (input.source) filtered = filtered.where('source', '=', input.source);
+    if (input.minDistanceM !== undefined) filtered = filtered.where('distance_m', '>=', input.minDistanceM);
+    if (input.paceUnderSPerKm !== undefined) filtered = filtered.where('avg_pace_s_per_km', '<', input.paceUnderSPerKm);
+    if (input.minAvgSpeedMps !== undefined) filtered = filtered.where('avg_speed_mps', '>=', input.minAvgSpeedMps);
+    if (input.swimPaceUnderSPer100m !== undefined) filtered = filtered.where('avg_pace_s_per_km', '<', input.swimPaceUnderSPer100m * 10);
     const [rows, summary] = await Promise.all([
       filtered.select(publicColumns)
         .orderBy('activity_date', 'desc').orderBy('start_time', 'desc').orderBy('id', 'desc')

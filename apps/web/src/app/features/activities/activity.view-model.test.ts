@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Activity } from './activities-api.service';
-import { metrics, TYPE_OPTIONS } from './activity.view-model';
+import { metrics, TYPE_OPTIONS, RUN_PACE_OPTIONS, quickRangeDates, matchQuickRange } from './activity.view-model';
 
 const base: Activity = {
   id: '1', activity_date: '2026-01-01', start_time: null, activity_type: 'run', subtype: null,
@@ -17,5 +17,13 @@ describe('activity presentation', () => {
       .toEqual(['Distance', 'Duration', 'Average speed', 'Average HR']);
     expect(metrics({ ...base, activity_type: 'workout', distance_m: null, avg_pace_s_per_km: null, calories: 300 }).map((metric) => metric.label))
       .toEqual(['Duration', 'Average HR', 'Calories']);
+  });
+
+  it('offers the requested strict run pace cutoffs and calendar-aware quick ranges', () => {
+    expect(RUN_PACE_OPTIONS.map((option) => option.value)).toEqual([0, 240, 252, 264, 300]);
+    const today = new Date('2026-03-31T12:00:00.000Z');
+    expect(quickRangeDates('1m', today)).toEqual({ from: '2026-02-28', to: '2026-03-31' });
+    expect(quickRangeDates('all', today)).toEqual({ from: '', to: '' });
+    expect(matchQuickRange('2026-02-28', '2026-03-31', today)).toBe('1m');
   });
 });

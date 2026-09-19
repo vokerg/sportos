@@ -33,6 +33,10 @@ export interface ActivitiesQuery {
   to?: string;
   activityType?: ActivityType;
   source?: ActivitySource;
+  minDistanceM?: number;
+  paceUnderSPerKm?: number;
+  minAvgSpeedMps?: number;
+  swimPaceUnderSPer100m?: number;
   limit?: number;
   offset?: number;
 }

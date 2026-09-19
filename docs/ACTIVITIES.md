@@ -2,7 +2,7 @@
 
 Activities are the human-readable training history backed directly by the account-owned canonical `activities` table. Imports and provider synchronization establish those facts first; the Activities API reads them without recalculating or modifying them.
 
-`/activities` shows newest activities first, with inclusive `from` and `to` date filters, canonical `activityType` and `source` filters, and sport-appropriate metrics. `/activity/:id` shows one canonical activity, its available metrics and notes, and a collapsible source/provenance section. A missing or foreign account ID returns the same 404.
+`/activities` shows newest activities first, with inclusive `from` and `to` date filters, canonical `activityType` and `source` filters, and sport-appropriate metrics. The browser defaults to Strava and the past three months; All sources and All time are explicit choices. The quick ranges match the other date-filtered pages: 1/3/6 months, year to date, 1/3 years, All time, and Custom. Changing a date makes the range Custom. `/activity/:id` shows one canonical activity, its available metrics and notes, and a collapsible source/provenance section. A missing or foreign account ID returns the same 404.
 
 ## Boundaries
 
@@ -12,11 +12,11 @@ Activities are the human-readable training history backed directly by the accoun
 
 ## API
 
-`GET /activities` accepts optional `from`, `to` (real `YYYY-MM-DD` calendar dates, inclusive), `activityType`, `source`, `limit` (1–100, default 50), and `offset` (0–100000). Type and source must match canonical values. Results are ordered by activity date, start time, then ID descending. The response contains `items`, `summary` (`count`, `durationS`, `distanceM` across the entire filtered result), `limit`, and `offset`. Filters are validated before querying; unknown parameters are rejected.
+`GET /activities` accepts optional `from`, `to` (real `YYYY-MM-DD` calendar dates, inclusive), `activityType`, `source`, `limit` (1–100, default 50), and `offset` (0–100000). Type and source must match canonical values. Sport filters are `minDistanceM` for run, bike, or swim; `paceUnderSPerKm` for run; `minAvgSpeedMps` for bike; and `swimPaceUnderSPer100m` for swim. All are positive and bounded. A sport filter without its matching `activityType` is rejected. Pace cutoffs are strict “under” comparisons; minimum distance and speed are inclusive. Rows missing the chosen metric do not match. Swim pace is converted to the canonical seconds-per-kilometre field before querying. The browser offers run pace categories under 4:00, 4:12, 4:24, and 5:00 per kilometre, plus starter bike speed, swim pace, and minimum-distance choices. Results are ordered by activity date, start time, then ID descending. The response contains `items`, `summary` (`count`, `durationS`, `distanceM` across the entire filtered result), `limit`, and `offset`. Filters are validated before querying; unknown parameters are rejected.
 
 `GET /activities/:activityId` accepts a canonical UUID. It returns the activity's selected canonical fields and source-record ID/type when present. Raw payloads, hashes, account IDs, storage internals and provider credentials are omitted. Both routes use the authenticated account's `withAccount` context and forced row-level security.
 
-The implementation lives in `packages/db/src/repositories/activities.repository.ts`, `apps/api/src/activities/activities.controller.ts`, and `apps/web/src/app/features/activities/`. Angular separates the API contract/client, formatting and metric selection, list presenter, list page, and detail page. The feature is scoped under `features/` per the frontend architecture; the existing global API base helper remains until its planned migration.
+The implementation lives in `packages/db/src/repositories/activities.repository.ts`, `apps/api/src/activities/activities.controller.ts`, and `apps/web/src/app/features/activities/`. Angular separates the API contract/client, formatting and metric selection, list presenter, list page, detail page, and a page-scoped list store for request cancellation and loading state. The feature is scoped under `features/` per the frontend architecture; the existing global API base helper remains until its planned migration.
 
 ## MVP limits
 

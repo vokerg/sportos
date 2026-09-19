@@ -26,7 +26,20 @@ describe('ActivitiesController', () => {
       { activityType: 'cycle' }, { source: 'unknown' }, { from: '2026-02-30' },
       { from: '2026-03-01', to: '2026-02-01' }, { limit: '101' }, { offset: '-1' },
       { ownerId: accountId }, { source: ['strava', 'garmin'] },
+      { activityType: 'run', minAvgSpeedMps: '5' },
+      { activityType: 'bike', paceUnderSPerKm: '252' },
+      { activityType: 'swim', swimPaceUnderSPer100m: 'Infinity' },
+      { minDistanceM: '5000' },
     ]) expect(() => parseActivitiesQuery(query)).toThrow(BadRequestException);
+  });
+
+  it('accepts bounded canonical sport filters only with their matching type', () => {
+    expect(parseActivitiesQuery({ activityType: 'run', minDistanceM: '5000', paceUnderSPerKm: '252' }))
+      .toMatchObject({ activityType: 'run', minDistanceM: 5000, paceUnderSPerKm: 252 });
+    expect(parseActivitiesQuery({ activityType: 'bike', minDistanceM: '20000', minAvgSpeedMps: '6.25' }))
+      .toMatchObject({ activityType: 'bike', minDistanceM: 20000, minAvgSpeedMps: 6.25 });
+    expect(parseActivitiesQuery({ activityType: 'swim', swimPaceUnderSPer100m: '120' }))
+      .toMatchObject({ activityType: 'swim', swimPaceUnderSPer100m: 120 });
   });
 
   it('fetches an activity and returns the same 404 for missing or foreign IDs', async () => {
