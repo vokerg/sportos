@@ -8,11 +8,11 @@ SportOS is an authenticated account-scoped application for importing sports work
 
 Validated capabilities include browser XLSX and manual Garmin CSV upload, external source storage, encrypted provider credentials, Strava connection/backfill/incremental sync, durable import/provider/rule jobs, immutable scoring-rule versions, audited recomputation, daily/performance provenance drill-downs, canonical export, narrow deterministic analysis tools, citation-validated generation with safe fallback, append-only analysis audit metadata, OIDC sign-in, opaque server-side sessions, CSRF protection, account-scoped database constraints, forced row-level security, split worker authorization, authenticated Angular routes, canonical Monthly Stats, and calendar-day rolling metric Dynamics.
 
-The foundational queue in issue #3 is complete through #16 and the active P3 queue contains later frontend/product work. Do not invent the next product item; select only the first unchecked ready item or work explicitly reprioritized by a maintainer.
+The foundational queue in issue #3 is complete through #16. Later product work and the P4 frontend-architecture lane are prioritized there, and those lanes may proceed in parallel when they do not substantially modify the same feature or infrastructure. Do not invent the next item; select only the first unchecked ready item or work explicitly reprioritized by a maintainer.
 
 ## Start here
 
-1. Read `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/AUTHENTICATION.md`, `docs/AI_ANALYSIS.md`, and relevant ADRs.
+1. Read `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/AUTHENTICATION.md`, `docs/AI_ANALYSIS.md`, and relevant ADRs. For Angular work, also read `docs/FRONTEND_ARCHITECTURE.md`.
 2. Open issue #3, the authoritative work queue.
 3. Check open pull requests and active claim comments.
 4. Select the first ready unchecked issue, if one exists.
@@ -89,13 +89,11 @@ Never accept owner or audit-actor identifiers from request bodies. Derive them f
 
 ### Web: `apps/web`
 
-- `src/app/web-auth.service.ts` — session bootstrap, sign-in, expiry, and sign-out.
-- `src/app/auth-http.interceptor.ts` — exact-API-origin credentials, CSRF, and global unauthorized handling.
-- `src/app/provider-panel.component.ts` — connection, backfill/sync, progress, retry, cancel, disconnect, provenance, bounded polling.
-- `src/app/provider-api.service.ts` — user-safe provider API contracts only.
-- `src/app/analysis-panel.component.ts` — bounded questions, explicit read-only limitation, generated guidance, official evidence, citations, quality flags, and audit reference.
-- `src/app/analysis-api.service.ts` — user-safe analysis contracts only.
-- `src/app/app.component.ts` — protected cockpit composition after session success.
+- `docs/FRONTEND_ARCHITECTURE.md` — target `core/`, `shared/`, and feature-slice boundaries, dependency direction, migration rules, and focused validation policy.
+- `src/app/app.component.ts` — authenticated application shell only.
+- `src/app/app.routes.ts` — lazy route entry points.
+- `src/app` is currently a transitional flat layout. New substantial feature code belongs under `src/app/features/<feature>/`; application-wide infrastructure belongs under `src/app/core/`; reusable feature-agnostic UI/utilities belong under `src/app/shared/`.
+- Existing `web-auth.service.ts`, `auth-http.interceptor.ts`, `api.service.ts`, feature API services, route components, and presenters migrate incrementally through issues #74-#80. Do not perform unrelated mass moves.
 
 Angular renders API truth only. It never receives provider tokens/envelopes, assigns ownership, normalizes canonical facts, calculates official scores, or treats generated guidance as authoritative.
 
@@ -198,6 +196,16 @@ The dispatcher is a narrow trusted-system exception. It may inspect queue lifecy
 - add constraints, indexes, RLS, grants, immutable-owner enforcement, append-only enforcement, and privilege assertions for new invariants;
 - test fresh migration and populated upgrade paths when applicable;
 - run integration using the intended non-owner runtime roles.
+
+### Angular architecture and focused validation
+
+- Follow `docs/FRONTEND_ARCHITECTURE.md` for all substantial web work.
+- Target dependency direction is page -> feature state -> feature data-access, with feature code using feature models and reusable `shared/` code.
+- `shared/` and `core/` must not depend on features; data-access must not depend on UI; state must not import components; presentational components must not inject `HttpClient`.
+- Prefer feature-scoped injectable signal facades/stores for multi-request orchestration, cancellation/stale-response protection, durable jobs, retries, and shared workflow state. Do not introduce NgRx.
+- Authentication, HTTP-wide behavior, API configuration, and generic durable-job infrastructure belong under `core/`; feature transport contracts belong with feature data access.
+- For frontend-only work, run the smallest relevant Vitest files and `pnpm --filter @sportos/web typecheck`. Run `pnpm --filter @sportos/web build` when templates, lazy routes, providers, or bundling integration changed.
+- Do not routinely run migrations, backend/database integrations, worker/importer suites, or the full repository matrix for frontend-only refactors. Broaden validation only when the change crosses runtime/package boundaries or targeted evidence is insufficient.
 
 ## Common commands
 
