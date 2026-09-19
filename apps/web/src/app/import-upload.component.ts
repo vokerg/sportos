@@ -1,6 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import type { UploadWorkbookKind } from './api.service';
+import type { UploadWorkbookKind } from './features/imports/model/imports.models';
 
 @Component({
   selector: 'sportos-import-upload',
