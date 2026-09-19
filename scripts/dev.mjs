@@ -29,7 +29,13 @@ if (!process.env.SPORTOS_DEV_AUTH_TOKEN?.trim()) {
   console.warn('SPORTOS_DEV_AUTH_TOKEN is not set; local Sign in will require OIDC.');
 }
 
-const initialBuild = await runPnpm(['--filter', '@sportos/api', 'build']);
+// Project-reference declarations are generated artifacts and can outlive a
+// squash merge in a shared checkout. Force the initial graph build so the API
+// never starts against stale package declarations (the watch build can remain
+// incremental after this refresh).
+const initialBuild = await runPnpm([
+  '--filter', '@sportos/api', 'exec', 'tsc', '-b', 'tsconfig.json', '--force', '--pretty', 'false',
+]);
 if (initialBuild !== 0) process.exit(initialBuild);
 
 startPnpm('api:compile', [
