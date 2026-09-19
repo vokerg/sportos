@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { ApiService } from './api.service';
+import { inject, Injectable } from '@angular/core';
+import { SPORTOS_API_BASE } from './core/config/api-base';
 
 export type ProviderConnectionStatus = 'connected' | 'reauthorization_required' | 'revoked' | 'disconnected' | 'error';
 export type ProviderSyncStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
@@ -44,14 +44,16 @@ export interface ProviderSyncJob {
 
 @Injectable({ providedIn: 'root' })
 export class ProviderApiService {
-  constructor(private readonly http: HttpClient, private readonly api: ApiService) {}
+  private readonly apiBase = inject(SPORTOS_API_BASE);
+
+  constructor(private readonly http: HttpClient) {}
 
   connections() {
-    return this.http.get<ProviderConnection[]>(`${this.api.apiBase()}/providers/connections`);
+    return this.http.get<ProviderConnection[]>(`${this.apiBase}/providers/connections`);
   }
 
   startStrava(returnTo = '/') {
-    return this.http.post<{ authorizationUrl: string }>(`${this.api.apiBase()}/providers/strava/connect`, { returnTo });
+    return this.http.post<{ authorizationUrl: string }>(`${this.apiBase}/providers/strava/connect`, { returnTo });
   }
 
   enqueueSync(
@@ -60,7 +62,7 @@ export class ProviderApiService {
     range?: { after: string; before: string },
   ) {
     return this.http.post<ProviderSyncJob>(
-      `${this.api.apiBase()}/providers/connections/${encodeURIComponent(connectionId)}/sync`,
+      `${this.apiBase}/providers/connections/${encodeURIComponent(connectionId)}/sync`,
       { mode, ...range },
     );
   }
@@ -68,25 +70,25 @@ export class ProviderApiService {
   syncJobs(connectionId: string, limit = 20) {
     const boundedLimit = Math.min(100, Math.max(1, Math.trunc(limit)));
     return this.http.get<ProviderSyncJob[]>(
-      `${this.api.apiBase()}/providers/connections/${encodeURIComponent(connectionId)}/jobs?limit=${boundedLimit}`,
+      `${this.apiBase}/providers/connections/${encodeURIComponent(connectionId)}/jobs?limit=${boundedLimit}`,
     );
   }
 
   syncJob(jobId: string) {
-    return this.http.get<ProviderSyncJob>(`${this.api.apiBase()}/providers/jobs/${encodeURIComponent(jobId)}`);
+    return this.http.get<ProviderSyncJob>(`${this.apiBase}/providers/jobs/${encodeURIComponent(jobId)}`);
   }
 
   retrySync(jobId: string) {
-    return this.http.post<ProviderSyncJob>(`${this.api.apiBase()}/providers/jobs/${encodeURIComponent(jobId)}/retry`, {});
+    return this.http.post<ProviderSyncJob>(`${this.apiBase}/providers/jobs/${encodeURIComponent(jobId)}/retry`, {});
   }
 
   cancelSync(jobId: string) {
-    return this.http.post<ProviderSyncJob>(`${this.api.apiBase()}/providers/jobs/${encodeURIComponent(jobId)}/cancel`, {});
+    return this.http.post<ProviderSyncJob>(`${this.apiBase}/providers/jobs/${encodeURIComponent(jobId)}/cancel`, {});
   }
 
   disconnect(connectionId: string) {
     return this.http.post<{ disconnected: true }>(
-      `${this.api.apiBase()}/providers/connections/${encodeURIComponent(connectionId)}/disconnect`,
+      `${this.apiBase}/providers/connections/${encodeURIComponent(connectionId)}/disconnect`,
       {},
     );
   }

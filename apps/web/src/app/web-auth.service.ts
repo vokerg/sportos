@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, signal } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
+import { SPORTOS_API_BASE } from './core/config/api-base';
 
 export interface BrowserSession {
   account: { id: string; displayName: string; email: string | null };
@@ -11,7 +12,7 @@ export type BrowserAuthState = 'loading' | 'authenticated' | 'anonymous' | 'erro
 
 @Injectable({ providedIn: 'root' })
 export class WebAuthService {
-  readonly apiBase = signal('http://localhost:3010');
+  private readonly apiBase = inject(SPORTOS_API_BASE);
   readonly state = signal<BrowserAuthState>('loading');
   readonly session = signal<BrowserSession | null>(null);
   readonly errorMessage = signal<string | null>(null);
@@ -23,7 +24,7 @@ export class WebAuthService {
   loadSession(): void {
     this.state.set('loading');
     this.errorMessage.set(null);
-    this.http.get<BrowserSession>(`${this.apiBase()}/auth/session`).subscribe({
+    this.http.get<BrowserSession>(`${this.apiBase}/auth/session`).subscribe({
       next: (session) => {
         this.session.set(session);
         this.state.set('authenticated');
@@ -42,11 +43,11 @@ export class WebAuthService {
 
   signIn(): void {
     const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.assign(`${this.apiBase()}/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
+    window.location.assign(`${this.apiBase}/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
   signOut(): void {
-    this.http.post<{ signedOut: boolean }>(`${this.apiBase()}/auth/logout`, {}).subscribe({
+    this.http.post<{ signedOut: boolean }>(`${this.apiBase}/auth/logout`, {}).subscribe({
       next: () => this.markExpired(),
       error: () => this.markExpired(),
     });

@@ -185,7 +185,15 @@ Application-wide infrastructure belongs in `core/`:
 - authentication/CSRF interceptors and generic HTTP infrastructure -> `core/http/`;
 - generic durable-job polling and cancellation -> `core/jobs/`.
 
-Issue #74 owns centralizing bootstrap providers and the API base. Until it lands, existing configuration remains transitional; new code should not create another hard-coded API base or depend on an unrelated feature service merely to discover the API origin.
+Bootstrap and API-base configuration is centralized by the #74 pattern:
+
+- `app.config.ts` owns application bootstrap providers; keep `main.ts` limited to bootstrapping `AppComponent` with that configuration.
+- `core/config/api-base.ts` defines the single `SPORTOS_API_BASE` injection token and the local-development default.
+- HTTP clients inject `SPORTOS_API_BASE` directly. A feature API client must not inject `ApiService`, `WebAuthService`, or another feature service merely to discover the API URL.
+- `core/http/auth-http.interceptor.ts` consumes the same token when deciding whether credentials, CSRF headers, and auth-expiry handling apply. Never attach SportOS credentials to a request whose origin does not match the configured API base.
+- The root HTTP/origin exports are compatibility shims only. New infrastructure imports should target `core/http/` directly.
+
+For tests or a different browser deployment, override the `SPORTOS_API_BASE` provider at the application/test injector boundary. Do not introduce feature-local hard-coded origins or a second runtime-configuration mechanism.
 
 Issue #75 owns the generic durable-job polling abstraction. Until it lands, do not create a second "generic" polling utility in another feature. Feature-local polling needed by active product work should remain narrow and be an explicit migration target for #75.
 
@@ -218,7 +226,7 @@ Do not place `activities-page.component.ts`, `activities-api.service.ts`, and al
 
 Migration is deliberately issue-scoped:
 
-- #74: bootstrap and API configuration -> `app.config.ts`, `core/config/`, `core/http/`;
+- #74: bootstrap and API configuration -> `app.config.ts`, `core/config/`, `core/http/`; use the established `SPORTOS_API_BASE` token for all SportOS HTTP clients;
 - #75: durable-job polling -> `core/jobs/`;
 - #76: Daily orchestration -> `features/daily/state/` and related feature layers;
 - #77: global API methods/contracts -> feature `data-access/` and `model/`;

@@ -1,5 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable, signal } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
+import { SPORTOS_API_BASE } from './core/config/api-base';
 
 export interface DateRangeQuery {
   from?: string;
@@ -325,43 +326,43 @@ export interface RuleChange {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  readonly apiBase = signal('http://localhost:3010');
+  private readonly apiBase = inject(SPORTOS_API_BASE);
 
   constructor(private readonly http: HttpClient) {}
 
   dailySummary(query: DateRangeQuery | number = { limit: 365 }) {
     const normalized = typeof query === 'number' ? { limit: query } : query;
-    return this.http.get<DailySummaryRow[]>(`${this.apiBase()}/daily/summary`, { params: queryParams(normalized) });
+    return this.http.get<DailySummaryRow[]>(`${this.apiBase}/daily/summary`, { params: queryParams(normalized) });
   }
 
   monthlyStats(query: { from: string; to: string; granularity: DynamicsGranularity; metrics: DynamicsMetric[] }) {
-    return this.http.get<DynamicsResponse>(`${this.apiBase()}/dynamics/monthly`, {
+    return this.http.get<DynamicsResponse>(`${this.apiBase}/dynamics/monthly`, {
       params: queryParams({ ...query, metrics: query.metrics.join(',') }),
     });
   }
 
   rollingDynamics(query: { from: string; to: string; metric: DynamicsMetric; windows: RollingWindow[] }) {
-    return this.http.get<RollingDynamicsResponse>(`${this.apiBase()}/dynamics/rolling`, {
+    return this.http.get<RollingDynamicsResponse>(`${this.apiBase}/dynamics/rolling`, {
       params: queryParams({ ...query, windows: query.windows.join(',') }),
     });
   }
 
   bestPerformance(distanceM: number, limit = 50) {
-    return this.http.get<PerformanceRow[]>(`${this.apiBase()}/performance/best?distanceM=${distanceM}&limit=${limit}`);
+    return this.http.get<PerformanceRow[]>(`${this.apiBase}/performance/best?distanceM=${distanceM}&limit=${limit}`);
   }
 
   performanceEvents(query: DateRangeQuery & { distanceM?: number }) {
-    return this.http.get<PerformanceEventRow[]>(`${this.apiBase()}/performance/events`, { params: queryParams(query) });
+    return this.http.get<PerformanceEventRow[]>(`${this.apiBase}/performance/events`, { params: queryParams(query) });
   }
 
   performanceEvent(eventId: string) {
     return this.http.get<PerformanceEventDetail>(
-      `${this.apiBase()}/performance/events/${encodeURIComponent(eventId)}`,
+      `${this.apiBase}/performance/events/${encodeURIComponent(eventId)}`,
     );
   }
 
   canonicalExport(from: string, to: string) {
-    return this.http.get<CanonicalExportBundle>(`${this.apiBase()}/exports/canonical`, {
+    return this.http.get<CanonicalExportBundle>(`${this.apiBase}/exports/canonical`, {
       params: queryParams({ from, to }),
     });
   }
@@ -370,48 +371,48 @@ export class ApiService {
     const body = new FormData();
     body.append('file', file, file.name);
     body.append('workbookKind', workbookKind);
-    return this.http.post<UploadWorkbookResponse>(`${this.apiBase()}/imports/upload`, body, {
+    return this.http.post<UploadWorkbookResponse>(`${this.apiBase}/imports/upload`, body, {
       observe: 'events',
       reportProgress: true,
     });
   }
 
   importJob(jobId: string) {
-    return this.http.get<ImportJob>(`${this.apiBase()}/imports/jobs/${encodeURIComponent(jobId)}`);
+    return this.http.get<ImportJob>(`${this.apiBase}/imports/jobs/${encodeURIComponent(jobId)}`);
   }
 
   retryImportJob(jobId: string) {
-    return this.http.post<ImportJob>(`${this.apiBase()}/imports/jobs/${encodeURIComponent(jobId)}/retry`, {});
+    return this.http.post<ImportJob>(`${this.apiBase}/imports/jobs/${encodeURIComponent(jobId)}/retry`, {});
   }
 
   cancelImportJob(jobId: string) {
-    return this.http.post<ImportJob>(`${this.apiBase()}/imports/jobs/${encodeURIComponent(jobId)}/cancel`, {});
+    return this.http.post<ImportJob>(`${this.apiBase}/imports/jobs/${encodeURIComponent(jobId)}/cancel`, {});
   }
 
   importLocalFiles(mySportPath?: string, runDbPath?: string) {
-    return this.http.post<ImportLocalFilesResponse>(`${this.apiBase()}/imports/local-files`, { mySportPath, runDbPath });
+    return this.http.post<ImportLocalFilesResponse>(`${this.apiBase}/imports/local-files`, { mySportPath, runDbPath });
   }
 
   importHistory(limit = 20, offset = 0) {
-    return this.http.get<ImportBatchHistoryPage>(`${this.apiBase()}/imports?limit=${limit}&offset=${offset}`);
+    return this.http.get<ImportBatchHistoryPage>(`${this.apiBase}/imports?limit=${limit}&offset=${offset}`);
   }
 
   importBatchDetail(batchId: string, diagnosticLimit = 100, diagnosticOffset = 0) {
     return this.http.get<ImportBatchDetail>(
-      `${this.apiBase()}/imports/${encodeURIComponent(batchId)}?diagnosticLimit=${diagnosticLimit}&diagnosticOffset=${diagnosticOffset}`,
+      `${this.apiBase}/imports/${encodeURIComponent(batchId)}?diagnosticLimit=${diagnosticLimit}&diagnosticOffset=${diagnosticOffset}`,
     );
   }
 
   ruleVersions() {
-    return this.http.get<RuleVersion[]>(`${this.apiBase()}/rules`);
+    return this.http.get<RuleVersion[]>(`${this.apiBase}/rules`);
   }
 
   previewRule(proposal: RuleProposal) {
-    return this.http.post<RulePreviewResponse>(`${this.apiBase()}/rules/preview`, proposal);
+    return this.http.post<RulePreviewResponse>(`${this.apiBase}/rules/preview`, proposal);
   }
 
   activateRule(proposal: RuleProposal, previewFingerprint: string, reason: string) {
-    return this.http.post<RuleChange>(`${this.apiBase()}/rules/activate`, {
+    return this.http.post<RuleChange>(`${this.apiBase}/rules/activate`, {
       proposal,
       previewFingerprint,
       reason,
@@ -420,19 +421,19 @@ export class ApiService {
   }
 
   ruleChanges(limit = 50) {
-    return this.http.get<RuleChange[]>(`${this.apiBase()}/rules/changes?limit=${limit}`);
+    return this.http.get<RuleChange[]>(`${this.apiBase}/rules/changes?limit=${limit}`);
   }
 
   ruleChange(changeId: string) {
-    return this.http.get<RuleChange>(`${this.apiBase()}/rules/changes/${encodeURIComponent(changeId)}`);
+    return this.http.get<RuleChange>(`${this.apiBase}/rules/changes/${encodeURIComponent(changeId)}`);
   }
 
   retryRuleChange(changeId: string) {
-    return this.http.post<RuleChange>(`${this.apiBase()}/rules/changes/${encodeURIComponent(changeId)}/retry`, {});
+    return this.http.post<RuleChange>(`${this.apiBase}/rules/changes/${encodeURIComponent(changeId)}/retry`, {});
   }
 
   cancelRuleChange(changeId: string) {
-    return this.http.post<RuleChange>(`${this.apiBase()}/rules/changes/${encodeURIComponent(changeId)}/cancel`, {});
+    return this.http.post<RuleChange>(`${this.apiBase}/rules/changes/${encodeURIComponent(changeId)}/cancel`, {});
   }
 }
 
