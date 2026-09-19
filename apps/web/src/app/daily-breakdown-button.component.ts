@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import type { ICellRendererAngularComp } from 'ag-grid-angular';
 import type { ICellRendererParams } from 'ag-grid-community';
-import type { DailySummaryRow } from './api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
 
 export interface DailyBreakdownGridContext {
