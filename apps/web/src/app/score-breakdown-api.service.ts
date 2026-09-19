@@ -1,14 +1,13 @@
 import { HttpClient } from '@angular/common/http';
-import { Inject, Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { SPORTOS_API_BASE } from './core/config/api-base';
 import type { DailyEvidence, DailyScoreBreakdown, ManualDailyFactsInput, ManualDailyFactsRow } from './score-breakdown.models';
 
 @Injectable({ providedIn: 'root' })
 export class ScoreBreakdownApiService {
-  constructor(
-    private readonly http: HttpClient,
-    @Inject(SPORTOS_API_BASE) private readonly apiBase: string,
-  ) {}
+  private readonly apiBase = inject(SPORTOS_API_BASE);
+
+  constructor(private readonly http: HttpClient) {}
 
   getForDate(date: string) {
     return this.http.get<DailyScoreBreakdown>(
