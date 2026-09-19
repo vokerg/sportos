@@ -92,8 +92,11 @@ Never accept owner or audit-actor identifiers from request bodies. Derive them f
 - `docs/FRONTEND_ARCHITECTURE.md` — target `core/`, `shared/`, and feature-slice boundaries, dependency direction, migration rules, and focused validation policy.
 - `src/app/app.component.ts` — authenticated application shell only.
 - `src/app/app.routes.ts` — lazy route entry points.
+- `src/app/app.config.ts` — application bootstrap providers; keep `main.ts` minimal.
+- `src/app/core/config/api-base.ts` — the single `SPORTOS_API_BASE` token and local-development default. Every SportOS HTTP client injects this token directly rather than depending on another service for the API URL.
+- `src/app/core/http/` — authentication/CSRF HTTP infrastructure. Credential attachment and API-origin checks must use the same configured API base.
 - `src/app` is currently a transitional flat layout. New substantial feature code belongs under `src/app/features/<feature>/`; application-wide infrastructure belongs under `src/app/core/`; reusable feature-agnostic UI/utilities belong under `src/app/shared/`.
-- Existing `web-auth.service.ts`, `auth-http.interceptor.ts`, `api.service.ts`, feature API services, route components, and presenters migrate incrementally through issues #74-#80. Do not perform unrelated mass moves.
+- Existing `api.service.ts`, feature orchestration, route components, and presenters migrate incrementally through issues #75-#80. Root HTTP/origin re-exports are compatibility shims only; new infrastructure imports should target `core/`. Do not perform unrelated mass moves.
 
 Angular renders API truth only. It never receives provider tokens/envelopes, assigns ownership, normalizes canonical facts, calculates official scores, or treats generated guidance as authoritative.
 
