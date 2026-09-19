@@ -1,6 +1,6 @@
 import { HttpEventType } from '@angular/common/http';
 import { Component, EventEmitter, OnDestroy, OnInit, computed, signal } from '@angular/core';
-import { Subscription, switchMap, take, takeWhile, timer } from 'rxjs';
+import { Subscription } from 'rxjs';
 import {
   ApiService,
   type ImportBatchDetail,
@@ -8,6 +8,7 @@ import {
   type ImportJob,
   type UploadWorkbookKind,
 } from './api.service';
+import { pollDurableJob } from './core/jobs/durable-job-poller';
 import { ImportBatchDetailComponent } from './import-batch-detail.component';
 import { ImportHistoryComponent } from './import-history.component';
 import { ImportJobProgressComponent } from './import-job-progress.component';
@@ -247,32 +248,36 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
 
   private monitorJob(jobId: string): void {
     this.jobSubscription?.unsubscribe();
-    let terminalSeen = false;
-    this.jobSubscription = timer(0, 1500).pipe(
-      take(120),
-      switchMap(() => this.api.importJob(jobId)),
-      takeWhile((job) => !isTerminalImportJob(job), true),
-    ).subscribe({
-      next: (job) => {
-        this.activeJob.set(job);
-        if (isTerminalImportJob(job)) {
-          terminalSeen = true;
-          this.handleTerminalJob(job);
-        } else {
-          this.importState.set('loading');
-          this.importMessage.set(`Import job is ${job.status}: ${job.phase}.`);
-        }
+    this.jobSubscription = pollDurableJob(
+      () => this.api.importJob(jobId),
+      {
+        intervalMs: 1500,
+        maxAttempts: 120,
+        isTerminal: isTerminalImportJob,
       },
-      error: (error: unknown) => {
+    ).subscribe((pollState) => {
+      if (pollState.state === 'loading') {
+        this.activeJob.set(pollState.job);
+        this.importState.set('loading');
+        this.importMessage.set(`Import job is ${pollState.job.status}: ${pollState.job.phase}.`);
+        return;
+      }
+
+      if (pollState.state === 'terminal') {
+        this.activeJob.set(pollState.job);
+        this.handleTerminalJob(pollState.job);
+        return;
+      }
+
+      if (pollState.state === 'error') {
         this.importState.set('error');
-        this.importMessage.set(describeImportRequestError(error, 'Import job status could not be loaded.'));
-      },
-      complete: () => {
-        if (!terminalSeen && isActiveImportJob(this.activeJob())) {
-          this.importState.set('loaded');
-          this.importMessage.set('The job is still active. Automatic polling stopped after 120 checks; reload the page or review history later.');
-        }
-      },
+        this.importMessage.set(describeImportRequestError(pollState.error, 'Import job status could not be loaded.'));
+        return;
+      }
+
+      if (pollState.job) this.activeJob.set(pollState.job);
+      this.importState.set('loaded');
+      this.importMessage.set('The job is still active. Automatic polling stopped after 120 checks; reload the page or review history later.');
     });
   }
 
