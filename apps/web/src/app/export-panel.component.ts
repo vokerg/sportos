@@ -1,7 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { ApiService, type CanonicalExportBundle } from './api.service';
+import { ExportExportApiService } from './features/exports/data-access/export-api.service';
+import type { CanonicalExportBundle } from './features/exports/model/export.models';
 
 type ExportState = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -40,7 +41,7 @@ export class ExportPanelComponent implements OnDestroy {
 
   private subscription?: Subscription;
 
-  constructor(private readonly api: ApiService) {}
+  constructor(private readonly api: ExportApiService) {}
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
