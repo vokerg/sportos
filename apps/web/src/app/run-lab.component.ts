@@ -3,11 +3,11 @@ import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsCoreOption } from 'echarts/core';
 import { Subscription } from 'rxjs';
-import {
-  ApiService,
-  type PerformanceEventDetail,
-  type PerformanceEventRow,
-} from './api.service';
+import { PerformancePerformanceApiService } from './features/performance/data-access/performance-api.service';
+import type {
+  PerformanceEventDetail,
+  PerformanceEventRow,
+} from './features/performance/model/performance.models';
 import { formatDate } from './date-time';
 
 type ViewState = 'loading' | 'loaded' | 'empty' | 'error';
@@ -126,7 +126,7 @@ export class RunLabComponent implements OnInit, OnDestroy {
     };
   });
 
-  constructor(private readonly api: ApiService) {}
+  constructor(private readonly api: PerformanceApiService) {}
 
   ngOnInit(): void { this.load(); }
 
