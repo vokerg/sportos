@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RollingDynamicsResponse } from './api.service';
+import type { RollingDynamicsResponse } from './features/dynamics/model/dynamics.models';
 import { formatRollingValue, rollingDynamicsChartOptions, scoreContributionChartOptions } from './rolling-dynamics.view-model';
 
 const response: RollingDynamicsResponse = {
