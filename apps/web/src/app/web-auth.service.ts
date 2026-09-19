@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Inject, Injectable, signal, type WritableSignal } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import { SPORTOS_API_BASE } from './core/config/api-base';
 
 export interface BrowserSession {
@@ -12,16 +12,12 @@ export type BrowserAuthState = 'loading' | 'authenticated' | 'anonymous' | 'erro
 
 @Injectable({ providedIn: 'root' })
 export class WebAuthService {
-  readonly apiBase: WritableSignal<string>;
+  readonly apiBase = signal(inject(SPORTOS_API_BASE));
   readonly state = signal<BrowserAuthState>('loading');
   readonly session = signal<BrowserSession | null>(null);
   readonly errorMessage = signal<string | null>(null);
 
-  constructor(
-    private readonly http: HttpClient,
-    @Inject(SPORTOS_API_BASE) apiBase: string,
-  ) {
-    this.apiBase = signal(apiBase);
+  constructor(private readonly http: HttpClient) {
     window.addEventListener('sportos-auth-expired', () => this.markExpired());
   }
 
