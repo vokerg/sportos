@@ -51,6 +51,17 @@ describe('ActivitiesController', () => {
     expect(get).toHaveBeenCalledTimes(3);
     expect(withAccount).toHaveBeenCalledWith(accountId, expect.any(Function));
   });
+
+  it('reads retained source JSON only through account context and hides missing or foreign records', async () => {
+    const source = { sourceRecordId: id, sourceRecordSource: 'strava_api', rawJson: { average_cadence: 88 } };
+    const getSourceJson = vi.spyOn(ActivitiesRepository.prototype, 'getSourceJson').mockResolvedValueOnce(source).mockResolvedValue(null);
+    const { controller, withAccount } = createController();
+    await expect(controller.sourceJson(id, account)).resolves.toEqual(source);
+    await expect(controller.sourceJson(id, account)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(controller.sourceJson(id, account)).rejects.toBeInstanceOf(NotFoundException);
+    expect(getSourceJson).toHaveBeenCalledWith(id);
+    expect(withAccount).toHaveBeenCalledWith(accountId, expect.any(Function));
+  });
 });
 
 function createController() {

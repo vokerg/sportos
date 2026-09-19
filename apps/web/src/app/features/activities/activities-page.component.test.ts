@@ -73,4 +73,23 @@ describe('Activities pages', () => {
     expect(store.result()?.summary.count).toBe(0);
     store.destroy();
   });
+
+  it('loads retained source JSON only when expanded and resets it for another activity', () => {
+    const params = new BehaviorSubject(convertToParamMap({ id: 'first' }));
+    const sourceJson = vi.fn().mockReturnValue(of({ sourceRecordId: 'record', sourceRecordSource: 'strava_api', rawJson: { average_cadence: 88 } }));
+    const detail = vi.fn().mockImplementation((id: string) => of({ id, activity_type: 'run', provenance: { sourceRecordId: 'record', sourceRecordSource: 'strava_api' } }));
+    const page = new ActivityDetailPageComponent({ detail, sourceJson } as unknown as ActivitiesApiService,
+      { paramMap: params } as unknown as ActivatedRoute);
+    page.ngOnInit();
+    expect(sourceJson).not.toHaveBeenCalled();
+    page.onSourceToggle({ target: { open: true } } as unknown as Event);
+    expect(sourceJson).toHaveBeenCalledWith('first');
+    expect(page.sourceJson()).toBe('{\n  "average_cadence": 88\n}');
+    page.onSourceToggle({ target: { open: true } } as unknown as Event);
+    expect(sourceJson).toHaveBeenCalledTimes(1);
+    params.next(convertToParamMap({ id: 'second' }));
+    expect(page.sourceState()).toBe('idle');
+    expect(page.sourceJson()).toBeNull();
+    page.ngOnDestroy();
+  });
 });

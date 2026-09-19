@@ -77,4 +77,12 @@ export class ActivitiesRepository {
       provenance: { sourceRecordId, sourceRecordSource },
     };
   }
+
+  async getSourceJson(activityId: string) {
+    const row = await this.db.selectFrom('activities as activity')
+      .innerJoin('source_records as record', 'record.id', 'activity.source_record_id')
+      .select(['record.id as sourceRecordId', 'record.source as sourceRecordSource', 'record.raw_json as rawJson'])
+      .where('activity.id', '=', activityId).executeTakeFirst();
+    return row ?? null;
+  }
 }

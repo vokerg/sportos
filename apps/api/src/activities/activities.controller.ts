@@ -67,4 +67,12 @@ export class ActivitiesController {
     if (!activity) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
     return activity;
   }
+
+  @Get(':activityId/source')
+  async sourceJson(@Param('activityId') activityId: string, @CurrentAccount() account?: AuthenticatedAccount) {
+    assertUuid(activityId, 'INVALID_ACTIVITY_ID');
+    const source = await this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID, (db) => new ActivitiesRepository(db).getSourceJson(activityId));
+    if (!source) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
+    return source;
+  }
 }

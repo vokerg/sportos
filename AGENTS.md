@@ -121,7 +121,7 @@ The dispatcher is a narrow trusted-system exception. It may inspect queue lifecy
 - remaining queue, import, rule, daily, performance, and export repositories remain typed query/transaction boundaries.
 - `src/repositories/activities.repository.ts` — selected canonical activity reads, filtered summary, and bounded paging under account context.
 
-Canonical Activities represent training history from `activities`. Daily Log and its ledger represent day-level scoring; performance events and Run Lab represent separate running achievement data. Keep those reads and presentations independent. See `docs/ACTIVITIES.md` for the API and MVP limits.
+Canonical Activities represent training history from `activities`. Daily Log and its ledger represent day-level scoring; performance events and Run Lab represent separate running achievement data. Keep those reads and presentations independent. The advanced source JSON disclosure reads only the linked, owner-scoped source record on demand; raw provider fields are not canonical metrics. See `docs/ACTIVITIES.md` for the API and MVP limits.
 
 ### Domain/shared/importers
 

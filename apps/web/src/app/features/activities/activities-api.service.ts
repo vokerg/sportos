@@ -28,6 +28,11 @@ export interface Activity {
 export interface ActivityDetail extends Activity {
   provenance: { sourceRecordId: string | null; sourceRecordSource: string | null };
 }
+export interface ActivitySourceJson {
+  sourceRecordId: string;
+  sourceRecordSource: string;
+  rawJson: unknown;
+}
 export interface ActivitiesQuery {
   from?: string;
   to?: string;
@@ -59,5 +64,9 @@ export class ActivitiesApiService {
 
   detail(id: string) {
     return this.http.get<ActivityDetail>(`${this.api.apiBase()}/activities/${encodeURIComponent(id)}`);
+  }
+
+  sourceJson(id: string) {
+    return this.http.get<ActivitySourceJson>(`${this.api.apiBase()}/activities/${encodeURIComponent(id)}/source`);
   }
 }
