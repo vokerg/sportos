@@ -107,26 +107,26 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
   `],
 })
 export class DailyLogComponent implements OnInit {
-  readonly rows = this.state.rows;
-  readonly latestAverage = this.state.latestAverage;
-  readonly from = this.state.from;
-  readonly to = this.state.to;
-  readonly quickRange = this.state.quickRange;
-  readonly summaryState = this.state.summaryState;
-  readonly summaryError = this.state.summaryError;
-  readonly selectedDate = this.state.selectedDate;
-  readonly breakdownState = this.state.breakdownState;
-  readonly breakdown = this.state.breakdown;
-  readonly breakdownError = this.state.breakdownError;
-  readonly recalculationState = this.state.recalculationState;
-  readonly recalculationError = this.state.recalculationError;
-  readonly manualSaveState = this.state.manualSaveState;
-  readonly manualSaveError = this.state.manualSaveError;
-  readonly manualEditRequestId = this.state.manualEditRequestId;
-  readonly viewMode = this.state.viewMode;
-  readonly quickEntryRows = this.state.quickEntryRows;
-  readonly quickEntryState = this.state.quickEntryState;
-  readonly quickEntryError = this.state.quickEntryError;
+  get rows() { return this.state.rows; }
+  get latestAverage() { return this.state.latestAverage; }
+  get from() { return this.state.from; }
+  get to() { return this.state.to; }
+  get quickRange() { return this.state.quickRange; }
+  get summaryState() { return this.state.summaryState; }
+  get summaryError() { return this.state.summaryError; }
+  get selectedDate() { return this.state.selectedDate; }
+  get breakdownState() { return this.state.breakdownState; }
+  get breakdown() { return this.state.breakdown; }
+  get breakdownError() { return this.state.breakdownError; }
+  get recalculationState() { return this.state.recalculationState; }
+  get recalculationError() { return this.state.recalculationError; }
+  get manualSaveState() { return this.state.manualSaveState; }
+  get manualSaveError() { return this.state.manualSaveError; }
+  get manualEditRequestId() { return this.state.manualEditRequestId; }
+  get viewMode() { return this.state.viewMode; }
+  get quickEntryRows() { return this.state.quickEntryRows; }
+  get quickEntryState() { return this.state.quickEntryState; }
+  get quickEntryError() { return this.state.quickEntryError; }
 
   constructor(
     readonly state: DailyLogStore,
