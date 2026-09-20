@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { ExportExportApiService } from './features/exports/data-access/export-api.service';
+import { ExportApiService } from './features/exports/data-access/export-api.service';
 import type { CanonicalExportBundle } from './features/exports/model/export.models';
 
 type ExportState = 'idle' | 'loading' | 'ready' | 'error';

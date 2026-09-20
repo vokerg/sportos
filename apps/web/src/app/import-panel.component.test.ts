@@ -2,7 +2,7 @@ import '@angular/compiler';
 import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ImportsImportsApiService } from './features/imports/data-access/imports-api.service';
+import type { ImportsApiService } from './features/imports/data-access/imports-api.service';
 import type {
   ImportBatchDetail,
   ImportBatchHistoryPage,

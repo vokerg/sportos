@@ -2,7 +2,7 @@ import '@angular/compiler';
 import { convertToParamMap, type ActivatedRoute, type Router } from '@angular/router';
 import { BehaviorSubject, of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { DynamicsDynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
+import type { DynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
 import type { DynamicsResponse } from './features/dynamics/model/dynamics.models';
 import { boundedAllTimeRange, quickRangeDates } from './daily-log.view-model';
 import { MonthlyStatsPageComponent } from './monthly-stats-page.component';

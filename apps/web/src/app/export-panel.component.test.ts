@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import { of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ExportExportApiService } from './features/exports/data-access/export-api.service';
+import type { ExportApiService } from './features/exports/data-access/export-api.service';
 import type { CanonicalExportBundle } from './features/exports/model/export.models';
 import { ExportPanelComponent } from './export-panel.component';
 

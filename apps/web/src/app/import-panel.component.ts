@@ -1,7 +1,7 @@
 import { HttpEventType } from '@angular/common/http';
 import { Component, EventEmitter, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { ImportsImportsApiService } from './features/imports/data-access/imports-api.service';
+import { ImportsApiService } from './features/imports/data-access/imports-api.service';
 import type {
   ImportBatchDetail,
   ImportBatchHistoryItem,
