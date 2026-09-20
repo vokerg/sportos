@@ -18,7 +18,7 @@ Some Strava fields may be present only in retained raw source data, and some lis
 
 For activities linked to Strava, opening the activity detail page also lazily loads the complete provider detail bundle. The API first checks the owner-scoped cache. On a miss it refreshes the stored Strava authorization when necessary, requests the detailed activity with all segment efforts, all supported activity streams (time, distance, GPS coordinates, altitude, smoothed velocity, heart rate, cadence, watts, temperature, moving state and smoothed grade), laps, and zones, then stores each provider resource separately. Zones are treated as optional because Strava can restrict them by subscription. The page exposes this raw provider bundle only in an advanced section; none of these provider payloads become canonical metrics automatically.
 
-The normal provider sync remains summary-only. Detailed telemetry is fetched only for an individual activity page and is reused from cache on later visits. Cache rows carry the provider update timestamp when Strava supplies one; a changed timestamp invalidates the stored bundle.
+The normal provider sync remains summary-only. Detailed telemetry is fetched only for an individual activity page and is reused from cache on later visits. Cache rows are versioned by the hash of the latest retained Strava summary payload for that exact provider activity; when a later provider sync retains a changed summary, the detailed bundle is invalidated and fetched again.
 
 ## API
 
