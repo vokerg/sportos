@@ -67,8 +67,12 @@ export class ActivitiesRepository {
   async get(activityId: string) {
     const row = await this.db.selectFrom('activities as activity')
       .leftJoin('source_records as record', 'record.id', 'activity.source_record_id')
-      .leftJoin('provider_activity_links as providerLink', 'providerLink.activity_id', 'activity.id')
-      .leftJoin('provider_connections as providerConnection', 'providerConnection.id', 'providerLink.connection_id')
+      .leftJoin('provider_activity_links as providerLink', (join) => join
+        .onRef('providerLink.owner_id', '=', 'activity.owner_id')
+        .onRef('providerLink.activity_id', '=', 'activity.id'))
+      .leftJoin('provider_connections as providerConnection', (join) => join
+        .onRef('providerConnection.owner_id', '=', 'providerLink.owner_id')
+        .onRef('providerConnection.id', '=', 'providerLink.connection_id'))
       .select(publicColumns.map((column) => `activity.${column}` as const))
       .select(['record.id as sourceRecordId', 'record.source as sourceRecordSource', 'providerConnection.provider as linkedProvider', 'providerLink.provider_activity_id as linkedProviderActivityId'])
       .where('activity.id', '=', activityId).executeTakeFirst();
