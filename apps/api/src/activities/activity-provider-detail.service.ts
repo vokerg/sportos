@@ -39,8 +39,8 @@ export class ActivityProviderDetailService {
     if (!reference) throw activityNotFound();
 
     const cached = await this.dbProvider.withAccount(accountId, (db) =>
-      new ActivityProviderResourcesRepository(db).list(activityId, reference.provider));
-    if (isCompleteAndCurrent(cached, reference.providerUpdatedAt)) {
+      new ActivityProviderResourcesRepository(db).list(reference));
+    if (isCompleteAndCurrent(cached, reference.providerVersion)) {
       return response(reference, cached, 'hit');
     }
 
@@ -50,7 +50,7 @@ export class ActivityProviderDetailService {
       try {
         authorization = await adapter.refreshAuthorization(authorization);
       } catch (error) {
-        throw providerFailure(error);
+        throw await this.recordProviderFailure(accountId, reference, error);
       }
       const envelope = this.credentialCipher().encrypt(reference.connectionId, accountId, reference.provider, authorization);
       try {
@@ -71,7 +71,7 @@ export class ActivityProviderDetailService {
         providerActivityId: reference.providerActivityId,
       });
     } catch (error) {
-      throw providerFailure(error);
+      throw await this.recordProviderFailure(accountId, reference, error);
     }
     if (!bundle) throw activityNotFound();
 
@@ -84,7 +84,7 @@ export class ActivityProviderDetailService {
     await this.dbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).replace(reference, writes));
     const stored = await this.dbProvider.withAccount(accountId, (db) =>
-      new ActivityProviderResourcesRepository(db).list(activityId, reference.provider));
+      new ActivityProviderResourcesRepository(db).list(reference));
     return response(reference, stored, 'miss');
   }
 
@@ -114,6 +114,19 @@ export class ActivityProviderDetailService {
     }
   }
 
+  private async recordProviderFailure(
+    accountId: string,
+    reference: ActivityProviderReference,
+    error: unknown,
+  ): Promise<ServiceUnavailableException> {
+    if (error instanceof ProviderError && error.code === 'PROVIDER_REAUTHORIZATION_REQUIRED') {
+      await this.dbProvider.withAccount(accountId, (db) =>
+        new ProvidersRepository(db).markReauthorizationRequired(reference.connectionId, error.code, error.message))
+        .catch(() => undefined);
+    }
+    return providerFailure(error);
+  }
+
   private stravaAdapter(): StravaAdapter {
     return new StravaAdapter({
       clientId: requiredEnvironment('STRAVA_CLIENT_ID'),
@@ -131,11 +144,11 @@ export class ActivityProviderDetailService {
   }
 }
 
-function isCompleteAndCurrent(resources: ActivityProviderResourceReadModel[], providerUpdatedAt: Date | null): boolean {
+function isCompleteAndCurrent(resources: ActivityProviderResourceReadModel[], providerVersion: string): boolean {
   if (resources.length !== ACTIVITY_PROVIDER_RESOURCE_TYPES.length) return false;
   const types = new Set(resources.map((resource) => resource.resourceType));
   if (!ACTIVITY_PROVIDER_RESOURCE_TYPES.every((type) => types.has(type))) return false;
-  return resources.every((resource) => sameTimestamp(resource.providerUpdatedAt, providerUpdatedAt));
+  return resources.every((resource) => resource.providerVersion === providerVersion);
 }
 
 function response(
@@ -160,11 +173,6 @@ function response(
       payload: resource.payload,
     }])),
   };
-}
-
-function sameTimestamp(left: Date | null, right: Date | null): boolean {
-  if (left === null || right === null) return left === right;
-  return left.getTime() === right.getTime();
 }
 
 function asJson(value: unknown): Json {
