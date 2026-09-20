@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withAccountContext } from '../ownership-context.js';
 import { createDb } from '../pool.js';
+import type { Database } from '../schema.js';
+import type { Kysely } from 'kysely';
 import { ActivitiesRepository } from './activities.repository.js';
 import {
   ActivityProviderResourcesRepository,
@@ -151,7 +153,7 @@ async function account(db: TestDatabase) {
 }
 
 async function source(
-  db: Parameters<Parameters<typeof withAccountContext>[2]>[0],
+  db: Kysely<Database>,
   batchId: string,
   key: string,
   rowHash: string,
