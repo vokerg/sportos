@@ -45,7 +45,6 @@ export class ActivityProviderResourcesRepository {
       ])
       .where('link.activity_id', '=', activityId)
       .where('link.availability', '=', 'available')
-      .where('connection.status', '=', 'connected')
       .where('connection.provider', '=', 'strava')
       .executeTakeFirst();
     return row ?? null;
