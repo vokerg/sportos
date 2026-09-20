@@ -42,7 +42,7 @@ databaseDescribe('activity provider resource cache', () => {
     const fixture = await withAccountContext(db, ownerA, async (scoped) => {
       const connectionId = (await scoped.insertInto('provider_connections').values({
         provider: 'strava',
-        provider_account_id: 'athlete-a',
+        provider_account_id: `athlete-${randomUUID()}`,
         display_name: 'Athlete A',
         scopes: ['activity:read_all'],
         status: 'connected',
