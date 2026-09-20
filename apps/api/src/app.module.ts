@@ -19,7 +19,7 @@ import { ProvidersController } from './providers/providers.controller.js';
 import { ProvidersService } from './providers/providers.service.js';
 import { RulesController } from './rules/rules.controller.js';
 import { RulesService } from './rules/rules.service.js';
-import { DbProvider } from './db.provider.js';
+import { ActivityDetailDbProvider, DbProvider } from './db.provider.js';
 import { LocalUploadStorage } from './storage/local-upload-storage.js';
 import { UploadStorage } from './storage/upload-storage.js';
 import { DynamicsController } from './dynamics/dynamics.controller.js';
@@ -43,6 +43,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
   ],
   providers: [
     DbProvider,
+    ActivityDetailDbProvider,
     AuthService,
     ImportsService,
     DailyService,

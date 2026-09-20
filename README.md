@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The current schema is defined through Flyway V120, and the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V122, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -24,6 +24,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Run initial backfills and incremental synchronization through durable provider jobs.
 - Refresh rotating credentials server-side and resume safely across pagination, retries, rate limits, cancellation, and stale leases.
 - Persist bounded raw provider snapshots before normalization.
+- Lazily fetch and owner-scope full provider detail resources in the dedicated activity-detail database, while keeping provider identity and credentials in the primary database.
 - Use provider-native identity first, then apply a conservative exact/no-match/ambiguous cross-source policy.
 - Preserve existing workbook provenance when one exact Strava activity matches an existing canonical activity.
 - Retain unsupported or ambiguous provider records with warnings instead of guessing or discarding them.
@@ -167,6 +168,7 @@ corepack enable
 pnpm install --frozen-lockfile
 cp .env.example .env
 pnpm db:migrate
+pnpm db:migrate:activity-detail
 ```
 
 Before `pnpm db:migrate`, set the three Neon migration variables from `.env.example`: `SPORTOS_FLYWAY_URL`, `SPORTOS_FLYWAY_USER`, and `SPORTOS_FLYWAY_PASSWORD`, plus the runtime URLs for `sportos_app`, `sportos_worker`, `sportos_worker_data`, and `sportos_legacy`. The migration identity is separate from every runtime identity. `pnpm db:migrate` applies the append-only SQL in `flyway/sql` to that Neon branch.

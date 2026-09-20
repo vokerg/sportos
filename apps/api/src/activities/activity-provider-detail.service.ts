@@ -15,7 +15,7 @@ import {
   parseCredentialKeyRing,
   type ProviderAuthorization,
 } from '@sportos/importers';
-import { DbProvider } from '../db.provider.js';
+import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
 
 export interface ActivityProviderDetailResponse {
   provider: 'strava';
@@ -31,14 +31,17 @@ export interface ActivityProviderDetailResponse {
 
 @Injectable()
 export class ActivityProviderDetailService {
-  constructor(private readonly dbProvider: DbProvider) {}
+  constructor(
+    private readonly dbProvider: DbProvider,
+    private readonly activityDetailDbProvider: ActivityDetailDbProvider,
+  ) {}
 
   async load(accountId: string, activityId: string): Promise<ActivityProviderDetailResponse> {
     const reference = await this.dbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).getProviderReference(activityId));
     if (!reference) throw activityNotFound();
 
-    const cached = await this.dbProvider.withAccount(accountId, (db) =>
+    const cached = await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).list(reference));
     if (isCompleteAndCurrent(cached, reference.providerVersion)) {
       return response(reference, cached, 'hit');
@@ -81,9 +84,9 @@ export class ActivityProviderDetailService {
       httpStatus: resource.httpStatus,
       payload: asJson(resource.payload),
     }));
-    await this.dbProvider.withAccount(accountId, (db) =>
+    await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).replace(reference, writes));
-    const stored = await this.dbProvider.withAccount(accountId, (db) =>
+    const stored = await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).list(reference));
     return response(reference, stored, 'miss');
   }

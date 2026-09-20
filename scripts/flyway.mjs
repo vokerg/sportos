@@ -8,7 +8,9 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const envPath = resolve(repoRoot, '.env');
 if (existsSync(envPath)) loadEnvFile(envPath);
 
-const [command = 'info', ...arguments_] = process.argv.slice(2);
+const rawArguments = process.argv.slice(2);
+const activityDetail = rawArguments[0] === '--activity-detail';
+const [command = 'info', ...arguments_] = rawArguments.slice(activityDetail ? 1 : 0);
 const supportedCommands = new Set(['info', 'migrate', 'validate', 'repair']);
 if (!supportedCommands.has(command)) {
   console.error(`Unsupported migration command: ${command}`);
@@ -16,9 +18,15 @@ if (!supportedCommands.has(command)) {
   process.exit(1);
 }
 
-const databaseUrl = process.env.SPORTOS_FLYWAY_URL?.trim() || process.env.FLYWAY_URL?.trim();
-const user = process.env.SPORTOS_FLYWAY_USER?.trim() || process.env.FLYWAY_USER?.trim();
-const password = process.env.SPORTOS_FLYWAY_PASSWORD ?? process.env.FLYWAY_PASSWORD;
+const databaseUrl = activityDetail
+  ? process.env.SPORTOS_ACTIVITY_DETAIL_FLYWAY_URL?.trim() || derivedDatabaseUrl()
+  : process.env.SPORTOS_FLYWAY_URL?.trim() || process.env.FLYWAY_URL?.trim();
+const user = activityDetail
+  ? process.env.SPORTOS_ACTIVITY_DETAIL_FLYWAY_USER?.trim() || process.env.SPORTOS_FLYWAY_USER?.trim() || process.env.FLYWAY_USER?.trim()
+  : process.env.SPORTOS_FLYWAY_USER?.trim() || process.env.FLYWAY_USER?.trim();
+const password = activityDetail
+  ? process.env.SPORTOS_ACTIVITY_DETAIL_FLYWAY_PASSWORD ?? process.env.SPORTOS_FLYWAY_PASSWORD ?? process.env.FLYWAY_PASSWORD
+  : process.env.SPORTOS_FLYWAY_PASSWORD ?? process.env.FLYWAY_PASSWORD;
 
 if (!databaseUrl || !user || !password) {
   console.error('Neon schema-owner migration settings are required: SPORTOS_FLYWAY_URL, SPORTOS_FLYWAY_USER, and SPORTOS_FLYWAY_PASSWORD.');
@@ -31,7 +39,7 @@ const environment = {
   FLYWAY_URL: toJdbcUrl(databaseUrl),
   FLYWAY_USER: user,
   FLYWAY_PASSWORD: password,
-  FLYWAY_LOCATIONS: `filesystem:${resolve(repoRoot, 'flyway/sql')}`,
+  FLYWAY_LOCATIONS: `filesystem:${resolve(repoRoot, activityDetail ? 'flyway/activity-detail-sql' : 'flyway/sql')}`,
 };
 const executable = process.platform === 'win32' ? 'flyway.cmd' : 'flyway';
 const result = spawnSync(executable, [command, ...arguments_], {
@@ -53,6 +61,24 @@ process.exit(result.status ?? 1);
 
 function toJdbcUrl(value) {
   return value.startsWith('jdbc:') ? value : `jdbc:${value}`;
+}
+
+function derivedDatabaseUrl() {
+  const primaryUrl = process.env.SPORTOS_FLYWAY_URL?.trim()
+    || process.env.FLYWAY_URL?.trim()
+    || process.env.DATABASE_URL?.trim();
+  const databaseName = process.env.SPORTOS_ACTIVITY_DETAIL_DATABASE_NAME?.trim();
+  if (!primaryUrl || !databaseName) {
+    console.error('Dedicated activity-detail migration settings require SPORTOS_ACTIVITY_DETAIL_FLYWAY_URL or DATABASE_URL plus SPORTOS_ACTIVITY_DETAIL_DATABASE_NAME.');
+    process.exit(1);
+  }
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(databaseName)) {
+    console.error('SPORTOS_ACTIVITY_DETAIL_DATABASE_NAME must be a simple PostgreSQL identifier.');
+    process.exit(1);
+  }
+  const url = new URL(primaryUrl);
+  url.pathname = `/${databaseName}`;
+  return url.toString();
 }
 
 function assertNeonDatabaseUrl(value) {
