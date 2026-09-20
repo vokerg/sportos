@@ -53,8 +53,15 @@ export class ActivityProviderDetailService {
         throw providerFailure(error);
       }
       const envelope = this.credentialCipher().encrypt(reference.connectionId, accountId, reference.provider, authorization);
-      await this.dbProvider.withAccount(accountId, (db) =>
-        new ProvidersRepository(db).replaceCredential(reference.connectionId, envelope, authorization.expiresAt));
+      try {
+        await this.dbProvider.withAccount(accountId, (db) =>
+          new ProvidersRepository(db).replaceCredential(reference.connectionId, envelope, authorization.expiresAt));
+      } catch {
+        throw new ServiceUnavailableException({
+          code: 'PROVIDER_REAUTHORIZATION_REQUIRED',
+          message: 'Strava authorization changed while loading this activity.',
+        });
+      }
     }
 
     let bundle;
