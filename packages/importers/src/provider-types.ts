@@ -8,6 +8,17 @@ export interface ProviderAuthorization {
 }
 export interface ActivityPageRequest { authorization: ProviderAuthorization; page: number; perPage: number; after?: Date; before?: Date; }
 export interface ActivityRequest { authorization: ProviderAuthorization; providerActivityId: string; }
+export type ProviderActivityResourceType = 'detail' | 'streams' | 'laps' | 'zones';
+export interface ProviderActivityResource {
+  resourceType: ProviderActivityResourceType;
+  availability: 'available' | 'unavailable';
+  httpStatus: number;
+  payload: unknown;
+}
+export interface ProviderActivityDetailBundle {
+  providerActivityId: string;
+  resources: ProviderActivityResource[];
+}
 export interface ProviderRateLimit {
   shortLimit: number | null; shortUsage: number | null; dailyLimit: number | null; dailyUsage: number | null; retryAt: Date | null;
 }
@@ -30,6 +41,7 @@ export interface ProviderAdapter {
   revokeAuthorization(input: ProviderAuthorization): Promise<void>;
   fetchActivityPage(input: ActivityPageRequest): Promise<ActivityPage>;
   fetchActivity(input: ActivityRequest): Promise<ProviderActivity | null>;
+  fetchActivityDetailBundle(input: ActivityRequest): Promise<ProviderActivityDetailBundle | null>;
 }
 export type ProviderErrorCode =
   | 'PROVIDER_CONFIGURATION_ERROR' | 'PROVIDER_AUTHORIZATION_FAILED' | 'PROVIDER_REAUTHORIZATION_REQUIRED'
