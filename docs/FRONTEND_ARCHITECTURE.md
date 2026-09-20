@@ -214,7 +214,7 @@ The poller emits explicit `loading`, `terminal`, `error`, and `exhausted` states
 
 Do not add direct `setTimeout`, `setInterval`, or RxJS `timer` polling loops for durable jobs. Keep provider/import/rule models out of `core/jobs/`; the poller depends only on the caller-supplied request and terminal predicate.
 
-Imports is the proof adoption while its orchestration remains in the transitional root component. Daily quick-entry Strava refresh is the feature-state reference adoption: the Daily store owns the provider job lifecycle and uses the core poller rather than a component timer. Providers and Rules Studio remain legacy polling migrations owned by #78 and later focused work.
+Imports and Providers now own durable-job polling in route-scoped feature stores under `features/imports/state/` and `features/providers/state/`. Their components bind store signals and forward intents rather than scheduling timers. Daily quick-entry Strava refresh remains another feature-state reference adoption: the Daily store owns the provider job lifecycle and uses the core poller rather than a component timer. Rules Studio remains a legacy polling migration for later focused work.
 
 ### Daily feature-state reference
 
@@ -227,6 +227,19 @@ The Daily Log implementation is the reference pattern for migrating an existing 
 - state-layer tests own workflow/cancellation coverage; page tests should stay focused on composition, intent forwarding, and navigation.
 
 The Daily store consumes `features/daily/data-access/daily-api.service.ts` for summary transport plus the focused `ScoreBreakdownApiService` and `ProviderApiService` clients for workflows not yet migrated into their own feature slices. Do not use those focused root services as precedent for a new catch-all service. The reusable pattern is the route-scoped state boundary and the page -> state -> feature data-access dependency direction.
+
+### Providers and Imports feature-state reference
+
+Issue #78 establishes the same orchestration boundary for the provider and import workflows:
+
+- `features/providers/state/provider.store.ts` owns connection loading, latest-job recovery, sync/retry/cancel/disconnect state, normalized errors, and bounded provider-job polling through `core/jobs/durable-job-poller.ts`;
+- `provider-panel.component.ts` is the route component and provides `ProviderStore`; it renders store state and owns only the browser OAuth redirect side effect;
+- provider transport and contracts live under `features/providers/data-access/` and `features/providers/model/`; the root `provider-api.service.ts` export is a compatibility shim for transitional consumers such as Daily and is not a location for new provider API methods;
+- `features/imports/state/imports.store.ts` owns upload progress, active-job polling, cancellation/retry, history, selected-batch detail, diagnostic pagination, and normalized workflow errors;
+- `imports-page.component.ts` scopes `ImportsStore` to the route, while `import-panel.component.ts` renders state and forwards upload/history/detail intents;
+- import transport and workflow helpers live under `features/imports/data-access/` and `features/imports/model/`; the root import-workflow view-model export is compatibility-only.
+
+Use this pattern when a feature coordinates durable jobs, replacement/cancellation, dependent requests, or shared loading/error state. Feature stores may depend on their own model/data-access code plus generic `core/` infrastructure; they must not import components or reach into another feature's internals.
 
 ## Concrete example: a new Activities feature
 
@@ -261,7 +274,7 @@ Migration is deliberately issue-scoped:
 - #75: durable-job polling -> `core/jobs/`; use `pollDurableJob` rather than feature-local timers;
 - #76: Daily orchestration -> `features/daily/state/` and related feature layers;
 - #77: completed — removed the global `ApiService`; Daily, Dynamics, Performance, Imports, Rules, and Export transport methods/contracts live in feature `data-access/` and `model/`;
-- #78: Providers and Imports orchestration -> feature state;
+- #78: completed — Providers and Imports orchestration -> route-scoped feature state with shared durable-job polling;
 - #79: reusable analytics range/query behavior -> `shared/` where semantics are genuinely common;
 - #80: fast architecture guardrails and focused test guidance.
 
