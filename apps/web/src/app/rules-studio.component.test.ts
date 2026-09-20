@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import { of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { RulesRulesApiService } from './features/rules/data-access/rules-api.service';
+import type { RulesApiService } from './features/rules/data-access/rules-api.service';
 import type { RuleChange, RulePreviewResponse, RuleVersion } from './features/rules/model/rules.models';
 import { RulesStudioComponent } from './rules-studio.component';
 

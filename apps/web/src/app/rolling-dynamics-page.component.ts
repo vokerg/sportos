@@ -3,7 +3,7 @@ import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { Subject, takeUntil } from 'rxjs';
-import { DynamicsDynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
+import { DynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
 import {
   DYNAMICS_METRICS,
   ROLLING_WINDOWS,

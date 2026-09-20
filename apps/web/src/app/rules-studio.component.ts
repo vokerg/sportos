@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
-import { RulesRulesApiService } from './features/rules/data-access/rules-api.service';
+import { RulesApiService } from './features/rules/data-access/rules-api.service';
 import type {
   RuleChange,
   RulePreviewResponse,

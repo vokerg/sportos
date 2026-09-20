@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { PerformancePerformanceApiService } from './features/performance/data-access/performance-api.service';
+import type { PerformanceApiService } from './features/performance/data-access/performance-api.service';
 import type { PerformanceEventDetail, PerformanceEventRow } from './features/performance/model/performance.models';
 import { RunLabComponent } from './run-lab.component';
 

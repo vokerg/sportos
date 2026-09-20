@@ -3,7 +3,7 @@ import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsCoreOption } from 'echarts/core';
 import { Subscription } from 'rxjs';
-import { PerformancePerformanceApiService } from './features/performance/data-access/performance-api.service';
+import { PerformanceApiService } from './features/performance/data-access/performance-api.service';
 import type {
   PerformanceEventDetail,
   PerformanceEventRow,
