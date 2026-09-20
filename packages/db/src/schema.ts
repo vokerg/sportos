@@ -389,7 +389,7 @@ export interface ActivityProviderResourcesTable {
   resource_type: 'detail' | 'streams' | 'laps' | 'zones';
   availability: 'available' | 'unavailable';
   http_status: number | null;
-  provider_updated_at: NullableTimestamp;
+  provider_version: string;
   fetched_at: GeneratedTimestamp;
   payload_json: Json;
   created_at: GeneratedTimestamp;
