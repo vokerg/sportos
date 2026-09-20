@@ -30,7 +30,7 @@ export interface ProviderActivity {
   raw: Record<string, unknown>;
 }
 export interface ActivityPage { activities: ProviderActivity[]; rawActivities: Record<string, unknown>[]; rateLimit: ProviderRateLimit; }
-export interface HttpRequest { method: 'GET' | 'POST'; url: URL; headers?: Record<string, string>; body?: string; }
+export interface HttpRequest { method: 'GET' | 'POST'; url: URL; headers?: Record<string, string>; body?: string; maxResponseBytes?: number; }
 export interface HttpResponse { status: number; headers: Record<string, string>; body: unknown; }
 export interface ProviderHttpTransport { request(input: HttpRequest): Promise<HttpResponse>; }
 export interface ProviderAdapter {

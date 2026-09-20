@@ -110,6 +110,8 @@ describe('StravaAdapter', () => {
     const keys = transport.requests[1]?.url.searchParams.get('keys')?.split(',') ?? [];
     expect(keys).toEqual(expect.arrayContaining(['time', 'distance', 'latlng', 'heartrate', 'cadence', 'watts', 'altitude', 'moving']));
     expect(transport.requests[1]?.url.searchParams.get('key_by_type')).toBe('true');
+    expect(transport.requests[0]?.maxResponseBytes).toBeUndefined();
+    expect(transport.requests[1]?.maxResponseBytes).toBe(20 * 1024 * 1024);
   });
 
   it('keeps subscription-gated zones as an unavailable cached resource', async () => {
