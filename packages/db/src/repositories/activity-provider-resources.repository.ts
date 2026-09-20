@@ -9,14 +9,14 @@ export interface ActivityProviderReference {
   provider: 'strava';
   providerActivityId: string;
   connectionId: string;
-  providerUpdatedAt: Date | null;
+  providerVersion: string;
 }
 
 export interface ActivityProviderResourceReadModel {
   resourceType: ActivityProviderResourceType;
   availability: 'available' | 'unavailable';
   httpStatus: number | null;
-  providerUpdatedAt: Date | null;
+  providerVersion: string;
   fetchedAt: Date;
   payload: Json;
 }
@@ -36,32 +36,38 @@ export class ActivityProviderResourcesRepository {
       .innerJoin('provider_connections as connection', (join) => join
         .onRef('connection.owner_id', '=', 'link.owner_id')
         .onRef('connection.id', '=', 'link.connection_id'))
+      .innerJoin('source_records as source', (join) => join
+        .onRef('source.owner_id', '=', 'link.owner_id')
+        .onRef('source.id', '=', 'link.latest_source_record_id'))
       .select([
         'link.activity_id as activityId',
         'connection.provider',
         'link.provider_activity_id as providerActivityId',
         'link.connection_id as connectionId',
-        'link.provider_updated_at as providerUpdatedAt',
+        'source.row_hash as providerVersion',
       ])
       .where('link.activity_id', '=', activityId)
       .where('link.availability', '=', 'available')
       .where('connection.provider', '=', 'strava')
+      .orderBy('link.updated_at', 'desc')
+      .orderBy('link.id', 'desc')
       .executeTakeFirst();
     return row ?? null;
   }
 
-  async list(activityId: string, provider: 'strava'): Promise<ActivityProviderResourceReadModel[]> {
+  async list(reference: ActivityProviderReference): Promise<ActivityProviderResourceReadModel[]> {
     const rows = await this.db.selectFrom('activity_provider_resources')
-      .select(['resource_type', 'availability', 'http_status', 'provider_updated_at', 'fetched_at', 'payload_json'])
-      .where('activity_id', '=', activityId)
-      .where('provider', '=', provider)
+      .select(['resource_type', 'availability', 'http_status', 'provider_version', 'fetched_at', 'payload_json'])
+      .where('activity_id', '=', reference.activityId)
+      .where('provider', '=', reference.provider)
+      .where('provider_activity_id', '=', reference.providerActivityId)
       .orderBy('resource_type', 'asc')
       .execute();
     return rows.map((row) => ({
       resourceType: row.resource_type,
       availability: row.availability,
       httpStatus: row.http_status,
-      providerUpdatedAt: row.provider_updated_at,
+      providerVersion: row.provider_version,
       fetchedAt: row.fetched_at,
       payload: row.payload_json,
     }));
@@ -81,16 +87,15 @@ export class ActivityProviderResourcesRepository {
           resource_type: resource.resourceType,
           availability: resource.availability,
           http_status: resource.httpStatus,
-          provider_updated_at: reference.providerUpdatedAt,
+          provider_version: reference.providerVersion,
           fetched_at: fetchedAt,
           payload_json: resource.payload,
         }).onConflict((oc) => oc
-          .columns(['owner_id', 'activity_id', 'provider', 'resource_type'])
+          .columns(['owner_id', 'activity_id', 'provider', 'provider_activity_id', 'resource_type'])
           .doUpdateSet({
-            provider_activity_id: reference.providerActivityId,
             availability: resource.availability,
             http_status: resource.httpStatus,
-            provider_updated_at: reference.providerUpdatedAt,
+            provider_version: reference.providerVersion,
             fetched_at: fetchedAt,
             payload_json: resource.payload,
             updated_at: fetchedAt,
