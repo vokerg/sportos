@@ -1,13 +1,13 @@
 import { HttpEventType } from '@angular/common/http';
 import { Component, EventEmitter, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
-import {
-  ApiService,
-  type ImportBatchDetail,
-  type ImportBatchHistoryItem,
-  type ImportJob,
-  type UploadWorkbookKind,
-} from './api.service';
+import { ImportsApiService } from './features/imports/data-access/imports-api.service';
+import type {
+  ImportBatchDetail,
+  ImportBatchHistoryItem,
+  ImportJob,
+  UploadWorkbookKind,
+} from './features/imports/model/imports.models';
 import { pollDurableJob } from './core/jobs/durable-job-poller';
 import { ImportBatchDetailComponent } from './import-batch-detail.component';
 import { ImportHistoryComponent } from './import-history.component';
@@ -114,7 +114,7 @@ export class ImportPanelComponent implements OnInit, OnDestroy {
   private importSubscription?: Subscription;
   private jobSubscription?: Subscription;
 
-  constructor(private readonly api: ApiService) {}
+  constructor(private readonly api: ImportsApiService) {}
 
   ngOnInit(): void {
     this.loadHistory();

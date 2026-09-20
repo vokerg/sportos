@@ -1,6 +1,6 @@
 import '@angular/compiler';
 import { describe, expect, it } from 'vitest';
-import type { RuleProposal, RuleVersion } from './api.service';
+import type { RuleProposal, RuleVersion } from './features/rules/model/rules.models';
 import {
   cleanRuleProposal,
   metricOptionsFor,

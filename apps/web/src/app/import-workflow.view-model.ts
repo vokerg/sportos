@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import type { ImportDiagnostic, ImportJob } from './api.service';
+import type { ImportDiagnostic, ImportJob } from './features/imports/model/imports.models';
 
 export type ImportRequestState = 'idle' | 'loading' | 'loaded' | 'error';
 

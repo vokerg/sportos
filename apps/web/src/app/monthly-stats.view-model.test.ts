@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DynamicsResponse } from './api.service';
+import type { DynamicsResponse } from './features/dynamics/model/dynamics.models';
 import { dynamicsChartOptions, formatDynamicsValue } from './monthly-stats.view-model';
 
 const response: DynamicsResponse = {

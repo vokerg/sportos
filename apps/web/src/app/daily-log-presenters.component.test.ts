@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import type { GridReadyEvent } from 'ag-grid-community';
 import { describe, expect, it, vi } from 'vitest';
-import type { DailySummaryRow } from './api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { DailyLogActionsComponent } from './daily-log-actions.component';
 import { DailyLogFiltersComponent } from './daily-log-filters.component';
 import { DailyLogGridComponent } from './daily-log-grid.component';

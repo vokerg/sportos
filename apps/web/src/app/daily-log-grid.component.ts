@@ -1,7 +1,7 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import { AgGridAngular } from 'ag-grid-angular';
 import type { CellStyle, ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
-import type { DailySummaryRow } from './api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import {
   DailyBreakdownButtonComponent,
   type DailyBreakdownGridContext,

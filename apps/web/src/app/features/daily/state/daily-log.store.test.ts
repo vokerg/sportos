@@ -2,7 +2,8 @@ import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { ApiService, DailySummaryRow } from '../../../api.service';
+import type { DailyApiService } from '../data-access/daily-api.service';
+import type { DailySummaryRow } from '../model/daily.models';
 import type { ProviderApiService, ProviderSyncJob } from '../../../provider-api.service';
 import type { ScoreBreakdownApiService } from '../../../score-breakdown-api.service';
 import type { DailyScoreBreakdown } from '../../../score-breakdown.models';
@@ -299,7 +300,7 @@ function createStore(
   providerApi: Record<string, unknown> = { connections: vi.fn().mockReturnValue(of([])) },
 ): DailyLogStore {
   return new DailyLogStore(
-    api as unknown as ApiService,
+    api as unknown as DailyApiService,
     scoreApi as unknown as ScoreBreakdownApiService,
     providerApi as unknown as ProviderApiService,
   );

@@ -3,15 +3,15 @@ import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { Subject, takeUntil } from 'rxjs';
+import { DynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
 import {
-  ApiService,
   DYNAMICS_METRICS,
   ROLLING_WINDOWS,
   type DynamicsMetric,
   type RollingDynamicsMeasure,
   type RollingDynamicsResponse,
   type RollingWindow,
-} from './api.service';
+} from './features/dynamics/model/dynamics.models';
 import { DYNAMICS_LABELS } from './monthly-stats.view-model';
 import { boundedAllTimeRange, QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './daily-log.view-model';
 import { formatRollingMeasureValue, formatRollingValue, rollingDynamicsChartOptions, rollingMeasure, scoreContributionChartOptions } from './rolling-dynamics.view-model';
@@ -138,7 +138,7 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly requestCancelled$ = new Subject<void>();
 
-  constructor(private readonly api: ApiService, private readonly route: ActivatedRoute, private readonly router: Router) {}
+  constructor(private readonly api: DynamicsApiService, private readonly route: ActivatedRoute, private readonly router: Router) {}
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {

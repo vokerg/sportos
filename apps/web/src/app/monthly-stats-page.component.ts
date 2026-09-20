@@ -3,14 +3,14 @@ import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { Subject, takeUntil } from 'rxjs';
+import { DynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
 import {
-  ApiService,
   DYNAMICS_METRICS,
   type DynamicsGranularity,
   type DynamicsMeasure,
   type DynamicsMetric,
   type DynamicsResponse,
-} from './api.service';
+} from './features/dynamics/model/dynamics.models';
 import {
   DYNAMICS_LABELS,
   MONTHLY_LEDGER_COLUMNS,
@@ -215,7 +215,7 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly requestCancelled$ = new Subject<void>();
 
-  constructor(private readonly api: ApiService, private readonly route: ActivatedRoute, private readonly router: Router) {}
+  constructor(private readonly api: DynamicsApiService, private readonly route: ActivatedRoute, private readonly router: Router) {}
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {

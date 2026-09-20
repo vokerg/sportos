@@ -2,7 +2,8 @@ import '@angular/compiler';
 import type { Router } from '@angular/router';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { ApiService, DailySummaryRow } from './api.service';
+import type { DailyApiService } from './features/daily/data-access/daily-api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { OverviewPageComponent } from './overview-page.component';
 import type { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import type { DailyScoreBreakdown } from './score-breakdown.models';
@@ -57,7 +58,7 @@ function createComponent(
   router: { navigate: ReturnType<typeof vi.fn> } = { navigate: vi.fn().mockResolvedValue(true) },
 ): OverviewPageComponent {
   return new OverviewPageComponent(
-    api as unknown as ApiService,
+    api as unknown as DailyApiService,
     scoreApi as unknown as ScoreBreakdownApiService,
     router as unknown as Router,
   );

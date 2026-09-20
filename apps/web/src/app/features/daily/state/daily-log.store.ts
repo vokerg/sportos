@@ -1,7 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { computed, Injectable, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { type DailySummaryRow, ApiService } from '../../../api.service';
+import { DailyApiService } from '../data-access/daily-api.service';
+import type { DailySummaryRow } from '../model/daily.models';
 import { pollDurableJob } from '../../../core/jobs/durable-job-poller';
 import {
   DEFAULT_QUICK_RANGE,
@@ -67,7 +68,7 @@ export class DailyLogStore implements OnDestroy {
   private readonly quickEntrySaveSubscriptions = new Map<string, Subscription>();
 
   constructor(
-    private readonly api: ApiService,
+    private readonly api: DailyApiService,
     private readonly scoreBreakdownApi: ScoreBreakdownApiService,
     private readonly providerApi: ProviderApiService,
   ) {}

@@ -1,5 +1,5 @@
 import type { EChartsCoreOption } from 'echarts/core';
-import type { DailySummaryRow } from './api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
 
 export type DailyLogSummaryState = 'loading' | 'loaded' | 'empty' | 'error';

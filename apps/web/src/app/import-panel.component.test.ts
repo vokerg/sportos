@@ -2,13 +2,13 @@ import '@angular/compiler';
 import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ImportsApiService } from './features/imports/data-access/imports-api.service';
 import type {
-  ApiService,
   ImportBatchDetail,
   ImportBatchHistoryPage,
   ImportJob,
   UploadWorkbookResponse,
-} from './api.service';
+} from './features/imports/model/imports.models';
 import { ImportPanelComponent } from './import-panel.component';
 
 const batch = {
@@ -112,7 +112,7 @@ afterEach(() => {
 describe('ImportPanelComponent', () => {
   it('loads recent history on initialization', () => {
     const api = createApi();
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = new ImportPanelComponent(api as unknown as ImportsApiService);
 
     component.ngOnInit();
 
@@ -123,7 +123,7 @@ describe('ImportPanelComponent', () => {
 
   it('loads a selected batch with source-row diagnostics', () => {
     const api = createApi();
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = new ImportPanelComponent(api as unknown as ImportsApiService);
 
     component.selectBatch(batch);
 
@@ -140,7 +140,7 @@ describe('ImportPanelComponent', () => {
       new HttpResponse({ body: uploadResult }),
     ));
     api.importJob.mockReturnValue(of(succeededJob));
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = new ImportPanelComponent(api as unknown as ImportsApiService);
     const fileInput = { value: 'selected' } as HTMLInputElement;
     component.selectedFile = selectedFile;
     component.selectedFilename.set(selectedFile.name);
@@ -166,7 +166,7 @@ describe('ImportPanelComponent', () => {
 
   it('requires a selected workbook before submitting', () => {
     const api = createApi();
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = new ImportPanelComponent(api as unknown as ImportsApiService);
 
     component.import();
 
@@ -180,7 +180,7 @@ describe('ImportPanelComponent', () => {
     const running = { ...queuedJob, status: 'running' as const, phase: 'raw-stored', progressPercent: 45, attemptCount: 1 };
     const cancelling = { ...running, phase: 'cancelling', cancellationRequested: true };
     api.cancelImportJob.mockReturnValue(of(cancelling));
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = new ImportPanelComponent(api as unknown as ImportsApiService);
     component.activeJob.set(running);
 
     component.cancelActiveJob();
@@ -203,7 +203,7 @@ describe('ImportPanelComponent', () => {
     const retried = { ...queuedJob, attemptCount: 1 };
     api.retryImportJob.mockReturnValue(of(retried));
     api.importJob.mockReturnValue(of(succeededJob));
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = new ImportPanelComponent(api as unknown as ImportsApiService);
     component.activeJob.set(failed);
 
     component.retryActiveJob();
@@ -225,7 +225,7 @@ describe('ImportPanelComponent', () => {
         },
       })),
     );
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = new ImportPanelComponent(api as unknown as ImportsApiService);
     const fileInput = { value: 'selected' } as HTMLInputElement;
     component.selectedFile = selectedFile;
     component.selectedFilename.set(selectedFile.name);
@@ -254,7 +254,7 @@ describe('ImportPanelComponent', () => {
     api.importBatchDetail
       .mockReturnValueOnce(of(firstPage))
       .mockReturnValueOnce(of({ ...detail, diagnostics: [secondDiagnostic], diagnosticTotal: 2, diagnosticOffset: 1 }));
-    const component = new ImportPanelComponent(api as unknown as ApiService);
+    const component = new ImportPanelComponent(api as unknown as ImportsApiService);
 
     component.selectBatch(batch);
     component.loadMoreDiagnostics();
@@ -265,7 +265,7 @@ describe('ImportPanelComponent', () => {
   });
 
   it('emits an affected date for Daily Log reconciliation', () => {
-    const component = new ImportPanelComponent(createApi() as unknown as ApiService);
+    const component = new ImportPanelComponent(createApi() as unknown as ImportsApiService);
     const listener = vi.fn();
     component.reconcileDate.subscribe(listener);
 

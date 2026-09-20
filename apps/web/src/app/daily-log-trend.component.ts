@@ -1,6 +1,6 @@
 import { Component, computed, input, output } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
-import type { DailySummaryRow } from './api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-model';
 
 @Component({

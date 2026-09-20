@@ -1,7 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import type { DailySummaryRow } from './api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { DailyLogFiltersComponent } from './daily-log-filters.component';
 import { DailyLogGridComponent } from './daily-log-grid.component';
 import { DailyLogTrendComponent } from './daily-log-trend.component';

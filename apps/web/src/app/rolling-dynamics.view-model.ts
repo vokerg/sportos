@@ -1,5 +1,5 @@
 import type { EChartsCoreOption } from 'echarts/core';
-import type { RollingDynamicsMeasure, RollingDynamicsResponse, RollingWindow, ScoreContributionCategory } from './api.service';
+import type { RollingDynamicsMeasure, RollingDynamicsResponse, RollingWindow, ScoreContributionCategory } from './features/dynamics/model/dynamics.models';
 
 const WINDOW_COLORS: Record<RollingWindow, string> = {
   10: '#f59e0b', 20: '#db2777', 30: '#2854d9', 60: '#7c3aed', 365: '#059669',

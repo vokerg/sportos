@@ -1,7 +1,8 @@
 import '@angular/compiler';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
-import type { ApiService, PerformanceEventDetail, PerformanceEventRow } from './api.service';
+import type { PerformanceApiService } from './features/performance/data-access/performance-api.service';
+import type { PerformanceEventDetail, PerformanceEventRow } from './features/performance/model/performance.models';
 import { RunLabComponent } from './run-lab.component';
 
 const row: PerformanceEventRow = {
@@ -39,7 +40,7 @@ const detail: PerformanceEventDetail = {
 describe('RunLabComponent', () => {
   it('loads filtered performance events and builds a chronological trend', () => {
     const api = { performanceEvents: vi.fn().mockReturnValue(of([row])), performanceEvent: vi.fn() };
-    const component = new RunLabComponent(api as unknown as ApiService);
+    const component = new RunLabComponent(api as unknown as PerformanceApiService);
     component.ngOnInit();
     expect(component.state()).toBe('loaded');
     expect(component.rows()).toEqual([row]);
@@ -49,7 +50,7 @@ describe('RunLabComponent', () => {
 
   it('rejects reversed dates without calling the API', () => {
     const api = { performanceEvents: vi.fn().mockReturnValue(of([])), performanceEvent: vi.fn() };
-    const component = new RunLabComponent(api as unknown as ApiService);
+    const component = new RunLabComponent(api as unknown as PerformanceApiService);
     component.from.set('2026-06-01');
     component.to.set('2026-05-01');
     component.applyFilters();
@@ -59,7 +60,7 @@ describe('RunLabComponent', () => {
 
   it('loads event detail and exposes source provenance', () => {
     const api = { performanceEvents: vi.fn().mockReturnValue(of([])), performanceEvent: vi.fn().mockReturnValue(of(detail)) };
-    const component = new RunLabComponent(api as unknown as ApiService);
+    const component = new RunLabComponent(api as unknown as PerformanceApiService);
     component.openEvent(row.id);
     expect(component.detailState()).toBe('loaded');
     expect(component.detail()?.provenance.importBatchId).toBe(detail.provenance.importBatchId);
@@ -68,7 +69,7 @@ describe('RunLabComponent', () => {
   });
 
   it('formats duration and pace for non-developer review', () => {
-    const component = new RunLabComponent({} as ApiService);
+    const component = new RunLabComponent({} as PerformanceApiService);
     expect(component.formatDuration(1500)).toBe('25:00');
     expect(component.formatDuration(3661)).toBe('1:01:01');
     expect(component.formatPace(305)).toBe('5:05');

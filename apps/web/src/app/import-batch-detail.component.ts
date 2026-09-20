@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import type { ImportBatchDetail } from './api.service';
+import type { ImportBatchDetail } from './features/imports/model/imports.models';
 import { formatDate, formatDateTime } from './date-time';
 import { ImportDiagnosticsComponent } from './import-diagnostics.component';
 import type { ImportRequestState } from './import-workflow.view-model';

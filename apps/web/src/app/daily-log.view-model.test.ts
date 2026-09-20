@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DailySummaryRow } from './api.service';
+import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
 import {
   dailyLogChartOptions,
