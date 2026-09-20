@@ -4,7 +4,7 @@
 
 This document defines the target architecture for `apps/web`. It is the baseline for new substantial Angular work and for the incremental migration tracked in issues #74-#80.
 
-The current application is intentionally not being reshuffled in one pass. Existing flat files under `apps/web/src/app` remain valid until the queue item that owns their migration changes them. New feature work should follow the target boundaries below rather than adding more root-level feature files or expanding the global `ApiService`.
+The current application is intentionally not being reshuffled in one pass. Existing flat files under `apps/web/src/app` remain valid until the queue item that owns their migration changes them. New feature work should follow the target boundaries below rather than adding more root-level feature files or recreating the removed global `ApiService` pattern.
 
 ## Goals
 
@@ -119,7 +119,18 @@ Data access owns transport concerns for one feature:
 
 Data-access code must not depend on UI components or feature state. UI components must not inject `HttpClient`.
 
-Do not add new feature methods to a global catch-all API service. Existing `ApiService` methods migrate incrementally under #77.
+### Endpoint placement example
+
+When adding a Daily endpoint such as `GET /daily/streak`:
+
+- put the response/request transport types in `features/daily/model/daily.models.ts` (or a focused sibling model file if the contract grows independently);
+- add the `dailyStreak(...)` HTTP translation to `features/daily/data-access/daily-api.service.ts` and inject `SPORTOS_API_BASE` there;
+- let Daily state/pages depend on `DailyApiService` and the Daily model types;
+- do not add the endpoint, types, or URL construction to a root catch-all service or a shared/core model file.
+
+Use the same ownership rule for Dynamics, Performance, Imports, Rules, Export, and future features: endpoint method and transport contract stay with the feature that owns the workflow.
+
+Do not add feature methods to a global catch-all API service. #77 removed `api.service.ts`; feature transport methods and their transport contracts belong with the owning feature.
 
 ### `model/`
 
@@ -215,7 +226,7 @@ The Daily Log implementation is the reference pattern for migrating an existing 
 - the store consumes `core/jobs/durable-job-poller.ts` for the bounded Strava job lifecycle and cancels active requests/polls on replacement or teardown;
 - state-layer tests own workflow/cancellation coverage; page tests should stay focused on composition, intent forwarding, and navigation.
 
-The Daily store currently consumes the transitional root `ApiService`, `ScoreBreakdownApiService`, and `ProviderApiService`. Do not use #76 as precedent for adding more methods to those global services: #77 owns moving Daily and other feature transport contracts into `features/<feature>/data-access/`. The reusable part of the #76 pattern is the route-scoped state boundary and its dependency direction, not the temporary location of existing HTTP clients.
+The Daily store consumes `features/daily/data-access/daily-api.service.ts` for summary transport plus the focused `ScoreBreakdownApiService` and `ProviderApiService` clients for workflows not yet migrated into their own feature slices. Do not use those focused root services as precedent for a new catch-all service. The reusable pattern is the route-scoped state boundary and the page -> state -> feature data-access dependency direction.
 
 ## Concrete example: a new Activities feature
 
@@ -249,7 +260,7 @@ Migration is deliberately issue-scoped:
 - #74: bootstrap and API configuration -> `app.config.ts`, `core/config/`, `core/http/`; use the established `SPORTOS_API_BASE` token for all SportOS HTTP clients;
 - #75: durable-job polling -> `core/jobs/`; use `pollDurableJob` rather than feature-local timers;
 - #76: Daily orchestration -> `features/daily/state/` and related feature layers;
-- #77: global API methods/contracts -> feature `data-access/` and `model/`;
+- #77: completed — removed the global `ApiService`; Daily, Dynamics, Performance, Imports, Rules, and Export transport methods/contracts live in feature `data-access/` and `model/`;
 - #78: Providers and Imports orchestration -> feature state;
 - #79: reusable analytics range/query behavior -> `shared/` where semantics are genuinely common;
 - #80: fast architecture guardrails and focused test guidance.
