@@ -27,6 +27,19 @@ export interface Activity {
 }
 export interface ActivityDetail extends Activity {
   provenance: { sourceRecordId: string | null; sourceRecordSource: string | null };
+  providerDetail: { provider: 'strava'; providerActivityId: string } | null;
+}
+export interface ActivityProviderDetailResource {
+  availability: 'available' | 'unavailable';
+  httpStatus: number | null;
+  payload: unknown;
+}
+export interface ActivityProviderDetailResponse {
+  provider: 'strava';
+  providerActivityId: string;
+  fetchedAt: string;
+  cacheStatus: 'hit' | 'miss';
+  resources: Record<string, ActivityProviderDetailResource>;
 }
 export interface ActivitySourceJson {
   sourceRecordId: string;
@@ -66,6 +79,10 @@ export class ActivitiesApiService {
 
   detail(id: string) {
     return this.http.get<ActivityDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}`);
+  }
+
+  providerDetail(id: string) {
+    return this.http.get<ActivityProviderDetailResponse>(`${this.apiBase}/activities/${encodeURIComponent(id)}/provider-detail`);
   }
 
   sourceJson(id: string) {
