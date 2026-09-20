@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto';
 import type {
   ActivityPage, ActivityPageRequest, ActivityRequest, AuthorizationCodeExchange, AuthorizationRequest,
-  HttpRequest, HttpResponse, ProviderActivity, ProviderAdapter, ProviderAuthorization,
-  ProviderHttpTransport, ProviderRateLimit,
+  HttpRequest, HttpResponse, ProviderActivity, ProviderActivityDetailBundle, ProviderActivityResource,
+  ProviderAdapter, ProviderAuthorization, ProviderHttpTransport, ProviderRateLimit,
 } from './provider-types.js';
 import { ProviderError } from './provider-types.js';
 
 const MAX_PROVIDER_RESPONSE_BYTES = 5 * 1024 * 1024;
+const MAX_ACTIVITY_STREAM_RESPONSE_BYTES = 20 * 1024 * 1024;
+const ACTIVITY_STREAM_KEYS = ['time', 'distance', 'latlng', 'altitude', 'velocity_smooth', 'heartrate', 'cadence', 'watts', 'temp', 'moving', 'grade_smooth'] as const;
 
 export interface StravaAdapterConfig {
   clientId: string;
@@ -93,6 +95,38 @@ export class StravaAdapter implements ProviderAdapter {
     return parseActivity(record(response.body, 'activity'));
   }
 
+  async fetchActivityDetailBundle(input: ActivityRequest): Promise<ProviderActivityDetailBundle | null> {
+    const activityId = providerId(input.providerActivityId, 'activity id');
+    const headers = { authorization: `Bearer ${requiredText(input.authorization.accessToken, 10_000, 'access token')}` };
+
+    const detailUrl = new URL(`/api/v3/activities/${encodeURIComponent(activityId)}`, this.apiBaseUrl);
+    detailUrl.searchParams.set('include_all_efforts', 'true');
+    const detailResponse = await this.transport.request({ method: 'GET', url: detailUrl, headers });
+    if (detailResponse.status === 404) return null;
+    success(detailResponse, 'Strava activity detail could not be loaded.');
+
+    const streamsUrl = new URL(`/api/v3/activities/${encodeURIComponent(activityId)}/streams`, this.apiBaseUrl);
+    streamsUrl.searchParams.set('keys', ACTIVITY_STREAM_KEYS.join(','));
+    streamsUrl.searchParams.set('key_by_type', 'true');
+
+    const [streamsResponse, lapsResponse, zonesResponse] = await Promise.all([
+      this.transport.request({ method: 'GET', url: streamsUrl, headers, maxResponseBytes: MAX_ACTIVITY_STREAM_RESPONSE_BYTES }),
+      this.transport.request({ method: 'GET', url: new URL(`/api/v3/activities/${encodeURIComponent(activityId)}/laps`, this.apiBaseUrl), headers }),
+      this.transport.request({ method: 'GET', url: new URL(`/api/v3/activities/${encodeURIComponent(activityId)}/zones`, this.apiBaseUrl), headers }),
+    ]);
+
+    success(streamsResponse, 'Strava activity streams could not be loaded.');
+    success(lapsResponse, 'Strava activity laps could not be loaded.');
+
+    const resources: ProviderActivityResource[] = [
+      availableResource('detail', detailResponse),
+      availableResource('streams', streamsResponse),
+      availableResource('laps', lapsResponse),
+      optionalZonesResource(zonesResponse),
+    ];
+    return { providerActivityId: activityId, resources };
+  }
+
   private async authorizedGet(url: URL, authorization: ProviderAuthorization): Promise<HttpResponse> {
     const response = await this.transport.request({ method: 'GET', url, headers: { authorization: `Bearer ${requiredText(authorization.accessToken, 10_000, 'access token')}` } });
     success(response, 'Strava activities could not be loaded.');
@@ -126,6 +160,7 @@ export class StravaAdapter implements ProviderAdapter {
 
 export class FetchProviderTransport implements ProviderHttpTransport {
   async request(input: HttpRequest): Promise<HttpResponse> {
+    const maxResponseBytes = boundedResponseBytes(input.maxResponseBytes);
     let response: Response;
     try {
       response = await fetch(input.url, {
@@ -139,11 +174,11 @@ export class FetchProviderTransport implements ProviderHttpTransport {
       throw new ProviderError('PROVIDER_UNAVAILABLE', 'The provider could not be reached.', true);
     }
     const declaredLength = Number(response.headers.get('content-length'));
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_PROVIDER_RESPONSE_BYTES) {
+    if (Number.isFinite(declaredLength) && declaredLength > maxResponseBytes) {
       throw new ProviderError('PROVIDER_RESPONSE_INVALID', 'The provider response exceeded the configured size limit.', false, null, response.status);
     }
     const text = await response.text();
-    if (Buffer.byteLength(text, 'utf8') > MAX_PROVIDER_RESPONSE_BYTES) {
+    if (Buffer.byteLength(text, 'utf8') > maxResponseBytes) {
       throw new ProviderError('PROVIDER_RESPONSE_INVALID', 'The provider response exceeded the configured size limit.', false, null, response.status);
     }
     let body: unknown = null;
@@ -205,6 +240,17 @@ function parseActivity(raw: Record<string, unknown>): ProviderActivity {
   };
 }
 
+function availableResource(resourceType: ProviderActivityResource['resourceType'], response: HttpResponse): ProviderActivityResource {
+  return { resourceType, availability: 'available', httpStatus: response.status, payload: response.body };
+}
+function optionalZonesResource(response: HttpResponse): ProviderActivityResource {
+  if ([402, 403, 404].includes(response.status)) {
+    return { resourceType: 'zones', availability: 'unavailable', httpStatus: response.status, payload: null };
+  }
+  success(response, 'Strava activity zones could not be loaded.');
+  return availableResource('zones', response);
+}
+
 function success(response: HttpResponse, message: string): void {
   if (response.status < 200 || response.status >= 300) throw responseError(response, message);
 }
@@ -240,5 +286,12 @@ function date(value: unknown, name: string): Date { const result = value instanc
 function optionalDate(value: unknown): Date | null { return value === null || value === undefined || value === '' ? null : date(value, 'provider update date'); }
 function epoch(value: Date): number { return Math.floor(date(value, 'cursor date').getTime() / 1000); }
 function safeInt(value?: number): number | null { return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null; }
+function boundedResponseBytes(value?: number): number {
+  if (value === undefined) return MAX_PROVIDER_RESPONSE_BYTES;
+  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_ACTIVITY_STREAM_RESPONSE_BYTES) {
+    throw new ProviderError('PROVIDER_CONFIGURATION_ERROR', 'Invalid provider response size limit.', false);
+  }
+  return value;
+}
 function secureUrl(value: string): URL { const url = new URL(value); if (url.protocol !== 'https:' && url.hostname !== 'localhost') throw new ProviderError('PROVIDER_CONFIGURATION_ERROR', 'Provider URL must use HTTPS.', false); return url; }
 function normalizedBase(value: string): URL { const url = secureUrl(value); url.pathname = url.pathname.replace(/\/$/, ''); url.search = ''; url.hash = ''; return url; }

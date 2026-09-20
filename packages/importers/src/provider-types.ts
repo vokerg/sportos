@@ -8,6 +8,17 @@ export interface ProviderAuthorization {
 }
 export interface ActivityPageRequest { authorization: ProviderAuthorization; page: number; perPage: number; after?: Date; before?: Date; }
 export interface ActivityRequest { authorization: ProviderAuthorization; providerActivityId: string; }
+export type ProviderActivityResourceType = 'detail' | 'streams' | 'laps' | 'zones';
+export interface ProviderActivityResource {
+  resourceType: ProviderActivityResourceType;
+  availability: 'available' | 'unavailable';
+  httpStatus: number;
+  payload: unknown;
+}
+export interface ProviderActivityDetailBundle {
+  providerActivityId: string;
+  resources: ProviderActivityResource[];
+}
 export interface ProviderRateLimit {
   shortLimit: number | null; shortUsage: number | null; dailyLimit: number | null; dailyUsage: number | null; retryAt: Date | null;
 }
@@ -19,7 +30,7 @@ export interface ProviderActivity {
   raw: Record<string, unknown>;
 }
 export interface ActivityPage { activities: ProviderActivity[]; rawActivities: Record<string, unknown>[]; rateLimit: ProviderRateLimit; }
-export interface HttpRequest { method: 'GET' | 'POST'; url: URL; headers?: Record<string, string>; body?: string; }
+export interface HttpRequest { method: 'GET' | 'POST'; url: URL; headers?: Record<string, string>; body?: string; maxResponseBytes?: number; }
 export interface HttpResponse { status: number; headers: Record<string, string>; body: unknown; }
 export interface ProviderHttpTransport { request(input: HttpRequest): Promise<HttpResponse>; }
 export interface ProviderAdapter {
@@ -30,6 +41,7 @@ export interface ProviderAdapter {
   revokeAuthorization(input: ProviderAuthorization): Promise<void>;
   fetchActivityPage(input: ActivityPageRequest): Promise<ActivityPage>;
   fetchActivity(input: ActivityRequest): Promise<ProviderActivity | null>;
+  fetchActivityDetailBundle(input: ActivityRequest): Promise<ProviderActivityDetailBundle | null>;
 }
 export type ProviderErrorCode =
   | 'PROVIDER_CONFIGURATION_ERROR' | 'PROVIDER_AUTHORIZATION_FAILED' | 'PROVIDER_REAUTHORIZATION_REQUIRED'

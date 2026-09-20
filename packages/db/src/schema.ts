@@ -380,6 +380,22 @@ export interface ProviderActivityLinksTable {
   updated_at: GeneratedTimestamp;
 }
 
+export interface ActivityProviderResourcesTable {
+  id: Generated<string>;
+  owner_id: OwnerId;
+  activity_id: string;
+  provider: 'strava';
+  provider_activity_id: string;
+  resource_type: 'detail' | 'streams' | 'laps' | 'zones';
+  availability: 'available' | 'unavailable';
+  http_status: number | null;
+  provider_version: string;
+  fetched_at: GeneratedTimestamp;
+  payload_json: Json;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
 export interface ProviderWebhookEventsTable {
   id: Generated<string>;
   owner_id: string | null;
@@ -416,6 +432,7 @@ export interface Database {
   provider_oauth_transactions: ProviderOauthTransactionsTable;
   provider_sync_jobs: ProviderSyncJobsTable;
   provider_activity_links: ProviderActivityLinksTable;
+  activity_provider_resources: ActivityProviderResourcesTable;
   provider_webhook_events: ProviderWebhookEventsTable;
   v_daily_summary: Omit<DailyMetricsTable, 'owner_id' | 'source_record_id' | 'score_snapshot_id'> & { points_delta_vs_excel: number | null; avg_10d: number | null; avg_20d: number | null; avg_30d: number | null; avg_60d: number | null; avg_365d: number | null };
   v_performance_events: Omit<PerformanceEventsTable, 'owner_id' | 'source_record_hash'> & { all_time_rank: number; is_pr_by_time: boolean };

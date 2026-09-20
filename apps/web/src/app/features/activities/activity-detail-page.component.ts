@@ -20,6 +20,22 @@ import { metricGroups, startTime, title } from './activity.view-model';
         <section class="card"><h2>{{ group.title }}</h2><dl class="metrics">@for (metric of group.items; track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl></section>
       }</div>
       @if (item.notes && item.source !== 'strava') { <section class="card notes-card"><h2>Notes</h2><p class="notes">{{ item.notes }}</p></section> }
+      @if (item.providerDetail?.provider === 'strava') {
+        <section class="card provider-detail">
+          <h2>Full Strava activity data</h2>
+          @if (providerState() === 'loading') { <p role="status">Loading detailed activity, streams, laps and zones…</p> }
+          @else if (providerState() === 'error') { <p role="alert">Could not load full Strava data. <button type="button" (click)="loadProviderDetail()">Try again</button></p> }
+          @else if (providerState() === 'missing') { <p>Full Strava data is unavailable for this activity.</p> }
+          @else if (providerState() === 'loaded') {
+            <p>Stored provider detail · {{ providerCacheStatus() === 'hit' ? 'cache hit' : 'fetched from Strava' }} · {{ providerFetchedAt() }}</p>
+            <details class="provider-json">
+              <summary>Full provider JSON (advanced)</summary>
+              <p>Includes detailed activity data and high-resolution telemetry such as GPS, heart rate, cadence and power when Strava provides them.</p>
+              <pre>{{ providerJson() }}</pre>
+            </details>
+          }
+        </section>
+      }
       <details class="card provenance"><summary>Source and provenance</summary><dl>
         <div><dt>Source</dt><dd>{{ item.source }}</dd></div>
         @if (item.source_activity_id) { <div><dt>Source activity ID</dt><dd>{{ item.source_activity_id }}</dd></div> }
@@ -46,7 +62,7 @@ import { metricGroups, startTime, title } from './activity.view-model';
     .metric-sections { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }.metric-sections h2 { margin-top: 0; font-size: 17px; }
     .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 18px; }
     dt { color: #667085; font-size: 12px; } dd { margin: 3px 0 0; font-weight: 700; overflow-wrap: anywhere; }
-    .notes-card { margin-top: 12px; }.notes { white-space: pre-wrap; }.provenance { margin-top: 16px; }.provenance summary { cursor: pointer; font-weight: 700; }
+    .notes-card { margin-top: 12px; }.notes { white-space: pre-wrap; }.provider-detail { margin-top: 16px; }.provider-detail h2 { margin-top: 0; font-size: 17px; }.provider-detail p { color: #667085; }.provider-json summary { cursor: pointer; font-weight: 700; }.provider-json pre { max-height: 620px; overflow: auto; padding: 16px; border-radius: 8px; background: #101828; color: #f2f4f7; font-size: 12px; line-height: 1.5; white-space: pre; }.provenance { margin-top: 16px; }.provenance summary { cursor: pointer; font-weight: 700; }
     .provenance dl { display: grid; gap: 10px; }
     .source-json { margin-top: 12px; }.source-json summary { cursor: pointer; font-weight: 700; }
     .source-json p { color: #667085; }.source-json pre { max-height: 520px; overflow: auto; padding: 16px; border-radius: 8px; background: #101828; color: #f2f4f7; font-size: 12px; line-height: 1.5; white-space: pre; }
@@ -57,17 +73,35 @@ export class ActivityDetailPageComponent implements OnInit, OnDestroy {
   readonly activity = signal<ActivityDetail | null>(null);
   readonly sourceState = signal<'idle' | 'loading' | 'loaded' | 'missing' | 'error'>('idle');
   readonly sourceJson = signal<string | null>(null);
+  readonly providerState = signal<'idle' | 'loading' | 'loaded' | 'missing' | 'error'>('idle');
+  readonly providerJson = signal<string | null>(null);
+  readonly providerFetchedAt = signal<string | null>(null);
+  readonly providerCacheStatus = signal<'hit' | 'miss' | null>(null);
   readonly metricGroups = metricGroups; readonly startTime = startTime; readonly title = title;
-  private id = ''; private routeSubscription?: Subscription; private requestSubscription?: Subscription; private sourceSubscription?: Subscription;
+  private id = ''; private routeSubscription?: Subscription; private requestSubscription?: Subscription; private sourceSubscription?: Subscription; private providerSubscription?: Subscription;
   constructor(private readonly api: ActivitiesApiService, private readonly route: ActivatedRoute) {}
   ngOnInit(): void { this.routeSubscription = this.route.paramMap.subscribe((params) => { this.id = params.get('id') ?? ''; this.load(); }); }
-  ngOnDestroy(): void { this.routeSubscription?.unsubscribe(); this.requestSubscription?.unsubscribe(); this.sourceSubscription?.unsubscribe(); }
+  ngOnDestroy(): void { this.routeSubscription?.unsubscribe(); this.requestSubscription?.unsubscribe(); this.sourceSubscription?.unsubscribe(); this.providerSubscription?.unsubscribe(); }
   load(): void {
-    this.requestSubscription?.unsubscribe(); this.sourceSubscription?.unsubscribe();
-    this.activity.set(null); this.sourceJson.set(null); this.sourceState.set('idle'); this.state.set('loading');
+    this.requestSubscription?.unsubscribe(); this.sourceSubscription?.unsubscribe(); this.providerSubscription?.unsubscribe();
+    this.activity.set(null); this.sourceJson.set(null); this.sourceState.set('idle');
+    this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerState.set('idle'); this.state.set('loading');
     this.requestSubscription = this.api.detail(this.id).subscribe({
-      next: (activity) => { this.activity.set(activity); this.state.set('loaded'); },
+      next: (activity) => { this.activity.set(activity); this.state.set('loaded'); if (activity.providerDetail?.provider === 'strava') this.loadProviderDetail(); },
       error: (error: unknown) => this.state.set(error instanceof HttpErrorResponse && error.status === 404 ? 'missing' : 'error'),
+    });
+  }
+  loadProviderDetail(): void {
+    if (this.activity()?.providerDetail?.provider !== 'strava') return;
+    this.providerSubscription?.unsubscribe(); this.providerState.set('loading');
+    this.providerSubscription = this.api.providerDetail(this.id).subscribe({
+      next: (detail) => {
+        this.providerJson.set(JSON.stringify(detail.resources, null, 2) ?? 'null');
+        this.providerFetchedAt.set(new Date(detail.fetchedAt).toLocaleString());
+        this.providerCacheStatus.set(detail.cacheStatus);
+        this.providerState.set('loaded');
+      },
+      error: (error: unknown) => this.providerState.set(error instanceof HttpErrorResponse && error.status === 404 ? 'missing' : 'error'),
     });
   }
   onSourceToggle(event: Event): void {

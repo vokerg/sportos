@@ -32,3 +32,4 @@ export * from './repositories/scoring.repository.js';
 export * from './repositories/analysis-audit.repository.js';
 export * from './repositories/dynamics.repository.js';
 export * from './repositories/activities.repository.js';
+export * from './repositories/activity-provider-resources.repository.js';

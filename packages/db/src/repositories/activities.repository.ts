@@ -67,14 +67,25 @@ export class ActivitiesRepository {
   async get(activityId: string) {
     const row = await this.db.selectFrom('activities as activity')
       .leftJoin('source_records as record', 'record.id', 'activity.source_record_id')
+      .leftJoin('provider_activity_links as providerLink', (join) => join
+        .onRef('providerLink.owner_id', '=', 'activity.owner_id')
+        .onRef('providerLink.activity_id', '=', 'activity.id')
+        .on('providerLink.availability', '=', 'available'))
+      .leftJoin('provider_connections as providerConnection', (join) => join
+        .onRef('providerConnection.owner_id', '=', 'providerLink.owner_id')
+        .onRef('providerConnection.id', '=', 'providerLink.connection_id'))
       .select(publicColumns.map((column) => `activity.${column}` as const))
-      .select(['record.id as sourceRecordId', 'record.source as sourceRecordSource'])
-      .where('activity.id', '=', activityId).executeTakeFirst();
+      .select(['record.id as sourceRecordId', 'record.source as sourceRecordSource', 'providerConnection.provider as linkedProvider', 'providerLink.provider_activity_id as linkedProviderActivityId'])
+      .where('activity.id', '=', activityId)
+      .orderBy('providerLink.updated_at', 'desc')
+      .orderBy('providerLink.id', 'desc')
+      .executeTakeFirst();
     if (!row) return null;
-    const { sourceRecordId, sourceRecordSource, ...activity } = row;
+    const { sourceRecordId, sourceRecordSource, linkedProvider, linkedProviderActivityId, ...activity } = row;
     return {
       ...serialize(activity),
       provenance: { sourceRecordId, sourceRecordSource },
+      providerDetail: linkedProvider && linkedProviderActivityId ? { provider: linkedProvider, providerActivityId: linkedProviderActivityId } : null,
     };
   }
 

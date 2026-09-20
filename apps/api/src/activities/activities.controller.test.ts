@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ActivitiesRepository, type Database, type Kysely } from '@sportos/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DbProvider } from '../db.provider.js';
+import type { ActivityProviderDetailService } from './activity-provider-detail.service.js';
 import { ActivitiesController, parseActivitiesQuery } from './activities.controller.js';
 
 const id = '11111111-1111-4111-8111-111111111111';
@@ -52,6 +53,13 @@ describe('ActivitiesController', () => {
     expect(withAccount).toHaveBeenCalledWith(accountId, expect.any(Function));
   });
 
+  it('loads full provider detail through the authenticated account', async () => {
+    const { controller, providerDetailService } = createController();
+    providerDetailService.load.mockResolvedValue({ provider: 'strava', providerActivityId: '20223486250' } as never);
+    await expect(controller.providerDetail(id, account)).resolves.toMatchObject({ provider: 'strava' });
+    expect(providerDetailService.load).toHaveBeenCalledWith(accountId, id);
+  });
+
   it('reads retained source JSON only through account context and hides missing or foreign records', async () => {
     const source = { sourceRecordId: id, sourceRecordSource: 'strava_api', rawJson: { average_cadence: 88 } };
     const getSourceJson = vi.spyOn(ActivitiesRepository.prototype, 'getSourceJson').mockResolvedValueOnce(source).mockResolvedValue(null);
@@ -67,5 +75,13 @@ describe('ActivitiesController', () => {
 function createController() {
   const scopedDb = {} as Kysely<Database>;
   const withAccount = vi.fn(async <T>(_accountId: string, callback: (db: Kysely<Database>) => Promise<T>) => callback(scopedDb));
-  return { controller: new ActivitiesController({ withAccount } as unknown as DbProvider), withAccount };
+  const providerDetailService = { load: vi.fn() };
+  return {
+    controller: new ActivitiesController(
+      { withAccount } as unknown as DbProvider,
+      providerDetailService as unknown as ActivityProviderDetailService,
+    ),
+    withAccount,
+    providerDetailService,
+  };
 }

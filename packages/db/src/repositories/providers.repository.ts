@@ -250,7 +250,11 @@ export class ProvidersRepository {
   }
 
   async markReauthorizationRequired(connectionId: string, code: string, message: string): Promise<void> {
-    await this.db.updateTable('provider_connections').set({ status: 'reauthorization_required', last_error_code: safeCode(code), last_error_message: redact(message), updated_at: new Date() }).where('id', '=', connectionId).execute();
+    await this.db.updateTable('provider_connections')
+      .set({ status: 'reauthorization_required', last_error_code: safeCode(code), last_error_message: redact(message), updated_at: new Date() })
+      .where('id', '=', connectionId)
+      .where('status', '=', 'connected')
+      .execute();
   }
 
   async heartbeat(jobId: string, workerId: string, phase: string, progress: number, leaseSeconds = 60): Promise<void> {
