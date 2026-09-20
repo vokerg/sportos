@@ -111,6 +111,7 @@ class FakeStravaAdapter implements ProviderAdapter {
         };
   }
   async fetchActivity(_input: ActivityRequest): Promise<ProviderActivity | null> { return null; }
+  async fetchActivityDetailBundle(_input: ActivityRequest) { return null; }
 }
 
 databaseDescribe('ProviderSyncRunner database integration', () => {

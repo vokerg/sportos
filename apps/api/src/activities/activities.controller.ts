@@ -4,6 +4,7 @@ import { CurrentAccount } from '../auth/current-account.decorator.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { DbProvider } from '../db.provider.js';
 import { assertUuid, parseBoundedInteger, parseDateRange } from '../query-validation.js';
+import { ActivityProviderDetailService } from './activity-provider-detail.service.js';
 
 function boundedPositive(value: string | undefined, name: string, max: number): number | undefined {
   if (value === undefined) return undefined;
@@ -52,7 +53,10 @@ export function parseActivitiesQuery(raw: Record<string, unknown>): ActivitiesQu
 
 @Controller('activities')
 export class ActivitiesController {
-  constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
+  constructor(
+    @Inject(DbProvider) private readonly dbProvider: DbProvider,
+    private readonly providerDetailService: ActivityProviderDetailService,
+  ) {}
 
   @Get()
   async list(@Query() raw: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) {
@@ -66,6 +70,12 @@ export class ActivitiesController {
     const activity = await this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID, (db) => new ActivitiesRepository(db).get(activityId));
     if (!activity) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
     return activity;
+  }
+
+  @Get(':activityId/provider-detail')
+  async providerDetail(@Param('activityId') activityId: string, @CurrentAccount() account?: AuthenticatedAccount) {
+    assertUuid(activityId, 'INVALID_ACTIVITY_ID');
+    return this.providerDetailService.load(account?.id ?? LEGACY_ACCOUNT_ID, activityId);
   }
 
   @Get(':activityId/source')

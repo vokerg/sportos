@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto';
 import type {
   ActivityPage, ActivityPageRequest, ActivityRequest, AuthorizationCodeExchange, AuthorizationRequest,
-  HttpRequest, HttpResponse, ProviderActivity, ProviderAdapter, ProviderAuthorization,
-  ProviderHttpTransport, ProviderRateLimit,
+  HttpRequest, HttpResponse, ProviderActivity, ProviderActivityDetailBundle, ProviderActivityResource,
+  ProviderAdapter, ProviderAuthorization, ProviderHttpTransport, ProviderRateLimit,
 } from './provider-types.js';
 import { ProviderError } from './provider-types.js';
 
-const MAX_PROVIDER_RESPONSE_BYTES = 5 * 1024 * 1024;
+const MAX_PROVIDER_RESPONSE_BYTES = 20 * 1024 * 1024;
+const ACTIVITY_STREAM_KEYS = ['time', 'distance', 'latlng', 'altitude', 'velocity_smooth', 'heartrate', 'cadence', 'watts', 'temp', 'moving', 'grade_smooth'] as const;
 
 export interface StravaAdapterConfig {
   clientId: string;
@@ -91,6 +92,38 @@ export class StravaAdapter implements ProviderAdapter {
     if (response.status === 404) return null;
     success(response, 'Strava activity could not be loaded.');
     return parseActivity(record(response.body, 'activity'));
+  }
+
+  async fetchActivityDetailBundle(input: ActivityRequest): Promise<ProviderActivityDetailBundle | null> {
+    const activityId = providerId(input.providerActivityId, 'activity id');
+    const headers = { authorization: `Bearer ${requiredText(input.authorization.accessToken, 10_000, 'access token')}` };
+
+    const detailUrl = new URL(`/api/v3/activities/${encodeURIComponent(activityId)}`, this.apiBaseUrl);
+    detailUrl.searchParams.set('include_all_efforts', 'true');
+    const detailResponse = await this.transport.request({ method: 'GET', url: detailUrl, headers });
+    if (detailResponse.status === 404) return null;
+    success(detailResponse, 'Strava activity detail could not be loaded.');
+
+    const streamsUrl = new URL(`/api/v3/activities/${encodeURIComponent(activityId)}/streams`, this.apiBaseUrl);
+    streamsUrl.searchParams.set('keys', ACTIVITY_STREAM_KEYS.join(','));
+    streamsUrl.searchParams.set('key_by_type', 'true');
+
+    const [streamsResponse, lapsResponse, zonesResponse] = await Promise.all([
+      this.transport.request({ method: 'GET', url: streamsUrl, headers }),
+      this.transport.request({ method: 'GET', url: new URL(`/api/v3/activities/${encodeURIComponent(activityId)}/laps`, this.apiBaseUrl), headers }),
+      this.transport.request({ method: 'GET', url: new URL(`/api/v3/activities/${encodeURIComponent(activityId)}/zones`, this.apiBaseUrl), headers }),
+    ]);
+
+    success(streamsResponse, 'Strava activity streams could not be loaded.');
+    success(lapsResponse, 'Strava activity laps could not be loaded.');
+
+    const resources: ProviderActivityResource[] = [
+      availableResource('detail', detailResponse),
+      availableResource('streams', streamsResponse),
+      availableResource('laps', lapsResponse),
+      optionalZonesResource(zonesResponse),
+    ];
+    return { providerActivityId: activityId, resources };
   }
 
   private async authorizedGet(url: URL, authorization: ProviderAuthorization): Promise<HttpResponse> {
@@ -203,6 +236,17 @@ function parseActivity(raw: Record<string, unknown>): ProviderActivity {
     isRace: raw.workout_type === 1,
     raw,
   };
+}
+
+function availableResource(resourceType: ProviderActivityResource['resourceType'], response: HttpResponse): ProviderActivityResource {
+  return { resourceType, availability: 'available', httpStatus: response.status, payload: response.body };
+}
+function optionalZonesResource(response: HttpResponse): ProviderActivityResource {
+  if ([402, 403, 404].includes(response.status)) {
+    return { resourceType: 'zones', availability: 'unavailable', httpStatus: response.status, payload: null };
+  }
+  success(response, 'Strava activity zones could not be loaded.');
+  return availableResource('zones', response);
 }
 
 function success(response: HttpResponse, message: string): void {

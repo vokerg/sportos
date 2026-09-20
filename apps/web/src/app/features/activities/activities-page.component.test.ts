@@ -62,6 +62,36 @@ describe('Activities pages', () => {
     expect(detail.state()).toBe('loaded'); detail.ngOnDestroy();
   });
 
+  it('loads full provider detail on demand when an activity has a Strava link', () => {
+    const params = new BehaviorSubject(convertToParamMap({ id: 'strava-activity' }));
+    const providerDetail = vi.fn().mockReturnValue(of({
+      provider: 'strava',
+      providerActivityId: '20223486250',
+      fetchedAt: '2026-09-20T10:00:00Z',
+      cacheStatus: 'miss',
+      resources: {
+        detail: { availability: 'available', httpStatus: 200, payload: { id: 20223486250 } },
+        streams: { availability: 'available', httpStatus: 200, payload: { heartrate: { data: [130, 132] } } },
+        laps: { availability: 'available', httpStatus: 200, payload: [] },
+        zones: { availability: 'unavailable', httpStatus: 403, payload: null },
+      },
+    }));
+    const detail = vi.fn().mockReturnValue(of({
+      id: 'strava-activity',
+      activity_type: 'run',
+      providerDetail: { provider: 'strava', providerActivityId: '20223486250' },
+      provenance: { sourceRecordId: 'record', sourceRecordSource: 'strava_api' },
+    }));
+    const page = new ActivityDetailPageComponent({ detail, providerDetail } as unknown as ActivitiesApiService,
+      { paramMap: params } as unknown as ActivatedRoute);
+    page.ngOnInit();
+    expect(providerDetail).toHaveBeenCalledWith('strava-activity');
+    expect(page.providerState()).toBe('loaded');
+    expect(page.providerCacheStatus()).toBe('miss');
+    expect(page.providerJson()).toContain('heartrate');
+    page.ngOnDestroy();
+  });
+
   it('discards a stale response when filters change during loading', () => {
     const first = new Subject<ActivitiesResponse>();
     const api = { list: vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(of(empty)) };

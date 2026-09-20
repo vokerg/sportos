@@ -95,6 +95,37 @@ describe('StravaAdapter', () => {
     expect(page.rateLimit).toMatchObject({ shortLimit: 100, dailyLimit: 1000 });
   });
 
+  it('fetches detailed activity, all supported streams, laps, and zones', async () => {
+    const transport = new FakeTransport([
+      { status: 200, headers: {}, body: { ...activity, description: 'Long run', segment_efforts: [] } },
+      { status: 200, headers: {}, body: { time: { data: [0, 1] }, latlng: { data: [[55.7, 12.4], [55.7, 12.5]] } } },
+      { status: 200, headers: {}, body: [{ id: 1, name: 'Lap 1' }] },
+      { status: 200, headers: {}, body: [{ type: 'heartrate', distribution_buckets: [] }] },
+    ]);
+    const adapter = new StravaAdapter({ clientId: 'client', clientSecret: 'secret' }, transport);
+    const bundle = await adapter.fetchActivityDetailBundle({ authorization, providerActivityId: '123456789' });
+    expect(bundle?.resources.map((resource) => resource.resourceType)).toEqual(['detail', 'streams', 'laps', 'zones']);
+    expect(bundle?.resources.every((resource) => resource.availability === 'available')).toBe(true);
+    expect(transport.requests[0]?.url.searchParams.get('include_all_efforts')).toBe('true');
+    const keys = transport.requests[1]?.url.searchParams.get('keys')?.split(',') ?? [];
+    expect(keys).toEqual(expect.arrayContaining(['time', 'distance', 'latlng', 'heartrate', 'cadence', 'watts', 'altitude', 'moving']));
+    expect(transport.requests[1]?.url.searchParams.get('key_by_type')).toBe('true');
+  });
+
+  it('keeps subscription-gated zones as an unavailable cached resource', async () => {
+    const transport = new FakeTransport([
+      { status: 200, headers: {}, body: activity },
+      { status: 200, headers: {}, body: {} },
+      { status: 200, headers: {}, body: [] },
+      { status: 403, headers: {}, body: { message: 'Forbidden' } },
+    ]);
+    const adapter = new StravaAdapter({ clientId: 'client', clientSecret: 'secret' }, transport);
+    const bundle = await adapter.fetchActivityDetailBundle({ authorization, providerActivityId: '123456789' });
+    expect(bundle?.resources.find((resource) => resource.resourceType === 'zones')).toEqual({
+      resourceType: 'zones', availability: 'unavailable', httpStatus: 403, payload: null,
+    });
+  });
+
   it('classifies rate limits', async () => {
     const adapter = new StravaAdapter({ clientId: 'client', clientSecret: 'secret' }, new FakeTransport([{ status: 429, headers: {
       'x-ratelimit-limit': '100,1000',
