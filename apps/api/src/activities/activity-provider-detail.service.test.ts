@@ -6,7 +6,7 @@ import {
   type Kysely,
 } from '@sportos/db';
 import { CredentialCipher, ProviderError, StravaAdapter } from '@sportos/importers';
-import type { DbProvider } from '../db.provider.js';
+import type { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
 import { ActivityProviderDetailService } from './activity-provider-detail.service.js';
 
 const activityId = '11111111-1111-4111-8111-111111111111';
@@ -38,7 +38,7 @@ describe('ActivityProviderDetailService', () => {
     vi.spyOn(ActivityProviderResourcesRepository.prototype, 'getProviderReference').mockResolvedValue(reference);
     vi.spyOn(ActivityProviderResourcesRepository.prototype, 'list').mockResolvedValue(cached);
     const providerFetch = vi.spyOn(StravaAdapter.prototype, 'fetchActivityDetailBundle');
-    const service = new ActivityProviderDetailService(dbProvider());
+    const service = new ActivityProviderDetailService(dbProvider(), activityDetailDbProvider());
     await expect(service.load(accountId, activityId)).resolves.toMatchObject({
       provider: 'strava', providerActivityId: '20223486250', cacheStatus: 'hit',
     });
@@ -51,7 +51,7 @@ describe('ActivityProviderDetailService', () => {
     const replace = vi.spyOn(ActivityProviderResourcesRepository.prototype, 'replace').mockResolvedValue();
     mockAuthorization();
     vi.spyOn(StravaAdapter.prototype, 'fetchActivityDetailBundle').mockResolvedValue(bundle());
-    const service = new ActivityProviderDetailService(dbProvider());
+    const service = new ActivityProviderDetailService(dbProvider(), activityDetailDbProvider());
 
     await expect(service.load(accountId, activityId)).resolves.toMatchObject({ cacheStatus: 'miss' });
     expect(replace).toHaveBeenCalledWith(reference, expect.arrayContaining([
@@ -67,7 +67,7 @@ describe('ActivityProviderDetailService', () => {
     vi.spyOn(ActivityProviderResourcesRepository.prototype, 'replace').mockResolvedValue();
     mockAuthorization();
     const providerFetch = vi.spyOn(StravaAdapter.prototype, 'fetchActivityDetailBundle').mockResolvedValue(bundle());
-    const service = new ActivityProviderDetailService(dbProvider());
+    const service = new ActivityProviderDetailService(dbProvider(), activityDetailDbProvider());
 
     await expect(service.load(accountId, activityId)).resolves.toMatchObject({ cacheStatus: 'miss' });
     expect(providerFetch).toHaveBeenCalledWith(expect.objectContaining({ providerActivityId: '20223486250' }));
@@ -81,7 +81,7 @@ describe('ActivityProviderDetailService', () => {
       new ProviderError('PROVIDER_REAUTHORIZATION_REQUIRED', 'Strava rejected the token.', false),
     );
     const mark = vi.spyOn(ProvidersRepository.prototype, 'markReauthorizationRequired').mockResolvedValue();
-    const service = new ActivityProviderDetailService(dbProvider());
+    const service = new ActivityProviderDetailService(dbProvider(), activityDetailDbProvider());
 
     await expect(service.load(accountId, activityId)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'PROVIDER_REAUTHORIZATION_REQUIRED' }),
@@ -121,4 +121,11 @@ function dbProvider(): DbProvider {
   return {
     withAccount: vi.fn(async <T>(_accountId: string, callback: (db: Kysely<Database>) => Promise<T>) => callback(scopedDb)),
   } as unknown as DbProvider;
+}
+
+function activityDetailDbProvider(): ActivityDetailDbProvider {
+  const scopedDb = {} as Kysely<Database>;
+  return {
+    withAccount: vi.fn(async <T>(_accountId: string, callback: (db: Kysely<Database>) => Promise<T>) => callback(scopedDb)),
+  } as unknown as ActivityDetailDbProvider;
 }
