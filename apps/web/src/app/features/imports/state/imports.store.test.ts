@@ -1,6 +1,6 @@
 import '@angular/compiler';
 import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ImportsApiService } from '../data-access/imports-api.service';
 import type {
@@ -176,6 +176,35 @@ describe('ImportsStore', () => {
 
     await vi.runAllTimersAsync();
     expect(store.activeJob()?.status).toBe('succeeded');
+    store.ngOnDestroy();
+  });
+
+  it('does not let a late cancellation response regress a terminal polled job', async () => {
+    vi.useFakeTimers();
+    const status = new Subject<ImportJob>();
+    const cancellation = new Subject<ImportJob>();
+    const cancelling = {
+      ...queuedJob,
+      status: 'running' as const,
+      phase: 'cancelling',
+      cancellationRequested: true,
+      attemptCount: 1,
+    };
+    const api = createApi();
+    api.uploadWorkbook.mockReturnValue(of(new HttpResponse({ body: uploadResult })));
+    api.importJob.mockReturnValue(status.asObservable());
+    api.cancelImportJob.mockReturnValue(cancellation.asObservable());
+    const store = new ImportsStore(api as unknown as ImportsApiService);
+    store.selectFile(selectedFile);
+    store.startImport();
+
+    await vi.advanceTimersByTimeAsync(0);
+    store.cancelActiveJob();
+    status.next(succeededJob);
+    cancellation.next(cancelling);
+
+    expect(store.activeJob()?.status).toBe('succeeded');
+    expect(store.importMessage()).toContain('2 daily rows');
     store.ngOnDestroy();
   });
 
