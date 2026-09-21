@@ -100,6 +100,33 @@ describe('ProviderStore', () => {
     store.ngOnDestroy();
   });
 
+  it('cancels the active status request before applying a cancellation result', async () => {
+    vi.useFakeTimers();
+    const stalePoll = new Subject<ProviderSyncJob>();
+    const cancelled = {
+      ...runningJob,
+      status: 'cancelled' as const,
+      phase: 'cancelled',
+      cancellationRequested: true,
+      completedAt: '2026-08-04T19:01:00.000Z',
+    };
+    const api = createApi();
+    api.syncJob.mockReturnValue(stalePoll.asObservable());
+    api.cancelSync.mockReturnValue(of(cancelled));
+    const store = new ProviderStore(api as unknown as ProviderApiService);
+    store.job.set(runningJob);
+
+    store.refreshJob();
+    await vi.advanceTimersByTimeAsync(0);
+    store.cancel();
+
+    stalePoll.next(succeededJob);
+
+    expect(api.cancelSync).toHaveBeenCalledWith(runningJob.id);
+    expect(store.job()).toEqual(cancelled);
+    store.ngOnDestroy();
+  });
+
   it('requests cooperative cancellation and preserves the terminal job', () => {
     const cancelled = {
       ...runningJob,
