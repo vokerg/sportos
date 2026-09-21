@@ -30,6 +30,10 @@ export const RUN_PACE_OPTIONS = [
   { value: 252, label: 'Sub 4:12 /km' }, { value: 264, label: 'Sub 4:24 /km' },
   { value: 300, label: 'Sub 5:00 /km' },
 ] as const;
+export const RUN_SUBTYPE_OPTIONS = [
+  { value: '', label: 'All run types' }, { value: 'treadmill', label: 'Treadmill' },
+  { value: 'track', label: 'Track run' }, { value: 'outdoor', label: 'Outdoor' },
+] as const;
 export const BIKE_SPEED_OPTIONS = [0, 20, 25, 30, 35] as const;
 export const SWIM_PACE_OPTIONS = [
   { value: 0, label: 'Any pace' }, { value: 90, label: 'Sub 1:30 /100 m' },
@@ -67,6 +71,9 @@ export function matchQuickRange(from: string, to: string, today = new Date()): Q
 export function title(activity: Activity): string {
   return TYPE_OPTIONS.find((option) => option.value === activity.activity_type)?.label ?? activity.activity_type;
 }
+export function subtypeLabel(subtype: Activity['subtype']): string {
+  return RUN_SUBTYPE_OPTIONS.find((option) => option.value === subtype)?.label ?? subtype ?? '';
+}
 export const duration = formatDurationClock;
 export function distance(metres: number): string {
   return `${(metres / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} km`;
@@ -99,7 +106,7 @@ export function metrics(activity: Activity, detailed = false): Metric[] {
   }
   if (activity.activity_type === 'run') add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, pace, 'Pace and terrain');
   if (activity.activity_type === 'swim') add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, (v) => `${formatDurationClock(v / 10)} /100 m`, 'Pace and terrain');
-  if (['run', 'bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Average speed', activity.avg_speed_mps, (v) => `${(v * 3.6).toFixed(1)} km/h`, 'Pace and terrain');
+  if (['bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Average speed', activity.avg_speed_mps, (v) => `${(v * 3.6).toFixed(1)} km/h`, 'Pace and terrain');
   if (activity.activity_type !== 'bonus' && activity.activity_type !== 'steps') {
     add('Average HR', activity.avg_hr, (v) => `${v} bpm`, 'Heart rate and energy');
     add('Max HR', activity.max_hr, (v) => `${v} bpm`, 'Heart rate and energy');

@@ -89,6 +89,7 @@ describe('StravaAdapter', () => {
     const parsed = page.activities[0]!;
     expect(parsed.providerActivityId).toBe('123456789');
     expect(canonicalActivityType(parsed)).toBe('run');
+    expect(parsed.isTrack).toBe(false);
     expect(stravaActivityFingerprint(parsed)).toMatch(/^[0-9a-f]{64}$/);
     expect(stravaActivityFingerprint({ ...parsed, distanceM: 9999, movingTimeS: 3000 })).toBe(stravaActivityFingerprint(parsed));
     expect(stravaActivityFingerprint({ ...parsed, providerActivityId: 'different' })).not.toBe(stravaActivityFingerprint(parsed));
@@ -126,6 +127,13 @@ describe('StravaAdapter', () => {
     expect(bundle?.resources.find((resource) => resource.resourceType === 'zones')).toEqual({
       resourceType: 'zones', availability: 'unavailable', httpStatus: 403, payload: null,
     });
+  });
+
+  it('recognizes Strava track runs as canonical runs', async () => {
+    const adapter = new StravaAdapter({ clientId: 'client', clientSecret: 'secret' }, new FakeTransport([{ status: 200, headers: {}, body: [{ ...activity, sport_type: 'TrackRun', workout_type: 0 }] }]));
+    const parsed = (await adapter.fetchActivityPage({ authorization, page: 1, perPage: 200 })).activities[0]!;
+    expect(canonicalActivityType(parsed)).toBe('run');
+    expect(parsed.isTrack).toBe(true);
   });
 
   it('classifies rate limits', async () => {

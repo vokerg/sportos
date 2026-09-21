@@ -34,7 +34,10 @@ databaseDescribe('canonical activities account isolation', () => {
     expect((await list(ownerA, { activityType: 'run', paceUnderSPerKm: 264, minDistanceM: 5000 })).items.map((item) => item.id)).toEqual([run]);
     expect((await list(ownerA, { activityType: 'bike', minAvgSpeedMps: 6 })).items.map((item) => item.id)).toEqual([bike]);
     expect((await list(ownerA, { activityType: 'bike', minAvgSpeedMps: 8 })).items).toEqual([]);
-    expect((await list(ownerA)).summary).toMatchObject({ count: 2, distanceM: 25000 });
+    expect((await list(ownerA)).summary).toMatchObject({ count: 2, distanceM: 25000, avgDistanceM: 12500, avgPaceSPerKm: null });
+    expect((await list(ownerA, { activityType: 'run' })).summary).toMatchObject({ count: 1, avgDistanceM: 5000, avgPaceSPerKm: 252 });
+    expect((await list(ownerA, { activityType: 'run', subtype: 'outdoor' })).items.map((item) => item.id)).toEqual([run]);
+    expect((await list(ownerA, { activityType: 'run', subtype: 'track' })).items).toEqual([]);
     expect(await withAccountContext(db, ownerA, (scoped) => new ActivitiesRepository(scoped).get(run))).toMatchObject({ id: run });
     expect(await withAccountContext(db, ownerA, (scoped) => new ActivitiesRepository(scoped).get(foreign))).toBeNull();
     expect(await withAccountContext(db, ownerB, (scoped) => new ActivitiesRepository(scoped).get(run))).toBeNull();
@@ -45,7 +48,7 @@ databaseDescribe('canonical activities account isolation', () => {
 
   async function insert(owner: string, type: 'run' | 'bike' | 'swim', source: 'strava' | 'manual' | 'garmin', date: string, distanceM: number) {
     return withAccountContext(db, owner, async (scoped) => (await scoped.insertInto('activities').values({
-      source, activity_type: type, activity_date: date, distance_m: distanceM, duration_s: 1800,
+      source, activity_type: type, subtype: type === 'run' ? 'outdoor' : null, activity_date: date, distance_m: distanceM, duration_s: 1800, moving_time_s: type === 'run' ? Math.round(distanceM / 1000 * 252) : 1800,
       avg_pace_s_per_km: type === 'run' ? 252 : type === 'swim' ? 1200 : null,
       avg_speed_mps: type === 'bike' ? 7 : null,
     }).returning('id').executeTakeFirstOrThrow()).id);

@@ -16,6 +16,7 @@ export const ActivitySubtypeSchema = z.enum([
   'outdoor',
   'indoor',
   'treadmill',
+  'track',
   'manual',
   'race',
   'unknown',

@@ -8,7 +8,7 @@ import { ActivitiesStore } from './activities.store';
 import type { ActivitiesApiService, ActivitiesResponse } from './activities-api.service';
 import { quickRangeDates } from './activity.view-model';
 
-const empty: ActivitiesResponse = { items: [], summary: { count: 0, durationS: 0, distanceM: 0 }, limit: 50, offset: 0 };
+const empty: ActivitiesResponse = { items: [], summary: { count: 0, durationS: 0, distanceM: 0, avgDistanceM: null, avgPaceSPerKm: null }, limit: 50, offset: 0 };
 
 describe('Activities pages', () => {
   it('defaults to Strava and the shared three-month quick range, with an empty result state', () => {
@@ -33,14 +33,15 @@ describe('Activities pages', () => {
   });
 
   it('sends only the selected sport filters and clears them when the sport changes', () => {
-    const params = new BehaviorSubject(convertToParamMap({ range: 'all', activityType: 'run', source: 'strava', paceUnderSPerKm: '252', minDistanceM: '5000' }));
+    const params = new BehaviorSubject(convertToParamMap({ range: 'all', activityType: 'run', subtype: 'track', source: 'strava', paceUnderSPerKm: '252', minDistanceM: '5000' }));
     const api = { list: vi.fn().mockReturnValue(of(empty)) };
     const store = new ActivitiesStore(api as unknown as ActivitiesApiService);
     const router = { navigate: vi.fn().mockResolvedValue(true) };
     const page = new ActivitiesPageComponent(store, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
     page.ngOnInit();
-    expect(api.list).toHaveBeenCalledWith({ activityType: 'run', source: 'strava', minDistanceM: 5000, paceUnderSPerKm: 252, limit: 50, offset: 0 });
+    expect(api.list).toHaveBeenCalledWith({ activityType: 'run', subtype: 'track', source: 'strava', minDistanceM: 5000, paceUnderSPerKm: 252, limit: 50, offset: 0 });
     page.setActivityType('bike'); page.minSpeedKmh.set(25);
+    expect(page.subtype()).toBe('');
     expect(page.paceUnderSPerKm()).toBe(0);
     page.apply({ preventDefault: vi.fn() } as unknown as Event);
     expect(router.navigate).toHaveBeenCalledWith(['/activities'], { queryParams: expect.objectContaining({ activityType: 'bike', paceUnderSPerKm: null, minSpeedKmh: 25 }) });

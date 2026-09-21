@@ -60,6 +60,7 @@ const workbookOverlap: ProviderActivity = {
   isIndoor: false,
   isPrivate: false,
   isRace: false,
+  isTrack: false,
   raw: { id: 1001, type: 'Run', distance: 10_000 },
 };
 
@@ -73,6 +74,7 @@ const providerOnly: ProviderActivity = {
   elapsedTimeS: 1500,
   movingTimeS: 1450,
   isRace: true,
+  isTrack: false,
   raw: { id: 1002, type: 'Run', distance: 5000 },
 };
 

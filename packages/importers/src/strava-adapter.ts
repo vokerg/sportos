@@ -202,7 +202,7 @@ export function stravaActivityFingerprint(activity: ProviderActivity): string {
 
 export function canonicalActivityType(activity: ProviderActivity): 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | null {
   const value = (activity.sportType ?? activity.type).replace(/[^A-Za-z]/g, '').toLowerCase();
-  if (['run', 'trailrun', 'virtualrun', 'wheelchair'].includes(value)) return 'run';
+  if (['run', 'trailrun', 'trackrun', 'virtualrun', 'wheelchair'].includes(value)) return 'run';
   if (['ride', 'mountainbikeride', 'gravelride', 'virtualride', 'ebikeride', 'velomobile'].includes(value)) return 'bike';
   if (value === 'swim') return 'swim';
   if (['rowing', 'virtualrowing'].includes(value)) return 'rowing';
@@ -236,6 +236,7 @@ function parseActivity(raw: Record<string, unknown>): ProviderActivity {
     isIndoor: raw.trainer === true || raw.indoor === true,
     isPrivate: raw.private === true,
     isRace: raw.workout_type === 1,
+    isTrack: (optionalText(raw.sport_type, 100) ?? '').replace(/[^A-Za-z]/g, '').toLowerCase() === 'trackrun',
     raw,
   };
 }

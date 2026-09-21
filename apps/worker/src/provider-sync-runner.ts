@@ -94,7 +94,7 @@ export class ProviderSyncRunner {
             batchId: requireBatch(batchId), connectionId: job.connectionId, providerActivityId: activity.providerActivityId,
             providerUpdatedAt: activity.providerUpdatedAt, identityFingerprint: stravaActivityFingerprint(activity), rawHash, raw,
             activity: {
-              activityDate: activity.localDate, startTime: activity.startDate, activityType: canonicalType, subtype: subtype(activity),
+              activityDate: activity.localDate, startTime: activity.startDate, activityType: canonicalType, subtype: providerActivitySubtype(activity),
               distanceM: finiteOrNull(activity.distanceM), durationS: finiteOrNull(activity.elapsedTimeS), movingTimeS: finiteOrNull(activity.movingTimeS),
               calories: integerOrNull(activity.calories), avgHr: integerOrNull(activity.averageHeartrate), maxHr: integerOrNull(activity.maxHeartrate),
               elevationGainM: finiteOrNull(activity.elevationGainM), avgSpeedMps: finiteOrNull(activity.averageSpeedMps),
@@ -172,7 +172,7 @@ function cursorObject(cursor: Json): Record<string, Json> { return typeof cursor
 function cursorPage(cursor: Json): number { const value = cursorObject(cursor).page; return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? Math.min(value, 100_000) : 1; }
 function cursorCount(cursor: Json, key: string): number { const value = cursorObject(cursor)[key]; return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0; }
 function cursorHighWatermark(cursor: Json): Date | null { const value = cursorObject(cursor).highWatermark; if (typeof value !== 'string') return null; const date = new Date(value); return Number.isFinite(date.getTime()) ? date : null; }
-function subtype(activity: ProviderActivity): 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown' { if (activity.isManual) return 'manual'; if (activity.isRace) return 'race'; if (activity.isIndoor && canonicalActivityType(activity) === 'run') return 'treadmill'; return activity.isIndoor ? 'indoor' : 'outdoor'; }
+export function providerActivitySubtype(activity: ProviderActivity): 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown' { if (activity.isManual) return 'manual'; if (activity.isRace) return 'race'; if (activity.isTrack && canonicalActivityType(activity) === 'run') return 'track'; if (activity.isIndoor && canonicalActivityType(activity) === 'run') return 'treadmill'; return activity.isIndoor ? 'indoor' : 'outdoor'; }
 function pace(activity: ProviderActivity): number | null { const duration = activity.movingTimeS ?? activity.elapsedTimeS; return activity.distanceM !== null && duration !== null && activity.distanceM > 0 && duration >= 0 ? duration / (activity.distanceM / 1000) : null; }
 function finiteOrNull(value: number | null): number | null { return value !== null && Number.isFinite(value) && value >= 0 ? value : null; }
 export function integerOrNull(value: number | null): number | null { const finite = finiteOrNull(value); return finite === null ? null : Math.round(finite); }
