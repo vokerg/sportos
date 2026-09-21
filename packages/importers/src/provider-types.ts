@@ -26,7 +26,7 @@ export interface ProviderActivity {
   providerActivityId: string; providerUpdatedAt: Date | null; name: string | null; type: string; sportType: string | null;
   startDate: Date; localDate: string; timezone: string | null; distanceM: number | null; elapsedTimeS: number | null;
   movingTimeS: number | null; elevationGainM: number | null; averageHeartrate: number | null; maxHeartrate: number | null;
-  averageSpeedMps: number | null; calories: number | null; isManual: boolean; isIndoor: boolean; isPrivate: boolean; isRace: boolean;
+  averageSpeedMps: number | null; calories: number | null; isManual: boolean; isIndoor: boolean; isPrivate: boolean; isRace: boolean; isTrack: boolean;
   raw: Record<string, unknown>;
 }
 export interface ActivityPage { activities: ProviderActivity[]; rawActivities: Record<string, unknown>[]; rateLimit: ProviderRateLimit; }

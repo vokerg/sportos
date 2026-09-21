@@ -1,7 +1,7 @@
 import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { Activity } from './activities-api.service';
-import { metrics, startTime, title } from './activity.view-model';
+import { metrics, startTime, subtypeLabel, title } from './activity.view-model';
 
 @Component({
   selector: 'sportos-activity-list', standalone: true, imports: [RouterLink],
@@ -9,7 +9,7 @@ import { metrics, startTime, title } from './activity.view-model';
     <div class="activity-list">
       @for (activity of activities(); track activity.id) {
         <a class="card activity" [routerLink]="['/activity', activity.id]">
-          <div class="heading"><strong>{{ title(activity) }} @if (activity.subtype && activity.subtype !== 'unknown') { <small>· {{ activity.subtype }}</small> }</strong><span>{{ activity.activity_date }} @if (startTime(activity.start_time)) { · {{ startTime(activity.start_time) }} }</span></div>
+          <div class="heading"><strong>{{ title(activity) }} @if (activity.subtype && activity.subtype !== 'unknown') { <small>· {{ subtypeLabel(activity.subtype) }}</small> }</strong><span>{{ activity.activity_date }} @if (startTime(activity.start_time)) { · {{ startTime(activity.start_time) }} }</span></div>
           <div class="source">{{ activity.source.replaceAll('_', ' ') }}</div>
           @if (activity.source === 'strava' && activity.notes) { <div class="description">{{ activity.notes }}</div> }
           <div class="metrics">@for (metric of metrics(activity); track metric.label) { <span><b>{{ metric.value }}</b><small>{{ metric.label }}</small></span> }</div>
@@ -34,4 +34,5 @@ export class ActivityListComponent {
   readonly metrics = metrics;
   readonly startTime = startTime;
   readonly title = title;
+  readonly subtypeLabel = subtypeLabel;
 }

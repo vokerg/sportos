@@ -9,7 +9,7 @@ export type ActivityType =
   | 'hiit'
   | 'bonus';
 
-export type ActivitySubtype = 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown';
+export type ActivitySubtype = 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown';
 
 export type DailyScoreStatus = 'imported' | 'calculated' | 'manual';
 

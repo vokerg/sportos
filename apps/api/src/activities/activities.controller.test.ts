@@ -13,7 +13,7 @@ describe('ActivitiesController', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('lists with bounded defaults and validated type, date, and source filters in account context', async () => {
-    const list = vi.spyOn(ActivitiesRepository.prototype, 'list').mockResolvedValue({ items: [], summary: { count: 0, durationS: 0, distanceM: 0 }, limit: 50, offset: 0 });
+    const list = vi.spyOn(ActivitiesRepository.prototype, 'list').mockResolvedValue({ items: [], summary: { count: 0, durationS: 0, distanceM: 0, avgDistanceM: null, avgPaceSPerKm: null }, limit: 50, offset: 0 });
     const { controller, withAccount } = createController();
     await controller.list({}, account);
     expect(list).toHaveBeenCalledWith({ limit: 50, offset: 0 });
@@ -31,12 +31,16 @@ describe('ActivitiesController', () => {
       { activityType: 'bike', paceUnderSPerKm: '252' },
       { activityType: 'swim', swimPaceUnderSPer100m: 'Infinity' },
       { minDistanceM: '5000' },
+      { activityType: 'bike', subtype: 'outdoor' },
+      { activityType: 'run', subtype: 'indoor' },
     ]) expect(() => parseActivitiesQuery(query)).toThrow(BadRequestException);
   });
 
   it('accepts bounded canonical sport filters only with their matching type', () => {
     expect(parseActivitiesQuery({ activityType: 'run', minDistanceM: '5000', paceUnderSPerKm: '252' }))
       .toMatchObject({ activityType: 'run', minDistanceM: 5000, paceUnderSPerKm: 252 });
+    expect(parseActivitiesQuery({ activityType: 'run', subtype: 'track' }))
+      .toMatchObject({ activityType: 'run', subtype: 'track' });
     expect(parseActivitiesQuery({ activityType: 'bike', minDistanceM: '20000', minAvgSpeedMps: '6.25' }))
       .toMatchObject({ activityType: 'bike', minDistanceM: 20000, minAvgSpeedMps: 6.25 });
     expect(parseActivitiesQuery({ activityType: 'swim', swimPaceUnderSPer100m: '120' }))

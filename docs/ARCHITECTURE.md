@@ -140,6 +140,7 @@ See [ADR 0005](adr/0005-authentication-and-data-ownership.md), [ADR 0007](adr/00
 - V117 preserves the strict V114 bike rule as a disabled immutable version, accepts a bounded 0.1 km/h tolerance around the 20 km/h target, and atomically recomputes calculated affected scores with the replacement rule UUID.
 - V118 makes `bonus_points` the sole current daily bonus value, reclassifies imported manual bonuses without changing their authoritative totals, migrates canonical bonus activities and current snapshot facts, versions the manual bonus rule, and removes the duplicate `power_points` column.
 - V119 adds manual Garmin CSV as an upload kind plus owner-scoped `garmin_observations`, forced RLS, same-owner raw provenance, overlap-safe identities, and dispatcher privilege assertions. It does not change canonical or score tables.
+- V122 adds the canonical `track` run subtype so Strava TrackRun activities remain filterable without changing scoring authority.
 
 Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance. Analysis adds audit metadata only and does not rewrite canonical or scoring rows.
 

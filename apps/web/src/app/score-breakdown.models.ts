@@ -55,7 +55,7 @@ export interface ScoreBreakdownActivity {
   activityDate: string;
   startTime: string | null;
   activityType: ActivityType;
-  subtype: 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown' | null;
+  subtype: 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown' | null;
   distanceM: number | null;
   durationS: number | null;
   movingTimeS: number | null;
@@ -76,7 +76,7 @@ export interface ScoreBreakdownRule {
   code: string;
   name: string;
   activityType: ActivityType;
-  activitySubtype?: 'outdoor' | 'indoor' | 'treadmill' | 'manual' | 'race' | 'unknown' | null;
+  activitySubtype?: 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown' | null;
   ruleKind: 'coefficient' | 'achievement' | 'manual_points';
   metric: string;
   coefficient: number | null;

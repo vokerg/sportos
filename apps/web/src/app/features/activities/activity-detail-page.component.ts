@@ -3,7 +3,7 @@ import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ActivitiesApiService, type ActivityDetail } from './activities-api.service';
-import { metricGroups, startTime, title } from './activity.view-model';
+import { metricGroups, startTime, subtypeLabel, title } from './activity.view-model';
 
 @Component({
   selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink],
@@ -13,7 +13,7 @@ import { metricGroups, startTime, title } from './activity.view-model';
     @else if (state() === 'error') { <section class="card" role="alert">Could not load this activity. <button type="button" (click)="load()">Try again</button></section> }
     @else if (state() === 'missing') { <section class="card">Activity not found.</section> }
     @else { @if (activity(); as item) {
-      <header><span class="page-kicker">Canonical activity</span><h1>{{ title(item) }} @if (item.subtype && item.subtype !== 'unknown') { <small>· {{ item.subtype }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
+      <header><span class="page-kicker">Canonical activity</span><h1>{{ title(item) }} @if (item.subtype && item.subtype !== 'unknown') { <small>· {{ subtypeLabel(item.subtype) }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
         @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
       </header>
       <div class="metric-sections">@for (group of metricGroups(item); track group.title) {
@@ -77,7 +77,7 @@ export class ActivityDetailPageComponent implements OnInit, OnDestroy {
   readonly providerJson = signal<string | null>(null);
   readonly providerFetchedAt = signal<string | null>(null);
   readonly providerCacheStatus = signal<'hit' | 'miss' | null>(null);
-  readonly metricGroups = metricGroups; readonly startTime = startTime; readonly title = title;
+  readonly metricGroups = metricGroups; readonly startTime = startTime; readonly subtypeLabel = subtypeLabel; readonly title = title;
   private id = ''; private routeSubscription?: Subscription; private requestSubscription?: Subscription; private sourceSubscription?: Subscription; private providerSubscription?: Subscription;
   constructor(private readonly api: ActivitiesApiService, private readonly route: ActivatedRoute) {}
   ngOnInit(): void { this.routeSubscription = this.route.paramMap.subscribe((params) => { this.id = params.get('id') ?? ''; this.load(); }); }
