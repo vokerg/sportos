@@ -1,6 +1,6 @@
 import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderApiService } from '../data-access/provider-api.service';
 import type { ProviderConnection, ProviderSyncJob } from '../model/provider.models';
@@ -73,6 +73,30 @@ describe('ProviderStore', () => {
     expect(store.job()?.status).toBe('succeeded');
     expect(store.state()).toBe('ready');
     expect(store.pollingPaused()).toBe(false);
+    store.ngOnDestroy();
+  });
+
+  it('cancels a stale post-terminal connection refresh when a newer load replaces it', async () => {
+    vi.useFakeTimers();
+    const staleRefresh = new Subject<ProviderConnection[]>();
+    const api = createApi();
+    api.connections
+      .mockReturnValueOnce(of([connection]))
+      .mockReturnValueOnce(staleRefresh.asObservable())
+      .mockReturnValueOnce(of([]));
+    api.syncJob.mockReturnValue(of(succeededJob));
+    const store = new ProviderStore(api as unknown as ProviderApiService);
+
+    store.initialize();
+    await vi.runAllTimersAsync();
+
+    expect(api.connections).toHaveBeenCalledTimes(2);
+
+    store.load();
+
+    expect(store.connection()).toBeNull();
+    staleRefresh.next([connection]);
+    expect(store.connection()).toBeNull();
     store.ngOnDestroy();
   });
 
