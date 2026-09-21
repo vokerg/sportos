@@ -226,7 +226,7 @@ The Daily Log implementation is the reference pattern for migrating an existing 
 - the store consumes `core/jobs/durable-job-poller.ts` for the bounded Strava job lifecycle and cancels active requests/polls on replacement or teardown;
 - state-layer tests own workflow/cancellation coverage; page tests should stay focused on composition, intent forwarding, and navigation.
 
-The Daily store consumes `features/daily/data-access/daily-api.service.ts` for summary transport plus the focused `ScoreBreakdownApiService` and `ProviderApiService` clients for workflows not yet migrated into their own feature slices. Do not use those focused root services as precedent for a new catch-all service. The reusable pattern is the route-scoped state boundary and the page -> state -> feature data-access dependency direction.
+The Daily store consumes `features/daily/data-access/daily-api.service.ts` for summary transport, the transitional focused `ScoreBreakdownApiService`, and the root `ProviderApiService` compatibility export that now forwards to `features/providers/data-access/`. Do not use compatibility exports or focused transitional clients as precedent for a new catch-all service. The reusable pattern is the route-scoped state boundary and the page -> state -> feature data-access dependency direction.
 
 ### Providers and Imports feature-state reference
 
@@ -234,10 +234,10 @@ Issue #78 establishes the same orchestration boundary for the provider and impor
 
 - `features/providers/state/provider.store.ts` owns connection loading, latest-job recovery, sync/retry/cancel/disconnect state, normalized errors, and bounded provider-job polling through `core/jobs/durable-job-poller.ts`;
 - `provider-panel.component.ts` is the route component and provides `ProviderStore`; it renders store state and owns only the browser OAuth redirect side effect;
-- provider transport and contracts live under `features/providers/data-access/` and `features/providers/model/`; the root `provider-api.service.ts` export is a compatibility shim for transitional consumers such as Daily and is not a location for new provider API methods;
+- provider transport and HTTP-error normalization live under `features/providers/data-access/`, while provider contracts and pure state predicates live under `features/providers/model/`; the root `provider-api.service.ts` export is a compatibility shim for transitional consumers such as Daily and is not a location for new provider API methods;
 - `features/imports/state/imports.store.ts` owns upload progress, active-job polling, cancellation/retry, history, selected-batch detail, diagnostic pagination, and normalized workflow errors;
 - `imports-page.component.ts` scopes `ImportsStore` to the route, while `import-panel.component.ts` renders state and forwards upload/history/detail intents;
-- import transport and workflow helpers live under `features/imports/data-access/` and `features/imports/model/`; the root import-workflow view-model export is compatibility-only.
+- import transport and HTTP-error normalization live under `features/imports/data-access/`; pure workflow/view-model helpers live under `features/imports/model/`; the root import-workflow view-model export is compatibility-only.
 
 Use this pattern when a feature coordinates durable jobs, replacement/cancellation, dependent requests, or shared loading/error state. Feature stores may depend on their own model/data-access code plus generic `core/` infrastructure; they must not import components or reach into another feature's internals.
 
