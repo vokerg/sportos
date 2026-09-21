@@ -124,6 +124,7 @@ export class ProviderStore implements OnDestroy {
     const job = this.job();
     if (!job || !isActiveProviderJob(job)) return;
 
+    this.stopJobPolling();
     this.stopTerminalRefresh();
     this.actionSubscription?.unsubscribe();
     this.actionSubscription = this.api.cancelSync(job.id).subscribe({
