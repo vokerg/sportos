@@ -29,27 +29,19 @@ export function createDb(databaseUrl = process.env.DATABASE_URL): Kysely<Databas
 
 export function resolveActivityDetailDatabaseUrl(): string {
   loadEnvFromNearestFile();
-  const explicit = process.env.SPORTOS_ACTIVITY_DETAIL_DATABASE_URL?.trim();
-  if (explicit) return explicit;
-
-  const databaseName = process.env.SPORTOS_ACTIVITY_DETAIL_DATABASE_NAME?.trim();
-  const primaryUrl = process.env.DATABASE_URL?.trim();
-  if (!databaseName || !primaryUrl) {
-    throw new Error('SPORTOS_ACTIVITY_DETAIL_DATABASE_URL or SPORTOS_ACTIVITY_DETAIL_DATABASE_NAME with DATABASE_URL is required.');
-  }
-  return databaseUrlForName(primaryUrl, databaseName);
+  return requiredActivityDetailDatabaseUrl(process.env.SPORTOS_ACTIVITY_DETAIL_DATABASE_URL);
 }
 
-export function databaseUrlForName(databaseUrl: string, databaseName: string): string {
-  if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(databaseName)) {
-    throw new Error('Database name must be a simple PostgreSQL identifier.');
+export function requiredActivityDetailDatabaseUrl(value: string | undefined): string {
+  const databaseUrl = value?.trim();
+  if (!databaseUrl) {
+    throw new Error('SPORTOS_ACTIVITY_DETAIL_DATABASE_URL is required and must point to the separate activity-detail project.');
   }
   const url = new URL(databaseUrl);
   if (!['postgres:', 'postgresql:'].includes(url.protocol)) {
-    throw new Error('Database URL must use PostgreSQL.');
+    throw new Error('SPORTOS_ACTIVITY_DETAIL_DATABASE_URL must use PostgreSQL.');
   }
-  url.pathname = `/${databaseName}`;
-  return url.toString();
+  return databaseUrl;
 }
 
 export function loadEnvFromNearestFile(startDir = process.cwd()): void {

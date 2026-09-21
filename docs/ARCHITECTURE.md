@@ -141,6 +141,7 @@ See [ADR 0005](adr/0005-authentication-and-data-ownership.md), [ADR 0007](adr/00
 - V118 makes `bonus_points` the sole current daily bonus value, reclassifies imported manual bonuses without changing their authoritative totals, migrates canonical bonus activities and current snapshot facts, versions the manual bonus rule, and removes the duplicate `power_points` column.
 - V119 adds manual Garmin CSV as an upload kind plus owner-scoped `garmin_observations`, forced RLS, same-owner raw provenance, overlap-safe identities, and dispatcher privilege assertions. It does not change canonical or score tables.
 - V122 adds the canonical `track` run subtype so Strava TrackRun activities remain filterable without changing scoring authority.
+- V123 removes the derived provider-detail cache from the primary database after it is provisioned in the separate activity-detail database; canonical identity and credentials remain primary and the cache remains rebuildable.
 
 Existing upload, batch, source-record, canonical, performance-event, rule, audit, daily, and ledger UUIDs are preserved during ownership backfill. Provider ingestion adds links rather than rewriting pre-existing workbook provenance. Analysis adds audit metadata only and does not rewrite canonical or scoring rows.
 
@@ -203,15 +204,16 @@ When linking an existing workbook/manual fact, its source fields, values, and pr
 ### Lazy provider-detail storage boundary
 
 The canonical/provider reference and encrypted credentials remain in the primary
-database. Opening a linked activity detail page validates that reference under
-the authenticated account context, then reads or writes the derived
-provider-detail resource rows through a separate account-context-bound
-connection. The dedicated database uses forced RLS keyed by the same
-sportos.account_id setting, grants access only to sportos_app, and has no
-cross-database foreign keys. Detail resources are bounded, versioned by the
-latest retained provider summary hash, and safe to rebuild on a cache miss.
-The resource-oriented schema is provider-neutral even though the current API
-adapter is Strava-only.
+Neon project. Opening a linked activity detail page validates that reference
+under the authenticated account context, then reads or writes the derived
+provider-detail resource rows through an explicit connection to a separate Neon
+project. The supporting project has its own schema-owner and non-owner
+`sportos_app` role, uses forced RLS keyed by the same `sportos.account_id`
+setting, and has no cross-project foreign keys. Its URLs and credentials are
+never derived from or shared with the primary project. Detail resources are
+bounded, versioned by the latest retained provider summary hash, and safe to
+rebuild on a cache miss. The resource-oriented schema is provider-neutral even
+though the current API adapter is Strava-only.
 
 ### Rule versions and recomputation
 

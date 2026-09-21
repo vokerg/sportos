@@ -68,21 +68,26 @@ CREATE TRIGGER reject_owner_change BEFORE UPDATE OF owner_id ON activity_provide
 REVOKE ALL ON DATABASE sportos_activity_detail FROM PUBLIC;
 GRANT CONNECT ON DATABASE sportos_activity_detail TO sportos_app;
 
-REVOKE ALL ON TABLE activity_provider_resources
-  FROM PUBLIC, sportos_data, sportos_legacy, sportos_worker, sportos_worker_data, sportos_app;
+REVOKE ALL ON TABLE activity_provider_resources FROM PUBLIC, sportos_app;
 GRANT SELECT, INSERT, UPDATE ON TABLE activity_provider_resources TO sportos_app;
 GRANT USAGE ON SCHEMA public TO sportos_app;
 GRANT EXECUTE ON FUNCTION sportos_activity_detail_current_account_id() TO sportos_app;
 
 DO $$
+DECLARE
+  runtime_role text;
 BEGIN
   IF NOT has_table_privilege('sportos_app', 'activity_provider_resources', 'SELECT, INSERT, UPDATE') THEN
     RAISE EXCEPTION 'sportos_app must operate the owner-scoped activity provider detail cache';
   END IF;
-  IF has_table_privilege('sportos_worker', 'activity_provider_resources', 'SELECT')
-     OR has_table_privilege('sportos_worker_data', 'activity_provider_resources', 'SELECT')
-     OR has_table_privilege('sportos_legacy', 'activity_provider_resources', 'SELECT') THEN
-    RAISE EXCEPTION 'non-API runtime roles must not read activity provider detail cache';
-  END IF;
+  FOR runtime_role IN
+    SELECT rolname FROM pg_roles
+    WHERE rolname IN ('sportos_data', 'sportos_worker', 'sportos_worker_data', 'sportos_legacy')
+  LOOP
+    EXECUTE format('REVOKE ALL ON TABLE activity_provider_resources FROM %I', runtime_role);
+    IF has_table_privilege(runtime_role, 'activity_provider_resources', 'SELECT') THEN
+      RAISE EXCEPTION 'non-API runtime role % must not read activity provider detail cache', runtime_role;
+    END IF;
+  END LOOP;
 END
 $$;

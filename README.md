@@ -24,7 +24,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Run initial backfills and incremental synchronization through durable provider jobs.
 - Refresh rotating credentials server-side and resume safely across pagination, retries, rate limits, cancellation, and stale leases.
 - Persist bounded raw provider snapshots before normalization.
-- Lazily fetch and owner-scope full provider detail resources in the dedicated activity-detail database, while keeping provider identity and credentials in the primary database.
+- Lazily fetch and owner-scope full provider detail resources in a separate Neon project, while keeping provider identity and credentials in the primary project.
 - Use provider-native identity first, then apply a conservative exact/no-match/ambiguous cross-source policy.
 - Preserve existing workbook provenance when one exact Strava activity matches an existing canonical activity.
 - Retain unsupported or ambiguous provider records with warnings instead of guessing or discarding them.
@@ -171,7 +171,7 @@ pnpm db:migrate
 pnpm db:migrate:activity-detail
 ```
 
-Before `pnpm db:migrate`, set the three Neon migration variables from `.env.example`: `SPORTOS_FLYWAY_URL`, `SPORTOS_FLYWAY_USER`, and `SPORTOS_FLYWAY_PASSWORD`, plus the runtime URLs for `sportos_app`, `sportos_worker`, `sportos_worker_data`, and `sportos_legacy`. The migration identity is separate from every runtime identity. `pnpm db:migrate` applies the append-only SQL in `flyway/sql` to that Neon branch.
+Before `pnpm db:migrate`, set the three Neon migration variables from `.env.example`: `SPORTOS_FLYWAY_URL`, `SPORTOS_FLYWAY_USER`, and `SPORTOS_FLYWAY_PASSWORD`, plus the runtime URLs for `sportos_app`, `sportos_worker`, `sportos_worker_data`, and `sportos_legacy`. Configure all four `SPORTOS_ACTIVITY_DETAIL_*` values against a separate Neon project before running `pnpm db:migrate:activity-detail`; neither runtime nor migration credentials are shared with the primary project. The migration identities are separate from every runtime identity.
 
 SportOS uses API/web ports `3010`/`4210` by default. Neon is the only PostgreSQL service; all connections use the Neon URLs configured in `.env`.
 

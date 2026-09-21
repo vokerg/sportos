@@ -19,17 +19,19 @@ if (!supportedCommands.has(command)) {
 }
 
 const databaseUrl = activityDetail
-  ? process.env.SPORTOS_ACTIVITY_DETAIL_FLYWAY_URL?.trim() || derivedDatabaseUrl()
+  ? process.env.SPORTOS_ACTIVITY_DETAIL_FLYWAY_URL?.trim()
   : process.env.SPORTOS_FLYWAY_URL?.trim() || process.env.FLYWAY_URL?.trim();
 const user = activityDetail
-  ? process.env.SPORTOS_ACTIVITY_DETAIL_FLYWAY_USER?.trim() || process.env.SPORTOS_FLYWAY_USER?.trim() || process.env.FLYWAY_USER?.trim()
+  ? process.env.SPORTOS_ACTIVITY_DETAIL_FLYWAY_USER?.trim()
   : process.env.SPORTOS_FLYWAY_USER?.trim() || process.env.FLYWAY_USER?.trim();
 const password = activityDetail
-  ? process.env.SPORTOS_ACTIVITY_DETAIL_FLYWAY_PASSWORD ?? process.env.SPORTOS_FLYWAY_PASSWORD ?? process.env.FLYWAY_PASSWORD
+  ? process.env.SPORTOS_ACTIVITY_DETAIL_FLYWAY_PASSWORD
   : process.env.SPORTOS_FLYWAY_PASSWORD ?? process.env.FLYWAY_PASSWORD;
 
 if (!databaseUrl || !user || !password) {
-  console.error('Neon schema-owner migration settings are required: SPORTOS_FLYWAY_URL, SPORTOS_FLYWAY_USER, and SPORTOS_FLYWAY_PASSWORD.');
+  console.error(activityDetail
+    ? 'Separate activity-detail schema-owner settings are required: SPORTOS_ACTIVITY_DETAIL_FLYWAY_URL, SPORTOS_ACTIVITY_DETAIL_FLYWAY_USER, and SPORTOS_ACTIVITY_DETAIL_FLYWAY_PASSWORD.'
+    : 'Neon schema-owner migration settings are required: SPORTOS_FLYWAY_URL, SPORTOS_FLYWAY_USER, and SPORTOS_FLYWAY_PASSWORD.');
   process.exit(1);
 }
 assertNeonDatabaseUrl(databaseUrl);
@@ -61,24 +63,6 @@ process.exit(result.status ?? 1);
 
 function toJdbcUrl(value) {
   return value.startsWith('jdbc:') ? value : `jdbc:${value}`;
-}
-
-function derivedDatabaseUrl() {
-  const primaryUrl = process.env.SPORTOS_FLYWAY_URL?.trim()
-    || process.env.FLYWAY_URL?.trim()
-    || process.env.DATABASE_URL?.trim();
-  const databaseName = process.env.SPORTOS_ACTIVITY_DETAIL_DATABASE_NAME?.trim();
-  if (!primaryUrl || !databaseName) {
-    console.error('Dedicated activity-detail migration settings require SPORTOS_ACTIVITY_DETAIL_FLYWAY_URL or DATABASE_URL plus SPORTOS_ACTIVITY_DETAIL_DATABASE_NAME.');
-    process.exit(1);
-  }
-  if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(databaseName)) {
-    console.error('SPORTOS_ACTIVITY_DETAIL_DATABASE_NAME must be a simple PostgreSQL identifier.');
-    process.exit(1);
-  }
-  const url = new URL(primaryUrl);
-  url.pathname = `/${databaseName}`;
-  return url.toString();
 }
 
 function assertNeonDatabaseUrl(value) {

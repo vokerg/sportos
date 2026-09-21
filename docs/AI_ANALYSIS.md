@@ -139,8 +139,8 @@ Stored audit metadata is limited to the SHA-256 question hash, tool/date input s
 
 The root CI includes:
 
-- fresh migration through V122;
-- populated V105-to-V122 upgrade;
+- fresh migration through V123;
+- populated V105-to-V123 upgrade;
 - typecheck and all unit/UI tests;
 - dedicated cross-account analysis integration;
 - existing database/worker/importer integrations; and
