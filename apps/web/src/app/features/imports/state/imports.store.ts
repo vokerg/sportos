@@ -127,6 +127,9 @@ export class ImportsStore implements OnDestroy {
     this.actionSubscription?.unsubscribe();
     this.actionSubscription = this.api.cancelImportJob(job.id).subscribe({
       next: (updated) => {
+        const current = this.activeJob();
+        if (current?.id === job.id && isTerminalImportJob(current)) return;
+
         this.activeJob.set(updated);
         if (isTerminalImportJob(updated)) {
           this.handleTerminalJob(updated);
@@ -136,6 +139,9 @@ export class ImportsStore implements OnDestroy {
         this.monitorJob(updated.id);
       },
       error: (error: unknown) => {
+        const current = this.activeJob();
+        if (current?.id === job.id && isTerminalImportJob(current)) return;
+
         this.importState.set('error');
         this.importMessage.set(describeImportRequestError(error, 'The import job could not be cancelled.'));
       },
