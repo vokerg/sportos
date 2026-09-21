@@ -2,8 +2,8 @@ import { computed, Injectable, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { pollDurableJob } from '../../../core/jobs/durable-job-poller';
 import { ProviderApiService } from '../data-access/provider-api.service';
+import { describeProviderError } from '../data-access/provider-errors';
 import {
-  describeProviderError,
   isActiveProviderJob,
   isTerminalProviderJob,
   type ProviderConnection,
@@ -44,12 +44,13 @@ export class ProviderStore implements OnDestroy {
     this.connectionSubscription?.unsubscribe();
     this.recoverySubscription?.unsubscribe();
     this.actionSubscription?.unsubscribe();
-    this.jobPollingSubscription?.unsubscribe();
-    this.terminalRefreshSubscription?.unsubscribe();
+    this.stopJobPolling();
+    this.stopTerminalRefresh();
   }
 
   load(): void {
     this.stopJobPolling();
+    this.stopTerminalRefresh();
     this.pollingPaused.set(false);
     this.state.set('loading');
     this.errorMessage.set(null);
@@ -69,6 +70,7 @@ export class ProviderStore implements OnDestroy {
   }
 
   connect(redirect: (authorizationUrl: string) => void): void {
+    this.stopTerminalRefresh();
     this.state.set('working');
     this.errorMessage.set(null);
     this.actionSubscription?.unsubscribe();
@@ -82,6 +84,7 @@ export class ProviderStore implements OnDestroy {
     const connection = this.connection();
     if (!connection) return;
 
+    this.stopTerminalRefresh();
     this.state.set('working');
     this.errorMessage.set(null);
     this.pollingPaused.set(false);
@@ -101,6 +104,7 @@ export class ProviderStore implements OnDestroy {
     const job = this.job();
     if (!job || job.status !== 'failed') return;
 
+    this.stopTerminalRefresh();
     this.state.set('working');
     this.errorMessage.set(null);
     this.pollingPaused.set(false);
@@ -120,6 +124,7 @@ export class ProviderStore implements OnDestroy {
     const job = this.job();
     if (!job || !isActiveProviderJob(job)) return;
 
+    this.stopTerminalRefresh();
     this.actionSubscription?.unsubscribe();
     this.actionSubscription = this.api.cancelSync(job.id).subscribe({
       next: (updated) => {
@@ -144,6 +149,7 @@ export class ProviderStore implements OnDestroy {
     if (!connection) return;
 
     this.stopJobPolling();
+    this.stopTerminalRefresh();
     this.state.set('working');
     this.errorMessage.set(null);
     this.recoverySubscription?.unsubscribe();
@@ -210,7 +216,7 @@ export class ProviderStore implements OnDestroy {
   }
 
   private refreshConnectionAfterTerminal(): void {
-    this.terminalRefreshSubscription?.unsubscribe();
+    this.stopTerminalRefresh();
     this.terminalRefreshSubscription = this.api.connections().subscribe({
       next: (connections) => this.setConnections(connections),
     });
@@ -228,8 +234,14 @@ export class ProviderStore implements OnDestroy {
     this.jobPollingSubscription = undefined;
   }
 
+  private stopTerminalRefresh(): void {
+    this.terminalRefreshSubscription?.unsubscribe();
+    this.terminalRefreshSubscription = undefined;
+  }
+
   private fail(error: unknown, fallback: string): void {
     this.stopJobPolling();
+    this.stopTerminalRefresh();
     this.errorMessage.set(describeProviderError(error, fallback));
     this.state.set('error');
   }
