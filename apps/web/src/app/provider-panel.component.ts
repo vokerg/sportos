@@ -83,4 +83,4 @@ export class ProviderPanelComponent implements OnInit {
   }
 }
 
-export { describeProviderError as describeError } from './features/providers/model/provider.models';
+export { describeProviderError as describeError } from './features/providers/data-access/provider-errors';
