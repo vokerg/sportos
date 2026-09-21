@@ -3,6 +3,7 @@ import { computed, Injectable, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { pollDurableJob } from '../../../core/jobs/durable-job-poller';
 import { ImportsApiService } from '../data-access/imports-api.service';
+import { describeImportRequestError, describeImportUploadError } from '../data-access/import-errors';
 import type {
   ImportBatchDetail,
   ImportBatchHistoryItem,
@@ -10,8 +11,6 @@ import type {
   UploadWorkbookKind,
 } from '../model/imports.models';
 import {
-  describeImportRequestError,
-  describeImportUploadError,
   importJobSuccessMessage,
   isActiveImportJob,
   isTerminalImportJob,
