@@ -121,6 +121,18 @@ describe('ImportsStore', () => {
     store.ngOnDestroy();
   });
 
+  it('rejects import submission without a selected file', () => {
+    const api = createApi();
+    const store = new ImportsStore(api as unknown as ImportsApiService);
+
+    expect(store.startImport()).toBe(false);
+
+    expect(api.uploadWorkbook).not.toHaveBeenCalled();
+    expect(store.importState()).toBe('error');
+    expect(store.importMessage()).toContain('Choose a supported import file');
+    store.ngOnDestroy();
+  });
+
   it('tracks upload progress separately and follows the durable job to success', async () => {
     vi.useFakeTimers();
     const api = createApi();
@@ -187,6 +199,31 @@ describe('ImportsStore', () => {
 
     expect(api.retryImportJob).toHaveBeenCalledWith(failed.id);
     expect(store.activeJob()?.status).toBe('succeeded');
+    store.ngOnDestroy();
+  });
+
+  it('loads selected batch details and appends bounded diagnostic pages', () => {
+    const firstPage = { ...detail, diagnosticTotal: 2 };
+    const secondDiagnostic = {
+      ...detail.diagnostics[0]!,
+      code: 'COLUMN_IGNORED',
+      message: 'Ignored unknown column.',
+      sheetName: null,
+      rowIndex: null,
+    };
+    const api = createApi();
+    api.importBatchDetail
+      .mockReturnValueOnce(of(firstPage))
+      .mockReturnValueOnce(of({ ...detail, diagnostics: [secondDiagnostic], diagnosticTotal: 2, diagnosticOffset: 1 }));
+    const store = new ImportsStore(api as unknown as ImportsApiService);
+
+    store.selectBatch(batch);
+    store.loadMoreDiagnostics();
+
+    expect(api.importBatchDetail).toHaveBeenNthCalledWith(1, batch.id, 100, 0);
+    expect(api.importBatchDetail).toHaveBeenNthCalledWith(2, batch.id, 100, 1);
+    expect(store.detail()?.diagnostics).toHaveLength(2);
+    expect(store.hasMoreDiagnostics()).toBe(false);
     store.ngOnDestroy();
   });
 
