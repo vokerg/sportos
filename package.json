@@ -15,6 +15,8 @@
     "clean": "tsc -b --clean && pnpm -r exec rm -rf dist",
     "db:migrate": "node scripts/flyway.mjs migrate",
     "db:info": "node scripts/flyway.mjs info",
+    "db:info:activity-detail": "node scripts/flyway.mjs --activity-detail info",
+    "db:migrate:activity-detail": "node scripts/flyway.mjs --activity-detail migrate",
     "import:local": "pnpm --filter @sportos/worker import:local"
   },
   "devDependencies": {

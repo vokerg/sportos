@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Database, Json } from '../schema.js';
 
 export const ACTIVITY_PROVIDER_RESOURCE_TYPES = ['detail', 'streams', 'laps', 'zones'] as const;
@@ -89,7 +89,7 @@ export class ActivityProviderResourcesRepository {
           http_status: resource.httpStatus,
           provider_version: reference.providerVersion,
           fetched_at: fetchedAt,
-          payload_json: resource.payload,
+          payload_json: jsonb(resource.payload),
         }).onConflict((oc) => oc
           .columns(['owner_id', 'activity_id', 'provider', 'provider_activity_id', 'resource_type'])
           .doUpdateSet({
@@ -97,11 +97,15 @@ export class ActivityProviderResourcesRepository {
             http_status: resource.httpStatus,
             provider_version: reference.providerVersion,
             fetched_at: fetchedAt,
-            payload_json: resource.payload,
+            payload_json: jsonb(resource.payload),
             updated_at: fetchedAt,
           }))
           .execute();
       }
     });
   }
+}
+
+function jsonb(value: Json) {
+  return sql<Json>`${JSON.stringify(value)}::jsonb`;
 }

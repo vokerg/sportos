@@ -11,18 +11,24 @@ import {
 } from './activity-provider-resources.repository.js';
 
 const databaseUrl = process.env.SPORTOS_OWNER_TEST_DATABASE_URL;
-const databaseDescribe = databaseUrl ? describe : describe.skip;
+const activityDetailDatabaseUrl = process.env.SPORTOS_ACTIVITY_DETAIL_TEST_DATABASE_URL;
+const databaseDescribe = databaseUrl && activityDetailDatabaseUrl ? describe : describe.skip;
 type TestDatabase = ReturnType<typeof createDb>;
 
 databaseDescribe('activity provider resource cache', () => {
   let db: TestDatabase;
+  let detailDb: TestDatabase;
   const owners: string[] = [];
 
-  beforeAll(() => { db = createDb(databaseUrl!); });
+  beforeAll(() => {
+    db = createDb(databaseUrl!);
+    detailDb = createDb(activityDetailDatabaseUrl!);
+  });
   afterAll(async () => {
     for (const owner of owners) {
+      await withAccountContext(detailDb, owner, (scoped) =>
+        scoped.deleteFrom('activity_provider_resources').execute());
       await withAccountContext(db, owner, async (scoped) => {
-        await scoped.deleteFrom('activity_provider_resources').execute();
         await scoped.deleteFrom('provider_activity_links').execute();
         await scoped.deleteFrom('source_records').execute();
         await scoped.deleteFrom('activities').execute();
@@ -32,6 +38,7 @@ databaseDescribe('activity provider resource cache', () => {
     }
     if (owners.length) await db.deleteFrom('accounts').where('id', 'in', owners).execute();
     await db.destroy();
+    await detailDb.destroy();
   });
 
   it('isolates owners, versions by source hash, and never reuses another provider activity cache', async () => {
@@ -107,21 +114,21 @@ databaseDescribe('activity provider resource cache', () => {
       providerActivityId: 'provider-a',
       providerVersion: 'a'.repeat(64),
     };
-    await withAccountContext(db, ownerA, (scoped) =>
+    await withAccountContext(detailDb, ownerA, (scoped) =>
       new ActivityProviderResourcesRepository(scoped).replace(referenceA, resources('a')));
-    expect(await withAccountContext(db, ownerA, (scoped) =>
+    expect(await withAccountContext(detailDb, ownerA, (scoped) =>
       new ActivityProviderResourcesRepository(scoped).list(referenceB!))).toEqual([]);
 
-    await withAccountContext(db, ownerA, (scoped) =>
+    await withAccountContext(detailDb, ownerA, (scoped) =>
       new ActivityProviderResourcesRepository(scoped).replace(referenceB!, resources('b')));
-    expect((await withAccountContext(db, ownerA, (scoped) =>
+    expect((await withAccountContext(detailDb, ownerA, (scoped) =>
       new ActivityProviderResourcesRepository(scoped).list(referenceA)))[0]?.payload).toEqual({ marker: 'a', resourceType: 'detail' });
-    expect((await withAccountContext(db, ownerA, (scoped) =>
+    expect((await withAccountContext(detailDb, ownerA, (scoped) =>
       new ActivityProviderResourcesRepository(scoped).list(referenceB!)))[0]?.payload).toEqual({ marker: 'b', resourceType: 'detail' });
 
     expect(await withAccountContext(db, ownerB, (scoped) =>
       new ActivityProviderResourcesRepository(scoped).getProviderReference(fixture.activityId))).toBeNull();
-    expect(await withAccountContext(db, ownerB, (scoped) =>
+    expect(await withAccountContext(detailDb, ownerB, (scoped) =>
       new ActivityProviderResourcesRepository(scoped).list(referenceB!))).toEqual([]);
 
     await withAccountContext(db, ownerA, (scoped) =>

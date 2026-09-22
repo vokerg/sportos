@@ -200,6 +200,20 @@ Identity policy for a previously unseen provider activity:
 
 When linking an existing workbook/manual fact, its source fields, values, and provenance are unchanged. Later provider updates mutate only Strava-owned canonical activities. Provider-linked running performance is written only for provider-owned canonical activities, avoiding duplicate performance facts for a workbook overlap.
 
+### Lazy provider-detail storage boundary
+
+The canonical/provider reference and encrypted credentials remain in the primary
+Neon project. Opening a linked activity detail page validates that reference
+under the authenticated account context, then reads or writes the derived
+provider-detail resource rows through an explicit connection to a separate Neon
+project. The supporting project has its own schema-owner and non-owner
+`sportos_app` role, uses forced RLS keyed by the same `sportos.account_id`
+setting, and has no cross-project foreign keys. Its URLs and credentials are
+never derived from or shared with the primary project. Detail resources are
+bounded, versioned by the latest retained provider summary hash, and safe to
+rebuild on a cache miss. The resource-oriented schema is provider-neutral even
+though the current API adapter is Strava-only.
+
 ### Rule versions and recomputation
 
 A rule family is `(owner_id, code)` and a version is `(owner_id, code, version)`. A GiST exclusion constraint prevents overlapping enabled inclusive ranges within an account.

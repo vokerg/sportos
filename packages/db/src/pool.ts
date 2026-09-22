@@ -27,7 +27,24 @@ export function createDb(databaseUrl = process.env.DATABASE_URL): Kysely<Databas
   });
 }
 
-function loadEnvFromNearestFile(startDir = process.cwd()): void {
+export function resolveActivityDetailDatabaseUrl(): string {
+  loadEnvFromNearestFile();
+  return requiredActivityDetailDatabaseUrl(process.env.SPORTOS_ACTIVITY_DETAIL_DATABASE_URL);
+}
+
+export function requiredActivityDetailDatabaseUrl(value: string | undefined): string {
+  const databaseUrl = value?.trim();
+  if (!databaseUrl) {
+    throw new Error('SPORTOS_ACTIVITY_DETAIL_DATABASE_URL is required and must point to the separate activity-detail project.');
+  }
+  const url = new URL(databaseUrl);
+  if (!['postgres:', 'postgresql:'].includes(url.protocol)) {
+    throw new Error('SPORTOS_ACTIVITY_DETAIL_DATABASE_URL must use PostgreSQL.');
+  }
+  return databaseUrl;
+}
+
+export function loadEnvFromNearestFile(startDir = process.cwd()): void {
   let dir = startDir;
   const root = parse(dir).root;
 
