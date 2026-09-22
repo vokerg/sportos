@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxEchartsDirective } from 'ngx-echarts';
-import { Subject, takeUntil } from 'rxjs';
+import { forkJoin, of, Subject, takeUntil } from 'rxjs';
 import { DynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
 import {
   DYNAMICS_METRICS,
@@ -14,7 +14,7 @@ import {
 } from './features/dynamics/model/dynamics.models';
 import { DYNAMICS_LABELS } from './monthly-stats.view-model';
 import { boundedAllTimeRange, QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './daily-log.view-model';
-import { formatRollingMeasureValue, formatRollingValue, rollingDynamicsChartOptions, rollingMeasure, scoreContributionChartOptions } from './rolling-dynamics.view-model';
+import { buildRollingAggregateRows, formatRollingMeasureValue, formatRollingValue, ROLLING_AGGREGATE_METRICS, rollingDynamicsChartOptions, rollingMeasure, scoreContributionChartOptions, type RollingAggregateMetric } from './rolling-dynamics.view-model';
 
 type PageState = 'loading' | 'loaded' | 'empty' | 'error';
 const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
@@ -87,24 +87,31 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
         <div echarts class="rolling-chart" [options]="chartOptions()" role="img" [attr.aria-label]="labels[current.metric] + ' rolling daily dynamics'"></div>
         </section>
 
-        <section class="card chart-card" aria-labelledby="contribution-chart-title">
-        <div class="section-title"><div><span class="page-kicker">Official score mix</span><h2 id="contribution-chart-title">30-day score contribution</h2></div><span>Average points per calendar day</span></div>
-        <p class="chart-help">Each layer shows how much an activity contributes to the official trailing 30-day average, using the retained ledger components.</p>
-        @if (current.scoreContributions.categories.length) {
-          <div echarts class="contribution-chart" [options]="contributionChartOptions()" role="img" aria-label="Activity contributions to the trailing 30-day average official score"></div>
-        } @else {
-          <p class="contribution-empty">No official score contributions exist in this range.</p>
+        @for (window of current.windows; track window) {
+          <section class="card chart-card" [attr.aria-labelledby]="'contribution-chart-title-' + window">
+          <div class="section-title"><div><span class="page-kicker">Official score mix</span><h2 [id]="'contribution-chart-title-' + window">{{ window }}-day score contribution</h2></div><span>Average points per calendar day</span></div>
+          <p class="chart-help">Each layer shows how much an activity contributes to the official trailing {{ window }}-day average, using the retained ledger components.</p>
+          @if (hasContribution(window)) {
+            <div echarts class="contribution-chart" [options]="contributionChartOptions(window)" role="img" [attr.aria-label]="'Activity contributions to the trailing ' + window + '-day average official score'"></div>
+          } @else {
+            <p class="contribution-empty">No official score contributions exist in this range.</p>
+          }
+          </section>
         }
-        </section>
 
         <section class="card table-card" aria-labelledby="rolling-table-title">
-        <div class="section-title"><div><span class="page-kicker">Daily ledger</span><h2 id="rolling-table-title">Exact rolling values</h2></div></div>
-        <div class="table-scroll"><table>
-          <thead><tr><th>Date</th><th>Daily value</th>@for (window of current.windows; track window) { <th>{{ window }}d {{ measure() === 'total' ? 'total' : measure() === 'activeDays' ? 'active days' : 'avg/day' }}</th><th>{{ window }}d coverage</th> }</tr></thead>
-          <tbody>@for (point of reversedPoints(); track point.date) {
-            <tr><th scope="row">{{ point.date }}</th><td>{{ format(point.dailyValue) }}</td>@for (window of current.windows; track window) { <td>{{ formatMeasure(point.windows[window]?.[measureKey()]) }}</td><td [class.incomplete]="!point.windows[window]?.complete">{{ point.windows[window]?.recordedDays }} / {{ point.windows[window]?.windowDays }}</td> }</tr>
-          }</tbody>
-        </table></div>
+        @for (window of current.windows; track window) {
+          <div class="aggregate-table-block">
+            <div class="section-title"><div><span class="page-kicker">Selected cycle</span><h2 id="rolling-table-title">{{ window }}-day aggregate averages</h2></div><span>Calendar-day averages</span></div>
+            <p class="table-help">Each row is the rolling calendar-day average for that date. Missing dates remain visible; incomplete coverage is highlighted.</p>
+            <div class="table-scroll"><table>
+              <thead><tr><th>Date</th><th>Avg run</th><th>Avg swim</th><th>Avg bike</th><th>Avg steps</th><th>Avg points</th><th>Avg power points</th><th>Avg training points</th></tr></thead>
+              <tbody>@for (row of reversedAggregateRows(window); track row.date) {
+                <tr><th scope="row">{{ row.date }}</th>@for (metric of aggregateMetrics; track metric) { <td [class.incomplete]="!row.complete">{{ formatAggregate(row.values[metric], metric) }}</td> }</tr>
+              }</tbody>
+            </table></div>
+          </div>
+        }
         </section>
       }
     }
@@ -112,7 +119,7 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
   styles: [`
     .page-heading { margin: 6px 0 22px; }.page-heading h1 { margin: 5px 0; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.035em; }.page-heading p, .semantics, .section-title > span { margin: 0; color: #667085; }.page-kicker { color: #5368ae; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { margin: 0; padding: 12px; border: 1px solid #dbe3f0; border-radius: 12px; } legend { padding: 0 6px; color: #475467; font-size: 12px; font-weight: 750; }.window-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; }.window-picker label { display: flex; align-items: center; gap: 6px; }.window-picker input { min-width: auto; }.semantics, .selection-message { font-size: 12px; }.selection-message { margin: 0; color: #991b1b; }
-    .latest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }.latest { display: grid; gap: 5px; }.latest span, .latest small { color: #667085; font-size: 12px; }.latest strong { color: #243b73; font-size: 27px; }.chart-card, .table-card { margin-bottom: 16px; }.section-title { display: flex; justify-content: space-between; align-items: end; gap: 16px; }.section-title h2 { margin: 4px 0 0; }.rolling-chart, .contribution-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }.chart-help, .contribution-empty { margin: 8px 0 0; color: #667085; font-size: 12px; }
+    .latest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }.latest { display: grid; gap: 5px; }.latest span, .latest small { color: #667085; font-size: 12px; }.latest strong { color: #243b73; font-size: 27px; }.chart-card, .table-card { margin-bottom: 16px; }.section-title { display: flex; justify-content: space-between; align-items: end; gap: 16px; }.section-title h2 { margin: 4px 0 0; }.rolling-chart, .contribution-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }.chart-help, .table-help, .contribution-empty { margin: 8px 0 0; color: #667085; font-size: 12px; }
     .table-scroll { margin-top: 14px; max-height: 640px; overflow: auto; border: 1px solid #e4e7ec; border-radius: 12px; } table { width: 100%; border-collapse: collapse; white-space: nowrap; } th, td { padding: 10px 12px; border-bottom: 1px solid #edf0f5; text-align: right; } th:first-child { text-align: left; } thead th { position: sticky; top: 0; z-index: 1; background: #f7f9fc; color: #667085; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }.incomplete { color: #a15c00; background: #fffaf0; }.state-card { display: grid; gap: 12px; justify-items: start; }.state-card.error { color: #991b1b; }
     @media (max-width: 700px) { .section-title { display: grid; }.rolling-chart, .contribution-chart { min-height: 340px; } }
   `],
@@ -125,14 +132,15 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   readonly from = signal(defaultRange().from);
   readonly to = signal(defaultRange().to);
   readonly metric = signal<DynamicsMetric>('run');
-  readonly windows = signal<RollingWindow[]>([30, 365]);
+  readonly windows = signal<RollingWindow[]>([30]);
+  readonly aggregateMetrics = ROLLING_AGGREGATE_METRICS;
   readonly measure = signal<RollingDynamicsMeasure>('recordedDayAverage');
   readonly state = signal<PageState>('loading');
   readonly data = signal<RollingDynamicsResponse | null>(null);
+  readonly aggregateData = signal<Partial<Record<RollingAggregateMetric, RollingDynamicsResponse>>>({});
   readonly errorMessage = signal<string | null>(null);
   readonly selectionMessage = signal<string | null>(null);
   readonly chartOptions = computed(() => rollingDynamicsChartOptions(this.data(), this.measure()));
-  readonly contributionChartOptions = computed(() => scoreContributionChartOptions(this.data()));
   readonly reversedPoints = computed(() => [...(this.data()?.points ?? [])].reverse());
   readonly measureKey = computed(() => rollingMeasure(this.measure()));
   private readonly destroy$ = new Subject<void>();
@@ -165,10 +173,24 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   load(): void {
     if (this.from() > this.to()) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
     this.requestCancelled$.next(); this.state.set('loading'); this.errorMessage.set(null);
-    this.api.rollingDynamics({ from: this.from(), to: this.to(), metric: this.metric(), windows: this.windows() })
+    const aggregateRequests = this.aggregateMetrics.map((metric) => this.api.rollingDynamics({ from: this.from(), to: this.to(), metric, windows: this.windows() }));
+    const selectedMetricIsAggregate = this.aggregateMetrics.includes(this.metric() as RollingAggregateMetric);
+    const selectedRequest = selectedMetricIsAggregate && this.windows().length === 1
+      ? of(null)
+      : this.api.rollingDynamics({ from: this.from(), to: this.to(), metric: this.metric(), windows: this.windows() });
+    forkJoin({ aggregate: forkJoin(aggregateRequests), selected: selectedRequest })
       .pipe(takeUntil(this.requestCancelled$), takeUntil(this.destroy$))
       .subscribe({
-        next: (response) => { this.data.set(response); this.state.set(hasValues(response) ? 'loaded' : 'empty'); },
+        next: ({ aggregate, selected }) => {
+          const responseByMetric = Object.fromEntries(aggregate.map((response) => [response.metric, response])) as Partial<Record<RollingAggregateMetric, RollingDynamicsResponse>>;
+          const aggregateResponse = this.aggregateMetrics.includes(this.metric() as RollingAggregateMetric)
+            ? responseByMetric[this.metric() as RollingAggregateMetric]
+            : undefined;
+          const response = selected ?? aggregateResponse ?? aggregate[0];
+          this.aggregateData.set(responseByMetric);
+          this.data.set(response);
+          this.state.set(hasValues(response) ? 'loaded' : 'empty');
+        },
         error: (error: unknown) => { this.data.set(null); this.state.set('error'); this.errorMessage.set(describeError(error)); },
       });
   }
@@ -214,6 +236,13 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   checked(event: Event): boolean { return (event.target as HTMLInputElement).checked; }
   format(value: number | null | undefined): string { return formatRollingValue(value, this.data()!.unit); }
   formatMeasure(value: number | null | undefined): string { return formatRollingMeasureValue(value, this.measure(), this.data()!.unit); }
+  reversedAggregateRows(window: RollingWindow) { return [...buildRollingAggregateRows(this.aggregateData(), window)].reverse(); }
+  hasContribution(window: RollingWindow): boolean { return Boolean(this.data()?.scoreContributions[window]?.categories.length); }
+  contributionChartOptions(window: RollingWindow) { return scoreContributionChartOptions(this.data(), window); }
+  formatAggregate(value: number | null | undefined, metric: RollingAggregateMetric): string {
+    const unit = this.aggregateData()[metric]?.unit ?? 'points';
+    return formatRollingValue(value, unit);
+  }
   latestLabel(window: RollingWindow): string { return this.measure() === 'activeDays' ? `Active days in last ${window}` : `${window} day ${this.measure() === 'total' ? 'total' : 'avg'}`; }
   latestValue(window: RollingWindow): string { const value = this.data()?.points.at(-1)?.windows[window]?.[this.measureKey()]; return this.formatMeasure(value); }
   latestCoverage(window: RollingWindow): string { const value = this.data()?.points.at(-1)?.windows[window]; return value ? `${value.recordedDays} / ${value.windowDays} days recorded${value.complete ? '' : ' · incomplete'}` : 'No coverage'; }
@@ -225,7 +254,7 @@ function validRollingMeasure(value: string | null, metric: DynamicsMetric): Roll
   if (value === 'activeDays') return metric === 'score' ? 'total' : 'activeDays';
   return value === 'total' ? 'total' : 'recordedDayAverage';
 }
-function validWindows(value: string | null): RollingWindow[] { const values = value?.split(',').map(Number) ?? [30, 365]; return values.length && new Set(values).size === values.length && values.every((window) => ROLLING_WINDOWS.includes(window as RollingWindow)) ? values as RollingWindow[] : [30, 365]; }
+function validWindows(value: string | null): RollingWindow[] { const values = value?.split(',').map(Number) ?? [30]; return values.length && new Set(values).size === values.length && values.every((window) => ROLLING_WINDOWS.includes(window as RollingWindow)) ? values as RollingWindow[] : [30]; }
 function hasValues(response: RollingDynamicsResponse): boolean { return response.points.some((point) => response.windows.some((window) => point.windows[window]?.total !== null)); }
 function defaultRange(): { from: string; to: string } { return quickRangeDates(DEFAULT_ROLLING_QUICK_RANGE); }
 function matchingQuickRange(from: string, to: string): QuickRange {

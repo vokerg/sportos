@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RollingDynamicsResponse } from './features/dynamics/model/dynamics.models';
-import { formatRollingValue, rollingDynamicsChartOptions, scoreContributionChartOptions } from './rolling-dynamics.view-model';
+import { buildRollingAggregateRows, formatRollingValue, rollingDynamicsChartOptions, scoreContributionChartOptions } from './rolling-dynamics.view-model';
 
 const response: RollingDynamicsResponse = {
   range: { from: '2026-01-30', to: '2026-01-31' }, metric: 'run', unit: 'metres', windows: [30, 365],
@@ -8,14 +8,14 @@ const response: RollingDynamicsResponse = {
     { date: '2026-01-30', dailyValue: 0, windows: { 30: { total: 42_195, calendarDayAverage: 1_406.5, activeDays: 28, recordedDays: 30, windowDays: 30, complete: true }, 365: { total: 100_000, calendarDayAverage: 273.9726, activeDays: 120, recordedDays: 30, windowDays: 365, complete: false } } },
     { date: '2026-01-31', dailyValue: null, windows: { 30: { total: 0, calendarDayAverage: 0, activeDays: 27, recordedDays: 29, windowDays: 30, complete: false }, 365: { total: 100_000, calendarDayAverage: 273.9726, activeDays: 119, recordedDays: 29, windowDays: 365, complete: false } } },
   ],
-  scoreContributions: {
+  scoreContributions: { 30: {
     windowDays: 30,
     categories: ['run', 'bonus'],
     points: [
       { date: '2026-01-30', contributions: { run: 10, bonus: 2 }, total: 12 },
       { date: '2026-01-31', contributions: { run: 8, bonus: 3 }, total: 11 },
     ],
-  },
+  } },
 };
 
 describe('rolling dynamics view model', () => {
@@ -46,5 +46,21 @@ describe('rolling dynamics view model', () => {
     expect(options.series.every((series: any) => series.stack === 'score-contribution' && series.areaStyle)).toBe(true);
     expect(options.series[0].data).toEqual([10, 8]);
     expect(options.tooltip.valueFormatter(10.25)).toBe('10 pts/day');
+  });
+
+  it('builds the selected-cycle aggregate row across training metrics', () => {
+    const responses = Object.fromEntries(['run', 'swim', 'bike', 'steps', 'score', 'bonus', 'workout'].map((metric) => [metric, {
+      ...response,
+      metric,
+      points: response.points.map((point) => ({
+        ...point,
+        windows: { 30: { ...point.windows[30], calendarDayAverage: metric === 'run' ? 1.4065 : 2 } },
+      })),
+    }])) as any;
+
+    expect(buildRollingAggregateRows(responses, 30)).toEqual([
+      { date: '2026-01-30', values: { run: 1.4065, swim: 2, bike: 2, steps: 2, score: 2, bonus: 2, workout: 2 }, complete: true },
+      { date: '2026-01-31', values: { run: 1.4065, swim: 2, bike: 2, steps: 2, score: 2, bonus: 2, workout: 2 }, complete: false },
+    ]);
   });
 });

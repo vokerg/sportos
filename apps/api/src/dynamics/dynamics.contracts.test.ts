@@ -71,18 +71,21 @@ describe('buildRollingDynamicsResponse', () => {
       { metricDate: '2026-01-31', activityType: 'bonus', points: 30 },
     ];
     const result = buildRollingDynamicsResponse(rollingRows, {
-      from: '2026-01-30', to: '2026-01-31', metric: 'run', windows: [30],
+      from: '2026-01-30', to: '2026-01-31', metric: 'run', windows: [30, 365],
     }, contributionRows);
 
     expect(result.points).toHaveLength(2);
     expect(result.points[0]?.windows[30]).toMatchObject({ total: 42_195, calendarDayAverage: 1_406.5, activeDays: 1, recordedDays: 2, windowDays: 30, complete: false });
     expect(result.points[1]?.windows[30]).toMatchObject({ total: 0, calendarDayAverage: 0, activeDays: 0, recordedDays: 2, windowDays: 30, complete: false });
     expect(result.points[1]?.dailyValue).toBe(0);
-    expect(result.scoreContributions.categories).toEqual(['steps', 'run', 'bonus']);
-    expect(result.scoreContributions.points).toEqual([
+    expect(result.scoreContributions[30]?.categories).toEqual(['steps', 'run', 'bonus']);
+    expect(result.scoreContributions[30]?.points).toEqual([
       { date: '2026-01-30', contributions: { steps: 2, run: 10, bonus: 0 }, total: 12 },
       { date: '2026-01-31', contributions: { steps: 0, run: 0, bonus: 1 }, total: 1 },
     ]);
+    expect(result.scoreContributions[365]?.points[0]).toEqual({
+      date: '2026-01-30', contributions: { steps: 0.1643835616438356, run: 0.821917808219178, bonus: 0 }, total: 0.9863013698630136,
+    });
   });
 
   it('requests enough history for the largest selected window', () => {
