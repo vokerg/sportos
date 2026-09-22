@@ -68,11 +68,11 @@ export interface RollingDynamicsResponse {
   unit: 'points' | 'steps' | 'metres';
   windows: RollingWindow[];
   points: RollingDynamicsPoint[];
-  scoreContributions: {
-    windowDays: 30;
+  scoreContributions: Partial<Record<RollingWindow, {
+    windowDays: RollingWindow;
     categories: ScoreContributionCategory[];
     points: ScoreContributionPoint[];
-  };
+  }>>;
 }
 
 export interface ScoreContributionPoint {
@@ -144,7 +144,7 @@ export function buildRollingDynamicsResponse(
     unit: metricUnit(query.metric),
     windows: query.windows,
     points,
-    scoreContributions: buildScoreContributions(contributionRows, query.from, query.to),
+    scoreContributions: Object.fromEntries(query.windows.map((window) => [window, buildScoreContributions(contributionRows, query.from, query.to, window)])),
   };
 }
 
@@ -152,7 +152,8 @@ function buildScoreContributions(
   rows: ScoreContributionRow[],
   from: string,
   to: string,
-): RollingDynamicsResponse['scoreContributions'] {
+  windowDays: RollingWindow,
+): NonNullable<RollingDynamicsResponse['scoreContributions'][RollingWindow]> {
   const normalizedRows = rows.map((row) => ({
     ...row,
     category: row.activityType as ScoreContributionCategory,
@@ -169,15 +170,15 @@ function buildScoreContributions(
   const points: ScoreContributionPoint[] = [];
   for (let date = from; date <= to; date = addDays(date, 1)) {
     const totals: Partial<Record<ScoreContributionCategory, number>> = {};
-    for (let candidate = addDays(date, -29); candidate <= date; candidate = addDays(candidate, 1)) {
+    for (let candidate = addDays(date, -(windowDays - 1)); candidate <= date; candidate = addDays(candidate, 1)) {
       const daily = valuesByDate.get(candidate);
       if (!daily) continue;
       for (const category of categories) totals[category] = (totals[category] ?? 0) + (daily[category] ?? 0);
     }
-    const contributions = Object.fromEntries(categories.map((category) => [category, (totals[category] ?? 0) / 30])) as Partial<Record<ScoreContributionCategory, number>>;
+    const contributions = Object.fromEntries(categories.map((category) => [category, (totals[category] ?? 0) / windowDays])) as Partial<Record<ScoreContributionCategory, number>>;
     points.push({ date, contributions, total: Object.values(contributions).reduce((sum, value) => sum + value, 0) });
   }
-  return { windowDays: 30, categories, points };
+  return { windowDays, categories, points };
 }
 
 function aggregate(

@@ -3,13 +3,14 @@ import { inject, Injectable } from '@angular/core';
 import { SPORTOS_API_BASE } from '../../core/config/api-base';
 
 export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
+export type ActivitySubtype = 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown';
 export type ActivitySource = 'manual' | 'my_sport_xlsx' | 'run_db_xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit';
 export interface Activity {
   id: string;
   activity_date: string;
   start_time: string | null;
   activity_type: ActivityType;
-  subtype: string | null;
+  subtype: ActivitySubtype | null;
   source: ActivitySource;
   source_activity_id: string | null;
   distance_m: number | null;
@@ -51,6 +52,7 @@ export interface ActivitiesQuery {
   to?: string;
   activityType?: ActivityType;
   source?: ActivitySource;
+  subtype?: ActivitySubtype;
   minDistanceM?: number;
   paceUnderSPerKm?: number;
   minAvgSpeedMps?: number;
@@ -60,7 +62,7 @@ export interface ActivitiesQuery {
 }
 export interface ActivitiesResponse {
   items: Activity[];
-  summary: { count: number; durationS: number; distanceM: number };
+  summary: { count: number; durationS: number; distanceM: number; avgDistanceM: number | null; avgPaceSPerKm: number | null };
   limit: number;
   offset: number;
 }

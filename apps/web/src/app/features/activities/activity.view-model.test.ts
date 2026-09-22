@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Activity } from './activities-api.service';
-import { duration, metricGroups, metrics, TYPE_OPTIONS, RUN_PACE_OPTIONS, quickRangeDates, matchQuickRange } from './activity.view-model';
+import { duration, metricGroups, metrics, TYPE_OPTIONS, RUN_PACE_OPTIONS, RUN_SUBTYPE_OPTIONS, quickRangeDates, matchQuickRange } from './activity.view-model';
 
 const base: Activity = {
   id: '1', activity_date: '2026-01-01', start_time: null, activity_type: 'run', subtype: null,
@@ -24,7 +24,7 @@ describe('activity presentation', () => {
       avg_speed_mps: 4.3, avg_hr: 188, max_hr: 201, elevation_gain_m: 0, calories: 320, notes: 'Evening run' };
     expect(duration(run.duration_s!)).toBe('19:50');
     expect(metrics(run).map((metric) => `${metric.label}: ${metric.value}`)).toContain('Moving time: 19:25');
-    expect(metrics(run).map((metric) => `${metric.label}: ${metric.value}`)).toContain('Average speed: 15.5 km/h');
+    expect(metrics(run).some((metric) => metric.label === 'Average speed')).toBe(false);
     expect(metricGroups(run).find((group) => group.title === 'Time and distance')?.items.map((metric) => `${metric.label}: ${metric.value}`))
       .toEqual(['Distance: 5 km', 'Elapsed time: 19:50', 'Moving time: 19:25', 'Stopped time: 0:25']);
     expect(metrics({ ...run, moving_time_s: 1190 }).some((metric) => metric.label === 'Moving time')).toBe(false);
@@ -39,6 +39,7 @@ describe('activity presentation', () => {
 
   it('offers the requested strict run pace cutoffs and calendar-aware quick ranges', () => {
     expect(RUN_PACE_OPTIONS.map((option) => option.value)).toEqual([0, 240, 252, 264, 300]);
+    expect(RUN_SUBTYPE_OPTIONS.map((option) => option.value)).toEqual(['', 'treadmill', 'track', 'outdoor']);
     const today = new Date('2026-03-31T12:00:00.000Z');
     expect(quickRangeDates('1m', today)).toEqual({ from: '2026-02-28', to: '2026-03-31' });
     expect(quickRangeDates('all', today)).toEqual({ from: '', to: '' });

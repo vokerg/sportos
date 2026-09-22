@@ -54,13 +54,13 @@ export interface RollingDynamicsResponse {
   unit: 'points' | 'steps' | 'metres';
   windows: RollingWindow[];
   points: RollingDynamicsPoint[];
-  scoreContributions: {
-    windowDays: 30;
+  scoreContributions: Partial<Record<RollingWindow, {
+    windowDays: RollingWindow;
     categories: ScoreContributionCategory[];
     points: Array<{
       date: string;
       contributions: Partial<Record<ScoreContributionCategory, number>>;
       total: number;
     }>;
-  };
+  }>>;
 }

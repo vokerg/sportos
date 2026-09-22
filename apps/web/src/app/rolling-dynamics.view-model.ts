@@ -1,5 +1,32 @@
 import type { EChartsCoreOption } from 'echarts/core';
-import type { RollingDynamicsMeasure, RollingDynamicsResponse, RollingWindow, ScoreContributionCategory } from './features/dynamics/model/dynamics.models';
+import type { DynamicsMetric, RollingDynamicsMeasure, RollingDynamicsResponse, RollingWindow, ScoreContributionCategory } from './features/dynamics/model/dynamics.models';
+
+export const ROLLING_AGGREGATE_METRICS = ['run', 'swim', 'bike', 'steps', 'score', 'bonus', 'workout'] as const satisfies readonly DynamicsMetric[];
+export type RollingAggregateMetric = typeof ROLLING_AGGREGATE_METRICS[number];
+
+export interface RollingAggregateRow {
+  date: string;
+  values: Partial<Record<RollingAggregateMetric, number | null>>;
+  complete: boolean;
+}
+
+export function buildRollingAggregateRows(
+  responses: Partial<Record<RollingAggregateMetric, RollingDynamicsResponse>>,
+  window: RollingWindow,
+): RollingAggregateRow[] {
+  const source = responses[ROLLING_AGGREGATE_METRICS[0]];
+  if (!source) return [];
+  return source.points.map((point) => {
+    const values = Object.fromEntries(ROLLING_AGGREGATE_METRICS.map((metric) => [
+      metric,
+      responses[metric]?.points.find((candidate) => candidate.date === point.date)?.windows[window]?.calendarDayAverage ?? null,
+    ])) as Partial<Record<RollingAggregateMetric, number | null>>;
+    const complete = ROLLING_AGGREGATE_METRICS.every((metric) =>
+      responses[metric]?.points.find((candidate) => candidate.date === point.date)?.windows[window]?.complete ?? false,
+    );
+    return { date: point.date, values, complete };
+  });
+}
 
 const WINDOW_COLORS: Record<RollingWindow, string> = {
   10: '#f59e0b', 20: '#db2777', 30: '#2854d9', 60: '#7c3aed', 365: '#059669',
@@ -42,9 +69,10 @@ export function rollingDynamicsChartOptions(
   };
 }
 
-export function scoreContributionChartOptions(response: RollingDynamicsResponse | null): EChartsCoreOption {
+export function scoreContributionChartOptions(response: RollingDynamicsResponse | null, window: RollingWindow = response?.windows[0] ?? 30): EChartsCoreOption {
   if (!response) return {};
-  const contribution = response.scoreContributions;
+  const contribution = response.scoreContributions[window];
+  if (!contribution) return {};
   return {
     color: contribution.categories.map((category) => SCORE_CONTRIBUTION_COLORS[category]),
     tooltip: {

@@ -16,7 +16,7 @@ function boundedPositive(value: string | undefined, name: string, max: number): 
 }
 
 export function parseActivitiesQuery(raw: Record<string, unknown>): ActivitiesQuery {
-  const allowed = new Set(['from', 'to', 'activityType', 'source', 'minDistanceM', 'paceUnderSPerKm', 'minAvgSpeedMps', 'swimPaceUnderSPer100m', 'limit', 'offset']);
+  const allowed = new Set(['from', 'to', 'activityType', 'source', 'subtype', 'minDistanceM', 'paceUnderSPerKm', 'minAvgSpeedMps', 'swimPaceUnderSPer100m', 'limit', 'offset']);
   if (Object.keys(raw).some((key) => !allowed.has(key)) || Object.values(raw).some((value) => typeof value !== 'string')) {
     throw new BadRequestException({ code: 'INVALID_ACTIVITIES_QUERY', message: 'Unsupported activities filter.' });
   }
@@ -28,11 +28,16 @@ export function parseActivitiesQuery(raw: Record<string, unknown>): ActivitiesQu
   if (query.source && !ACTIVITY_SOURCES.includes(query.source as typeof ACTIVITY_SOURCES[number])) {
     throw new BadRequestException({ code: 'INVALID_ACTIVITY_SOURCE', message: 'Unknown activity source.' });
   }
+  const subtype = query.subtype as ActivitiesQuery['subtype'];
+  if (subtype && !['treadmill', 'track', 'outdoor'].includes(subtype)) {
+    throw new BadRequestException({ code: 'INVALID_ACTIVITY_SUBTYPE', message: 'Unknown activity subtype.' });
+  }
   const minDistanceM = boundedPositive(query.minDistanceM, 'minDistanceM', 1_000_000);
   const paceUnderSPerKm = boundedPositive(query.paceUnderSPerKm, 'paceUnderSPerKm', 3_600);
   const minAvgSpeedMps = boundedPositive(query.minAvgSpeedMps, 'minAvgSpeedMps', 100);
   const swimPaceUnderSPer100m = boundedPositive(query.swimPaceUnderSPer100m, 'swimPaceUnderSPer100m', 3_600);
-  if ((minDistanceM !== undefined && !['run', 'bike', 'swim'].includes(query.activityType ?? ''))
+  if ((subtype !== undefined && query.activityType !== 'run')
+    || (minDistanceM !== undefined && !['run', 'bike', 'swim'].includes(query.activityType ?? ''))
     || (paceUnderSPerKm !== undefined && query.activityType !== 'run')
     || (minAvgSpeedMps !== undefined && query.activityType !== 'bike')
     || (swimPaceUnderSPer100m !== undefined && query.activityType !== 'swim')) {
@@ -42,6 +47,7 @@ export function parseActivitiesQuery(raw: Record<string, unknown>): ActivitiesQu
     ...range,
     activityType: query.activityType as ActivitiesQuery['activityType'],
     source: query.source as ActivitiesQuery['source'],
+    subtype,
     minDistanceM,
     paceUnderSPerKm,
     minAvgSpeedMps,

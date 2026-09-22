@@ -6,8 +6,8 @@ import type { ActivitiesQuery, ActivitySource, ActivityType } from './activities
 import { ActivitiesStore } from './activities.store';
 import {
   BIKE_SPEED_OPTIONS, DEFAULT_QUICK_RANGE, DISTANCE_OPTIONS_M, QUICK_RANGE_OPTIONS,
-  RUN_PACE_OPTIONS, SOURCE_OPTIONS, SWIM_PACE_OPTIONS, TYPE_OPTIONS,
-  distance, duration, isQuickRange, matchQuickRange, quickRangeDates, sportDistance, type QuickRange,
+  RUN_PACE_OPTIONS, RUN_SUBTYPE_OPTIONS, SOURCE_OPTIONS, SWIM_PACE_OPTIONS, TYPE_OPTIONS,
+  distance, duration, isQuickRange, matchQuickRange, pace, quickRangeDates, sportDistance, type QuickRange,
 } from './activity.view-model';
 
 @Component({
@@ -29,6 +29,7 @@ import {
             @for (metres of distanceOptions(); track metres) { @if (metres > 0) { <option [value]="metres">At least {{ sportDistance(metres, selectedDistanceSport()) }}</option> } }
           </select></label>
           @if (activityType() === 'run') {
+            <label>Run subtype <select [value]="subtype()" (change)="subtype.set($any($event.target).value)">@for (option of runSubtypeOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
             <label>Average pace <select [value]="paceUnderSPerKm()" (change)="paceUnderSPerKm.set(+$any($event.target).value)">@for (option of runPaceOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
           } @else if (activityType() === 'bike') {
             <label>Average speed <select [value]="minSpeedKmh()" (change)="minSpeedKmh.set(+$any($event.target).value)">
@@ -44,7 +45,7 @@ import {
     @if (store.state() === 'loading') { <section class="card" role="status">Loading activities…</section> }
     @else if (store.state() === 'error') { <section class="card" role="alert">Could not load activities. <button type="button" (click)="load()">Try again</button></section> }
     @else { @if (store.result(); as data) {
-      <section class="summary" aria-label="Filtered activity summary"><strong>{{ data.summary.count }} activities</strong><span>{{ duration(data.summary.durationS) }} total duration</span><span>{{ distance(data.summary.distanceM) }} total distance</span></section>
+      <section class="summary" aria-label="Filtered activity summary"><strong>{{ data.summary.count }} activities</strong><span>{{ duration(data.summary.durationS) }} total duration</span><span>{{ distance(data.summary.distanceM) }} total distance</span>@if (data.summary.avgDistanceM !== null) { <span>{{ distance(data.summary.avgDistanceM) }} avg distance</span> } @if (data.summary.avgPaceSPerKm !== null) { <span>{{ pace(data.summary.avgPaceSPerKm) }} avg pace</span> }</section>
       @if (data.items.length === 0) { <section class="card">No activities match these filters.</section> }
       @else { <sportos-activity-list [activities]="data.items" /> }
       @if (data.offset > 0 || data.offset + data.items.length < data.summary.count) {
@@ -68,12 +69,13 @@ import {
 export class ActivitiesPageComponent implements OnInit, OnDestroy {
   readonly from = signal(''); readonly to = signal(''); readonly quickRange = signal<QuickRange>(DEFAULT_QUICK_RANGE);
   readonly activityType = signal(''); readonly source = signal('strava');
+  readonly subtype = signal('');
   readonly minDistanceM = signal(0); readonly paceUnderSPerKm = signal(0);
   readonly minSpeedKmh = signal(0); readonly swimPaceUnderSPer100m = signal(0);
   readonly typeOptions = TYPE_OPTIONS; readonly sourceOptions = SOURCE_OPTIONS;
-  readonly quickRangeOptions = QUICK_RANGE_OPTIONS; readonly runPaceOptions = RUN_PACE_OPTIONS;
+  readonly quickRangeOptions = QUICK_RANGE_OPTIONS; readonly runPaceOptions = RUN_PACE_OPTIONS; readonly runSubtypeOptions = RUN_SUBTYPE_OPTIONS;
   readonly bikeSpeedOptions = BIKE_SPEED_OPTIONS; readonly swimPaceOptions = SWIM_PACE_OPTIONS;
-  readonly distance = distance; readonly sportDistance = sportDistance; readonly duration = duration; readonly Math = Math;
+  readonly distance = distance; readonly sportDistance = sportDistance; readonly duration = duration; readonly pace = pace; readonly Math = Math;
   private routeSubscription?: Subscription;
   private offset = 0;
 
@@ -93,6 +95,8 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
       }
       this.activityType.set(params.get('activityType') ?? '');
       this.source.set(params.get('source') ?? 'strava');
+      const requestedSubtype = params.get('subtype') ?? '';
+      this.subtype.set(RUN_SUBTYPE_OPTIONS.some((option) => option.value === requestedSubtype) ? requestedSubtype : '');
       this.minDistanceM.set(Number(params.get('minDistanceM') ?? 0));
       this.paceUnderSPerKm.set(Number(params.get('paceUnderSPerKm') ?? 0));
       this.minSpeedKmh.set(Number(params.get('minSpeedKmh') ?? 0));
@@ -117,13 +121,13 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
   setActivityType(value: string): void {
     if (value === this.activityType()) return;
     this.activityType.set(value);
-    this.minDistanceM.set(0); this.paceUnderSPerKm.set(0); this.minSpeedKmh.set(0); this.swimPaceUnderSPer100m.set(0);
+    this.subtype.set(''); this.minDistanceM.set(0); this.paceUnderSPerKm.set(0); this.minSpeedKmh.set(0); this.swimPaceUnderSPer100m.set(0);
   }
   apply(event: Event): void { event.preventDefault(); this.navigate(0); }
   reset(): void {
     const dates = quickRangeDates(DEFAULT_QUICK_RANGE);
     this.from.set(dates.from); this.to.set(dates.to); this.quickRange.set(DEFAULT_QUICK_RANGE);
-    this.activityType.set(''); this.source.set('strava'); this.minDistanceM.set(0);
+    this.activityType.set(''); this.source.set('strava'); this.subtype.set(''); this.minDistanceM.set(0);
     this.paceUnderSPerKm.set(0); this.minSpeedKmh.set(0); this.swimPaceUnderSPer100m.set(0);
     this.navigate(0);
   }
@@ -132,6 +136,7 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
     void this.router.navigate(['/activities'], { queryParams: {
       range: this.quickRange(), from: this.from() || null, to: this.to() || null,
       activityType: this.activityType() || null, source: this.source(), offset: offset || null,
+      subtype: this.activityType() === 'run' && this.subtype() || null,
       minDistanceM: this.isDistanceSport() && this.minDistanceM() || null,
       paceUnderSPerKm: this.activityType() === 'run' && this.paceUnderSPerKm() || null,
       minSpeedKmh: this.activityType() === 'bike' && this.minSpeedKmh() || null,
@@ -143,6 +148,7 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
     if (this.from()) query.from = this.from(); if (this.to()) query.to = this.to();
     if (this.activityType()) query.activityType = this.activityType() as ActivityType;
     if (this.source() !== 'all') query.source = this.source() as ActivitySource;
+    if (this.activityType() === 'run' && this.subtype()) query.subtype = this.subtype() as ActivitiesQuery['subtype'];
     if (this.isDistanceSport() && this.minDistanceM()) query.minDistanceM = this.minDistanceM();
     if (this.activityType() === 'run' && this.paceUnderSPerKm()) query.paceUnderSPerKm = this.paceUnderSPerKm();
     if (this.activityType() === 'bike' && this.minSpeedKmh()) query.minAvgSpeedMps = this.minSpeedKmh() / 3.6;

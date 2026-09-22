@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Activity, Database } from '../schema.js';
 
 export const ACTIVITY_TYPES = ['steps', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'bonus'] as const satisfies readonly Activity['activity_type'][];
@@ -9,6 +9,7 @@ export interface ActivitiesQuery {
   to?: string;
   activityType?: Activity['activity_type'];
   source?: Activity['source'];
+  subtype?: Exclude<Activity['subtype'], null>;
   minDistanceM?: number;
   paceUnderSPerKm?: number;
   minAvgSpeedMps?: number;
@@ -42,6 +43,7 @@ export class ActivitiesRepository {
     if (input.to) filtered = filtered.where('activity_date', '<=', input.to);
     if (input.activityType) filtered = filtered.where('activity_type', '=', input.activityType);
     if (input.source) filtered = filtered.where('source', '=', input.source);
+    if (input.subtype) filtered = filtered.where('subtype', '=', input.subtype);
     if (input.minDistanceM !== undefined) filtered = filtered.where('distance_m', '>=', input.minDistanceM);
     if (input.paceUnderSPerKm !== undefined) filtered = filtered.where('avg_pace_s_per_km', '<', input.paceUnderSPerKm);
     if (input.minAvgSpeedMps !== undefined) filtered = filtered.where('avg_speed_mps', '>=', input.minAvgSpeedMps);
@@ -54,11 +56,21 @@ export class ActivitiesRepository {
         eb.fn.countAll<string>().as('count'),
         eb.fn.sum<string>('duration_s').as('duration_s'),
         eb.fn.sum<string>('distance_m').as('distance_m'),
+        eb.fn.avg<string>('distance_m').as('avg_distance_m'),
+        input.activityType === 'run'
+          ? sql<string>`sum(case when distance_m > 0 and coalesce(avg_pace_s_per_km, coalesce(moving_time_s, duration_s) / nullif(distance_m / 1000, 0)) is not null then coalesce(avg_pace_s_per_km, coalesce(moving_time_s, duration_s) / nullif(distance_m / 1000, 0)) * distance_m else 0 end) / nullif(sum(case when distance_m > 0 and coalesce(avg_pace_s_per_km, coalesce(moving_time_s, duration_s) / nullif(distance_m / 1000, 0)) is not null then distance_m else 0 end), 0)`.as('avg_pace_s_per_km')
+          : sql<null>`null`.as('avg_pace_s_per_km'),
       ]).executeTakeFirstOrThrow(),
     ]);
     return {
       items: rows.map((row) => serialize(row)),
-      summary: { count: Number(summary.count), durationS: Number(summary.duration_s ?? 0), distanceM: Number(summary.distance_m ?? 0) },
+      summary: {
+        count: Number(summary.count),
+        durationS: Number(summary.duration_s ?? 0),
+        distanceM: Number(summary.distance_m ?? 0),
+        avgDistanceM: summary.avg_distance_m === null ? null : Number(summary.avg_distance_m),
+        avgPaceSPerKm: summary.avg_pace_s_per_km === null ? null : Number(summary.avg_pace_s_per_km),
+      },
       limit: input.limit,
       offset: input.offset,
     };
