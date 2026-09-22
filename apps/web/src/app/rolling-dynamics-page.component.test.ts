@@ -9,7 +9,7 @@ import { RollingDynamicsPageComponent } from './rolling-dynamics-page.component'
 const response: RollingDynamicsResponse = {
   range: { from: '2026-01-01', to: '2026-01-31' }, metric: 'run', unit: 'metres', windows: [30, 365],
   points: [{ date: '2026-01-31', dailyValue: 0, windows: { 30: { total: 42_195, calendarDayAverage: 1_406.5, activeDays: 28, recordedDays: 30, windowDays: 30, complete: true }, 365: { total: 42_195, calendarDayAverage: 115.6, activeDays: 120, recordedDays: 31, windowDays: 365, complete: false } } }],
-  scoreContributions: { windowDays: 30, categories: ['run', 'bonus'], points: [{ date: '2026-01-31', contributions: { run: 120, bonus: 10 }, total: 130 }] },
+  scoreContributions: { 30: { windowDays: 30, categories: ['run', 'bonus'], points: [{ date: '2026-01-31', contributions: { run: 120, bonus: 10 }, total: 130 }] } },
 };
 
 describe('RollingDynamicsPageComponent', () => {
@@ -20,6 +20,7 @@ describe('RollingDynamicsPageComponent', () => {
     const component = new RollingDynamicsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
     component.ngOnInit();
 
+    expect(api.rollingDynamics).toHaveBeenCalledTimes(8);
     expect(api.rollingDynamics).toHaveBeenCalledWith({ from: '2026-01-01', to: '2026-01-31', metric: 'run', windows: [30, 365] });
     expect(component.state()).toBe('loaded');
     expect(component.latestValue(30)).toBe('1.41 km');

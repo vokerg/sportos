@@ -29,6 +29,8 @@ Every requested calendar date produces a point, even when that date has no daily
 
 Each window returns its rolling total, average per calendar day, recorded-day coverage, fixed window length, and completeness. Calendar-day average always divides by N. Missing canonical dates are not labelled as zero: incomplete coverage is returned and highlighted because the total and average may be understated. A persisted zero remains a recorded zero.
 
+The Dynamics page also shows a selected-cycle daily aggregate table with calendar-day averages for run, swim, bike, steps, official points, bonus/power points, and workout/training points. It renders one table for every selected trailing window. Official score contribution charts use the same selected windows, so a 30-day contribution view is shown whenever 30 days is selected. The initial window selection is 30 days.
+
 ## Monthly Stats semantics
 
 `GET /dynamics/monthly` requires `from` and `to`, accepts at most 3,660 inclusive calendar days, and rejects unknown query fields. `granularity` is one of `daily`, `weekly`, or `monthly`; `metrics` is a comma-separated subset of the fixed allowlist. Weeks begin on Monday in the source-local calendar-date model already used by SportOS.
