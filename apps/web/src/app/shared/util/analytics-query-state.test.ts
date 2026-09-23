@@ -25,7 +25,7 @@ describe('analytics query state', () => {
   });
 
   it('matches presets from date-only strings without converting the URL date through UTC', () => {
-    expect(matchingQuickRange('2026-01-01', '2026-03-31')).toBe('3m');
+    expect(matchingQuickRange('2025-12-31', '2026-03-31')).toBe('3m');
     expect(matchingQuickRange('2026-01-01', '2026-09-18')).toBe('ytd');
     expect(matchingQuickRange('2016-09-11', '2026-09-18')).toBe('all');
     expect(matchingQuickRange('2026-02-01', '2026-03-31')).toBe('custom');
