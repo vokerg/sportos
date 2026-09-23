@@ -28,9 +28,9 @@ describe('RollingDynamicsPageComponent', () => {
     expect(component.quickRange()).toBe('ytd');
 
     component.setMetric('bike');
-    component.toggleWindow(10, true);
+    component.toggleWindow(7, true);
     component.apply();
-    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: expect.objectContaining({ metric: 'bike', windows: '10,30,365' }) }));
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: expect.objectContaining({ metric: 'bike', windows: '7,30,365' }) }));
   });
 
   it('applies Daily Log-style quick ranges and marks edited dates custom', () => {

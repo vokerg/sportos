@@ -29,7 +29,7 @@ export function buildRollingAggregateRows(
 }
 
 const WINDOW_COLORS: Record<RollingWindow, string> = {
-  10: '#f59e0b', 20: '#db2777', 30: '#2854d9', 60: '#7c3aed', 365: '#059669',
+  7: '#f59e0b', 20: '#db2777', 30: '#2854d9', 60: '#7c3aed', 365: '#059669',
 };
 
 export const SCORE_CONTRIBUTION_LABELS: Record<ScoreContributionCategory, string> = {

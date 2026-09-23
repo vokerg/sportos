@@ -2,7 +2,7 @@
 
 SportOS exposes two authenticated read-only longitudinal views over canonical `daily_metrics`:
 
-- **Dynamics** at `/dynamics` shows how trailing 10, 20, 30, 60, and 365-day windows change on every calendar date; and
+- **Dynamics** at `/dynamics` shows how trailing 7, 20, 30, 60, and 365-day windows change on every calendar date; and
 - **Monthly Stats** at `/monthly-stats` compares calendar-month totals and recorded-day averages.
 
 Neither view adds columns to Daily Log, alters official scores, or promotes workbook formula cells into canonical facts.
@@ -23,7 +23,7 @@ Historical workbook columns such as `A10`, `A20d`, `30(All)`, `A60d`, `A365`, an
 
 ## Rolling Dynamics semantics
 
-`GET /dynamics/rolling` requires `from` and `to`, accepts one allowlisted metric, and accepts a unique subset of the fixed 10, 20, 30, 60, and 365-day windows. The repository reads enough canonical history before `from` to calculate the largest selected lookback. The response still exposes points only inside the requested display range.
+`GET /dynamics/rolling` requires `from` and `to`, accepts one allowlisted metric, and accepts a unique subset of the fixed 7, 20, 30, 60, and 365-day windows. The repository reads enough canonical history before `from` to calculate the largest selected lookback. The response still exposes points only inside the requested display range.
 
 Every requested calendar date produces a point, even when that date has no daily row. A trailing N-day point includes the selected date and the preceding N−1 calendar dates. Therefore, an activity enters the window on its activity date and expires exactly N days later. For example, a marathon on January 1 contributes to the 30-day value through January 30 and drops out on January 31.
 

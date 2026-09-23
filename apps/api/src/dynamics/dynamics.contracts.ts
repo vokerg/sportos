@@ -3,7 +3,7 @@ import type { DynamicsDailyRow, ScoreContributionRow } from '@sportos/db';
 export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'workout', 'bonus'] as const;
 export type DynamicsMetric = typeof DYNAMICS_METRICS[number];
 export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
-export const ROLLING_WINDOWS = [10, 20, 30, 60, 365] as const;
+export const ROLLING_WINDOWS = [7, 20, 30, 60, 365] as const;
 export type RollingWindow = typeof ROLLING_WINDOWS[number];
 export const SCORE_CONTRIBUTION_CATEGORIES = ['steps', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'bonus'] as const;
 export type ScoreContributionCategory = typeof SCORE_CONTRIBUTION_CATEGORIES[number];
