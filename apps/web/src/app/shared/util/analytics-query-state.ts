@@ -68,8 +68,10 @@ export function readAnalyticsDateRange(
   query: QueryParamReader,
   fallback: AnalyticsDateRange,
 ): AnalyticsDateRange & { quickRange: QuickRange } {
-  const from = isCalendarDate(query.get('from')) ? query.get('from')! : fallback.from;
-  const to = isCalendarDate(query.get('to')) ? query.get('to')! : fallback.to;
+  const requestedFrom = query.get('from');
+  const requestedTo = query.get('to');
+  const from = isCalendarDate(requestedFrom) ? requestedFrom : fallback.from;
+  const to = isCalendarDate(requestedTo) ? requestedTo : fallback.to;
   return { from, to, quickRange: matchingQuickRange(from, to) };
 }
 
