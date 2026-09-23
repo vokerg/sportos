@@ -1,9 +1,9 @@
 import type { EChartsCoreOption } from 'echarts/core';
 import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
-import { QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './shared/util/analytics-query-state';
+import { boundedAllTimeRange, QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './shared/util/analytics-query-state';
 
-export { QUICK_RANGE_VALUES, quickRangeDates };
+export { boundedAllTimeRange, QUICK_RANGE_VALUES, quickRangeDates };
 export type { QuickRange };
 
 export type DailyLogSummaryState = 'loading' | 'loaded' | 'empty' | 'error';
