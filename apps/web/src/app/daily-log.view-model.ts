@@ -1,11 +1,12 @@
 import type { EChartsCoreOption } from 'echarts/core';
 import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
+import { QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './shared/util/analytics-query-state';
+
+export { QUICK_RANGE_VALUES, quickRangeDates };
+export type { QuickRange };
 
 export type DailyLogSummaryState = 'loading' | 'loaded' | 'empty' | 'error';
-
-export const QUICK_RANGE_VALUES = ['custom', '1m', '3m', '6m', 'ytd', '1y', '3y', 'all'] as const;
-export type QuickRange = typeof QUICK_RANGE_VALUES[number];
 
 export const DEFAULT_QUICK_RANGE: Exclude<QuickRange, 'custom'> = '3m';
 export const DAILY_LOG_PAGE_SIZES = [100, 200, 365] as const;
@@ -37,27 +38,6 @@ export function relativePastelBackground(
     : Math.max(0, Math.min(1, (numericValue - range.min) / (range.max - range.min)));
   const alpha = 0.1 + (position * 0.16);
   return `rgba(${rgb}, ${alpha.toFixed(2)})`;
-}
-
-export function quickRangeDates(
-  range: Exclude<QuickRange, 'custom'>,
-  today = new Date(),
-): { from: string; to: string } {
-  const to = today.toISOString().slice(0, 10);
-  if (range === 'all') return { from: '', to: '' };
-  if (range === 'ytd') return { from: `${to.slice(0, 4)}-01-01`, to };
-
-  const months = range === '1m' ? 1 : range === '3m' ? 3 : range === '6m' ? 6 : range === '1y' ? 12 : 36;
-  return { from: shiftCalendarMonths(to, months), to };
-}
-
-export function boundedAllTimeRange(
-  to = new Date().toISOString().slice(0, 10),
-  maxDays = 3_660,
-): { from: string; to: string } {
-  const from = new Date(`${to}T00:00:00.000Z`);
-  from.setUTCDate(from.getUTCDate() - (maxDays - 1));
-  return { from: from.toISOString().slice(0, 10), to };
 }
 
 export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsCoreOption {
@@ -119,14 +99,3 @@ export function dailyScoreStatusLabel(value: unknown): string {
   return String(value ?? '—');
 }
 
-function shiftCalendarMonths(value: string, months: number): string {
-  const year = Number(value.slice(0, 4));
-  const month = Number(value.slice(5, 7)) - 1;
-  const day = Number(value.slice(8, 10));
-  const targetMonthIndex = month - months;
-  const targetYear = year + Math.floor(targetMonthIndex / 12);
-  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
-  const daysInTargetMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
-
-  return `${targetYear.toString().padStart(4, '0')}-${(targetMonth + 1).toString().padStart(2, '0')}-${Math.min(day, daysInTargetMonth).toString().padStart(2, '0')}`;
-}
