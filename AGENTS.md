@@ -104,6 +104,7 @@ Never accept owner or audit-actor identifiers from request bodies. Derive them f
 - `src/app/features/daily/model/daily-quick-entry.models.ts` — feature-owned quick-entry contracts and pure row transformations used by Daily state and UI. State must not import Angular components.
 - Daily summary transport now uses `features/daily/data-access/daily-api.service.ts` with contracts in `features/daily/model/daily.models.ts`. Focused score-breakdown transport remains transitional. Provider transport now lives under `features/providers/data-access/`; the root provider API export is compatibility-only for existing consumers such as Daily. Do not add feature methods to a global API service or to compatibility shims.
 - `src/app/features/activities/` — canonical Activities API client, metric view model, list presenter, and list/detail route pages.
+- `src/app/shared/util/analytics-query-state.ts` — reusable local-calendar quick ranges and allowlisted analytics query parsing. Monthly Stats and Dynamics use it for deep-linkable range state; future Run Lab range/query controls must reuse it rather than copy date parsing or convert date-only values through UTC.
 
 Angular renders API truth only. It never receives provider tokens/envelopes, assigns ownership, normalizes canonical facts, calculates official scores, or treats generated guidance as authoritative.
 
