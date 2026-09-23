@@ -23,14 +23,20 @@ import {
   type MonthlyLedgerColumn,
 } from './monthly-stats.view-model';
 import {
-  boundedAllTimeRange,
   positiveMetricRange,
-  QUICK_RANGE_VALUES,
-  quickRangeDates,
   relativePastelBackground,
   type DailyMetricRange,
-  type QuickRange,
 } from './daily-log.view-model';
+import {
+  boundedAllTimeRange,
+  isDateRangeOrdered,
+  QUICK_RANGE_VALUES,
+  quickRangeDates,
+  readAnalyticsDateRange,
+  readQueryCsv,
+  readQueryEnum,
+  type QuickRange,
+} from './shared/util/analytics-query-state';
 
 type DynamicsState = 'loading' | 'loaded' | 'empty' | 'error';
 const DEFAULT_MONTHLY_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
@@ -220,17 +226,14 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
-      const fallback = defaultRange();
-      const from = validDate(params.get('from')) ?? fallback.from;
-      const to = validDate(params.get('to')) ?? fallback.to;
-      this.from.set(from);
-      this.to.set(to);
-      this.quickRange.set(matchingQuickRange(from, to));
-      this.granularity.set(validGranularity(params.get('granularity')) ?? 'monthly');
-      this.measure.set(params.get('measure') === 'recordedDayAverage' ? 'recordedDayAverage' : 'total');
-      this.mode.set(params.get('mode') === 'indexed' ? 'indexed' : 'absolute');
-      const metrics = validMetrics(params.get('metrics'));
-      this.selectedMetrics.set(metrics.length ? metrics : ['score', 'steps', 'run']);
+      const range = readAnalyticsDateRange(params, defaultRange());
+      this.from.set(range.from);
+      this.to.set(range.to);
+      this.quickRange.set(range.quickRange);
+      this.granularity.set(readQueryEnum(params.get('granularity'), ['daily', 'weekly', 'monthly'] as const, 'monthly'));
+      this.measure.set(readQueryEnum(params.get('measure'), ['total', 'recordedDayAverage'] as const, 'total'));
+      this.mode.set(readQueryEnum(params.get('mode'), ['absolute', 'indexed'] as const, 'absolute'));
+      this.selectedMetrics.set(readQueryCsv(params.get('metrics'), DYNAMICS_METRICS, ['score', 'steps', 'run'], 4));
       this.load();
     });
   }
@@ -238,14 +241,14 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { this.requestCancelled$.next(); this.destroy$.next(); this.destroy$.complete(); }
 
   apply(): void {
-    if (this.from() > this.to()) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
+    if (!isDateRangeOrdered(this.from(), this.to())) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
     void this.router.navigate([], { relativeTo: this.route, queryParams: {
       from: this.from(), to: this.to(), granularity: this.granularity(), metrics: this.selectedMetrics().join(','), measure: this.measure(), mode: this.mode(),
     } });
   }
 
   load(): void {
-    if (this.from() > this.to()) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
+    if (!isDateRangeOrdered(this.from(), this.to())) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
     this.requestCancelled$.next(); this.state.set('loading'); this.errorMessage.set(null);
     this.api.monthlyStats({ from: this.from(), to: this.to(), granularity: this.granularity(), metrics: this.selectedMetrics() })
       .pipe(takeUntil(this.requestCancelled$), takeUntil(this.destroy$))
@@ -324,17 +327,6 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
   }
 }
 
-function validDate(value: string | null): string | null { return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null; }
 function validGranularity(value: string | null): DynamicsGranularity | null { return value === 'daily' || value === 'weekly' || value === 'monthly' ? value : null; }
-function validMetrics(value: string | null): DynamicsMetric[] { const values = value?.split(',') ?? []; return values.length <= 4 && new Set(values).size === values.length && values.every((metric) => DYNAMICS_METRICS.includes(metric as DynamicsMetric)) ? values as DynamicsMetric[] : []; }
 function defaultRange(): { from: string; to: string } { return quickRangeDates(DEFAULT_MONTHLY_QUICK_RANGE); }
-function matchingQuickRange(from: string, to: string): QuickRange {
-  const all = boundedAllTimeRange(to);
-  if (all.from === from && all.to === to) return 'all';
-  for (const range of ['1m', '3m', '6m', 'ytd', '1y', '3y'] as const) {
-    const dates = quickRangeDates(range, new Date(`${to}T00:00:00.000Z`));
-    if (dates.from === from && dates.to === to) return range;
-  }
-  return 'custom';
-}
 function describeError(error: unknown): string { if (!(error instanceof HttpErrorResponse)) return 'Monthly stats could not be loaded.'; if (error.status === 0) return 'The SportOS API is unavailable.'; const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {}; return typeof body.message === 'string' ? body.message : `Monthly stats could not be loaded (HTTP ${error.status}).`; }
