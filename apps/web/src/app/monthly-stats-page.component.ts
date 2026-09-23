@@ -17,6 +17,7 @@ import {
   buildMonthlyLedger,
   dynamicsChartOptions,
   formatDynamicsValue,
+  monthlyLedgerDisplayValue,
   monthlyLedgerValue,
   type DynamicsMode,
   type MonthlyLedgerColumn,
@@ -113,7 +114,7 @@ const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
         </section>
 
         <section class="card table-card" aria-labelledby="monthly-title">
-        <div class="section-title"><div><span class="page-kicker">Monthly ledger</span><h2 id="monthly-title">Year and month score ledger</h2><p class="table-description">The Excel-style hierarchy uses score components from the authoritative ledger. Sum is the official daily score total.</p></div></div>
+        <div class="section-title"><div><span class="page-kicker">Monthly ledger</span><h2 id="monthly-title">Year and month score ledger</h2><p class="table-description">The Excel-style hierarchy combines canonical distances in kilometres with authoritative score components in points. Sum is the official daily score total.</p></div></div>
         <div class="table-scroll">
           <table class="ledger-table">
             <thead><tr><th>Date - Year</th><th>Date - Month</th><th>Coverage</th>@for (column of monthlyLedgerColumns; track column.key) { <th>{{ column.label }}</th> }</tr></thead>
@@ -175,7 +176,7 @@ const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
     .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { margin: 0; padding: 12px; border: 1px solid #dbe3f0; border-radius: 12px; } legend { padding: 0 6px; color: #475467; font-size: 12px; font-weight: 750; }
     .metric-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; }.metric-picker label { display: flex; align-items: center; gap: 6px; }.metric-picker input { min-width: auto; }.semantics, .axis-note, .selection-message { font-size: 12px; }.selection-message { margin: 0; color: #991b1b; }
     .chart-card, .table-card { margin-bottom: 16px; }.section-title { display: flex; justify-content: space-between; align-items: end; gap: 16px; }.section-title h2 { margin: 4px 0 0; }.table-description { margin-top: 6px; font-size: 12px; }.dynamics-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }.axis-note { margin-top: 8px; }
-    .table-scroll { margin-top: 14px; overflow-x: auto; border: 1px solid #e4e7ec; border-radius: 12px; } table { width: 100%; border-collapse: collapse; white-space: nowrap; } th, td { padding: 9px 12px; border-bottom: 1px solid #edf0f5; text-align: right; } th:first-child, td:first-child { text-align: left; } thead th { position: sticky; top: 0; background: #f7f9fc; color: #667085; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }.ledger-table thead th:nth-child(n+4) { min-width: 78px; }.month-row .year-cell { width: 116px; }.month-cell { color: #344054; font-weight: 650; text-align: left; }.coverage { color: #667085; font-size: 12px; }.tree-toggle { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 0; background: transparent; color: #23314f; font: inherit; cursor: pointer; }.tree-toggle span { display: inline-grid; width: 17px; height: 17px; place-items: center; border: 1px solid #b7c3d8; border-radius: 4px; color: #5368ae; font-weight: 800; line-height: 1; }.year-total th, .year-total td { background: #eaf0fa; font-weight: 750; border-bottom-color: #d6dfef; }.year-total.collapsed th, .year-total.collapsed td { background: #dce5f3; }.partial { margin-left: 5px; padding: 3px 6px; border-radius: 999px; background: #fff1d6; color: #945c00; font-size: 9px; text-transform: uppercase; }.state-card { display: grid; gap: 12px; justify-items: start; }.state-card.error { color: #991b1b; }
+    .table-scroll { margin-top: 14px; min-height: 520px; max-height: 760px; overflow: auto; border: 1px solid #e4e7ec; border-radius: 12px; } table { width: 100%; border-collapse: collapse; white-space: nowrap; } th, td { padding: 11px 12px; border-bottom: 1px solid #edf0f5; text-align: right; } th:first-child, td:first-child { text-align: left; } thead th { position: sticky; top: 0; background: #f7f9fc; color: #667085; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }.ledger-table thead th:nth-child(n+4) { min-width: 78px; }.month-row .year-cell { width: 116px; }.month-cell { color: #344054; font-weight: 650; text-align: left; }.coverage { color: #667085; font-size: 12px; }.tree-toggle { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 0; background: transparent; color: #23314f; font: inherit; cursor: pointer; }.tree-toggle span { display: inline-grid; width: 17px; height: 17px; place-items: center; border: 1px solid #b7c3d8; border-radius: 4px; color: #5368ae; font-weight: 800; line-height: 1; }.year-total th, .year-total td { background: #eaf0fa; font-weight: 750; border-bottom-color: #d6dfef; }.year-total.collapsed th, .year-total.collapsed td { background: #dce5f3; }.partial { margin-left: 5px; padding: 3px 6px; border-radius: 999px; background: #fff1d6; color: #945c00; font-size: 9px; text-transform: uppercase; }.state-card { display: grid; gap: 12px; justify-items: start; }.state-card.error { color: #991b1b; }
     @media (max-width: 700px) { .section-title { display: grid; }.dynamics-chart { min-height: 340px; } }
   `],
 })
@@ -309,7 +310,7 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
     key: MonthlyLedgerColumn,
   ): string {
     const value = 'months' in bucket ? bucket.totals[key] ?? null : monthlyLedgerValue(bucket, key);
-    return value === null ? '—' : new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
+    return value === null ? '—' : new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(monthlyLedgerDisplayValue(value, key));
   }
   ledgerCellBackground(bucket: DynamicsResponse['monthly'][number], key: MonthlyLedgerColumn): string | undefined {
     if (key === 'score') return this.cellBackground(bucket, 'score', 'total');

@@ -47,7 +47,7 @@ No-row days are missing, not zero. A persisted row whose metric value is zero re
 
 The Monthly Stats chart supports absolute totals or recorded-day averages. Absolute mixed-unit series use separately labelled axes. Indexed comparison sets each series' first non-zero value to 100; this compares shapes, not physical magnitudes.
 
-Monthly Stats also includes an Excel-style year/month score ledger. Years can be expanded or collapsed; expanded years show each calendar month followed by a year total. Its fixed columns are `Bike`, `Run`, `SwimT`, `Woth`, `stepsT`, `Power`, and `Sum`. The first six columns are summed score-ledger contributions (`bike`, `run`, `swim`, `workout`, `steps`, and `bonus`); `Sum` is the authoritative `daily_metrics.total_points` total. These columns intentionally do not reuse raw distance or raw step totals from the selectable dynamics metrics.
+Monthly Stats also includes an Excel-style year/month score ledger. Years can be expanded or collapsed; expanded years show each calendar month followed by a year total. Its fixed columns are `Bike (km)`, `Run (km)`, `SwimT (km)`, `Woth (pts)`, `stepsT (pts)`, `Power (pts)`, and `Sum (pts)`. Bike, Run, and Swim are summed canonical daily distances converted from metres to kilometres; Woth, stepsT, and Power are summed score-ledger contributions; `Sum` is the authoritative `daily_metrics.total_points` total. The distance columns intentionally use canonical facts rather than score coefficients.
 
 ## Ownership and privacy
 

@@ -3,6 +3,7 @@ import type { DynamicsDailyRow, ScoreContributionRow } from '@sportos/db';
 export const DYNAMICS_METRICS = ['score', 'steps', 'run', 'bike', 'swim', 'workout', 'bonus'] as const;
 export type DynamicsMetric = typeof DYNAMICS_METRICS[number];
 export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
+export type DistanceMetric = 'run' | 'bike' | 'swim';
 export const ROLLING_WINDOWS = [7, 20, 30, 60, 365] as const;
 export type RollingWindow = typeof ROLLING_WINDOWS[number];
 export const SCORE_CONTRIBUTION_CATEGORIES = ['steps', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'bonus'] as const;
@@ -28,6 +29,7 @@ export interface DynamicsBucket {
   recordedDays: number;
   partial: boolean;
   values: Partial<Record<DynamicsMetric, DynamicsMetricAggregate>>;
+  distanceTotals?: Partial<Record<DistanceMetric, number>>;
   scoreContributions?: Partial<Record<ScoreContributionCategory, number>>;
 }
 
@@ -89,6 +91,7 @@ export function buildDynamicsResponse(
   const monthlyMetrics: DynamicsMetric[] = query.metrics.includes('score') ? query.metrics : [...query.metrics, 'score'];
   const monthly = aggregate(rows, query.from, query.to, 'monthly', monthlyMetrics).map((bucket) => ({
     ...bucket,
+    distanceTotals: aggregateDistanceTotals(rows, bucket),
     scoreContributions: aggregateScoreContributions(contributionRows, bucket),
   }));
 
@@ -235,6 +238,20 @@ function aggregateScoreContributions(
     const category = row.activityType as ScoreContributionCategory;
     if (!SCORE_CONTRIBUTION_CATEGORIES.includes(category)) continue;
     totals[category] = (totals[category] ?? 0) + row.points;
+  }
+  return totals;
+}
+
+function aggregateDistanceTotals(
+  rows: DynamicsDailyRow[],
+  bucket: DynamicsBucket,
+): Partial<Record<DistanceMetric, number>> {
+  const totals: Partial<Record<DistanceMetric, number>> = {};
+  for (const row of rows) {
+    if (row.metricDate < bucket.from || row.metricDate > bucket.to) continue;
+    for (const metric of ['run', 'bike', 'swim'] as const) {
+      totals[metric] = (totals[metric] ?? 0) + row[metric];
+    }
   }
   return totals;
 }

@@ -20,13 +20,13 @@ export const DYNAMICS_LABELS: Record<DynamicsMetric, string> = {
 };
 
 export const MONTHLY_LEDGER_COLUMNS = [
-  { key: 'bike', label: 'Bike' },
-  { key: 'run', label: 'Run' },
-  { key: 'swim', label: 'SwimT' },
-  { key: 'workout', label: 'Woth' },
-  { key: 'steps', label: 'stepsT' },
-  { key: 'bonus', label: 'Power' },
-  { key: 'score', label: 'Sum' },
+  { key: 'bike', label: 'Bike (km)' },
+  { key: 'run', label: 'Run (km)' },
+  { key: 'swim', label: 'SwimT (km)' },
+  { key: 'workout', label: 'Woth (pts)' },
+  { key: 'steps', label: 'stepsT (pts)' },
+  { key: 'bonus', label: 'Power (pts)' },
+  { key: 'score', label: 'Sum (pts)' },
 ] as const satisfies ReadonlyArray<{ key: ScoreContributionCategory | 'score'; label: string }>;
 
 export type MonthlyLedgerColumn = typeof MONTHLY_LEDGER_COLUMNS[number]['key'];
@@ -64,7 +64,12 @@ export function buildMonthlyLedger(buckets: DynamicsBucket[]): MonthlyLedgerYear
 export function monthlyLedgerValue(bucket: DynamicsBucket, key: MonthlyLedgerColumn): number | null {
   if (bucket.recordedDays === 0) return null;
   if (key === 'score') return bucket.values.score?.total ?? null;
+  if (key === 'run' || key === 'bike' || key === 'swim') return bucket.distanceTotals?.[key] ?? 0;
   return bucket.scoreContributions?.[key] ?? 0;
+}
+
+export function monthlyLedgerDisplayValue(value: number, key: MonthlyLedgerColumn): number {
+  return key === 'run' || key === 'bike' || key === 'swim' ? value / 1_000 : value;
 }
 
 const COLORS: Record<DynamicsMetric, string> = {

@@ -43,6 +43,8 @@ describe('buildDynamicsResponse', () => {
       scoreContributions: { bike: 346, run: 206, steps: 160 },
     });
     expect(result.monthly[1]?.scoreContributions).toEqual({ bonus: 20 });
+    expect(result.monthly[0]?.distanceTotals).toEqual({ run: 5_000, bike: 0, swim: 0 });
+    expect(result.monthly[1]?.distanceTotals).toEqual({ run: 0, bike: 20_000, swim: 500 });
     expect(result.metrics).toEqual(['run']);
   });
 

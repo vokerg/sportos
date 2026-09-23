@@ -3,6 +3,7 @@ export type DynamicsMetric = typeof DYNAMICS_METRICS[number];
 export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
 export type DynamicsMeasure = 'total' | 'recordedDayAverage';
 export type RollingDynamicsMeasure = DynamicsMeasure | 'activeDays';
+export type DistanceMetric = 'run' | 'bike' | 'swim';
 export const ROLLING_WINDOWS = [7, 20, 30, 60, 365] as const;
 export type RollingWindow = typeof ROLLING_WINDOWS[number];
 export const SCORE_CONTRIBUTION_CATEGORIES = ['steps', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'bonus'] as const;
@@ -21,6 +22,7 @@ export interface DynamicsBucket {
   recordedDays: number;
   partial: boolean;
   values: Partial<Record<DynamicsMetric, DynamicsMetricAggregate>>;
+  distanceTotals?: Partial<Record<DistanceMetric, number>>;
   scoreContributions?: Partial<Record<ScoreContributionCategory, number>>;
 }
 

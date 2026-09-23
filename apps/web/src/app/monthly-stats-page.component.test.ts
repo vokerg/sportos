@@ -11,7 +11,7 @@ import { buildMonthlyLedger } from './monthly-stats.view-model';
 const response: DynamicsResponse = {
   range: { from: '2026-01-01', to: '2026-02-28' }, granularity: 'monthly', metrics: ['score', 'run'],
   metricUnits: { score: 'points', steps: 'steps', run: 'metres', bike: 'metres', swim: 'metres', workout: 'points', bonus: 'points' },
-  monthly: [{ key: '2026-01', from: '2026-01-01', to: '2026-01-31', calendarDays: 31, recordedDays: 1, partial: false, values: { score: { total: 10, recordedDayAverage: 10 }, run: { total: 5_000, recordedDayAverage: 5_000 } } }],
+  monthly: [{ key: '2026-01', from: '2026-01-01', to: '2026-01-31', calendarDays: 31, recordedDays: 1, partial: false, values: { score: { total: 10, recordedDayAverage: 10 }, run: { total: 5_000, recordedDayAverage: 5_000 } }, distanceTotals: { run: 5_000, bike: 0, swim: 0 } }],
   series: [],
 };
 
@@ -90,17 +90,19 @@ describe('MonthlyStatsPageComponent', () => {
     const january = {
       ...response.monthly[0]!,
       scoreContributions: { bike: 346, run: 206, swim: 4, workout: 113, steps: 160, bonus: 37 },
+      distanceTotals: { bike: 2_000, run: 5_000, swim: 1_000 },
     };
     const february = {
       ...january,
       key: '2026-02', from: '2026-02-01', to: '2026-02-28',
       values: { ...january.values, score: { total: 20, recordedDayAverage: 20 } },
       scoreContributions: { bike: 200, run: 100, swim: 0, workout: 20, steps: 80, bonus: 10 },
+      distanceTotals: { bike: 3_000, run: 7_000, swim: 2_000 },
     };
 
     const ledger = buildMonthlyLedger([january, february]);
     expect(ledger).toHaveLength(1);
     expect(ledger[0]).toMatchObject({ year: '2026', recordedDays: 2, calendarDays: 62 });
-    expect(ledger[0]?.totals).toMatchObject({ bike: 546, run: 306, swim: 4, workout: 133, steps: 240, bonus: 47, score: 30 });
+    expect(ledger[0]?.totals).toMatchObject({ bike: 5_000, run: 12_000, swim: 3_000, workout: 133, steps: 240, bonus: 47, score: 30 });
   });
 });
