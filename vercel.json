@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "corepack pnpm install --frozen-lockfile",
-  "buildCommand": "corepack pnpm build:web:hosted",
+  "buildCommand": "corepack pnpm@9.12.0 --filter @sportos/web exec ng build --configuration hosted",
   "outputDirectory": "apps/web/dist/web/browser",
   "git": { "deploymentEnabled": { "**": false, "main": true, "issue-95-hosted-deployment": true } },
   "headers": [{
