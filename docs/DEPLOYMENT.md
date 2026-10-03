@@ -87,6 +87,8 @@ only the core API-base value; local builds retain localhost defaults.
 
 The created production domain is `https://sportos-delta.vercel.app`; use that
 exact origin for API CORS, browser redirects, and the Strava callback URL.
+The Render API hostname is `https://sportos-api-5qdc.onrender.com`; Vercel's
+`/api` rewrite targets that exact service.
 
 Deploy the same reviewed commit to both hosts. Until the PR is merged, explicitly
 select `issue-95-hosted-deployment` as the deployment source. Merging is a separate
