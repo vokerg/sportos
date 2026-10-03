@@ -6,6 +6,7 @@
   "packageManager": "pnpm@9.12.0",
   "scripts": {
     "build:backend": "tsc -b apps/api apps/worker --pretty false",
+    "build:api:hosted": "tsc -b apps/api --pretty false",
     "build:web:hosted": "pnpm --filter @sportos/web exec ng build --configuration hosted",
     "start:hosted": "node scripts/start-hosted.mjs",
     "test:hosted": "node --test scripts/start-hosted.test.mjs",

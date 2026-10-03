@@ -6,16 +6,17 @@ Render and Vercel setup. SportOS uses pnpm and opaque session cookies.
 ## Topology
 
 - Vercel serves Angular and proxies `/api/:path*` to the Render API.
-- One paid Render web service runs the API and worker as separate supervised
-  processes. They share a persistent disk at `/var/data/sportos` for uploads.
+- One free Render web service runs the API only. The worker is intentionally
+  postponed, so queued imports, provider synchronization and rule recomputation
+  do not progress in this deployment.
 - Existing primary and activity-detail Neon projects retain their separate
   runtime identities. Schema-owner credentials never enter Render or Vercel.
 
-Render disks cannot be shared between services. Keeping the two processes on
-one instance preserves the existing upload adapter without adding an object
-store or changing provenance. The supervisor stops both processes if either
-fails so Render restarts the complete service. This is a single-instance hobby
-deployment; splitting services requires a shared object-storage adapter first.
+Render's free web service has no persistent disk and may sleep after inactivity.
+`SPORTOS_UPLOAD_DIR` therefore points at ephemeral `/tmp` storage. Do not rely on
+uploaded files surviving a restart, and avoid starting upload/import workflows
+until the worker and shared object storage are deployed. Existing canonical data
+and read-only application workflows remain backed by Neon.
 
 The Vercel proxy keeps the session and readable CSRF cookie on the frontend
 origin. OIDC and Strava callbacks must use the Vercel `/api` URL, not the direct
@@ -50,15 +51,10 @@ state from those summaries or change unrelated queue items.
 ## Render settings
 
 Repository root, Node 22, Frankfurt region. Build with
-`corepack pnpm install --frozen-lockfile && corepack pnpm build:backend` and start
-with `node scripts/start-hosted.mjs`. Health check: `/health`. The supervisor
-allows 20 seconds for graceful termination before killing a stuck child.
-
-Mount a persistent disk at `/var/data/sportos` and set
-`SPORTOS_UPLOAD_DIR=/var/data/sportos/uploads`. Only that disk survives deployments.
-Disk-backed services have a brief outage during deploy and cannot scale out.
-The initial hobby allocation is 0.5 CPU/512 MB ($7/month) plus a 1 GB disk
-($0.25/month). Monitor memory and disk usage before increasing either allocation.
+`corepack pnpm install --frozen-lockfile && corepack pnpm build:api:hosted` and
+start with `node apps/api/dist/main.js`. Health check: `/health`. Select the free
+0.1 CPU/512 MB plan, attach no disk, and set
+`SPORTOS_UPLOAD_DIR=/tmp/sportos/uploads`. Expect a cold start after inactivity.
 
 Set production environment variables through Render's secret settings:
 
@@ -66,16 +62,16 @@ Set production environment variables through Render's secret settings:
 - `SPORTOS_WEB_ORIGIN=https://<vercel-production-host>`;
 - `SPORTOS_API_ORIGIN=https://<vercel-production-host>/api`;
 - `SPORTOS_SINGLE_USER_USERNAME` and `SPORTOS_SINGLE_USER_PASSWORD_HASH`;
-- primary `DATABASE_URL`, `SPORTOS_WORKER_DATABASE_URL`, `SPORTOS_WORKER_DATA_DATABASE_URL`;
+- primary `DATABASE_URL`;
 - separate-project `SPORTOS_ACTIVITY_DETAIL_DATABASE_URL`;
 - existing Strava client ID/secret and provider credential encryption key ring;
 - `STRAVA_REDIRECT_URI=https://<vercel-production-host>/api/providers/strava/callback`;
-- bounded worker settings from `.env.example`.
+- no dispatcher, worker-data or worker tuning settings.
 
-The supervisor passes API database/login secrets only to the API child, and
-dispatcher/worker-data URLs only to the worker child. Both need Strava encryption
-keys and upload storage. Neither child receives Flyway credentials or the legacy
-CLI URL. Leave development authentication and optional external generation unset.
+The API receives only its non-owner database/login secrets, the activity-detail
+runtime URL, Strava configuration and the provider encryption key ring. It does
+not receive dispatcher, worker-data, Flyway, schema-owner or legacy CLI URLs.
+Leave development authentication and optional external generation unset.
 
 Keep the existing encryption key ring when using existing provider connections.
 Set Strava's authorization callback domain to the Vercel production hostname.
@@ -103,17 +99,15 @@ and activity-detail schema before startup. Future Flyway changes run once using
 a separate operator/migration identity; never run owner migrations inside the
 API/worker start command or supply owner credentials to hosted runtime services.
 
-Preserve any pre-existing uploaded objects with their original opaque keys when
-moving to the Render disk. Historical database provenance alone does not restore
-the source files. Back up the Neon projects, upload disk and encryption key ring
-together, with private access and retention appropriate to the source data.
-Render disk snapshots are useful but do not replace a coordinated restore drill.
-Do not delete files or recreate the disk when rolling back code.
+Historical database provenance alone does not restore source files. The free
+API-only deployment does not migrate local uploaded objects, and its temporary
+upload directory is not a backup. Back up the Neon projects, local source files
+and encryption key ring together, with private access and retention appropriate
+to the source data.
 
 Rollback uses the previous compatible commit on both platforms and preserves
-the database, disk and key ring. Stop both supervised processes together before
-restoring a coordinated backup. Database migrations are forward-only; a rollback
-must remain compatible with persisted schema and queued jobs.
+the database and key ring. Database migrations are forward-only; a rollback must
+remain compatible with persisted schema and queued jobs.
 
 ## Validation and status
 
