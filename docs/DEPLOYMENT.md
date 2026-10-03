@@ -51,7 +51,7 @@ state from those summaries or change unrelated queue items.
 ## Render settings
 
 Repository root, Node 22, Frankfurt region. Build with
-`corepack pnpm install --frozen-lockfile && corepack pnpm build:api:hosted` and
+`corepack pnpm install --prod=false --frozen-lockfile && corepack pnpm build:api:hosted` and
 start with `node apps/api/dist/main.js`. Health check: `/health`. Select the free
 0.1 CPU/512 MB plan, attach no disk, and set
 `SPORTOS_UPLOAD_DIR=/tmp/sportos/uploads`. Expect a cold start after inactivity.
