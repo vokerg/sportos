@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
 import type { AuthenticatedRequest } from './auth.models.js';
 import { PublicRoute } from './public.decorator.js';
@@ -11,6 +11,25 @@ interface ResponseLike {
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  @Get('config')
+  @PublicRoute()
+  configuration() {
+    return { mode: this.auth.loginMode() };
+  }
+
+  @Post('password')
+  @PublicRoute()
+  async passwordLogin(
+    @Body() input: unknown,
+    @Headers('origin') origin: string | undefined,
+    @Headers('user-agent') userAgent: string | undefined,
+    @Res({ passthrough: true }) response: ResponseLike,
+  ) {
+    const result = await this.auth.loginSingleUser(input, origin, userAgent);
+    response.setHeader('Set-Cookie', this.auth.sessionCookieHeaders(result));
+    return { account: result.session.account, expiresAt: result.session.expiresAt, absoluteExpiresAt: result.session.absoluteExpiresAt };
+  }
 
   @Get('login')
   @PublicRoute()

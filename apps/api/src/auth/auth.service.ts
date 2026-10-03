@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, HttpException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import {
   AuthRepository,
   ExternalIdentityClaimError,
@@ -7,6 +7,7 @@ import {
 } from '@sportos/db';
 import { DbProvider } from '../db.provider.js';
 import type { AuthenticatedSession } from './auth.models.js';
+import { verifySingleUserPassword } from './single-user-password.js';
 
 interface OidcDiscovery {
   issuer: string;
@@ -37,13 +38,53 @@ const DEV_SESSION_ABSOLUTE_SECONDS = 604_800;
 export class AuthService {
   private readonly repository: AuthRepository;
   private discoveryPromise?: Promise<OidcDiscovery>;
+  private loginWindowStarted = 0;
+  private loginAttempts = 0;
+  private loginInProgress = false;
 
   constructor(private readonly database: DbProvider) {
     this.repository = new AuthRepository(database.db);
   }
 
   isDevelopmentMode(): boolean {
-    return process.env.SPORTOS_AUTH_MODE === 'dev-single-user';
+    return process.env.NODE_ENV !== 'production' && process.env.SPORTOS_AUTH_MODE === 'dev-single-user';
+  }
+
+  loginMode(): 'single-user' | 'oidc' {
+    return process.env.SPORTOS_AUTH_MODE === 'single-user' ? 'single-user' : 'oidc';
+  }
+
+  async loginSingleUser(input: unknown, origin: string | undefined, userAgent?: string): Promise<SessionIssueResult> {
+    if (this.loginMode() !== 'single-user') throw new UnauthorizedException('Sign-in is unavailable.');
+    if (!origin || origin !== String(process.env.SPORTOS_WEB_ORIGIN ?? '').replace(/\/$/, '')) {
+      throw new ForbiddenException('The request could not be verified.');
+    }
+    if (Date.now() - this.loginWindowStarted >= 60_000) {
+      this.loginWindowStarted = Date.now();
+      this.loginAttempts = 0;
+    }
+    if (this.loginInProgress || this.loginAttempts >= 10) {
+      throw new HttpException('Too many sign-in attempts. Try again in a minute.', 429);
+    }
+    this.loginAttempts += 1;
+    if (!input || typeof input !== 'object' || Array.isArray(input)
+      || Object.keys(input).some((key) => !['username', 'password'].includes(key))) {
+      throw new UnauthorizedException('Invalid username or password.');
+    }
+    const { username, password } = input as { username?: unknown; password?: unknown };
+    if (typeof username !== 'string' || username.length > 100
+      || typeof password !== 'string' || password.length < 1 || password.length > 256) {
+      throw new UnauthorizedException('Invalid username or password.');
+    }
+    this.loginInProgress = true;
+    try {
+      if (!await verifySingleUserPassword(username, password)) throw new UnauthorizedException('Invalid username or password.');
+      const account = await this.repository.getAccount(LEGACY_ACCOUNT_ID);
+      if (!account || account.status !== 'active') throw new UnauthorizedException('Invalid username or password.');
+      return await this.issueSession(account.id, account.display_name, account.email, '/', userAgent);
+    } finally {
+      this.loginInProgress = false;
+    }
   }
 
   async getDevelopmentSession(): Promise<AuthenticatedSession> {
@@ -60,6 +101,7 @@ export class AuthService {
   }
 
   async beginLogin(returnToValue?: string): Promise<string> {
+    if (this.loginMode() === 'single-user') throw new UnauthorizedException('Use the username and password form.');
     const returnTo = normalizeReturnTo(returnToValue);
     if (this.isDevelopmentMode()) {
       const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4210').replace(/\/$/, '');
@@ -93,6 +135,7 @@ export class AuthService {
   }
 
   async completeLogin(code: string, state: string, userAgent?: string): Promise<SessionIssueResult> {
+    if (this.loginMode() === 'single-user') throw new UnauthorizedException('OIDC sign-in is unavailable.');
     if (!code || !state) throw new UnauthorizedException({ code: 'OIDC_CALLBACK_INVALID', message: 'Sign-in could not be completed.' });
     const transaction = await this.repository.consumeAuthorizationTransaction(sha256(state));
     if (!transaction) throw new UnauthorizedException({ code: 'OIDC_STATE_INVALID', message: 'Sign-in state is invalid or expired.' });
@@ -150,6 +193,9 @@ export class AuthService {
   }
 
   async createDevelopmentSession(authorizationHeader: string | undefined, userAgent?: string): Promise<SessionIssueResult> {
+    if (process.env.NODE_ENV === 'production' || this.loginMode() === 'single-user') {
+      throw new UnauthorizedException({ code: 'DEV_AUTH_DISABLED', message: 'Development sign-in is unavailable.' });
+    }
     const expected = String(process.env.SPORTOS_DEV_AUTH_TOKEN ?? '');
     const provided = String(authorizationHeader ?? '').replace(/^Bearer\s+/i, '');
     if (!expected || !safeEqual(expected, provided)) {
@@ -164,6 +210,7 @@ export class AuthService {
     if (!sessionToken || sessionToken.length < 32 || sessionToken.length > 500) return null;
     const result = await this.repository.findActiveSession(sha256(sessionToken));
     if (!result) return null;
+    if (this.loginMode() === 'single-user' && result.account.id !== LEGACY_ACCOUNT_ID) return null;
 
     const absoluteExpiry = new Date(result.absoluteExpiresAt).valueOf();
     const idleSeconds = boundedSeconds(process.env.SPORTOS_SESSION_IDLE_SECONDS, 43_200, 300, 86_400);

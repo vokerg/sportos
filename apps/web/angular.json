@@ -9,6 +9,17 @@
       "architect": {
         "build": {
           "builder": "@angular-devkit/build-angular:application",
+          "configurations": {
+            "hosted": {
+              "optimization": true,
+              "outputHashing": "all",
+              "sourceMap": false,
+              "fileReplacements": [{
+                "replace": "src/app/core/config/api-base.value.ts",
+                "with": "src/app/core/config/api-base.value.hosted.ts"
+              }]
+            }
+          },
           "options": {
             "outputPath": "dist/web",
             "index": "src/index.html",
