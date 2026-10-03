@@ -57,6 +57,8 @@ allows 20 seconds for graceful termination before killing a stuck child.
 Mount a persistent disk at `/var/data/sportos` and set
 `SPORTOS_UPLOAD_DIR=/var/data/sportos/uploads`. Only that disk survives deployments.
 Disk-backed services have a brief outage during deploy and cannot scale out.
+The initial hobby allocation is 0.5 CPU/512 MB ($7/month) plus a 1 GB disk
+($0.25/month). Monitor memory and disk usage before increasing either allocation.
 
 Set production environment variables through Render's secret settings:
 
@@ -86,6 +88,9 @@ hosted Angular build, output directory, no-store API headers and SPA routing.
 There are no browser secrets or database URLs. Keep the Render hostname in the
 external rewrite synchronized with the deployed service. Hosted builds replace
 only the core API-base value; local builds retain localhost defaults.
+
+The created production domain is `https://sportos-delta.vercel.app`; use that
+exact origin for API CORS, browser redirects, and the Strava callback URL.
 
 Deploy the same reviewed commit to both hosts. Until the PR is merged, explicitly
 select `issue-95-hosted-deployment` as the deployment source. Merging is a separate
