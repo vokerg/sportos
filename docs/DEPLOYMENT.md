@@ -113,5 +113,9 @@ remain compatible with persisted schema and queued jobs.
 
 ## Validation and status
 
-Configuration is being prepared. Production resources and authenticated
-end-to-end verification are not yet complete.
+The Vercel frontend and free Render API are live. Authenticated browser
+verification covered the Vercel-to-Render health proxy, password sign-in,
+session-backed Overview, canonical Activities, provider status and an activity
+detail including the separate activity-detail database. The worker remains
+intentionally undeployed; queued imports, synchronization and recomputation do
+not progress until worker hosting and durable shared upload storage are added.
