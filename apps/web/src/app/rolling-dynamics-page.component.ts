@@ -13,7 +13,16 @@ import {
   type RollingWindow,
 } from './features/dynamics/model/dynamics.models';
 import { DYNAMICS_LABELS } from './monthly-stats.view-model';
-import { boundedAllTimeRange, QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './daily-log.view-model';
+import {
+  boundedAllTimeRange,
+  isDateRangeOrdered,
+  QUICK_RANGE_VALUES,
+  quickRangeDates,
+  readAnalyticsDateRange,
+  readQueryEnum,
+  readQueryNumberCsv,
+  type QuickRange,
+} from './shared/util/analytics-query-state';
 import { buildRollingAggregateRows, formatRollingMeasureValue, formatRollingValue, ROLLING_AGGREGATE_METRICS, rollingDynamicsChartOptions, rollingMeasure, scoreContributionChartOptions, type RollingAggregateMetric } from './rolling-dynamics.view-model';
 
 type PageState = 'loading' | 'loaded' | 'empty' | 'error';
@@ -150,15 +159,17 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
-      const fallback = defaultRange();
-      const from = validDate(params.get('from')) ?? fallback.from;
-      const to = validDate(params.get('to')) ?? fallback.to;
-      this.from.set(from);
-      this.to.set(to);
-      this.quickRange.set(matchingQuickRange(from, to));
-      this.metric.set(validMetric(params.get('metric')) ?? 'run');
-      this.windows.set(validWindows(params.get('windows')));
-      this.measure.set(validRollingMeasure(params.get('measure'), this.metric()));
+      const range = readAnalyticsDateRange(params, defaultRange());
+      const metric = readQueryEnum(params.get('metric'), DYNAMICS_METRICS, 'run');
+      this.from.set(range.from);
+      this.to.set(range.to);
+      this.quickRange.set(range.quickRange);
+      this.metric.set(metric);
+      this.windows.set(readQueryNumberCsv(params.get('windows'), ROLLING_WINDOWS, [30]));
+      this.measure.set(validRollingMeasure(
+        readQueryEnum(params.get('measure'), ['total', 'recordedDayAverage', 'activeDays'] as const, 'recordedDayAverage'),
+        metric,
+      ));
       this.load();
     });
   }
@@ -166,12 +177,12 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { this.requestCancelled$.next(); this.destroy$.next(); this.destroy$.complete(); }
 
   apply(): void {
-    if (this.from() > this.to()) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
+    if (!isDateRangeOrdered(this.from(), this.to())) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
     void this.router.navigate([], { relativeTo: this.route, queryParams: { from: this.from(), to: this.to(), metric: this.metric(), windows: this.windows().join(','), measure: this.measure() } });
   }
 
   load(): void {
-    if (this.from() > this.to()) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
+    if (!isDateRangeOrdered(this.from(), this.to())) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
     this.requestCancelled$.next(); this.state.set('loading'); this.errorMessage.set(null);
     const aggregateRequests = this.aggregateMetrics.map((metric) => this.api.rollingDynamics({ from: this.from(), to: this.to(), metric, windows: this.windows() }));
     const selectedMetricIsAggregate = this.aggregateMetrics.includes(this.metric() as RollingAggregateMetric);
@@ -248,22 +259,11 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   latestCoverage(window: RollingWindow): string { const value = this.data()?.points.at(-1)?.windows[window]; return value ? `${value.recordedDays} / ${value.windowDays} days recorded${value.complete ? '' : ' · incomplete'}` : 'No coverage'; }
 }
 
-function validDate(value: string | null): string | null { return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null; }
 function validMetric(value: string | null): DynamicsMetric | null { return value && DYNAMICS_METRICS.includes(value as DynamicsMetric) ? value as DynamicsMetric : null; }
 function validRollingMeasure(value: string | null, metric: DynamicsMetric): RollingDynamicsMeasure {
   if (value === 'activeDays') return metric === 'score' ? 'total' : 'activeDays';
   return value === 'total' ? 'total' : 'recordedDayAverage';
 }
-function validWindows(value: string | null): RollingWindow[] { const values = value?.split(',').map(Number) ?? [30]; return values.length && new Set(values).size === values.length && values.every((window) => ROLLING_WINDOWS.includes(window as RollingWindow)) ? values as RollingWindow[] : [30]; }
 function hasValues(response: RollingDynamicsResponse): boolean { return response.points.some((point) => response.windows.some((window) => point.windows[window]?.total !== null)); }
 function defaultRange(): { from: string; to: string } { return quickRangeDates(DEFAULT_ROLLING_QUICK_RANGE); }
-function matchingQuickRange(from: string, to: string): QuickRange {
-  const all = boundedAllTimeRange(to);
-  if (all.from === from && all.to === to) return 'all';
-  for (const range of ['1m', '3m', '6m', 'ytd', '1y', '3y'] as const) {
-    const dates = quickRangeDates(range, new Date(`${to}T00:00:00.000Z`));
-    if (dates.from === from && dates.to === to) return range;
-  }
-  return 'custom';
-}
 function describeError(error: unknown): string { if (!(error instanceof HttpErrorResponse)) return 'Rolling dynamics could not be loaded.'; if (error.status === 0) return 'The SportOS API is unavailable.'; const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {}; return typeof body.message === 'string' ? body.message : `Rolling dynamics could not be loaded (HTTP ${error.status}).`; }

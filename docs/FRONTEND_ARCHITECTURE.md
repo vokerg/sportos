@@ -187,6 +187,18 @@ Required rules:
 - presentation components must not inject `HttpClient`;
 - avoid feature-to-feature deep imports. If two features truly share a concept, extract the smallest stable concept to `shared/` or define an explicit public boundary instead of reaching into another feature's internals.
 
+## Analytics date-range and query-state pattern
+
+Reusable analytics calendar/query behavior lives in `src/app/shared/util/analytics-query-state.ts`.
+
+- Treat `YYYY-MM-DD` values as calendar dates, not instants. The current browser day is derived from local calendar fields; do not round-trip a date-only query value through `toISOString()` or construct a UTC-midnight `Date` merely to identify a quick range.
+- Use `readAnalyticsDateRange` for the common `from`/`to` query pair and derived quick-range selection. It preserves deep links while normalizing malformed dates to the feature's explicit fallback range.
+- Use the allowlist readers for enum and CSV query state. Keep feature semantics in the feature: Monthly Stats still owns granularity/measure/metric-count rules, while Dynamics owns rolling measure/window behavior.
+- `quickRangeDates`, `boundedAllTimeRange`, and `matchingQuickRange` define the shared quick-range semantics. Do not copy these calculations into a page.
+- Future Run Lab date-range/query controls must reuse this shared pattern rather than introducing another parser or UTC-based date conversion. Run/performance-specific filters and ranking semantics remain owned by the Run Lab feature.
+
+The helper is intentionally pure and feature-agnostic. It must not import Angular router types or feature models; pages pass only the minimal query-reader shape.
+
 ## Core ownership
 
 Application-wide infrastructure belongs in `core/`:
