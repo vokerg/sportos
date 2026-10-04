@@ -21,7 +21,18 @@ import { WebAuthService } from './web-auth.service';
         <section class="card auth-card">
           <h1>SportOS</h1>
           <p>Sign in to access your private training data, provenance, rules, jobs, exports, and read-only analysis.</p>
-          <button type="button" (click)="auth.signIn()">Sign in</button>
+          @if (auth.loginMode() === 'single-user') {
+            <form class="sign-in-form" (submit)="$event.preventDefault(); auth.signInWithPassword(username.value, password.value); password.value = ''">
+              <label for="username">Username</label>
+              <input #username id="username" name="username" autocomplete="username" required maxlength="100" />
+              <label for="password">Password</label>
+              <input #password id="password" name="password" type="password" autocomplete="current-password" required maxlength="256" />
+              <button type="submit" [disabled]="auth.signingIn()">{{ auth.signingIn() ? 'Signing in…' : 'Sign in' }}</button>
+            </form>
+          } @else {
+            <button type="button" (click)="auth.signIn()">Sign in</button>
+          }
+          @if (auth.errorMessage()) { <p role="alert">{{ auth.errorMessage() }}</p> }
         </section>
       </main>
     } @else if (auth.state() === 'error') {
@@ -63,6 +74,9 @@ import { WebAuthService } from './web-auth.service';
   `,
   styles: [`
     .auth-card { max-width: 560px; margin: 10vh auto 0; text-align: center; }
+    .sign-in-form { display: grid; gap: 10px; text-align: left; max-width: 340px; margin: 24px auto 0; }
+    .sign-in-form input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #b8c1d1; border-radius: 8px; font: inherit; }
+    .sign-in-form button { margin-top: 10px; }
     .app-header {
       position: sticky;
       top: 0;

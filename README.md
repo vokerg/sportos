@@ -149,6 +149,9 @@ For the complete invariants and data flows, read [docs/ARCHITECTURE.md](docs/ARC
 
 ## Prerequisites
 
+For the Vercel frontend and Render backend setup, including personal
+username/password sign-in, see [Hosted deployment](docs/DEPLOYMENT.md).
+
 - Node.js 22
 - pnpm 9.12.0
 - a Neon PostgreSQL project and branch

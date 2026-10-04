@@ -16,6 +16,8 @@ export class WebAuthService {
   readonly state = signal<BrowserAuthState>('loading');
   readonly session = signal<BrowserSession | null>(null);
   readonly errorMessage = signal<string | null>(null);
+  readonly loginMode = signal<'single-user' | 'oidc'>('oidc');
+  readonly signingIn = signal(false);
 
   constructor(private readonly http: HttpClient) {
     window.addEventListener('sportos-auth-expired', () => this.markExpired());
@@ -24,6 +26,10 @@ export class WebAuthService {
   loadSession(): void {
     this.state.set('loading');
     this.errorMessage.set(null);
+    this.http.get<{ mode: 'single-user' | 'oidc' }>(`${this.apiBase}/auth/config`).subscribe({
+      next: ({ mode }) => this.loginMode.set(mode),
+      error: () => this.errorMessage.set('Sign-in configuration is unavailable. Please retry.'),
+    });
     this.http.get<BrowserSession>(`${this.apiBase}/auth/session`).subscribe({
       next: (session) => {
         this.session.set(session);
@@ -44,6 +50,25 @@ export class WebAuthService {
   signIn(): void {
     const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     window.location.assign(`${this.apiBase}/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
+  }
+
+  signInWithPassword(username: string, password: string): void {
+    if (this.signingIn()) return;
+    this.signingIn.set(true);
+    this.errorMessage.set(null);
+    this.http.post<BrowserSession>(`${this.apiBase}/auth/password`, { username, password }).subscribe({
+      next: (session) => {
+        this.session.set(session);
+        this.state.set('authenticated');
+        this.signingIn.set(false);
+      },
+      error: (error: unknown) => {
+        this.signingIn.set(false);
+        this.errorMessage.set(error instanceof HttpErrorResponse && error.status === 429
+          ? 'Too many sign-in attempts. Try again in a minute.'
+          : 'Sign-in failed. Check your username and password.');
+      },
+    });
   }
 
   signOut(): void {

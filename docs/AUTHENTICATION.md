@@ -1,6 +1,34 @@
 # Authentication and account ownership
 
-SportOS uses OpenID Connect (OIDC) Authorization Code flow with PKCE and does not store passwords. External identities map from the provider's immutable `(issuer, subject)` pair to an internal `accounts.id` UUID. That UUID owns uploads, imports, canonical facts, scores, jobs, exports, rule configuration, and analysis audit metadata.
+SportOS supports OpenID Connect (OIDC) Authorization Code flow with PKCE and an
+explicit personal deployment mode. OIDC identities map from the immutable
+`(issuer, subject)` pair to an internal `accounts.id` UUID. The personal mode
+authenticates only the existing legacy account. Account UUIDs own uploads,
+imports, canonical facts, scores, jobs, exports, rule configuration and analysis metadata.
+
+## Personal hosted sign-in
+
+The maintainer selected `SPORTOS_AUTH_MODE=single-user` for the initial hosted
+deployment, postponing external identity-provider selection. Configure one
+`SPORTOS_SINGLE_USER_USERNAME` and `SPORTOS_SINGLE_USER_PASSWORD_HASH` in Render.
+The hash format is `scrypt-v1:<16-byte salt in hex>:<64-byte derived key in hex>`,
+with scrypt N=65536, r=8, p=1. Generate a random password outside source control;
+never put the plaintext password in deployment settings or logs.
+
+`GET /auth/config` exposes only the login mode. `POST /auth/password` accepts
+exactly username/password, requires the configured browser Origin, and issues
+the same opaque session and CSRF cookies as OIDC. It always selects the fixed
+legacy account; it cannot register users or choose another owner. Wrong names
+and passwords share a generic error. Password checks are serialized, bounded to
+ten attempts per minute per process, and use constant-time comparisons. The
+limiter resets on process restart; this deployment is intentionally one instance.
+OIDC login/callback and development bootstrap are unavailable in this mode.
+Production startup rejects development bypass settings.
+
+Changing to OIDC later requires the explicit legacy issuer/subject claim mapping
+before the first login so the owner retains the same data. Replacing the password
+hash does not revoke existing sessions: revoke those separately if rotating after
+a compromise. See [hosted deployment](DEPLOYMENT.md) for the proxy and storage setup.
 
 See [ADR 0005](adr/0005-authentication-and-data-ownership.md) for the accepted identity decision and threat matrix, and [ADR 0007](adr/0007-read-only-ai-analysis.md) for the analysis authorization and audit boundary.
 
