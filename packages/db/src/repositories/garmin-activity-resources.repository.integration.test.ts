@@ -16,6 +16,8 @@ integration('staged Garmin resources in the separate detail database', () => {
     const retain = (hash = ref.sourceHash) => withAccountContext(db, owner, (ctx) => new GarminActivityResourcesRepository(ctx).retain({ ...ref, sourceHash: hash }, resource));
     expect(await retain()).toBe(true);
     expect(await retain()).toBe(false);
+    await withAccountContext(db, owner, (ctx) => new GarminActivityResourcesRepository(ctx).retain(ref, { resourceType: 'records', chunkIndex: 0, payload: [{ field: 'synthetic', value: 42 }] }));
+    expect(await withAccountContext(db, owner, (ctx) => new GarminActivityResourcesRepository(ctx).read(ref, 'records'))).toEqual({ payload: [{ field: 'synthetic', value: 42 }] });
     expect(await retain('b'.repeat(64))).toBe(true);
     expect(await withAccountContext(db, owner, (ctx) => new GarminActivityResourcesRepository(ctx).read(ref, 'sets'))).toEqual({ payload: resource.payload });
     expect(await withAccountContext(db, foreign, (ctx) => new GarminActivityResourcesRepository(ctx).read(ref, 'sets'))).toBeNull();

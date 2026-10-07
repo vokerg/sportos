@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { type Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Database, Json } from '../schema.js';
 import type { GarminActivityResourcesTable } from '../garmin-activity-schema.js';
 export interface GarminResourceReference { identityKey: string; sourceHash: string; }
@@ -21,7 +21,7 @@ export class GarminActivityResourcesRepository {
     const hash = createHash('sha256').update(serialized).digest('hex');
     const result = await this.db.insertInto('garmin_activity_resources').values({ identity_key: reference.identityKey,
       source_hash: reference.sourceHash, resource_type: resource.resourceType, chunk_index: resource.chunkIndex,
-      resource_hash: hash, payload_json: resource.payload,
+      resource_hash: hash, payload_json: sql<Json>`${serialized}::jsonb`,
     }).onConflict((oc) => oc.columns(['owner_id', 'identity_key', 'source_hash', 'resource_type', 'chunk_index']).doNothing()).returning('id').executeTakeFirst();
     if (!result) {
       const existing = await this.db.selectFrom('garmin_activity_resources').select('resource_hash')
