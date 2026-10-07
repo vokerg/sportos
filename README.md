@@ -28,7 +28,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Use provider-native identity first, then apply a conservative exact/no-match/ambiguous cross-source policy.
 - Preserve existing workbook provenance when one exact Strava activity matches an existing canonical activity.
 - Retain unsupported or ambiguous provider records with warnings instead of guessing or discarding them.
-- Stage compact Garmin identity metadata and conservatively reconcile it with existing canonical activities, preserving corrected Strava values; retained Garmin resources use the separate detail database. Garmin download/authentication and full archive ingestion remain follow-up work.
+- Stage compact Garmin identity metadata and conservatively reconcile it with existing canonical activities, preserving corrected Strava values; retained Garmin resources use the separate detail database. The optional [single-activity local extractor](docs/GARMIN_SINGLE_ACTIVITY.md) is implemented as #99’s first phase; live extraction/cache/matching passed; live database retention awaits migrations, and full archive ingestion remains follow-up work.
 - Disconnect safely by attempting remote revocation, removing local credentials, and cancelling queued or running synchronization work.
 
 ### Review, score, and export canonical records

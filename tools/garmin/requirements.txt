@@ -1,0 +1,12 @@
+# Isolated local tooling only. No Garmin dependency in SportOS API/worker runtime.
+garminconnect==0.3.17
+fitdecode==0.11.0
+requests==2.34.2
+curl_cffi==0.16.3
+ua-generator==2.1.6
+certifi==2026.7.22
+cffi==2.1.1
+pycparser==3.0
+charset-normalizer==3.5.2
+idna==3.20
+urllib3==2.8.0

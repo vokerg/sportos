@@ -5,7 +5,7 @@ export interface StoreUploadInput {
   uploadId: string;
   sha256: string;
   bytes: Uint8Array;
-  extension?: 'xlsx' | 'csv';
+  extension?: 'xlsx' | 'csv' | 'fit' | 'zip';
 }
 
 export interface StoredUploadObject {
@@ -19,7 +19,7 @@ export abstract class UploadStorage {
   abstract delete(objectKey: string): Promise<void>;
 }
 
-const OBJECT_KEY_PATTERN = /^[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:xlsx|csv)$/i;
+const OBJECT_KEY_PATTERN = /^[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:xlsx|csv|fit|zip)$/i;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class LocalUploadStorage extends UploadStorage {
