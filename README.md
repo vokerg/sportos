@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V124, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V125, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -37,6 +37,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Browse daily summaries and inspect exact score-ledger, immutable rule-version, activity, source-record, and import-batch provenance.
 - Treat imported workbook `All` totals as authoritative until an explicit recalculation or manual edit; each daily row shows whether its current score is imported, calculated, or manual.
 - Create or edit canonical daily facts in the focused form or the Daily Log's Excel-like Quick entry grid. Enter and vertical-arrow commits use the same manual-save/recalculation path, Escape cancels the active cell, and edits retain provenance, replace only prior manual activities, and append immutable score history.
+- Explicitly Fetch/View/Refresh [one Garmin day](docs/GARMIN_DAY_FETCH.md) from the complete daily page, retaining movement, energy, body measurements, supported wellness and matched/staged activities as evidence without recalculation.
 - Recalculate a selected date from already-canonical source activities while retaining saved steps and workout points and replacing any manual bonus override with rule-derived bonuses; a Strava-only date can still create a daily row without changing scores implicitly during synchronization.
 - From the full daily page, refetch a bounded calendar-day window from Strava to ingest newly added or corrected activity snapshots, then recalculate that date only after the durable provider job succeeds.
 - Explore running performance, personal-best views, event detail, and source attribution in Run Lab.
@@ -299,6 +300,9 @@ POST /auth/logout
 
 GET  /daily/summary?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=365
 GET  /daily/manual-facts?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=365
+GET  /daily/:date/garmin
+POST /daily/:date/garmin
+GET  /daily/:date/garmin/resources/:category
 GET  /daily/:date/score-breakdown
 POST /daily/:date/recalculate
 

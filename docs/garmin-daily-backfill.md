@@ -1,5 +1,13 @@
 # Garmin daily backfill
 
+## Explicit Connect day fetch
+
+[Garmin day evidence](GARMIN_DAY_FETCH.md) provides a user-initiated local helper
+flow for one completed date. It retains Connect data separately from this CSV
+procedure and does not feed step recalculation or change official scores. Use its
+Fetch/View/Refresh controls for this flow; the historical browser/CSV instructions
+below describe the separate CSV evidence path.
+
 ## Current checkpoint
 
 - Exact daily summaries are collected and imported-ready for **2026-05-16 through 2026-09-16**, inclusive.

@@ -186,3 +186,11 @@ met, even after merging this first phase; #98 remains deferred.
 Upstream contracts:
 - [python-garminconnect 0.3.17](https://github.com/cyberjunky/python-garminconnect/tree/0.3.17)
 - [fitdecode reader](https://fitdecode.readthedocs.io/en/latest/reference/reader.html)
+
+## Selected day evidence
+
+Daily Log now reuses this login and helper for one explicit completed Garmin date.
+Apply primary V125 and detail V003 for the day tables. Fetch/View/Refresh controls
+retain movement, energy, body measurements, wellness context and activities without
+recalculation. See [Garmin day evidence](GARMIN_DAY_FETCH.md) for categories, cache
+and partial retry behavior. This does not complete recurring #99 or archive #98.

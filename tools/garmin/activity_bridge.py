@@ -42,9 +42,20 @@ def main():
         if len(data) > 16384:
             raise ExtractionError('INVALID_BRIDGE_INPUT')
         request = json.loads(data)
+        if not isinstance(request, dict) or request.get('operation') not in ('discover', 'extract', 'day'):
+            raise ExtractionError('INVALID_BRIDGE_INPUT')
+        allowed = {'discover': {'operation', 'startTime'}, 'extract': {'operation', 'providerActivityId', 'refresh'}, 'day': {'operation', 'date', 'categories'}}[request['operation']]
+        if set(request) - allowed or ('refresh' in request and not isinstance(request['refresh'], bool)):
+            raise ExtractionError('INVALID_BRIDGE_INPUT')
+        if request['operation'] == 'day':
+            from fetch_day import calendar_date
+            calendar_date(request.get('date'))
         transport = login(str(DEFAULT_HOME / 'tokens'))
         if request.get('operation') == 'discover':
             result = discover(transport, request['startTime'])
+        elif request.get('operation') == 'day':
+            from fetch_day import fetch_day
+            result = fetch_day(transport, request['date'], request.get('categories'))
         elif request.get('operation') == 'extract':
             result = extract(transport, activity_id(request['providerActivityId']), DEFAULT_HOME / 'sources', request.get('refresh') is True)
             result = {'folder': str(result['folder']), 'bundle': result['bundle']}

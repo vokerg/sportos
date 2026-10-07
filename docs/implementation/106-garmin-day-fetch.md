@@ -1,6 +1,6 @@
 # Issue 106: Garmin day evidence
 
-Status: implementation in progress; no merge authorized.
+Status: implementation and focused validation complete; draft PR #107 remains unmerged.
 
 ## Boundary
 
@@ -17,8 +17,8 @@ Daily resources are bounded and never eagerly returned with page coverage.
 
 ## Investigation
 
-Read issue #106, queue #3 and open PRs (none). #106 is explicitly prioritized
-by the maintainer request; it is not yet listed in #3. Existing backfill docs
+Read issue #106, queue #3 and open PRs (none). #106 was explicitly prioritized
+by the maintainer request and added as the active unchecked P3 item in #3. Existing backfill docs
 describe an older browser/CSV procedure; this feature adds a separate helper
 flow and must not imply that Connect evidence already participates in scoring.
 Pinned SDK 0.3.17 source inspected locally: dated summary, day-view weigh-ins
@@ -100,3 +100,20 @@ all versions; V124 and detail V002 read in full):
 - `tools/garmin/extract_activity.py`
 - `tools/garmin/requirements.txt`
 - `tools/garmin/test_activity_bridge.py`
+
+## Validation evidence
+
+- Root typecheck, available tests and production build passed. Unconfigured
+  unrelated DB/worker integrations remain skipped in the root run.
+- Offline Garmin suite passed (optional old HTTP fixture skipped without its URL).
+- Fresh primary V125/detail V003 and populated V124/V002 upgrade checks passed in
+  disposable databases; existing score/resource rows were preserved.
+- Focused non-owner day/identity/resource integrations and a real repository-backed
+  synthetic day pipeline passed, including unchanged canonical/score/ledger/snapshot
+  rows, RLS isolation and denied dispatcher/worker-data access.
+- User-selected live completed-day fetch and retained replay passed; original
+  resources and successful links were retained with official rows unchanged.
+  Empty sleep/HRV values remain not recorded, not zeros. Primary V125 and detail
+  V003 applied locally using separate migration identities. No personal data,
+  tokens, source identifiers, hashes or local paths added to version control.
+- Visual browser inspection has not been performed.
