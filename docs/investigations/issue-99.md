@@ -72,3 +72,13 @@ populated upgrade SQL paths through V124 and detail V002 passed against isolated
 Postgres, with non-owner ownership/dispatcher tests. Subsequent live Neon Flyway validation and migration execution passed for both
 databases, including the evidence-checked historical version alignment above. CI adds
 a small offline Python gate; it never logs in to Garmin or downloads user data.
+
+Standalone worker startup follow-up: inspected apps/worker/src/import-worker.ts,
+apps/worker/package.json, scripts/dev.mjs, packages/db/src/pool.ts and index.ts,
+packages/importers/src/upload-storage.ts, import-local.ts and dry-run.ts.
+Direct worker startup validated role URLs before loading the root environment;
+the combined dev launcher already loaded it. Bootstrap now loads the root .env
+before configuration reads and resolves relative upload storage against the
+repository root. Separate dispatcher/data-role requirements remain strict.
+Worker typecheck and 3 existing provider unit tests passed; a package-directory
+configuration smoke check loaded both required role URLs without exposing values.
