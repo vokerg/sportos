@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DailyService } from '../daily/daily.service.js';
-import { AnalysisToolService } from './analysis-tool.service.js';
+import { AnalysisToolService, scoringEvidenceForAnalysis } from './analysis-tool.service.js';
 
 describe('AnalysisToolService evidence envelopes', () => {
   let dailyService: { summary: ReturnType<typeof vi.fn>; scoreBreakdown: ReturnType<typeof vi.fn> };
@@ -192,3 +192,9 @@ function dailyRow(date: string, total: number) {
     score_status: 'calculated',
   };
 }
+
+it('keeps retained Garmin provenance out of generation while preserving numeric policy evidence',()=>{
+  const value=scoringEvidenceForAnalysis({activityType:'workout',workoutCalculation:{source:'garmin_sets',resolvedPoints:2000,workingSets:6,policyVersion:1,pointsPerThreeSets:1000,activities:[{identityId:'private-identity',sourceVersionId:'private-version',sourceUpdatedAt:'private-timestamp'}]},stepsCalculation:{source:'garmin_adjusted',garminSource:'connect',resolvedSteps:6000,retainedAt:'private-time',sourceVersionId:'private-version',runs:[{activityId:'private-run'}]}});
+  expect(value).toMatchObject({workoutCalculation:{resolvedPoints:2000,workingSets:6,policyVersion:1},stepsCalculation:{resolvedSteps:6000,garminSource:'connect'}});
+  expect(JSON.stringify(value)).not.toContain('private');
+});

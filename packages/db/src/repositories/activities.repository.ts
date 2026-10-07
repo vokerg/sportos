@@ -1,3 +1,4 @@
+import { GarminStrengthRepository } from './garmin-strength.repository.js';
 import { sql, type Kysely } from 'kysely';
 import type { Activity, Database } from '../schema.js';
 
@@ -99,6 +100,7 @@ export class ActivitiesRepository {
     const { sourceRecordId, sourceRecordSource, linkedProvider, linkedProviderActivityId, ...activity } = row;
     return {
       ...serialize(activity),
+      garminStrength: row.activity_type === 'workout' ? await new GarminStrengthRepository(this.db).forActivity(activityId) : null,
       provenance: { sourceRecordId, sourceRecordSource },
       providerDetail: linkedProvider && linkedProviderActivityId ? { provider: linkedProvider, providerActivityId: linkedProviderActivityId } : null,
     };

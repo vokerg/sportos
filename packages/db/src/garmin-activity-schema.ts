@@ -27,3 +27,9 @@ export interface GarminActivityResourcesTable {
   resource_type: 'detail' | 'sets' | 'laps' | 'records' | 'fit_manifest';
   chunk_index: number; resource_hash: string; payload_json: Json; created_at: GeneratedTimestamp;
 }
+export interface GarminStrengthSummariesTable {
+  owner_id: OwnerId; identity_id: string; content_hash: string; version_id: string;
+  policy_version: 1; total_recorded_sets: number; working_sets: number;
+  warmup_sets: number; rest_markers: number; unknown_sets: number;
+  exercise_count: number; exercises_json: Json; complete: boolean; derived_at: GeneratedTimestamp;
+}

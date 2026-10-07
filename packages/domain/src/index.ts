@@ -7,3 +7,4 @@ export * from './performance.js';
 export * from './daily.js';
 export * from './steps.js';
 export * from './activity-matching.js';
+export * from './garmin-strength.js';

@@ -20,9 +20,27 @@ export interface DailyStepsCalculation {
   resolvedSteps: number;
   totalSteps?: number;
   garminTotalSteps?: number;
+  garminSource?: 'connect' | 'csv';
+  sourceVersionId?: string;
+  garminObservationId?: string;
+  sourceRecordId?: string;
+  retainedAt?: string;
+  latestAttemptAt?: string;
+  latestAttemptState?: string;
   estimatedRunningSteps?: number;
   runs?: DailyRunStepCalculation[];
   unestimatedRunCount?: number;
+}
+
+export interface DailyWorkoutCalculation {
+  source: 'manual' | 'garmin_sets' | 'imported' | 'stored' | 'none';
+  resolvedPoints: number;
+  policyVersion?: 1;
+  workingSets?: number;
+  pointsPerThreeSets?: 1000;
+  activities?: Array<{ activityId: string; identityId: string; workingSets: number;
+    sourceVersionId: string; sourceUpdatedAt: string; derivedAt: string }>;
+  incompleteReason?: string;
 }
 
 export interface ManualDailyFactsInput {
@@ -56,6 +74,7 @@ export interface DailyMetricFactsInput {
   excelAllPoints?: number;
   excelRowHash?: string;
   stepsCalculation?: DailyStepsCalculation;
+  workoutCalculation?: DailyWorkoutCalculation;
 }
 
 export interface ScoreLedgerInput {
@@ -206,6 +225,7 @@ export interface DailyScoreBreakdownReadModel {
   facts: {
     steps: number;
     stepsCalculation?: DailyStepsCalculation;
+  workoutCalculation?: DailyWorkoutCalculation;
     runM: number;
     runIndoorM?: number | null;
     runOutdoorM?: number | null;

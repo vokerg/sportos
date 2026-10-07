@@ -28,6 +28,18 @@ export function parseDailyScoreBreakdown(value: DailyScoreBreakdownReadModel): D
     issues.push('baseTotal plus bonusPoints must equal appTotal');
   }
   validateStepsCalculation(value, issues);
+  const workout = value.facts.workoutCalculation;
+  if (workout) {
+    if (workout.resolvedPoints !== value.facts.workoutPoints) issues.push('workoutCalculation.resolvedPoints must equal workoutPoints');
+    if (workout.source === 'garmin_sets') {
+      const sets = workout.activities?.reduce((sum, activity) => sum + activity.workingSets, 0);
+      if (workout.policyVersion !== 1 || workout.pointsPerThreeSets !== 1000 || !Number.isSafeInteger(workout.workingSets)
+        || workout.workingSets !== sets || Math.round(workout.workingSets! * 1000 / 3) !== workout.resolvedPoints
+        || new Set(workout.activities?.map(item => item.identityId)).size !== workout.activities?.length) {
+        issues.push('Invalid Garmin strength calculation');
+      }
+    }
+  }
 
   const expectedDelta = value.score.excelTotal === null ? null : value.score.appTotal - value.score.excelTotal;
   if (expectedDelta === null ? value.score.delta !== null : value.score.delta === null || Math.abs(value.score.delta - expectedDelta) > 1e-9) {

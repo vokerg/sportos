@@ -194,3 +194,12 @@ Apply primary V125 and detail V003 for the day tables. Fetch/View/Refresh contro
 retain movement, energy, body measurements, wellness context and activities without
 recalculation. See [Garmin day evidence](GARMIN_DAY_FETCH.md) for categories, cache
 and partial retry behavior. This does not complete recurring #99 or archive #98.
+
+## Compact strength evidence
+
+V126 adds an immutable primary strength summary for retained activity versions.
+Matched workout detail shows working sets, recorded entries, labeled exercises,
+warm-ups, rest and unknown counts alongside the separate original Garmin set
+disclosure. Explicit daily recalculation can use complete linked summaries;
+retention and page navigation never change scores. See
+[scoring source policy](SCORING_RULES.md#retained-garmin-recalculation-108).

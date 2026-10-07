@@ -253,14 +253,20 @@ append-only for runtime roles, and the current row remains the normal read
 path.
 
 `POST /daily/:date/recalculate` is the explicit authority transition. In one
-account-scoped transaction it requires Strava data, rebuilds run, bike, and
-swim measurements from canonical source activities, retains stored steps and
-workout points, clears any manual bonus override, removes workbook `All` from
-the scoring input, and persists a calculated score. A saved manual distance
-remains when no source activity exists for that activity type. A missing daily row is built
-from Strava activities only. No Strava data returns a bounded conflict without
-changing the current score. Rule publication skips imported rows and reports
-them instead of silently replacing their ledgers.
+account-scoped transaction it rebuilds run, bike and swim from canonical sources,
+resolves steps/workout from positive manual overrides then retained Garmin
+projections then conservative imported/stored fallbacks, clears manual bonus
+and workbook All authority, and appends a calculated snapshot/ledger. It accepts
+an existing daily row or Strava/exact Garmin step evidence; otherwise it returns
+a bounded conflict. Rule publication skips imported rows.
+
+V126 adds immutable compact strength evidence with same-owner source-version
+foreign keys, forced RLS and append-only API/worker-data grants. Set JSON stays in
+the separate detail database; source retention publishes compact evidence before
+scoring can use it. Scoring reads only primary projections. Unknown/partial or
+unlinked evidence preserves prior workout points. Source-version references stay
+in the owner UI/snapshots and are excluded from generation. See SCORING_RULES.md
+for the versioned classification and 1,000-points-per-three-working-sets policy.
 
 The full daily page also exposes a distinct targeted Strava refetch. It queues
 a durable `webhook_refresh` provider job with a bounded timestamp window that

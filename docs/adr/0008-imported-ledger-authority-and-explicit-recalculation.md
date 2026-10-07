@@ -106,3 +106,10 @@ import integration assertions, Strava-only and imported-to-calculated database
 integration cases, API date/conflict tests, Angular API/workflow tests, and
 privilege assertions preventing the queue dispatcher from reading score
 snapshots.
+
+## #108 clarification
+
+The current endpoint accepts an existing daily row or Strava/exact Garmin step
+evidence. Steps and workout points now follow the retained Garmin resolution
+policy in SCORING_RULES.md. Fetch alone remains evidence-only, historical
+snapshots remain immutable, and the scoring transaction remains primary-only.

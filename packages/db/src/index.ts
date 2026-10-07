@@ -41,3 +41,4 @@ export * from './repositories/garmin-activity-resources.repository.js';
 
 export * from './garmin-day-schema.js';
 export * from './repositories/garmin-day.repository.js';
+export * from './repositories/garmin-strength.repository.js';

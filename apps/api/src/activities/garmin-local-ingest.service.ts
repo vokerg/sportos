@@ -1,9 +1,10 @@
+import { normalizeGarminStrength } from '@sportos/domain';
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { lstat, readFile } from 'node:fs/promises';
 import { BadRequestException, Inject, Injectable, ConflictException, HttpException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
-import { GarminActivitiesRepository, GarminActivityResourcesRepository, GarminReconciliationConflict, garminIdentityKey, LEGACY_ACCOUNT_ID, type Json, type Kysely, type Database } from '@sportos/db';
+import { GarminActivitiesRepository, GarminActivityResourcesRepository, GarminStrengthRepository, GarminReconciliationConflict, garminIdentityKey, LEGACY_ACCOUNT_ID, type Json, type Kysely, type Database } from '@sportos/db';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
 import { UploadStorage } from '../storage/upload-storage.js';
@@ -87,12 +88,30 @@ export class GarminLocalIngestService {
   }
 
   async cachedBundle(identityKey: string, sourceHash: string, account: AuthenticatedAccount) {
-    return this.withAccount(this.detail, account.id, async db => {
+    const summary = await this.withAccount(this.detail, account.id, async db => {
       const repo = new GarminActivityResourcesRepository(db);
       const ref = { identityKey, sourceHash };
       const [coverage, manifest] = await Promise.all([repo.coverage(ref), repo.read(ref, 'fit_manifest')]);
-      return this.coverageComplete(manifest?.payload, coverage) && await this.originalPresent(manifest?.payload);
+      if (!this.coverageComplete(manifest?.payload, coverage) || !await this.originalPresent(manifest?.payload)) return null;
+      const payloads: Json[] = [];
+      for (const resource of coverage.filter(item => item.resourceType === 'sets')) {
+        const retained = await repo.read(ref, 'sets', resource.chunkIndex);
+        if (!retained) return null;
+        payloads.push(retained.payload);
+      }
+      return normalizeGarminStrength(payloads);
     });
+    if (!summary) return false;
+    // An explicit cached Fetch can materialize pre-V126 retained resources,
+    // including on hosted instances, without a helper or a provider request.
+    await this.withAccount(this.primary, account.id, async db => {
+      const version = await db.selectFrom('garmin_activity_identities as i').innerJoin('garmin_activity_versions as v', join => join
+        .onRef('v.owner_id','=','i.owner_id').onRef('v.identity_id','=','i.id'))
+        .select(['i.id','v.origin']).where('i.identity_key','=',identityKey).where('v.content_hash','=',sourceHash)
+        .where('i.activity_type','=','workout').orderBy('v.origin').executeTakeFirst();
+      if (version) await new GarminStrengthRepository(db).retain(version.id, sourceHash, version.origin, summary);
+    });
+    return true;
   }
 
   async retainResource(file: LocalFile | undefined, account?: AuthenticatedAccount) {
@@ -155,10 +174,22 @@ export class GarminLocalIngestService {
       const repo = new GarminActivityResourcesRepository(db);
       const coverage = await repo.coverage(ref);
       const manifest = await repo.read(ref, 'fit_manifest');
-      return await this.originalPresent(manifest?.payload) && this.coverageComplete(manifest?.payload, coverage);
+      if (!await this.originalPresent(manifest?.payload) || !this.coverageComplete(manifest?.payload, coverage)) return null;
+      const sets: Json[] = [];
+      for (const resource of coverage.filter(item => item.resourceType === 'sets')) {
+        const retained = await repo.read(ref, 'sets', resource.chunkIndex);
+        if (!retained) return null;
+        sets.push(retained.payload);
+      }
+      return normalizeGarminStrength(sets);
     });
     if (!ready) throw new BadRequestException('Retain original and required detail resources before reconciliation.');
-    return this.withAccount(this.primary, owner, (db) => new GarminActivitiesRepository(db).ingest(snapshot));
+    return this.withAccount(this.primary, owner, async db => {
+      // Identity/source publication and compact summary commit atomically after
+      // immutable auxiliary resources. Scoring never reads the auxiliary store.
+      const identity = await new GarminActivitiesRepository(db).ingest(snapshot, ready);
+      return identity;
+    });
   }
 
   private async withAccount<T>(provider: DbProvider | ActivityDetailDbProvider, owner: string, callback: (db: Kysely<Database>) => Promise<T>): Promise<T> {

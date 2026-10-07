@@ -1,3 +1,5 @@
+import { GarminStrengthRepository } from './garmin-strength.repository.js';
+import type { GarminStrengthSummary } from '@sportos/domain';
 import { createHash } from 'node:crypto';
 import { sql, type Kysely, type Selectable } from 'kysely';
 import { matchGarminActivity, validateActivityMatchSummary, type ActivityMatchSummary, type ActivityMatchResult } from '@sportos/domain';
@@ -32,7 +34,7 @@ export function garminIdentityKey(input: Pick<GarminActivitySnapshot, 'providerA
 export class GarminActivitiesRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
-  async ingest(input: GarminActivitySnapshot) {
+  async ingest(input: GarminActivitySnapshot, strength?: GarminStrengthSummary) {
     validateSnapshot(input);
     const key = garminIdentityKey(input);
     return this.db.transaction().execute(async (tx) => {
@@ -62,6 +64,7 @@ export class GarminActivitiesRepository {
           source_updated_at: input.sourceUpdatedAt, updated_at: new Date(),
         }).where('id', '=', identity.id).returningAll().executeTakeFirstOrThrow();
       }
+      if (strength && input.summary.activityType === 'workout') await new GarminStrengthRepository(tx).retain(identity.id, input.contentHash, input.origin, strength);
       if (identity.activity_id === null && identity.status !== 'rejected') identity = await this.resolve(tx, identity);
       return { ...publicIdentity(identity), versionAdded: inserted !== undefined, changed };
     });

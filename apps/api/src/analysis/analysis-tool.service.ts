@@ -136,7 +136,7 @@ export class AnalysisToolService {
       return {
         id: entry.id,
         points: entry.points,
-        calculation: entry.calculation,
+        calculation: scoringEvidenceForAnalysis(entry.calculation),
         rule: entry.rule === null ? null : {
           id: entry.rule.id,
           activityType: entry.rule.activityType,
@@ -170,7 +170,7 @@ export class AnalysisToolService {
       date: record.date,
       recomputedAt: record.recomputedAt,
       scoreStatus: record.scoreStatus,
-      metrics: record.facts,
+      metrics: { steps: record.facts.steps, runM: record.facts.runM, bikeM: record.facts.bikeM, swimM: record.facts.swimM, workoutPoints: record.facts.workoutPoints },
       score: record.score,
       source: sanitizeSource(record.sourceRecord),
       ledger,
@@ -291,4 +291,18 @@ function inclusiveSpan(from: string, to: string): number {
 function round(value: number, precision: number): number {
   const factor = 10 ** precision;
   return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
+/** Scoring provenance remains in the owner-scoped UI, never the generator.
+ * These new calculations expose aggregate deterministic inputs only. */
+export function scoringEvidenceForAnalysis(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const { workoutCalculation, stepsCalculation, ...rest } = value as Record<string, unknown>;
+  const select = (raw: unknown, keys: string[]) => {
+    const item = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+    return Object.fromEntries(keys.filter(key => key in item).map(key => [key, item[key]]));
+  };
+  return { ...rest,
+    ...(workoutCalculation ? { workoutCalculation: select(workoutCalculation, ['source','resolvedPoints','policyVersion','workingSets','pointsPerThreeSets']) } : {}),
+    ...(stepsCalculation ? { stepsCalculation: select(stepsCalculation, ['source','resolvedSteps','garminSource','garminTotalSteps','totalSteps','estimatedRunningSteps','unestimatedRunCount']) } : {}) };
 }

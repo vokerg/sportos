@@ -45,15 +45,16 @@ databaseDescribe('DailyScoringRepository database integration', () => {
     expect(breakdown.activities[0]).toMatchObject({ source: 'strava', activityType: 'run' });
     expect(breakdown.ledger).toHaveLength(2);
 
-    const daily = await db
+    const daily = await withAccountContext(db, LEGACY_ACCOUNT_ID, ownerDb => ownerDb
       .selectFrom('daily_metrics')
       .select(['score_status', 'total_points', 'excel_all_points'])
       .where('metric_date', '=', noLedgerDate)
-      .executeTakeFirstOrThrow();
+      .executeTakeFirstOrThrow());
     expect(daily).toMatchObject({ score_status: 'calculated', total_points: 9500, excel_all_points: null });
   });
 
   it('keeps an imported total in history and changes authority only after explicit recalculation', async () => {
+    const priorCount = await withAccountContext(db, LEGACY_ACCOUNT_ID, ownerDb => ownerDb.selectFrom('daily_score_snapshots').select('id').where('metric_date', '=', importedDate).execute()).then(rows => rows.length);
     await withAccountContext(db, LEGACY_ACCOUNT_ID, async (ownerDb) => {
       const facts = {
         metricDate: importedDate,
@@ -85,8 +86,9 @@ databaseDescribe('DailyScoringRepository database integration', () => {
       snapshots: await ownerDb.selectFrom('daily_score_snapshots').select(['score_status', 'trigger', 'total_points']).where('metric_date', '=', importedDate).orderBy('created_at', 'asc').execute(),
     }));
 
-    expect(evidence.daily).toMatchObject({ score_status: 'calculated', total_points: 9500, excel_all_points: 5000 });
-    expect(evidence.snapshots.map((snapshot) => ({ status: snapshot.score_status, trigger: snapshot.trigger, total: snapshot.total_points }))).toEqual([
+    expect({ ...evidence.daily, excel_all_points: Number(evidence.daily?.excel_all_points) }).toMatchObject({ score_status: 'calculated', total_points: 9500, excel_all_points: 5000 });
+    expect(evidence.snapshots).toHaveLength(priorCount + 2);
+    expect(evidence.snapshots.slice(-2).map((snapshot) => ({ status: snapshot.score_status, trigger: snapshot.trigger, total: snapshot.total_points }))).toEqual([
       { status: 'imported', trigger: 'workbook_import', total: 5000 },
       { status: 'calculated', trigger: 'manual_recalculation', total: 9500 },
     ]);
@@ -142,7 +144,7 @@ databaseDescribe('DailyScoringRepository database integration', () => {
       score: { appTotal: 40_900, baseTotal: 28_900, bonusPoints: 12_000 },
     });
     expect(breakdown.ledger).toEqual(expect.arrayContaining([
-      expect.objectContaining({ ruleCode: 'run.pace.per5k.sub4.bonus', points: 12_000 }),
+      expect.objectContaining({ rule: expect.objectContaining({ code: 'run.pace.per5k.sub4.bonus' }), points: 12_000 }),
     ]));
   });
 

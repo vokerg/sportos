@@ -18,7 +18,7 @@ export class GarminDayRepository {
     validate(date);
     return this.db.selectFrom('garmin_day_heads as h').leftJoin('garmin_day_versions as v', join => join
       .onRef('v.owner_id', '=', 'h.owner_id').onRef('v.id', '=', 'h.version_id'))
-      .select(['h.category', 'h.state', 'h.attempt_json', 'h.attempted_at', 'v.source_hash', 'v.projection_json', 'v.retrieved_at', 'v.availability'])
+      .select(['h.category', 'h.version_id', 'h.state', 'h.attempt_json', 'h.attempted_at', 'v.source_hash', 'v.projection_json', 'v.retrieved_at', 'v.availability'])
       .where('h.calendar_date', '=', date).orderBy('h.category').limit(8).execute();
   }
   async publish(date: string, input: GarminDayWrite) {

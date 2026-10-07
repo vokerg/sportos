@@ -48,3 +48,49 @@ Connect summary/activity discovery and run/swim resources. No strength resource
 with recorded sets is currently retained. Personal payloads and metrics must not
 be committed; strength classification requires explicit types and fails closed
 for unrecognized shapes.
+
+## Delivered behavior and validation
+
+V126 adds forced-RLS, same-owner, append-only compact strength summaries and
+source-neutral workout rule UUIDs. Original set JSON remains in the detail store.
+Explicit recalculation reads primary evidence only, uses Connect before CSV,
+preserves positive manual overrides and incomplete workout fallbacks, and records
+step/workout provenance in snapshots/ledgers. Cached explicit Fetch can project
+already-retained strength resources without downloading. Activity detail refreshes
+its compact summary after Fetch. Generation receives aggregate calculation inputs
+without Garmin identity/version/retrieval metadata.
+
+Additional inspected files: analysis-tool.service.ts and its tests,
+activity-enrichment.service.ts, activity-detail.store.ts and tests,
+canonical-export.repository.ts, garmin-local-ingest.controller.test.ts,
+activity_bridge.py. Existing daily integration assertions were corrected to use
+account context, normalize a numeric DB value, read nested rule codes, and count
+only newly appended snapshots while retaining earlier history across repeats.
+
+Validation:
+
+- Root typecheck, tests and production build passed. Optional integrations remain
+  skipped in the root suite when dedicated test URLs are absent.
+- Fresh primary migration set (35 versions through V126) passed on a disposable
+  local database; V126 also passed on the existing populated upgrade fixture.
+- Non-owner API-role strength/reconciliation/day repository integrations passed
+  (16 tests); legacy-role daily-scoring integration passed (7 tests).
+- Non-owner primary/detail day-retention pipeline passed and proved Fetch alone
+  leaves official rows unchanged. The separate activity-enrichment HTTP test was
+  skipped because its additional configuration was not supplied.
+- Focused normalization/source-resolution/analysis privacy/UI tests passed,
+  including cancellation of compact summary refresh after navigation.
+- V126 was applied via Flyway to the configured local primary database. Private
+  before/after digests confirmed that the migration changed no selected-day
+  canonical rows, daily score, ledger or snapshots.
+- Chrome explicit recalculation on the selected previously retained completed day
+  passed: Connect step equation, canonical run/swim totals, calculated status and
+  ledger equality were visible. Canonical activity rows were unchanged, exact
+  prior snapshot rows were preserved, and one new snapshot was appended.
+- Live strength remains unverified: the selected day contains run/swim evidence,
+  and no recorded strength sets are currently retained. Strength policy and
+  scoring are covered by synthetic fixtures and real non-owner persistence.
+
+No personal sample, metric, identifier, hash, screenshot or credential is
+committed. Live screenshot and private verification artifacts remain outside the
+repository. PR #109 remains draft; no merge or issue completion is authorized.

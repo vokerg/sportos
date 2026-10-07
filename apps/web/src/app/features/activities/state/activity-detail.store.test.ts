@@ -32,3 +32,13 @@ describe('ActivityDetailStore', () => {
     store.load('one'); store.garminDetail(true); expect(store.garminError()).toContain('require review'); expect(store.garminState()).toBe('error'); store.garminDetail(true); expect(api.fetchGarminDetail).toHaveBeenCalledTimes(2);
   });
 });
+
+it('refreshes compact strength after explicit Fetch and cancels a stale refresh on navigation',()=>{
+  const {api,store}=setup();store.load('one');
+  const refresh=new Subject<never>();api.detail.mockReturnValueOnce(refresh as never);
+  store.garminDetail(true);expect(api.detail).toHaveBeenCalledTimes(2);
+  refresh.next({id:'one',garminStrength:{workingSets:6}} as never);
+  expect(store.activity()?.garminStrength?.workingSets).toBe(6);
+  store.load('two');refresh.next({id:'one',garminStrength:{workingSets:9}} as never);
+  expect(store.activity()?.garminStrength).toBeUndefined();expect(refresh.observed).toBe(false);
+});
