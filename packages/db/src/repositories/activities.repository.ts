@@ -38,6 +38,7 @@ export class ActivitiesRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
   async list(input: ActivitiesQuery) {
+    const hasGarmin = await this.garminSchemaAvailable();
     let filtered = this.db.selectFrom('activities');
     if (input.from) filtered = filtered.where('activity_date', '>=', input.from);
     if (input.to) filtered = filtered.where('activity_date', '<=', input.to);
@@ -49,7 +50,7 @@ export class ActivitiesRepository {
     if (input.minAvgSpeedMps !== undefined) filtered = filtered.where('avg_speed_mps', '>=', input.minAvgSpeedMps);
     if (input.swimPaceUnderSPer100m !== undefined) filtered = filtered.where('avg_pace_s_per_km', '<', input.swimPaceUnderSPer100m * 10);
     const [rows, summary] = await Promise.all([
-      filtered.select(publicColumns)
+      filtered.select(publicColumns).select((hasGarmin ? garminLink('activities') : sql<null>`null`).as('garmin'))
         .orderBy('activity_date', 'desc').orderBy('start_time', 'desc').orderBy('id', 'desc')
         .limit(input.limit).offset(input.offset).execute(),
       filtered.select((eb) => [
@@ -77,6 +78,7 @@ export class ActivitiesRepository {
   }
 
   async get(activityId: string) {
+    const hasGarmin = await this.garminSchemaAvailable();
     const row = await this.db.selectFrom('activities as activity')
       .leftJoin('source_records as record', 'record.id', 'activity.source_record_id')
       .leftJoin('provider_activity_links as providerLink', (join) => join
@@ -87,6 +89,7 @@ export class ActivitiesRepository {
         .onRef('providerConnection.owner_id', '=', 'providerLink.owner_id')
         .onRef('providerConnection.id', '=', 'providerLink.connection_id'))
       .select(publicColumns.map((column) => `activity.${column}` as const))
+      .select((hasGarmin ? garminLink('activity') : sql<null>`null`).as('garmin'))
       .select(['record.id as sourceRecordId', 'record.source as sourceRecordSource', 'providerConnection.provider as linkedProvider', 'providerLink.provider_activity_id as linkedProviderActivityId'])
       .where('activity.id', '=', activityId)
       .orderBy('providerLink.updated_at', 'desc')
@@ -101,6 +104,13 @@ export class ActivitiesRepository {
     };
   }
 
+  private async garminSchemaAvailable(): Promise<boolean> {
+    // Canonical reads remain usable while optional enrichment migrations are
+    // pending. Garmin write paths still require the declared migration versions.
+    const result = await sql<{ available: boolean }>`select to_regclass('public.garmin_activity_identities') is not null as available`.execute(this.db);
+    return result.rows[0]?.available === true;
+  }
+
   async getSourceJson(activityId: string) {
     const row = await this.db.selectFrom('activities as activity')
       .innerJoin('source_records as record', 'record.id', 'activity.source_record_id')
@@ -108,4 +118,8 @@ export class ActivitiesRepository {
       .where('activity.id', '=', activityId).executeTakeFirst();
     return row ?? null;
   }
+}
+
+function garminLink(alias: 'activities' | 'activity') {
+  return sql<{ provider: 'garmin'; identityId: string; providerActivityId: string | null; status: string } | null>`(select jsonb_build_object('provider', 'garmin', 'identityId', g.id, 'providerActivityId', case when g.identity_kind = 'native' then substr(g.identity_key, 8) else null end, 'status', g.status) from garmin_activity_identities g where g.owner_id = ${sql.ref(`${alias}.owner_id`)} and g.activity_id = ${sql.ref(`${alias}.id`)})`;
 }

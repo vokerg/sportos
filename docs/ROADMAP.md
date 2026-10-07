@@ -14,7 +14,7 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Defined through V119 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Defined through V124; dedicated activity-detail V002 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped for XLSX and manual Garmin CSV staging | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
@@ -138,3 +138,8 @@ Each PR must identify the milestone or operational exit criterion it advances an
 See [ADR 0008](adr/0008-imported-ledger-authority-and-explicit-recalculation.md) for imported ledger authority, append-only score history, and explicit activity-based recalculation.
 
 Future decisions still required include provider webhook operations, time-zone/locale policy, hosted observability, backup/restoration, key lifecycle, deletion, hosted model-gateway operations, broader semantic evaluation, and any expansion of the analysis tool surface.
+
+Garmin activity reconciliation foundation is implemented in #97; single-activity
+Connect work #99 is maintainer-prioritized ahead of deferred full archive #98.
+See [ADR 0010](adr/0010-garmin-activity-reconciliation.md). Live Garmin validation
+and bulk archive measurements are separate from the identity foundation.

@@ -37,3 +37,13 @@ The canonical implementation lives in `packages/db/src/repositories/activities.r
 The list uses bounded offset pagination; concurrent imports may shift rows between pages. Summaries include all filtered activities, including those beyond the current page. The canonical detail view still does not promote splits, GPS track, cadence, power, training load, or other provider-only fields into the SportOS activity model; those values are available only through the raw provider-detail bundle for now. There is no map/chart rendering, editing, or sport-specific deep analysis yet. Canonical rows without a name receive a type-based title, with no invented activity name.
 
 `activity_provider_resources` resides in a separate Neon project configured by the explicit `SPORTOS_ACTIVITY_DETAIL_DATABASE_URL`. The API first resolves the canonical/provider reference and credentials in the primary project, then opens the detail project under the same account context. The cache has no cross-project foreign keys; identity and authorization remain authoritative in the primary database, and the detail rows are bounded, derived, owner-scoped, and rebuildable. The runtime and Flyway URLs must not be derived from or reuse the primary project. Run `pnpm db:migrate:activity-detail` with the separate project's schema-owner settings before starting the API.
+
+## Garmin reconciliation foundation
+
+Garmin is auxiliary enrichment. Primary list/detail reads include an optional
+`garmin` identity/link/status descriptor while retaining the existing canonical
+fields and counts. Garmin-only and ambiguous entries stay in the separate staging
+API and do not appear as canonical activities. No Garmin download occurs when a
+page opens. See [ADR 0010](adr/0010-garmin-activity-reconciliation.md) for the
+compact ingress/review contracts, match thresholds, versioned resource storage,
+reverse reconciliation and deferred single-activity extractor.
