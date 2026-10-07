@@ -147,10 +147,12 @@ No live personal sample, credential or activity identifier is committed.
 User-initiated terminal sign-in, selected activity download, strict FIT parsing,
 repeat cache reuse and a read-only unique match to existing Strava data passed.
 Browser access was declined; browser credentials were never extracted.
-Live SportOS persistence awaits configured schema-owner migration settings
-(`SPORTOS_FLYWAY_URL`, `SPORTOS_FLYWAY_USER`, `SPORTOS_FLYWAY_PASSWORD`) and
-the dedicated detail migration configuration. Configure these locally, never in
-chat. No live canonical or scoring writes occurred. Listing/discovery, actual
+Live SportOS retention and a strong unique link to the existing Strava activity
+passed after applying primary V124 and dedicated detail V002 with separate
+schema-owner identities. A second import reused the remote cache. Canonical
+activity facts and official scores were verified unchanged. Fresh environments
+still require the primary and detail migration settings configured locally,
+never in chat. Listing/discovery, actual
 MFA/expiry/rate-limit behavior and broader device/strength coverage remain
 unvalidated. #99 stays open/draft until its remaining delivery phases and
 acceptance criteria are met; #98 remains deferred.

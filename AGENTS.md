@@ -277,6 +277,6 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
 - Keep metadata/cache checks before rich network calls, validate all declared
   resource chunks and original-byte availability, and preserve prior versions on
   errors. See `docs/GARMIN_SINGLE_ACTIVITY.md` for bounds, auth and limitations.
-- Live terminal extraction/cache and read-only Strava matching passed; live
-  persistence awaits migrations. Do not label the optional targeted phase as
+- Live terminal extraction, auxiliary retention/cache and unique Strava linking
+  passed with unchanged canonical facts/scores. Do not label the optional targeted phase as
   completed incremental sync, bulk archive import or #101 UI.

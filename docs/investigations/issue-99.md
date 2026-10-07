@@ -46,12 +46,21 @@ cache. Running dynamics and power fields were retained. A read-only check agains
 the existing SportOS canonical data found one strong Strava match. No personal
 identifiers, payloads, hashes or metrics are included in committed evidence.
 
-Live SportOS persistence is blocked by missing schema-owner migration settings:
-SPORTOS_FLYWAY_URL, SPORTOS_FLYWAY_USER and SPORTOS_FLYWAY_PASSWORD. V124 and
-detail V002 must be applied using separate migration identities before import.
-Runtime database credentials are not a migration workaround. No live canonical
-or scoring writes occurred. Actual MFA/expiry/rate-limit behavior and discovery
-remain unvalidated. Recurring sync/checkpoints, compact Strava discovery,
+Subsequent maintainer authorization allowed Chrome access to Neon and local
+configuration of both existing schema-owner connections. No passwords were reset
+and credentials remain only in the protected, ignored local environment file.
+Flyway was installed and applied primary V124 and dedicated detail V002.
+The deployed primary history had cache-move SQL recorded as V122; its exact
+checksum matches current V123, while the track-subtype V122 was missing. The
+original history entry was preserved privately, its version/script aligned to
+V123 without changing the checksum, and Flyway applied missing V122 out of order.
+The deployed subtype constraint and old-cache absence confirmed the preconditions.
+The migration wrapper now handles pnpm’s optional argument separator.
+Live authenticated retention then passed with a strong unique link to the
+existing Strava activity; repeat import used the remote cache. An owner-scoped
+before/after comparison confirmed unchanged canonical activity facts, daily
+points and ledger contributions. Actual MFA/expiry/rate-limit behavior and
+discovery remain unvalidated. Recurring sync/checkpoints, compact Strava discovery,
 bulk archive and full UX remain subsequent phases; #99 stays open.
 
 Validation: pinned local tool setup and 11 offline unit tests passed; optional
@@ -60,6 +69,6 @@ The clock-field regression uses a synthetic FIT user-profile message, following
 a live parse failure fixed by supporting FIT time values. Root typecheck, tests
 and build passed; unconfigured unrelated database suites were skipped. Fresh and
 populated upgrade SQL paths through V124 and detail V002 passed against isolated
-Postgres, with non-owner ownership/dispatcher tests. Local Flyway/Neon execution
-remains unconfigured and is not claimed validated. CI adds
+Postgres, with non-owner ownership/dispatcher tests. Subsequent live Neon Flyway validation and migration execution passed for both
+databases, including the evidence-checked historical version alignment above. CI adds
 a small offline Python gate; it never logs in to Garmin or downloads user data.
