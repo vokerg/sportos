@@ -77,6 +77,19 @@ integration('Garmin identity and canonical authority under non-owner RLS', () =>
     expect((await scoped(ownerA, (repo) => repo.audit(pending.id))).map((row) => row.action).sort()).toEqual(['manual_link', 'reject', 'reopen']);
   });
 
+  it('permits explicit unlink followed by canonical deletion while retaining immutable audit evidence', async () => {
+    const time = '2095-04-11T10:00:00Z'; const canonical = await activity(ownerA, time, 5000);
+    const linked = await scoped(ownerA, (repo) => repo.ingest(snapshot('1011', time)));
+    expect(linked.activityId).toBe(canonical);
+    await scoped(ownerA, (repo) => repo.review(linked.id, 'reject'));
+    await withAccountContext(db, ownerA, (ctx) => ctx.deleteFrom('activities').where('id', '=', canonical).execute());
+    const audit = await scoped(ownerA, (repo) => repo.audit(linked.id));
+    expect(audit).toHaveLength(2);
+    expect(audit.every((row) => row.activityId === canonical)).toBe(true);
+    const foreign = await activity(ownerB, '2095-04-12T10:00:00Z', 5000);
+    await expect(withAccountContext(db, ownerA, (ctx) => ctx.insertInto('garmin_reconciliation_audit').values({ identity_id: linked.id, activity_id: foreign, action: 'manual_link', policy_version: 1, evidence_json: {} }).execute())).rejects.toThrow('Invalid canonical activity reference');
+  });
+
   it('quarantines fallback fingerprints and never binds two native identities to one canonical', async () => {
     const time = '2095-04-06T10:00:00Z'; const canonical = await activity(ownerA, time, 5000);
     const input = snapshot('1006', time); const first = await scoped(ownerA, (repo) => repo.ingest(input));

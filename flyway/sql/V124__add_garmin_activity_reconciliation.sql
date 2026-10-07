@@ -65,9 +65,22 @@ CREATE TABLE garmin_reconciliation_audit (
   policy_version integer NOT NULL CHECK (policy_version = 1),
   evidence_json jsonb NOT NULL CHECK (octet_length(evidence_json::text) <= 65536),
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT garmin_audit_identity_fk FOREIGN KEY (owner_id, identity_id) REFERENCES garmin_activity_identities(owner_id, id),
-  CONSTRAINT garmin_audit_activity_fk FOREIGN KEY (owner_id, activity_id) REFERENCES activities(owner_id, id)
+  CONSTRAINT garmin_audit_identity_fk FOREIGN KEY (owner_id, identity_id) REFERENCES garmin_activity_identities(owner_id, id)
 );
+
+-- Audit UUIDs are immutable historical references, not live canonical links.
+-- Check same-owner membership at insertion, permitting later canonical deletion
+-- after explicit link rejection without mutating or deleting audit history.
+CREATE FUNCTION sportos_check_garmin_audit_activity_owner() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.activity_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM activities WHERE owner_id = NEW.owner_id AND id = NEW.activity_id
+  ) THEN RAISE EXCEPTION 'Invalid canonical activity reference'; END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER check_activity_owner BEFORE INSERT ON garmin_reconciliation_audit
+  FOR EACH ROW EXECUTE FUNCTION sportos_check_garmin_audit_activity_owner();
 
 CREATE FUNCTION sportos_reject_garmin_history_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN

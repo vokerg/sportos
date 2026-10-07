@@ -118,7 +118,11 @@ append-only audited with previous state and the policy version. No user-authored
 reason/narrative or raw payload is persisted in the audit. Primary API/worker-data
 roles can read/write owner-scoped staging; the dispatcher and legacy/shared role
 cannot read it. Version/audit tables are append-only with privilege and trigger
-checks. Dedicated detail access remains API-only and owner-scoped, immutable by
+checks. Active canonical links must be explicitly rejected before deleting a
+linked activity. Audit activity UUIDs are historical references: an insert
+trigger enforces same-owner membership while the target exists, and historical
+evidence remains after a later explicit unlink/deletion without blocking manual
+replacement workflows. Dedicated detail access remains API-only and owner-scoped, immutable by
 version; resources cannot be moved to another owner. No third database is added.
 
 Canonical list/detail responses add a bounded `garmin` link descriptor.
