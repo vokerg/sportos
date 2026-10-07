@@ -45,6 +45,26 @@ describe('ActivityProviderDetailService', () => {
     expect(providerFetch).not.toHaveBeenCalled();
   });
 
+  it('cached reads never fetch or refresh credentials when current resources are missing', async () => {
+    vi.spyOn(ActivityProviderResourcesRepository.prototype, 'getProviderReference').mockResolvedValue(reference);
+    vi.spyOn(ActivityProviderResourcesRepository.prototype, 'list').mockResolvedValue([]);
+    const fetch = vi.spyOn(StravaAdapter.prototype, 'fetchActivityDetailBundle');
+    const authorization = vi.spyOn(ProvidersRepository.prototype, 'loadWorkerAuthorization');
+    const service = new ActivityProviderDetailService(dbProvider(), activityDetailDbProvider());
+    await expect(service.cached(accountId, activityId)).rejects.toMatchObject({ response: { code: 'PROVIDER_DETAIL_NOT_CACHED' } });
+    expect(fetch).not.toHaveBeenCalled(); expect(authorization).not.toHaveBeenCalled();
+  });
+
+  it('metadata availability excludes payload reads and provider calls', async () => {
+    vi.spyOn(ActivityProviderResourcesRepository.prototype, 'getProviderReference').mockResolvedValue(reference);
+    vi.spyOn(ActivityProviderResourcesRepository.prototype, 'metadata').mockResolvedValue(cached);
+    const fullRead = vi.spyOn(ActivityProviderResourcesRepository.prototype, 'list');
+    const fetch = vi.spyOn(StravaAdapter.prototype, 'fetchActivityDetailBundle');
+    const service = new ActivityProviderDetailService(dbProvider(), activityDetailDbProvider());
+    await expect(service.status(accountId, activityId)).resolves.toEqual({ state: 'cached' });
+    expect(fullRead).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('fetches and stores all resources when the cache is missing', async () => {
     vi.spyOn(ActivityProviderResourcesRepository.prototype, 'getProviderReference').mockResolvedValue(reference);
     vi.spyOn(ActivityProviderResourcesRepository.prototype, 'list').mockResolvedValueOnce([]).mockResolvedValueOnce(cached);

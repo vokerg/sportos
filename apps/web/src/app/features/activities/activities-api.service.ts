@@ -27,6 +27,7 @@ export interface Activity {
   notes: string | null;
 }
 export interface ActivityDetail extends Activity {
+  garmin?: { provider: 'garmin'; identityId: string; providerActivityId: string | null; status: string } | null;
   provenance: { sourceRecordId: string | null; sourceRecordSource: string | null };
   providerDetail: { provider: 'strava'; providerActivityId: string } | null;
 }
@@ -67,6 +68,17 @@ export interface ActivitiesResponse {
   offset: number;
 }
 
+export interface EnrichmentStatus {
+  strava: { state: 'cached' | 'missing' | 'stale' | 'unavailable' };
+  garmin: { state: 'cached' | 'linked' | 'missing'; linked: boolean; fetchEnabled: boolean };
+}
+export interface FitMessage { message: string; fields: { name: string; units: string | null; value: unknown }[] }
+export interface GarminDetail {
+  provider: 'garmin'; retainedAt: string; cacheStatus?: 'hit' | 'miss';
+  sessions: FitMessage[]; laps: FitMessage[]; sets: unknown;
+  resources: { resourceType: string; chunkIndex: number }[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ActivitiesApiService {
   private readonly apiBase = inject(SPORTOS_API_BASE);
@@ -86,6 +98,12 @@ export class ActivitiesApiService {
   providerDetail(id: string) {
     return this.http.get<ActivityProviderDetailResponse>(`${this.apiBase}/activities/${encodeURIComponent(id)}/provider-detail`);
   }
+
+  enrichment(id: string) { return this.http.get<EnrichmentStatus>(`${this.apiBase}/activities/${encodeURIComponent(id)}/enrichment`); }
+  fetchProviderDetail(id: string, refresh = false) { return this.http.post<ActivityProviderDetailResponse>(`${this.apiBase}/activities/${encodeURIComponent(id)}/provider-detail`, { refresh }); }
+  garminDetail(id: string) { return this.http.get<GarminDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail`); }
+  fetchGarminDetail(id: string, refresh = false) { return this.http.post<GarminDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail`, { refresh }); }
+  garminResource(id: string, resourceType: string, chunkIndex: number) { return this.http.get<{ payload: unknown }>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail/resource`, { params: { resourceType, chunkIndex } }); }
 
   sourceJson(id: string) {
     return this.http.get<ActivitySourceJson>(`${this.apiBase}/activities/${encodeURIComponent(id)}/source`);

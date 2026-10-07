@@ -280,3 +280,18 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
 - Live terminal extraction, auxiliary retention/cache and unique Strava linking
   passed with unchanged canonical facts/scores. Do not label the optional targeted phase as
   completed incremental sync, bulk archive import or #101 UI.
+
+### Explicit provider detail controls (#101)
+
+- Activity navigation reads canonical facts and availability only. Provider GETs
+  never download; explicit POST Fetch/Refresh requires normal session/CSRF.
+- `features/activities/state/activity-detail.store.ts` owns cancellation, repeated
+  click protection and independent provider read/fetch/resource state.
+- `activity-enrichment.service.ts` reads owner-scoped Garmin metadata/overviews;
+  local token use is opt-in, non-production dev-single-user legacy-account-only.
+  Other owners/hosted deployments may read their retained data without the helper.
+- `tools/garmin/activity_bridge.py` accepts fixed bounded stdin operations, never
+  passwords, owners, arbitrary URLs or shell commands. Compact discovery stays
+  capped; ambiguity/incomplete candidates never trigger original downloads.
+- Source-specific rich views remain independent of canonical facts and scores;
+  no provider request or large resource query runs merely to render badges.

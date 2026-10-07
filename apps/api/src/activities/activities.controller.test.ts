@@ -59,9 +59,19 @@ describe('ActivitiesController', () => {
 
   it('loads full provider detail through the authenticated account', async () => {
     const { controller, providerDetailService } = createController();
-    providerDetailService.load.mockResolvedValue({ provider: 'strava', providerActivityId: '20223486250' } as never);
+    providerDetailService.cached.mockResolvedValue({ provider: 'strava', providerActivityId: '20223486250' } as never);
     await expect(controller.providerDetail(id, account)).resolves.toMatchObject({ provider: 'strava' });
-    expect(providerDetailService.load).toHaveBeenCalledWith(accountId, id);
+    expect(providerDetailService.cached).toHaveBeenCalledWith(accountId, id);
+    expect(providerDetailService.load).not.toHaveBeenCalled();
+  });
+
+  it('fetches Strava only through an explicit validated POST and preserves the session owner', async () => {
+    const { controller, providerDetailService } = createController();
+    await controller.fetchProviderDetail(id, { refresh: true }, account);
+    expect(providerDetailService.load).toHaveBeenCalledWith(accountId, id, true);
+    await expect(controller.fetchProviderDetail(id, { ownerId: accountId }, account)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.fetchProviderDetail(id, { refresh: 'yes' }, account)).rejects.toBeInstanceOf(BadRequestException);
+    expect(providerDetailService.load).toHaveBeenCalledTimes(1);
   });
 
   it('reads retained source JSON only through account context and hides missing or foreign records', async () => {
@@ -79,7 +89,7 @@ describe('ActivitiesController', () => {
 function createController() {
   const scopedDb = {} as Kysely<Database>;
   const withAccount = vi.fn(async <T>(_accountId: string, callback: (db: Kysely<Database>) => Promise<T>) => callback(scopedDb));
-  const providerDetailService = { load: vi.fn() };
+  const providerDetailService = { load: vi.fn(), cached: vi.fn() };
   return {
     controller: new ActivitiesController(
       { withAccount } as unknown as DbProvider,

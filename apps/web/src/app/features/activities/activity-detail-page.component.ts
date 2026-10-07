@@ -1,12 +1,13 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { ActivitiesApiService, type ActivityDetail } from './activities-api.service';
+import { ActivitiesApiService } from './activities-api.service';
+import { ActivityDetailStore } from './state/activity-detail.store';
+import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.view-model';
 import { metricGroups, startTime, subtypeLabel, title } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink],
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink], providers: [ActivityDetailStore],
   template: `
     <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
     @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
@@ -20,22 +21,56 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
         <section class="card"><h2>{{ group.title }}</h2><dl class="metrics">@for (metric of group.items; track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl></section>
       }</div>
       @if (item.notes && item.source !== 'strava') { <section class="card notes-card"><h2>Notes</h2><p class="notes">{{ item.notes }}</p></section> }
-      @if (item.providerDetail?.provider === 'strava') {
-        <section class="card provider-detail">
-          <h2>Full Strava activity data</h2>
+      <section class="card provider-detail" aria-label="Provider data">
+        <h2>Provider data</h2>
+        <p>Fetch downloads detail for this activity. View reads retained data. Canonical activity facts and scores stay unchanged.</p>
+        @if (store.coverageError()) { <p role="alert">Could not check retained data. <button type="button" (click)="store.refreshCoverage()">Check again</button></p> }
+        @else if (!store.coverage()) { <p role="status">Checking retained data…</p> }
+        @if (item.providerDetail?.provider === 'strava') {
+          <div class="provider-heading"><h3>Strava</h3><span class="badge">Summary present</span><span class="badge">{{ store.coverage()?.strava?.state === 'cached' ? 'Detail bundle retained' : store.coverage()?.strava?.state === 'stale' ? 'Detail needs refresh' : 'Full detail not fetched' }}</span></div>
+          <div class="provider-actions">
+            <button type="button" [disabled]="providerState() === 'loading' || !store.coverage()" (click)="store.strava(true)">{{ providerState() === 'loading' ? 'Loading Strava…' : 'Fetch Strava detail' }}</button>
+            <button type="button" [disabled]="providerState() === 'loading' || store.coverage()?.strava?.state !== 'cached'" (click)="store.strava()">View Strava data</button>
+            @if (store.coverage()?.strava?.state === 'cached' || store.coverage()?.strava?.state === 'stale') { <button type="button" [disabled]="providerState() === 'loading'" (click)="store.strava(true, true)">Refresh from Strava</button> }
+          </div>
           @if (providerState() === 'loading') { <p role="status">Loading detailed activity, streams, laps and zones…</p> }
-          @else if (providerState() === 'error') { <p role="alert">Could not load full Strava data. <button type="button" (click)="loadProviderDetail()">Try again</button></p> }
-          @else if (providerState() === 'missing') { <p>Full Strava data is unavailable for this activity.</p> }
-          @else if (providerState() === 'loaded') {
-            <p>Stored provider detail · {{ providerCacheStatus() === 'hit' ? 'cache hit' : 'fetched from Strava' }} · {{ providerFetchedAt() }}</p>
-            <details class="provider-json">
-              <summary>Full provider JSON (advanced)</summary>
-              <p>Includes detailed activity data and high-resolution telemetry such as GPS, heart rate, cadence and power when Strava provides them.</p>
-              <pre>{{ providerJson() }}</pre>
-            </details>
+          @if (providerState() === 'error' || providerState() === 'missing') { <p role="alert">{{ store.providerError() }}</p> }
+          @if (providerState() === 'loaded') {
+            <p>Retained Strava data · {{ providerCacheStatus() === 'hit' ? 'cache hit' : 'fetched from Strava' }} · {{ providerFetchedAt() }}</p>
+            <dl class="metrics">@for (metric of stravaMetrics(store.providerDetail()?.resources?.['detail']?.payload); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl>
+            <details class="provider-json"><summary>Strava detail, streams, laps and zones (advanced)</summary><pre>{{ providerJson() }}</pre></details>
           }
-        </section>
-      }
+        }
+        <div class="provider-heading"><h3>Garmin</h3><span class="badge">{{ store.coverage()?.garmin?.state === 'cached' ? 'Rich data retained' : store.coverage()?.garmin?.linked ? 'Linked · detail missing' : 'Not linked' }}</span></div>
+        <div class="provider-actions">
+          <button type="button" [disabled]="store.garminState() === 'loading' || !store.coverage() || (!store.coverage()?.garmin?.fetchEnabled && store.coverage()?.garmin?.state !== 'cached')" (click)="store.garminDetail(true)">{{ store.garminState() === 'loading' ? 'Loading Garmin…' : 'Fetch Garmin detail' }}</button>
+          <button type="button" [disabled]="store.garminState() === 'loading' || store.coverage()?.garmin?.state !== 'cached'" (click)="store.garminDetail()">View Garmin data</button>
+          @if (store.coverage()?.garmin?.linked && store.coverage()?.garmin?.fetchEnabled) { <button type="button" [disabled]="store.garminState() === 'loading'" (click)="store.garminDetail(true, true)">Refresh from Garmin</button> }
+        </div>
+        @if (store.coverage() && !store.coverage()?.garmin?.fetchEnabled) { <p>New Garmin downloads require the local desktop helper. Retained Garmin data can still be viewed.</p> }
+        @if (store.garminState() === 'loading') { <p role="status">Checking retained data and fetching only if needed…</p> }
+        @if (store.garminState() === 'error' || store.garminState() === 'missing') { <p role="alert">{{ store.garminError() }}</p> }
+        @if (store.garmin(); as garmin) {
+          <p>Retained Garmin data · {{ garmin.retainedAt }} @if (garmin.cacheStatus) { · {{ garmin.cacheStatus === 'hit' ? 'cache hit' : 'fetched from Garmin' }} }</p>
+          <h4>Garmin session and running dynamics</h4>
+          <dl class="metrics">@for (metric of fitMetrics(garmin.sessions[0]); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> } @empty { <p>No supported session metrics were provided.</p> }</dl>
+          <details class="provider-json"><summary>Garmin laps ({{ garmin.laps.length }} shown, up to 100)</summary>
+            @for (lap of garmin.laps; track $index) { <h4>Lap {{ $index + 1 }}</h4><dl class="metrics">@for (metric of fitMetrics(lap); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl> }
+          </details>
+          <details class="provider-json"><summary>Garmin exercise sets</summary>
+            @for (set of exerciseSetRows(garmin.sets); track $index) { <h4>Set {{ $index + 1 }}</h4><dl class="metrics">@for (field of set; track field.label) { <div><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></div> }</dl> } @empty { <p>No exercise sets were provided.</p> }
+            <details><summary>Exercise set JSON (advanced)</summary><pre>{{ setsJson() }}</pre></details>
+          </details>
+          <details class="provider-json"><summary>Garmin retained source records (advanced)</summary>
+            <p>Read one retained resource at a time. These may include GPS and other private telemetry.</p>
+            <label>Resource <select [value]="resourceIndex()" (change)="resourceIndex.set(+$any($event.target).value)">@for (resource of garmin.resources; track $index) { <option [value]="$index">{{ resource.resourceType }} · part {{ resource.chunkIndex + 1 }}</option> }</select></label>
+            <button type="button" [disabled]="store.resourceState() === 'loading'" (click)="viewResource()">View retained resource</button>
+            @if (store.resourceState() === 'loading') { <p role="status">Loading retained resource…</p> }
+            @if (store.resourceState() === 'error' || store.resourceState() === 'missing') { <p role="alert">Could not read this resource. Try again.</p> }
+            @if (store.resourceState() === 'loaded') { <pre>{{ store.resourceJson() }}</pre> }
+          </details>
+        }
+      </section>
       <details class="card provenance"><summary>Source and provenance</summary><dl>
         <div><dt>Source</dt><dd>{{ item.source }}</dd></div>
         @if (item.source_activity_id) { <div><dt>Source activity ID</dt><dd>{{ item.source_activity_id }}</dd></div> }
@@ -56,6 +91,7 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
     } }
   `,
   styles: [`
+    .provider-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }.provider-heading h3 { margin: 0 4px 0 0; }.badge { font-size: 12px; border-radius: 16px; padding: 4px 9px; background: #eef2ff; color: #344054; }.provider-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; } button:disabled { opacity: .55; cursor: default; } select { max-width: 100%; margin: 8px; }.metrics dt { text-transform: capitalize; }
     .breadcrumb { margin-bottom: 18px; color: #667085; }.breadcrumb a { color: #1d4ed8; }
     header { margin-bottom: 18px; } h1 { margin: 4px 0; } h1 small { font-size: 18px; font-weight: 500; color: #667085; }
     header p { margin: 0; color: #667085; text-transform: capitalize; }.source-name { margin-top: 10px; color: #344054; font-size: 16px; text-transform: none; }.page-kicker { color: #5368ae; font-size: 11px; font-weight: 800; text-transform: uppercase; }
@@ -69,50 +105,21 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
   `],
 })
 export class ActivityDetailPageComponent implements OnInit, OnDestroy {
-  readonly state = signal<'loading' | 'loaded' | 'missing' | 'error'>('loading');
-  readonly activity = signal<ActivityDetail | null>(null);
-  readonly sourceState = signal<'idle' | 'loading' | 'loaded' | 'missing' | 'error'>('idle');
-  readonly sourceJson = signal<string | null>(null);
-  readonly providerState = signal<'idle' | 'loading' | 'loaded' | 'missing' | 'error'>('idle');
-  readonly providerJson = signal<string | null>(null);
-  readonly providerFetchedAt = signal<string | null>(null);
-  readonly providerCacheStatus = signal<'hit' | 'miss' | null>(null);
   readonly metricGroups = metricGroups; readonly startTime = startTime; readonly subtypeLabel = subtypeLabel; readonly title = title;
-  private id = ''; private routeSubscription?: Subscription; private requestSubscription?: Subscription; private sourceSubscription?: Subscription; private providerSubscription?: Subscription;
-  constructor(private readonly api: ActivitiesApiService, private readonly route: ActivatedRoute) {}
-  ngOnInit(): void { this.routeSubscription = this.route.paramMap.subscribe((params) => { this.id = params.get('id') ?? ''; this.load(); }); }
-  ngOnDestroy(): void { this.routeSubscription?.unsubscribe(); this.requestSubscription?.unsubscribe(); this.sourceSubscription?.unsubscribe(); this.providerSubscription?.unsubscribe(); }
-  load(): void {
-    this.requestSubscription?.unsubscribe(); this.sourceSubscription?.unsubscribe(); this.providerSubscription?.unsubscribe();
-    this.activity.set(null); this.sourceJson.set(null); this.sourceState.set('idle');
-    this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerState.set('idle'); this.state.set('loading');
-    this.requestSubscription = this.api.detail(this.id).subscribe({
-      next: (activity) => { this.activity.set(activity); this.state.set('loaded'); if (activity.providerDetail?.provider === 'strava') this.loadProviderDetail(); },
-      error: (error: unknown) => this.state.set(error instanceof HttpErrorResponse && error.status === 404 ? 'missing' : 'error'),
-    });
-  }
-  loadProviderDetail(): void {
-    if (this.activity()?.providerDetail?.provider !== 'strava') return;
-    this.providerSubscription?.unsubscribe(); this.providerState.set('loading');
-    this.providerSubscription = this.api.providerDetail(this.id).subscribe({
-      next: (detail) => {
-        this.providerJson.set(JSON.stringify(detail.resources, null, 2) ?? 'null');
-        this.providerFetchedAt.set(new Date(detail.fetchedAt).toLocaleString());
-        this.providerCacheStatus.set(detail.cacheStatus);
-        this.providerState.set('loaded');
-      },
-      error: (error: unknown) => this.providerState.set(error instanceof HttpErrorResponse && error.status === 404 ? 'missing' : 'error'),
-    });
-  }
-  onSourceToggle(event: Event): void {
-    if ((event.target as HTMLDetailsElement).open && this.sourceState() === 'idle') this.loadSourceJson();
-  }
-  loadSourceJson(): void {
-    if (!this.activity()?.provenance.sourceRecordId) return;
-    this.sourceSubscription?.unsubscribe(); this.sourceState.set('loading');
-    this.sourceSubscription = this.api.sourceJson(this.id).subscribe({
-      next: (source) => { this.sourceJson.set(JSON.stringify(source.rawJson, null, 2) ?? 'null'); this.sourceState.set('loaded'); },
-      error: (error: unknown) => this.sourceState.set(error instanceof HttpErrorResponse && error.status === 404 ? 'missing' : 'error'),
-    });
-  }
+  readonly exerciseSetRows = exerciseSetRows; readonly fitMetrics = fitMetrics; readonly stravaMetrics = stravaMetrics;
+  readonly resourceIndex = signal(0);
+  private id = ''; private routeSubscription?: Subscription;
+  constructor(private readonly api: ActivitiesApiService, private readonly route: ActivatedRoute, readonly store: ActivityDetailStore = new ActivityDetailStore(api)) {}
+  get state() { return this.store.state; } get activity() { return this.store.activity; }
+  get sourceState() { return this.store.sourceState; } get sourceJson() { return this.store.sourceJson; }
+  get providerState() { return this.store.providerState; } get providerJson() { return this.store.providerJson; }
+  get providerFetchedAt() { return this.store.providerFetchedAt; } get providerCacheStatus() { return this.store.providerCacheStatus; }
+  ngOnInit(): void { this.routeSubscription = this.route.paramMap.subscribe(params => { this.id = params.get('id') ?? ''; this.resourceIndex.set(0); this.load(); }); }
+  ngOnDestroy(): void { this.routeSubscription?.unsubscribe(); this.store.ngOnDestroy(); }
+  load(): void { this.store.load(this.id); }
+  loadProviderDetail(): void { this.store.strava(true); }
+  onSourceToggle(event: Event): void { if ((event.target as HTMLDetailsElement).open && this.sourceState() === 'idle') this.loadSourceJson(); }
+  loadSourceJson(): void { this.store.source(); }
+  setsJson(): string { return JSON.stringify(this.store.garmin()?.sets, null, 2) ?? 'null'; }
+  viewResource(): void { const resource = this.store.garmin()?.resources[this.resourceIndex()]; if (resource) this.store.resource(resource.resourceType, resource.chunkIndex); }
 }

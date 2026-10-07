@@ -19,3 +19,28 @@ for both providers. Reads/status/disclosures must never initiate provider calls.
 Garmin local tokens are workstation-only, never a shared hosted credential.
 Scoring/canonical authority, account context, CSRF, bounds and ambiguity policy
 remain unchanged. Display source-specific retained facts independently.
+
+Implemented: explicit Strava cached GET versus authenticated POST Fetch/Refresh;
+metadata-only activity availability; owner-scoped bounded Garmin session/lap/set
+and individual-resource reads; explicit workstation Garmin bridge with current
+cache reuse, conservative bounded compact discovery and targeted extraction.
+The bridge is disabled in production/other accounts, has no password UI, inherits
+no API/schema credentials, and has fixed operations/deadline/concurrency bounds.
+Existing local-ingest validation moved into a reusable retention service. Raw
+source hashes/manifest keys remain private. New Angular route-scoped state owns
+cancellation and separate read/fetch states; no provider fetch occurs on navigation.
+
+Additional inspected files: worker startup/config (previous follow-up), importer
+upload storage, pinned SDK activity-list implementation, package manifests/lock,
+local ingest tests, account resource integration tests, app auth config/main,
+feature page tests. No schema migration or new database role is introduced.
+
+Validation: focused API tests, feature page/store tests, parser/discovery tests,
+non-owner detail resource reads with cross-owner negative evidence and isolated
+synthetic HTTP staging/view/cache-hit pipeline passed. Root frozen install,
+typecheck/tests/build passed; unconfigured unrelated integrations skipped.
+Browser visual inspection was denied by automatic browser approval; no alternate
+browser/headless workaround was attempted. No personal activity identifier,
+payload, credentials, location or telemetry is committed. Full list badge rollout,
+full archive #98, incremental jobs and richer charts remain outside this targeted
+activity-page phase. Neither dependencies nor #101 are merged/closed.

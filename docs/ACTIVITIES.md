@@ -16,9 +16,43 @@ The Strava ingest path stores the activity date and start timestamp, provider id
 
 Some Strava fields may be present only in retained raw source data, and some list responses do not include every optional metric. The detail page offers a collapsed **Raw source JSON (advanced)** section when a source record exists. Opening it fetches and formats the retained summary response for inspection; it can include location and other private source details.
 
-For activities linked to Strava, opening the activity detail page also lazily loads the complete provider detail bundle. The API first checks the owner-scoped cache. On a miss it refreshes the stored Strava authorization when necessary, requests the detailed activity with all segment efforts, all supported activity streams (time, distance, GPS coordinates, altitude, smoothed velocity, heart rate, cadence, watts, temperature, moving state and smoothed grade), laps, and zones, then stores each provider resource separately. Zones are treated as optional because Strava can restrict them by subscription. The page exposes this raw provider bundle only in an advanced section; none of these provider payloads become canonical metrics automatically.
+Activity navigation now reads canonical facts and small retained-data availability
+metadata only. It does **not** download rich Strava or Garmin data. Each provider
+has separate **Fetch detail**, **View data**, and explicit **Refresh** controls.
+Fetch first reuses a complete current cache; View reads retained data only and
+never calls the provider. Refresh explicitly requests a new provider version.
+The normal Strava sync remains compact-summary-only.
 
-The normal provider sync remains summary-only. Detailed telemetry is fetched only for an individual activity page and is reused from cache on later visits. Cache rows are versioned by the hash of the latest retained Strava summary payload for that exact provider activity; when a later provider sync retains a changed summary, the detailed bundle is invalidated and fetched again.
+Strava fetch retains detailed activity, supported streams, laps and zones in the
+existing separate activity-detail database. Optional unavailable resources retain
+honest availability metadata. Cache versions follow the latest compact summary;
+stale resources require an explicit fetch/refresh rather than fetching on view.
+
+Garmin View shows source-specific FIT session/running-dynamics metrics with their
+retained units, up to 100 bounded laps, exercise set fields, and an advanced
+one-resource-at-a-time viewer. Large/unknown FIT fields remain in original/resource
+storage; session/lap overview messages are bounded to 64 KiB each. Neither provider
+view replaces canonical facts or calculates official scores. Provider JSON may
+include private GPS and telemetry, so disclosure remains explicit.
+
+New Garmin downloads use the opt-in **local desktop helper** from #99. Enable
+`SPORTOS_GARMIN_LOCAL_FETCH_ENABLED=true` locally after `pnpm garmin:setup` and
+user-initiated `pnpm garmin:login`. The helper is allowed only for the fixed legacy
+account in non-production `dev-single-user` mode; it is disabled for production
+and other owners regardless of the flag. The browser receives no Garmin password,
+tokens, local paths, source hashes or blob keys. Hosted instances can still read
+retained Garmin data without the helper or Garmin login.
+
+A linked complete Garmin version is reused with zero Garmin requests. Without a
+native link, an explicit Fetch performs one compact discovery request over UTC
+start date ±1 day, capped at 100 observations, then uses the shared #97 policy.
+A full page, nearby unsupported record, weak or multiple candidates requires
+review and downloads no originals. The selected original is downloaded/parsed
+through the bounded local extractor and checked against the requested canonical
+activity again before owner-scoped retention/reconciliation. No bulk sync or rich
+Strava prerequisite is introduced. Refresh preserves historical source versions.
+The bridge has a 180-second deadline and at most two active requests per process;
+repeat clicks for the same account/activity return a bounded conflict.
 
 ## API
 
@@ -26,11 +60,26 @@ The normal provider sync remains summary-only. Detailed telemetry is fetched onl
 
 `GET /activities/:activityId` accepts a canonical UUID. It returns the activity's selected canonical fields and source-record ID/type when present. Raw payloads, hashes, account IDs, storage internals and provider credentials are omitted from this default response.
 
-`GET /activities/:activityId/provider-detail` lazily returns the linked Strava provider bundle. It returns `detail`, `streams`, `laps`, and `zones` resources with availability/status metadata, plus the provider activity ID, fetch time, and whether the response was a cache hit or miss. It never returns provider credentials, connection IDs, owner IDs, hashes, or storage internals. Missing/foreign activities and activities without a Strava link receive the same 404. Provider authorization or upstream failures return a bounded service error.
+`GET /activities/:activityId/provider-detail` reads only a complete current retained Strava bundle; a cache miss/stale version returns 404 without refreshing credentials or calling Strava. It returns `detail`, `streams`, `laps`, and `zones` resources with availability/status metadata, plus the provider activity ID, fetch time, and whether the response was a cache hit or miss. It never returns provider credentials, connection IDs, owner IDs, hashes, or storage internals. Missing/foreign activities and activities without a Strava link receive the same 404. Provider authorization or upstream failures return a bounded service error.
+
+`POST /activities/:activityId/provider-detail` explicitly fetches Strava detail.
+The only optional body field is boolean `refresh` (default false); false reuses
+current retained data, true refreshes upstream. It uses the authenticated owner
+and session-bound CSRF protection.
+
+`GET /activities/:activityId/enrichment` returns owner-scoped provider availability
+only; it never reads full source payloads or calls a provider.
+`GET /activities/:activityId/garmin-detail` reads the bounded Garmin overview.
+`GET /activities/:activityId/garmin-detail/resource?resourceType=records&chunkIndex=0`
+reads one retained detail/sets/records/laps resource (never private FIT manifests).
+`POST /activities/:activityId/garmin-detail` explicitly reuses/fetches Garmin with
+the same optional boolean `refresh`. IDs are canonical UUIDs, not user-selected
+owners or provider connections. Missing/foreign activities use the same 404;
+ambiguity, helper setup/authentication, rate limits and timeouts are safe and visible.
 
 `GET /activities/:activityId/source` returns the linked source record's ID, source type, and retained `raw_json` for the advanced disclosure. The browser calls it only when the section is opened. It does not include source hashes, ownership fields, storage internals, or provider credentials. A missing activity, foreign activity, or activity without a linked source record receives the same 404. All Activities routes use the authenticated account's `withAccount` context and forced row-level security.
 
-The canonical implementation lives in `packages/db/src/repositories/activities.repository.ts`, `apps/api/src/activities/activities.controller.ts`, and `apps/web/src/app/features/activities/`. Lazy provider detail uses `packages/db/src/repositories/activity-provider-resources.repository.ts`, `apps/api/src/activities/activity-provider-detail.service.ts`, and the Strava adapter in `packages/importers/src/strava-adapter.ts`. Angular separates the API contract/client, formatting and metric selection, list presenter, list page, detail page, and a page-scoped list store for request cancellation and loading state. The feature is scoped under `features/` per the frontend architecture; the existing global API base helper remains until its planned migration.
+The canonical implementation lives in `packages/db/src/repositories/activities.repository.ts`, `apps/api/src/activities/activities.controller.ts`, and `apps/web/src/app/features/activities/`. Explicit provider detail uses `packages/db/src/repositories/activity-provider-resources.repository.ts`, `apps/api/src/activities/activity-provider-detail.service.ts`, and the Strava adapter in `packages/importers/src/strava-adapter.ts`. Angular separates the API contract/client, formatting and metric selection, list presenter, list page, detail page, and a page-scoped list store for request cancellation and loading state. The feature is scoped under `features/` per the frontend architecture; the existing global API base helper remains until its planned migration.
 
 ## MVP limits
 
@@ -46,4 +95,5 @@ fields and counts. Garmin-only and ambiguous entries stay in the separate stagin
 API and do not appear as canonical activities. No Garmin download occurs when a
 page opens. See [ADR 0010](adr/0010-garmin-activity-reconciliation.md) for the
 compact ingress/review contracts, match thresholds, versioned resource storage,
-reverse reconciliation and deferred single-activity extractor.
+reverse reconciliation and the single-activity extractor. The explicit controls
+above override the earlier activity-navigation Strava fetch behavior.

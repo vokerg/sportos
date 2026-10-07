@@ -1,0 +1,63 @@
+"""Explicit local UI bridge. Fixed stdin operations; never prompts for credentials."""
+import datetime as dt
+import json
+import sys
+from extract_activity import DEFAULT_HOME, ExtractionError, activity_id, encoded, extract, login, normalized_summary
+
+
+def discover(transport, start):
+    instant = dt.datetime.fromisoformat(start.replace('Z', '+00:00'))
+    if instant.tzinfo is None:
+        raise ExtractionError('INVALID_UTC_START')
+    instant = instant.astimezone(dt.timezone.utc)
+    # A fixed bounded date window covers Garmin-local versus canonical UTC dates.
+    params = {'startDate': (instant - dt.timedelta(days=1)).date().isoformat(),
+              'endDate': (instant + dt.timedelta(days=1)).date().isoformat(), 'start': '0', 'limit': '100'}
+    rows = transport.client.connectapi(transport.client.garmin_connect_activities, params=params)
+    if not isinstance(rows, list) or len(rows) > 100:
+        raise ExtractionError('INVALID_GARMIN_DISCOVERY')
+    items = []
+    uncertain = False
+    for row in rows:
+        try:
+            summary = normalized_summary({'activityTypeDTO': row.get('activityType', {}), 'summaryDTO': row}, {})
+            delta = abs((dt.datetime.fromisoformat(summary['startTime'].replace('Z', '+00:00')) - instant).total_seconds())
+            if delta <= 120:
+                items.append({'providerActivityId': activity_id(row.get('activityId', '')), 'summary': summary})
+        except (ExtractionError, AttributeError, ValueError):
+            # Unsupported observations are never evidence for selecting a winner.
+            try:
+                value = dt.datetime.fromisoformat(row['startTimeGMT'].replace('Z', '+00:00'))
+                if value.tzinfo is None:
+                    value = value.replace(tzinfo=dt.timezone.utc)
+                uncertain |= abs((value - instant).total_seconds()) <= 120
+            except (KeyError, TypeError, ValueError):
+                uncertain = True
+    return {'items': items, 'truncated': len(rows) == 100, 'uncertain': uncertain}
+
+
+def main():
+    try:
+        data = sys.stdin.buffer.read(16385)
+        if len(data) > 16384:
+            raise ExtractionError('INVALID_BRIDGE_INPUT')
+        request = json.loads(data)
+        transport = login(str(DEFAULT_HOME / 'tokens'))
+        if request.get('operation') == 'discover':
+            result = discover(transport, request['startTime'])
+        elif request.get('operation') == 'extract':
+            result = extract(transport, activity_id(request['providerActivityId']), DEFAULT_HOME / 'sources', request.get('refresh') is True)
+            result = {'folder': str(result['folder']), 'bundle': result['bundle']}
+        else:
+            raise ExtractionError('INVALID_BRIDGE_INPUT')
+        sys.stdout.buffer.write(encoded(result))
+    except ExtractionError as error:
+        sys.stdout.buffer.write(encoded({'error': error.code}))
+        raise SystemExit(1) from None
+    except Exception:
+        sys.stdout.buffer.write(encoded({'error': 'GARMIN_LOGIN_OR_FETCH_FAILED'}))
+        raise SystemExit(1) from None
+
+
+if __name__ == '__main__':
+    main()

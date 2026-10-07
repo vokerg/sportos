@@ -1,8 +1,9 @@
 # Local single-activity Garmin Connect proof
 
 This is the first phase of #99, stacked on #97. Full archive #98, recurring
-incremental jobs, compact-Strava discovery search, #101 UI and #102 preflight are
-not implemented by this phase. The supplied Garmin ID is a targeted lookup; no
+incremental jobs, compact-Strava discovery search, #102 preflight are
+not implemented by this phase. The subsequent #101 work adds explicit activity
+fetch/view controls via the opt-in local helper described in docs/ACTIVITIES.md. The supplied Garmin ID is a targeted lookup; no
 other activity catalog or wellness data is downloaded. No scoring changes occur.
 
 This optional local tool uses the **unofficial/private** Garmin Connect API
@@ -100,7 +101,8 @@ Matched workouts retain one canonical activity with unchanged Strava/workbook/
 manual fields and scores. Garmin-only or ambiguous observations remain staging
 records. Read/review via `/garmin/activities`; explicit accept/reject/manual-link
 and reverse reconciliation are described in [ADR 0010](adr/0010-garmin-activity-reconciliation.md).
-No activity-page Garmin download or bulk rich Strava request is introduced.
+The CLI phase itself adds no activity-page control; #101 adds an explicit local
+Garmin fetch action. Bulk rich Strava requests remain excluded.
 
 ## Cache and bounds
 

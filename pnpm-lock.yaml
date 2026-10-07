@@ -35,6 +35,9 @@ importers:
       '@sportos/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@sportos/domain':
+        specifier: workspace:^
+        version: link:../../packages/domain
       '@sportos/importers':
         specifier: workspace:*
         version: link:../../packages/importers
