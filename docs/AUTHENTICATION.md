@@ -156,8 +156,10 @@ The primary wrapper also accepts legacy `FLYWAY_URL/USER/PASSWORD`; the detail
 wrapper requires its explicit separate settings. URLs may use `postgresql://`
 or the `jdbc:` prefix; the wrapper supplies the JDBC prefix and sends owner/user
 password fields only to the Flyway child environment. The URL need not embed the
-password. `.env` remains ignored by Git and should have mode 0600. Provider tokens,
-source files and local Garmin artifacts remain outside the repository.
+password. `.env` remains ignored by Git and should have mode 0600. Garmin tokens
+and CLI raw artifacts remain outside the repository. Uploaded originals stay
+private under `SPORTOS_UPLOAD_DIR` and are never committed; the development
+default is the ignored `data/uploads` directory.
 
 Install Flyway on PATH (the maintained Mac setup used `brew install flyway`).
 The Java/JDBC-specific URL options in `.env.example` use the Java truststore,
