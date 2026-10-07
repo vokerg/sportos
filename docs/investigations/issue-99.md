@@ -82,3 +82,12 @@ before configuration reads and resolves relative upload storage against the
 repository root. Separate dispatcher/data-role requirements remain strict.
 Worker typecheck and 3 existing provider unit tests passed; a package-directory
 configuration smoke check loaded both required role URLs without exposing values.
+
+Current integration status (2026-10-07): the investigation above records its
+original phase and validation, not a claim that later work is still blocked.
+The maintainer authorized merging the three delivery PRs. Current setup,
+implemented behavior and remaining scope are maintained in ACTIVITIES.md,
+GARMIN_SINGLE_ACTIVITY.md, AUTHENTICATION.md and ROADMAP.md. #97 is the completed
+foundation; #99 incremental synchronization and #101 list-wide coverage remain
+open follow-ups. Single-activity live retention/linking passed; browser visual
+verification remains outstanding after permission was declined.

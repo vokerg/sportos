@@ -200,19 +200,33 @@ Identity policy for a previously unseen provider activity:
 
 When linking an existing workbook/manual fact, its source fields, values, and provenance are unchanged. Later provider updates mutate only Strava-owned canonical activities. Provider-linked running performance is written only for provider-owned canonical activities, avoiding duplicate performance facts for a workbook overlap.
 
-### Lazy provider-detail storage boundary
+### Explicit provider-detail storage boundary
 
-The canonical/provider reference and encrypted credentials remain in the primary
-Neon project. Opening a linked activity detail page validates that reference
-under the authenticated account context, then reads or writes the derived
-provider-detail resource rows through an explicit connection to a separate Neon
-project. The supporting project has its own schema-owner and non-owner
-`sportos_app` role, uses forced RLS keyed by the same `sportos.account_id`
-setting, and has no cross-project foreign keys. Its URLs and credentials are
-never derived from or shared with the primary project. Detail resources are
-bounded, versioned by the latest retained provider summary hash, and safe to
-rebuild on a cache miss. The resource-oriented schema is provider-neutral even
-though the current API adapter is Strava-only.
+Canonical/provider references and encrypted Strava credentials remain in the
+primary Neon project. Activity navigation reads canonical facts and bounded
+coverage metadata only. Provider GETs read retained data without upstream calls;
+authenticated POST Fetch reuses a complete current version or downloads missing
+resources, and POST Refresh explicitly requests a new version. The API resolves
+the provider reference under account context and retains detail through a separate
+Neon project with its own schema owner and non-owner `sportos_app` role. Forced RLS
+uses the same account context; there are no cross-project foreign keys. Neither
+runtime nor migration credentials are derived from the primary connection.
+
+Strava detail/streams/laps/zones are derived caches versioned by the latest compact
+summary hash. Garmin has separate immutable identity/hash resource chunks and a
+private original-byte manifest. Primary V124 stores only compact Garmin identity,
+matching/link/status/provenance/audit; detail V002 stores queryable rich resources,
+and original FIT/ZIP bytes remain in private file/blob storage. Retention precedes
+compact reconciliation, so retries converge without a distributed transaction.
+
+The Garmin local bridge is opt-in, restricted to the non-production
+`dev-single-user` legacy account and the existing protected workstation login.
+Hosted/other owners can view retained data but cannot use workstation tokens.
+Explicit missing-data fetch searches a capped compact date window, requires a
+unique conservative match, then runs targeted extraction. No page visit, rich
+Strava prerequisite, bulk catalog download or scoring write is introduced.
+See [Activities](ACTIVITIES.md), [local Garmin operation](GARMIN_SINGLE_ACTIVITY.md)
+and [ADR 0010](adr/0010-garmin-activity-reconciliation.md).
 
 ### Rule versions and recomputation
 

@@ -140,6 +140,57 @@ The daily score authority transition is a protected unsafe route:
 session, requires the normal CSRF header, and never accepts an owner ID in the
 request body.
 
+## Local migration and worker configuration
+
+Migration commands automatically load the repository-root `.env`, preserving
+already configured process variables. Runtime URLs do not supply migration
+credentials. Configure these six settings from each Neon project's existing
+schema-owner connection, with direct (non-pooled) hosts and separate passwords:
+
+| Database | URL | Owner role | Password |
+|---|---|---|---|
+| Primary | `SPORTOS_FLYWAY_URL` | `SPORTOS_FLYWAY_USER` | `SPORTOS_FLYWAY_PASSWORD` |
+| Dedicated detail | `SPORTOS_ACTIVITY_DETAIL_FLYWAY_URL` | `SPORTOS_ACTIVITY_DETAIL_FLYWAY_USER` | `SPORTOS_ACTIVITY_DETAIL_FLYWAY_PASSWORD` |
+
+The primary wrapper also accepts legacy `FLYWAY_URL/USER/PASSWORD`; the detail
+wrapper requires its explicit separate settings. URLs may use `postgresql://`
+or the `jdbc:` prefix; the wrapper supplies the JDBC prefix and sends owner/user
+password fields only to the Flyway child environment. The URL need not embed the
+password. `.env` remains ignored by Git and should have mode 0600. Provider tokens,
+source files and local Garmin artifacts remain outside the repository.
+
+Install Flyway on PATH (the maintained Mac setup used `brew install flyway`).
+The Java/JDBC-specific URL options in `.env.example` use the Java truststore,
+verify the server certificate/hostname, require channel binding and bound login/
+socket waits. These are migration settings; do not copy the schema-owner
+connection into an API, worker or local importer runtime URL.
+
+```bash
+pnpm db:info
+pnpm db:info:activity-detail
+pnpm db:migrate
+pnpm db:migrate:activity-detail
+```
+
+Primary schema V124 and dedicated detail V002 are required for Garmin retention.
+Already applied migrations should show no pending versions on repeat runs.
+The wrapper accepts pnpm's optional `--` separator when passing Flyway flags.
+If validation reports a checksum/version mismatch, compare the applied script,
+repository SQL and deployed schema before making a history correction. In the
+maintained environment, the old cache-move script recorded as V122 exactly matched
+current V123, and the track-subtype V122 was absent. The original history entry
+was preserved privately, its version/script reference aligned to identical V123
+SQL without changing its checksum, and Flyway then applied missing V122 out of
+order followed by V124. This was an evidence-checked one-off alignment, not a
+change to an applied migration file or a generic checksum repair procedure.
+
+Standalone `pnpm dev:worker` loads root `.env` before requiring both dispatcher
+and worker-data URLs and resolves relative upload paths from the repository root.
+The combined `pnpm dev` launcher shares the same configuration. Missing URLs
+remain explicit errors, with no API/schema-owner credential fallback.
+For the opt-in workstation Garmin login/helper and its production/account limits,
+see [local Garmin operation](GARMIN_SINGLE_ACTIVITY.md) and [Activities](ACTIVITIES.md).
+
 ## Deployment checklist
 
 1. Provision a PostgreSQL schema-owner/Flyway identity separately from runtime identities.

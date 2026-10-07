@@ -1,10 +1,13 @@
-# Local single-activity Garmin Connect proof
+# Local Garmin activity import and UI helper
 
-This is the first phase of #99, stacked on #97. Full archive #98, recurring
-incremental jobs, compact-Strava discovery search, #102 preflight are
-not implemented by this phase. The subsequent #101 work adds explicit activity
-fetch/view controls via the opt-in local helper described in docs/ACTIVITIES.md. The supplied Garmin ID is a targeted lookup; no
-other activity catalog or wellness data is downloaded. No scoring changes occur.
+The single-activity phase of #99 builds on the #97 reconciliation foundation.
+The #101 activity page adds explicit Fetch/View/Refresh and bounded compact Garmin
+candidate discovery against existing canonical summaries. The CLI targets a
+supplied Garmin native ID; it downloads no other catalog or wellness data.
+Full archive #98, recurring incremental jobs/checkpoints and the optional
+compact-Strava refresh preflight #102 remain follow-up work. Both paths preserve
+canonical facts and official scores. See [Activities](ACTIVITIES.md) for the GUI
+and API contracts.
 
 This optional local tool uses the **unofficial/private** Garmin Connect API
 through pinned `python-garminconnect` 0.3.17. Endpoints can change, fail MFA or
@@ -104,6 +107,27 @@ and reverse reconciliation are described in [ADR 0010](adr/0010-garmin-activity-
 The CLI phase itself adds no activity-page control; #101 adds an explicit local
 Garmin fetch action. Bulk rich Strava requests remain excluded.
 
+## Activity-page controls and standalone development
+
+After setup/login, enable `SPORTOS_GARMIN_LOCAL_FETCH_ENABLED=true` in your
+protected local `.env` and restart the API/dev session. On `/activity/:id`,
+**Fetch Garmin detail** reuses retained data first, otherwise performs bounded
+compact discovery and targeted extraction; **View Garmin data** reads retained
+session/lap/set data and never contacts Garmin. **Refresh from Garmin** is
+explicit and retains prior versions. The same Fetch/View/Refresh distinction
+applies to Strava. Navigation itself fetches neither provider's rich data.
+
+New downloads are restricted to non-production `dev-single-user` and the fixed
+legacy account. Hosted/other owners can read their retained resources without
+using workstation tokens. No browser password/token copying is supported.
+See [Activities](ACTIVITIES.md) for the read/fetch API and safe failure states.
+
+`pnpm dev:worker` or `pnpm --filter @sportos/worker dev` loads the root `.env`
+before validating the separate dispatcher/data-role URLs. Relative upload paths
+resolve against the repository root, matching the combined `pnpm dev` launcher.
+A missing worker URL is a configuration error; API/schema-owner credentials are
+never a fallback. Standalone API startup uses `pnpm dev:api`.
+
 ## Cache and bounds
 
 The first network step is metadata. It checks an authenticated remote native
@@ -156,8 +180,8 @@ activity facts and official scores were verified unchanged. Fresh environments
 still require the primary and detail migration settings configured locally,
 never in chat. Listing/discovery, actual
 MFA/expiry/rate-limit behavior and broader device/strength coverage remain
-unvalidated. #99 stays open/draft until its remaining delivery phases and
-acceptance criteria are met; #98 remains deferred.
+unvalidated. #99 stays open until its remaining delivery phases and acceptance criteria are
+met, even after merging this first phase; #98 remains deferred.
 
 Upstream contracts:
 - [python-garminconnect 0.3.17](https://github.com/cyberjunky/python-garminconnect/tree/0.3.17)

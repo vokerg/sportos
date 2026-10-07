@@ -64,3 +64,12 @@ Validation (isolated local PostgreSQL, synthetic records only):
 No live Garmin payload, password, token, activity identifier or sample is in this
 PR. Live login, FIT parsing/completeness, resource/blob orchestration and actual
 single-activity download belong to #99; full archive #98 stays deferred.
+
+Current integration status (2026-10-07): the investigation above records its
+original phase and validation, not a claim that later work is still blocked.
+The maintainer authorized merging the three delivery PRs. Current setup,
+implemented behavior and remaining scope are maintained in ACTIVITIES.md,
+GARMIN_SINGLE_ACTIVITY.md, AUTHENTICATION.md and ROADMAP.md. #97 is the completed
+foundation; #99 incremental synchronization and #101 list-wide coverage remain
+open follow-ups. Single-activity live retention/linking passed; browser visual
+verification remains outstanding after permission was declined.

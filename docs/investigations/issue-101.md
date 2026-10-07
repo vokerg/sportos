@@ -44,3 +44,20 @@ browser/headless workaround was attempted. No personal activity identifier,
 payload, credentials, location or telemetry is committed. Full list badge rollout,
 full archive #98, incremental jobs and richer charts remain outside this targeted
 activity-page phase. Neither dependencies nor #101 are merged/closed.
+
+Pre-merge documentation audit inspected README.md, AGENTS.md,
+docs/ARCHITECTURE.md, ROADMAP.md, AUTHENTICATION.md, AI_ANALYSIS.md,
+ACTIVITIES.md, GARMIN_SINGLE_ACTIVITY.md, ADR 0010, .env.example,
+all three investigation records, issue #3/#97/#99/#101, PR bodies and checks.
+The audit updates current behavior/setup/limitations while preserving dated
+investigation evidence; merges are maintainer-authorized and use squash order
+#103 -> #104 -> #105 with dependent commits rebased onto each new main head.
+
+Current integration status (2026-10-07): the investigation above records its
+original phase and validation, not a claim that later work is still blocked.
+The maintainer authorized merging the three delivery PRs. Current setup,
+implemented behavior and remaining scope are maintained in ACTIVITIES.md,
+GARMIN_SINGLE_ACTIVITY.md, AUTHENTICATION.md and ROADMAP.md. #97 is the completed
+foundation; #99 incremental synchronization and #101 list-wide coverage remain
+open follow-ups. Single-activity live retention/linking passed; browser visual
+verification remains outstanding after permission was declined.
