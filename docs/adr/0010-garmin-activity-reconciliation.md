@@ -121,7 +121,9 @@ cannot read it. Version/audit tables are append-only with privilege and trigger
 checks. Dedicated detail access remains API-only and owner-scoped, immutable by
 version; resources cannot be moved to another owner. No third database is added.
 
-Canonical list/detail responses add a bounded `garmin` link descriptor. Lists
+Canonical list/detail responses add a bounded `garmin` link descriptor.
+Canonical reads remain available with a null descriptor when the optional
+enrichment schema has not yet been migrated; Garmin writes still require V124. Lists
 still count one canonical row; pending entries appear only in the reconciliation
 API. Source badges and a Fetch Garmin action are #101, and no page-view network
 fetch is introduced. Exports/analysis continue selecting their existing canonical
