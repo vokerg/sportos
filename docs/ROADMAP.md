@@ -14,7 +14,7 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Defined through V124; dedicated activity-detail V002 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Defined through V125; dedicated activity-detail V003 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped for XLSX and manual Garmin CSV staging | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
@@ -162,3 +162,13 @@ was declined; component/API/integration and root checks passed.
 
 See [Activities](ACTIVITIES.md), [local Garmin operation](GARMIN_SINGLE_ACTIVITY.md)
 and [ADR 0010](adr/0010-garmin-activity-reconciliation.md).
+
+## Explicit Garmin day evidence (#106)
+
+The maintainer-prioritized day workflow adds explicit Fetch/View/Refresh, immutable
+auxiliary payloads before compact Connect projections, independent partial retries,
+multiple body measurements and existing activity reconciliation. Primary V125 and
+detail V003 are required. Focused/offline/non-owner and selected live-day evidence
+passed; official rows are unchanged. Delivery remains draft until PR #107 is merged.
+See [operation and limitations](GARMIN_DAY_FETCH.md). Garmin-aware recalculation,
+archive and recurring synchronization remain separate work.

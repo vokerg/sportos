@@ -1,3 +1,5 @@
+import { GarminDayController } from './daily/garmin-day.controller.js';
+import { GarminDayService } from './daily/garmin-day.service.js';
 import { ActivityEnrichmentController } from './activities/activity-enrichment.controller.js';
 import { ActivityEnrichmentService } from './activities/activity-enrichment.service.js';
 import { GarminLocalIngestController } from './activities/garmin-local-ingest.controller.js';
@@ -37,6 +39,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
     HealthController,
     ImportsController,
     DailyController,
+    GarminDayController,
     PerformanceController,
     RulesController,
     ExportsController,
@@ -54,6 +57,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
     AuthService,
     ImportsService,
     DailyService,
+    GarminDayService,
     RulesService,
     ExportsService,
     ProvidersService,

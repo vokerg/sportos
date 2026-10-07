@@ -374,3 +374,15 @@ never changes canonical fields or scores, never creates Garmin-only canonical
 activities and never requests rich Strava data. Local Connect authentication and
 FIT parsing remain #99 prerequisites; bulk archive #98 is deferred. See
 [ADR 0010](adr/0010-garmin-activity-reconciliation.md).
+
+### Explicit Garmin day evidence
+
+`GET /daily/:date/garmin` reads compact retained coverage and never contacts Garmin.
+Explicit POST uses the existing local-helper policy. Detail V003 retains bounded
+immutable category payloads before primary V125 publishes owner-scoped day versions
+and current attempt pointers. Connect evidence stays separate from CSV observations
+and does not enter score resolution. Partial retries preserve prior versions;
+activities reuse the existing reconciliation/resource path. The dispatcher and
+worker-data roles cannot access these new day tables. See
+[Garmin day operation](GARMIN_DAY_FETCH.md) for fixed categories, bounds and failure
+semantics.

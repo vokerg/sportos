@@ -1,3 +1,4 @@
+import type { GarminDayVersionsTable, GarminDayHeadsTable, GarminDayResourcesTable } from './garmin-day-schema.js';
 import type { GarminActivityIdentitiesTable, GarminActivityVersionsTable, GarminReconciliationAuditTable, GarminActivityResourcesTable } from './garmin-activity-schema.js';
 import type { ColumnType, Generated, Insertable, Selectable } from 'kysely';
 import type { DailyScoreStatus } from '@sportos/domain';
@@ -412,6 +413,9 @@ export interface ProviderWebhookEventsTable {
 }
 
 export interface Database {
+  garmin_day_versions: GarminDayVersionsTable;
+  garmin_day_heads: GarminDayHeadsTable;
+  garmin_day_resources: GarminDayResourcesTable;
   garmin_activity_resources: GarminActivityResourcesTable;
   garmin_activity_identities: GarminActivityIdentitiesTable;
   garmin_activity_versions: GarminActivityVersionsTable;

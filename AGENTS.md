@@ -297,3 +297,16 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
   capped; ambiguity/incomplete candidates never trigger original downloads.
 - Source-specific rich views remain independent of canonical facts and scores;
   no provider request or large resource query runs merely to render badges.
+
+### Explicit Garmin day evidence (#106)
+
+- `daily/garmin-day.service.ts` orchestrates bounded explicit local fetching; GETs
+  read compact retained evidence only. Reuse #99 helper authorization and #97
+  activity retention/reconciliation; never fetch rich Strava as a prerequisite.
+- Primary V125 day versions/heads are separate from CSV `garmin_observations`;
+  detail V003 retains original bounded day JSON before primary projection.
+  Preserve immutable versions and successful categories on partial failures.
+- `features/daily/state/garmin-day.store.ts` scopes request cancellation and repeated
+  click protection to the card/date. Raw category resources load only explicitly.
+- Fetch/Refresh writes no canonical facts, scores, ledger or snapshots. No canonical
+  weight selection or strength-to-workout-points policy. See `docs/GARMIN_DAY_FETCH.md`.

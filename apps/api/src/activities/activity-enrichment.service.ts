@@ -1,18 +1,16 @@
 import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { ActivitiesRepository, GarminActivityResourcesRepository, LEGACY_ACCOUNT_ID, type Json } from '@sportos/db';
+import { ActivitiesRepository, GarminActivityResourcesRepository, LEGACY_ACCOUNT_ID } from '@sportos/db';
 import { matchGarminActivity, type ActivityMatchSummary } from '@sportos/domain';
 import { spawn } from 'node:child_process';
 import { homedir } from 'node:os';
-import { join, resolve, sep } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lstat, readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { AuthService } from '../auth/auth.service.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { DbProvider, ActivityDetailDbProvider } from '../db.provider.js';
 import { UploadStorage } from '../storage/upload-storage.js';
 import { ActivityProviderDetailService } from './activity-provider-detail.service.js';
-import { GarminLocalIngestService } from './garmin-local-ingest.service.js';
+import { GarminLocalIngestService, type LocalGarminBundle } from './garmin-local-ingest.service.js';
 
 @Injectable()
 export class ActivityEnrichmentService {
@@ -91,31 +89,12 @@ export class ActivityEnrichmentService {
         if (!result.activityId) throw new ConflictException({ code: result.status === 'ambiguous' ? 'GARMIN_MATCH_AMBIGUOUS' : 'GARMIN_ACTIVITY_NOT_FOUND', message: result.status === 'ambiguous' ? 'Multiple or uncertain Garmin candidates require review.' : 'No confident Garmin match was found.' });
         identifier = result.activityId;
       }
-      const result = await this.bridge({ operation: 'extract', providerActivityId: identifier, refresh }) as { folder: string; bundle: { snapshot: { providerActivityId: string; summary: Omit<ActivityMatchSummary,'startTime'> & { startTime: string } }; resources: { file: string; resourceType: string; chunkIndex: number }[]; original: { file: string }; files: { file: string; sha256: string; size: number }[] } };
+      const result = await this.bridge({ operation: 'extract', providerActivityId: identifier, refresh }) as { folder: string; bundle: { snapshot: { providerActivityId: string; contentHash: string; origin: string; sourceUpdatedAt: string; summary: Omit<ActivityMatchSummary,'startTime'> & { startTime: string } }; resources: { file: string; resourceType: string; chunkIndex: number }[]; original: { file: string }; files: { file: string; sha256: string; size: number }[] } };
       const bundle = result.bundle;
       if (!bundle || bundle.snapshot.providerActivityId !== identifier || !Array.isArray(bundle.files) || bundle.files.length > 100 || !Array.isArray(bundle.resources) || bundle.resources.length > 100) throw new BadRequestException('Invalid local Garmin bundle.');
       const check = matchGarminActivity({ ...bundle.snapshot.summary, startTime: new Date(bundle.snapshot.summary.startTime) }, [{ ...summary, id: activityId }]);
       if (check.activityId !== activityId) throw new ConflictException({ code: 'GARMIN_MATCH_REQUIRES_REVIEW', message: 'Downloaded Garmin metadata does not confidently match this activity.' });
-      const folder = resolve(result.folder);
-      const root = join(homedir(), '.local', 'share', 'sportos', 'garmin', 'sources');
-      if (!folder.startsWith(root + sep) || !/^[a-f0-9]{64}$/.test(folder.slice(root.length + 1)) || (await lstat(folder)).isSymbolicLink()) throw new BadRequestException('Invalid local source folder.');
-      const contents = new Map<string, Buffer>(); let total = 0;
-      for (const file of bundle.files) {
-        if (!/^(original\.(fit|zip)|activity\.fit|(detail|sets|records)-\d{1,5}\.json)$/.test(file.file)) throw new BadRequestException('Invalid local Garmin artifact.');
-        const info = await lstat(join(folder, file.file));
-        if (!info.isFile() || info.isSymbolicLink() || info.size !== file.size || info.size > 20 * 1024 * 1024) throw new BadRequestException('Invalid local Garmin artifact.');
-        const bytes = await readFile(join(folder,file.file)); total += bytes.length;
-        if (total > 100 * 1024 * 1024 || bytes.length !== file.size || createHash('sha256').update(bytes).digest('hex') !== file.sha256) throw new BadRequestException('Invalid local Garmin artifact content.');
-        contents.set(file.file, bytes);
-      }
-      for (const item of bundle.resources) {
-        const bytes = contents.get(item.file); if (!bytes) throw new BadRequestException('Missing Garmin artifact.');
-        const envelope = Buffer.from(JSON.stringify({ snapshot: bundle.snapshot, resourceType: item.resourceType, chunkIndex: item.chunkIndex, payload: JSON.parse(bytes.toString('utf8')) as Json }));
-        await retention.retainResource({ buffer: envelope, size: envelope.length }, account);
-      }
-      const original = contents.get(bundle.original.file); if (!original) throw new BadRequestException('Missing Garmin original.');
-      await retention.retainOriginal({ buffer: original, size: original.length }, { snapshot: JSON.stringify(bundle.snapshot), resources: JSON.stringify(bundle.resources.map(item => ({ resourceType: item.resourceType, chunkIndex: item.chunkIndex }))) }, account);
-      const linked = await retention.commit(bundle.snapshot, account);
+      const linked = await retention.retainBundle(result as LocalGarminBundle, account);
       if (linked.activityId !== activityId) throw new ConflictException({ code: 'GARMIN_MATCH_REQUIRES_REVIEW', message: 'Garmin data was retained for review; no confident link to this activity was made.' });
       return { ...(await this.read(account.id, activityId)), cacheStatus: 'miss' };
     } catch (error) {
@@ -124,15 +103,18 @@ export class ActivityEnrichmentService {
     } finally { this.active.delete(key); }
   }
 
-  bridge(request: object): Promise<unknown> {
+  bridge(request: object, signal?: AbortSignal): Promise<unknown> {
     const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
     return new Promise((resolveResult, reject) => {
       const child = spawn(join(homedir(), '.local/share/sportos/garmin/venv/bin/python'), [join(repoRoot, 'tools/garmin/activity_bridge.py')], { stdio: ['pipe','pipe','ignore'], env: { PATH: process.env.PATH, HOME: process.env.HOME, LANG: process.env.LANG, PYTHONDONTWRITEBYTECODE: '1' } });
+      const abort = () => { child.kill('SIGTERM'); reject(new ServiceUnavailableException({ code: 'GARMIN_FETCH_CANCELLED', message: 'Garmin fetch cancelled; retained evidence is safe.' })); };
+      signal?.addEventListener('abort', abort, { once: true });
+      if (signal?.aborted) abort();
       let output = ''; const timer = setTimeout(() => { child.kill('SIGTERM'); reject(new ServiceUnavailableException({ code: 'GARMIN_FETCH_TIMEOUT', message: 'Garmin fetch timed out. Retained data is safe; retry later.' })); }, 180_000);
       child.stdout.on('data', bytes => { output += String(bytes); if (Buffer.byteLength(output) > 100_000) { child.kill(); reject(new Error('Bounded bridge response exceeded')); } });
-      child.once('error', () => { clearTimeout(timer); reject(new ServiceUnavailableException({ code: 'GARMIN_LOCAL_SETUP_REQUIRED', message: 'Run pnpm garmin:setup and pnpm garmin:login locally first.' })); });
-      child.once('close', code => { clearTimeout(timer); try { const result = JSON.parse(output); if (code !== 0 || result.error) {
-        const known = ['GARMIN_RATE_LIMITED_RETRY_LATER','GARMIN_ACCESS_DENIED_REAUTHENTICATE','GARMIN_LOGIN_OR_FETCH_FAILED'];
+      child.once('error', () => { clearTimeout(timer); signal?.removeEventListener('abort', abort); reject(new ServiceUnavailableException({ code: 'GARMIN_LOCAL_SETUP_REQUIRED', message: 'Run pnpm garmin:setup and pnpm garmin:login locally first.' })); });
+      child.once('close', code => { clearTimeout(timer); signal?.removeEventListener('abort', abort); try { const result = JSON.parse(output); if (code !== 0 || result.error) {
+        const known = ['GARMIN_RATE_LIMITED_RETRY_LATER','GARMIN_ACCESS_DENIED_REAUTHENTICATE','GARMIN_LOGIN_OR_FETCH_FAILED','GARMIN_LOGIN_FAILED_REAUTHENTICATE','RUN_PNPM_GARMIN_LOGIN_FIRST'];
         throw new ServiceUnavailableException({ code: known.includes(result.error) ? result.error : 'GARMIN_FETCH_FAILED', message: result.error === 'GARMIN_RATE_LIMITED_RETRY_LATER' ? 'Garmin rate limited the request. Retry later.' : 'Garmin login or download failed. Run pnpm garmin:login locally if authorization expired.' });
       } resolveResult(result); } catch (error) { reject(error); } });
       child.stdin.on('error', () => undefined); child.stdin.end(JSON.stringify(request));

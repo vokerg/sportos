@@ -1,3 +1,4 @@
+import { GarminDayCardComponent } from './features/daily/ui/garmin-day-card.component';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -17,7 +18,7 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
 @Component({
   selector: 'sportos-daily-detail-page',
   standalone: true,
-  imports: [RouterLink, ScoreBreakdownPanelComponent],
+  imports: [RouterLink, ScoreBreakdownPanelComponent, GarminDayCardComponent],
   template: `
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a routerLink="/daily">Daily Log</a><span aria-hidden="true">›</span><span>{{ date() || 'Daily score' }}</span>
@@ -37,6 +38,7 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
         <p class="refresh-error" role="alert">{{ stravaRefreshError() }}</p>
       }
     </section>
+    @if (date(); as selectedDate) { <sportos-garmin-day-card [date]="selectedDate" /> }
     <sportos-score-breakdown-panel
       [state]="state()"
       [date]="date()"

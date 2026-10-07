@@ -1,3 +1,6 @@
+import { homedir } from 'node:os';
+import { join, resolve, sep } from 'node:path';
+import { lstat, readFile } from 'node:fs/promises';
 import { BadRequestException, Inject, Injectable, ConflictException, HttpException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { GarminActivitiesRepository, GarminActivityResourcesRepository, GarminReconciliationConflict, garminIdentityKey, LEGACY_ACCOUNT_ID, type Json, type Kysely, type Database } from '@sportos/db';
@@ -6,6 +9,12 @@ import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
 import { UploadStorage } from '../storage/upload-storage.js';
 import { parseGarminSnapshot } from './garmin-activities.controller.js';
 
+export interface LocalGarminBundle {
+  folder: string;
+  bundle: { snapshot: { providerActivityId: string; contentHash: string; origin: string; sourceUpdatedAt: string; summary: { startTime: string } };
+    resources: { file: string; resourceType: string; chunkIndex: number }[];
+    original: { file: string }; files: { file: string; sha256: string; size: number }[] };
+}
 interface LocalFile { buffer: Buffer; size: number; }
 function record(value: unknown, allowed: string[]) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some((key) => !allowed.includes(key))) throw new BadRequestException('Invalid Garmin artifact envelope.');
@@ -23,6 +32,38 @@ export class GarminLocalIngestService {
     @Inject(ActivityDetailDbProvider) private readonly detail: ActivityDetailDbProvider,
     @Inject(UploadStorage) private readonly storage: UploadStorage,
   ) {}
+
+  async retainBundle(input: LocalGarminBundle, account: AuthenticatedAccount) {
+    const bundle = input.bundle;
+    if (!bundle || !Array.isArray(bundle.files) || bundle.files.length > 100 || !Array.isArray(bundle.resources) || bundle.resources.length > 100) throw new BadRequestException('Invalid local Garmin bundle.');
+    const folder = resolve(input.folder);
+    const root = join(homedir(), '.local', 'share', 'sportos', 'garmin', 'sources');
+    if (!folder.startsWith(root + sep) || !/^[a-f0-9]{64}$/.test(folder.slice(root.length + 1)) || (await lstat(folder)).isSymbolicLink()) throw new BadRequestException('Invalid local source folder.');
+    for (const path of [join(homedir(), '.local'), join(homedir(), '.local/share'), join(homedir(), '.local/share/sportos'), join(homedir(), '.local/share/sportos/garmin'), root]) {
+      const info = await lstat(path);
+      if (!info.isDirectory() || info.isSymbolicLink()) throw new BadRequestException('Invalid local Garmin directory.');
+    }
+    parseGarminSnapshot(bundle.snapshot);
+    if (bundle.snapshot.contentHash !== folder.slice(root.length + 1) || createHash('sha256').update(JSON.stringify(bundle.files.map(file => [file.file, file.sha256]))).digest('hex') !== bundle.snapshot.contentHash) throw new BadRequestException('Invalid local Garmin source version.');
+    const contents = new Map<string, Buffer>(); let total = 0;
+    for (const file of bundle.files) {
+      if (!/^(original\.(fit|zip)|activity\.fit|(detail|sets|records)-\d{1,5}\.json)$/.test(file.file)) throw new BadRequestException('Invalid local Garmin artifact.');
+      const info = await lstat(join(folder, file.file));
+      if (!info.isFile() || info.isSymbolicLink() || info.size !== file.size || info.size > 20 * 1024 * 1024) throw new BadRequestException('Invalid local Garmin artifact.');
+      const bytes = await readFile(join(folder,file.file)); total += bytes.length;
+      if (total > 100 * 1024 * 1024 || bytes.length !== file.size || createHash('sha256').update(bytes).digest('hex') !== file.sha256) throw new BadRequestException('Invalid local Garmin artifact content.');
+      if (contents.has(file.file)) throw new BadRequestException('Repeated local Garmin artifact.');
+      contents.set(file.file, bytes);
+    }
+    for (const item of bundle.resources) {
+      const bytes = contents.get(item.file); if (!bytes) throw new BadRequestException('Missing Garmin artifact.');
+      const envelope = Buffer.from(JSON.stringify({ snapshot: bundle.snapshot, resourceType: item.resourceType, chunkIndex: item.chunkIndex, payload: JSON.parse(bytes.toString('utf8')) as Json }));
+      await this.retainResource({ buffer: envelope, size: envelope.length }, account);
+    }
+    const original = contents.get(bundle.original.file); if (!original) throw new BadRequestException('Missing Garmin original.');
+    await this.retainOriginal({ buffer: original, size: original.length }, { snapshot: JSON.stringify(bundle.snapshot), resources: JSON.stringify(bundle.resources.map(item => ({ resourceType: item.resourceType, chunkIndex: item.chunkIndex }))) }, account);
+    return this.commit(bundle.snapshot, account);
+  }
 
   async cache(id: string, query: Record<string, unknown>, account?: AuthenticatedAccount) {
     if (!/^[0-9]{1,20}$/.test(id) || BigInt(id) === 0n || Object.keys(query).some((key) => key !== 'metadataHash')
