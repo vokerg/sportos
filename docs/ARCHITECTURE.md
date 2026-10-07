@@ -350,3 +350,13 @@ The generator boundary is provider-neutral. The deterministic fallback is the de
 - Append-only analysis audit metadata must be incorporated into any future audited account-deletion workflow.
 
 Milestone sequencing is tracked in [ROADMAP.md](ROADMAP.md).
+
+### Garmin auxiliary activity reconciliation
+
+Primary V124 stores compact Garmin identity, matching metadata, immutable source
+versions and decision audits. Dedicated detail V002 retains source resource
+versions even before a canonical link exists. Linking/reverse reconciliation
+never changes canonical fields or scores, never creates Garmin-only canonical
+activities and never requests rich Strava data. Local Connect authentication and
+FIT parsing remain #99 prerequisites; bulk archive #98 is deferred. See
+[ADR 0010](adr/0010-garmin-activity-reconciliation.md).

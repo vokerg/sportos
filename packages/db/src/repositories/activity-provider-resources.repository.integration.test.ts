@@ -26,8 +26,9 @@ databaseDescribe('activity provider resource cache', () => {
   });
   afterAll(async () => {
     for (const owner of owners) {
-      await withAccountContext(detailDb, owner, (scoped) =>
-        scoped.deleteFrom('activity_provider_resources').execute());
+      // Dedicated detail runtime grants intentionally omit DELETE. These
+      // synthetic cache rows stay in the disposable test database; never
+      // broaden runtime grants merely to clean up an integration fixture.
       await withAccountContext(db, owner, async (scoped) => {
         await scoped.deleteFrom('provider_activity_links').execute();
         await scoped.deleteFrom('source_records').execute();

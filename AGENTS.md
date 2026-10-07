@@ -247,3 +247,21 @@ Use pnpm only. Do not commit build output, caches, local environment files, uplo
 Before editing, read the issue/dependencies/PRs, inspect the closest code/tests/migrations, identify the invariant and roadmap exit criterion, list all inspected files, and call out documentation mismatches.
 
 A queue item is complete only when acceptance criteria are satisfied; relevant domain, API, UI, migration, database, worker, importer/provider, analysis evaluation, and root validation pass; documentation and privacy/integrity implications are current; the PR is merged; the issue is closed; and issue #3 is updated. Incomplete validation must be stated explicitly.
+
+### Garmin activity reconciliation foundation (#97)
+
+- `packages/domain/src/activity-matching.ts` owns the versioned pure Garmin match
+  policy; never replace it with nearest-distance or same-day guessing.
+- `packages/db/src/repositories/garmin-activities.repository.ts` owns compact
+  auxiliary identity, immutable source versions, reverse reconciliation and
+  audited explicit review. Garmin ingestion never creates canonical activities.
+- `packages/db/src/repositories/garmin-activity-resources.repository.ts` uses only
+  the separate detail database. Retain original detail/blob resources before
+  submitting compact metadata; pending data does not require a canonical UUID.
+- Preserve the account transaction lock shared with Strava ingestion, and never
+  change a linked canonical UUID automatically when Garmin content changes.
+- Primary V124 and dedicated detail V002 are required before using these paths.
+  Never store full Garmin JSON/FIT/telemetry in primary `source_records`.
+- See `docs/adr/0010-garmin-activity-reconciliation.md`. Full archive #98 is
+  deferred by maintainer; #99 starts with a user-initiated single activity. #101
+  owns source badges/Fetch Garmin UI. No scoring or bulk Strava detail fetch.

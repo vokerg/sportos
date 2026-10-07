@@ -34,3 +34,33 @@ says V122; README/auth deployment reflect V123 and the separate detail database.
 ADR 0006 exact cross-source matching remains correct for Strava ingestion, but
 requires a separately versioned Garmin policy. Garmin local authentication must
 not be bolted onto Strava OAuth or server-side credential storage.
+
+Additional implementation investigation:
+- apps/api/src/app.module.ts and apps/api/src/activities/* tests/services
+- packages/db/src/pool.ts and packages/db/src/ownership-context.ts
+- packages/db/src/repositories/activities.repository.ts
+- packages/db/src/repositories/activity-provider-resources.repository.integration.test.ts
+- packages/importers/src/credential-cipher.ts
+- apps/worker/src/provider-sync-runner.ts and its integration tests
+- docs/garmin-daily-backfill.md
+- scripts/flyway.mjs, scripts/ownership-upgrade-fixture.sql,
+  scripts/verify-ownership-upgrade.sql
+
+Validation (isolated local PostgreSQL, synthetic records only):
+- All primary migration SQL V001–V124 passed as separate migration identity with
+  BYPASSRLS; fresh and populated V105 upgrade/verification both passed.
+- Dedicated detail migration SQL V001–V002 passed in a separate database.
+- API/runtime and worker-data tests used non-superuser, non-BYPASSRLS roles.
+- 11 activity/reconciliation/resource integration tests passed, plus 2 existing
+  provider-worker integration tests.
+- Root typecheck, unit/UI tests and production build passed.
+- Flyway CLI execution/Neon gates were not run locally; SQL execution above does
+  not validate Flyway history/checksums. Unrelated integration suites skipped in
+  root default test were not substituted for the focused explicit database runs.
+- Existing resource-cache test cleanup incorrectly requested DELETE although
+  dedicated runtime grants omit it. Cleanup now leaves synthetic cache rows in
+  the disposable test database instead of broadening runtime privileges.
+
+No live Garmin payload, password, token, activity identifier or sample is in this
+PR. Live login, FIT parsing/completeness, resource/blob orchestration and actual
+single-activity download belong to #99; full archive #98 stays deferred.

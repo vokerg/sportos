@@ -1,4 +1,6 @@
-export type ProviderCode = 'strava';
+export type ProviderCode = 'strava' | 'garmin';
+// Garmin ingestion uses local snapshots, not the Strava OAuth adapter.
+export type { GarminActivitySnapshot } from '@sportos/db';
 export type ProviderSyncMode = 'initial_backfill' | 'incremental' | 'webhook_refresh';
 
 export interface AuthorizationRequest { state: string; redirectUri: string; scopes: string[]; }

@@ -1,3 +1,4 @@
+import { GarminActivitiesRepository, lockActivityReconciliation } from './garmin-activities.repository.js';
 import { sql, type Kysely, type Updateable } from 'kysely';
 import type {
   Activity,
@@ -309,6 +310,7 @@ export class ProvidersRepository {
 
   async ingestActivitySnapshot(input: ProviderActivitySnapshotInput): Promise<ProviderActivityIngestionResult> {
     return this.db.transaction().execute(async (tx) => {
+      await lockActivityReconciliation(tx);
       const source = await tx.insertInto('source_records').values({
         import_batch_id: input.batchId, source: 'strava_api', sheet_name: null, row_index: null, source_record_key: input.providerActivityId,
         row_hash: input.rawHash, raw_json: input.raw, normalized_entity_type: null, normalized_entity_id: null, status: 'raw', errors: [], warnings: [],
@@ -382,6 +384,7 @@ export class ProvidersRepository {
         })).execute();
         performanceEventWritten = true;
       }
+      await new GarminActivitiesRepository(tx).reconcileNear(input.activity.startTime);
       return { sourceRecordId: source.id, activityId: activity.id, insertedActivity, linkedExistingActivity, performanceEventWritten, warning: null };
     });
   }

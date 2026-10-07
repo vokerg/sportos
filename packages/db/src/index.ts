@@ -33,3 +33,8 @@ export * from './repositories/analysis-audit.repository.js';
 export * from './repositories/dynamics.repository.js';
 export * from './repositories/activities.repository.js';
 export * from './repositories/activity-provider-resources.repository.js';
+
+export * from './repositories/garmin-activities.repository.js';
+export { validateActivityMatchSummary } from '@sportos/domain';
+export type { ActivityMatchSummary } from '@sportos/domain';
+export * from './repositories/garmin-activity-resources.repository.js';

@@ -127,6 +127,8 @@ jobs:
         env:
           SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_LEGACY_DATABASE_URL }}
           SPORTOS_OWNER_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_APP_DATABASE_URL }}
+          SPORTOS_WORKER_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATABASE_URL }}
+          SPORTOS_WORKER_DATA_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_WORKER_DATA_DATABASE_URL }}
         run: pnpm --filter @sportos/db test:integration
 
       - name: API analysis ownership integration

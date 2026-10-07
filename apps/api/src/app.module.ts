@@ -1,3 +1,4 @@
+import { GarminActivitiesController } from './activities/garmin-activities.controller.js';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AnalysisController } from './analysis/analysis.controller.js';
@@ -40,6 +41,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
     AnalysisController,
     DynamicsController,
     ActivitiesController,
+    GarminActivitiesController,
   ],
   providers: [
     DbProvider,

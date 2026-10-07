@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V123, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V124, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -28,6 +28,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Use provider-native identity first, then apply a conservative exact/no-match/ambiguous cross-source policy.
 - Preserve existing workbook provenance when one exact Strava activity matches an existing canonical activity.
 - Retain unsupported or ambiguous provider records with warnings instead of guessing or discarding them.
+- Stage compact Garmin identity metadata and conservatively reconcile it with existing canonical activities, preserving corrected Strava values; retained Garmin resources use the separate detail database. Garmin download/authentication and full archive ingestion remain follow-up work.
 - Disconnect safely by attempting remote revocation, removing local credentials, and cancelling queued or running synchronization work.
 
 ### Review, score, and export canonical records
