@@ -1,10 +1,15 @@
 import { hostname } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { createDb } from '@sportos/db';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createDb, loadEnvFromNearestFile } from '@sportos/db';
 import { CredentialCipher, LocalUploadStorage, StravaAdapter, parseCredentialKeyRing } from '@sportos/importers';
 import { ImportJobRunner } from './import-job-runner.js';
 import { ProviderSyncRunner } from './provider-sync-runner.js';
 import { RuleChangeRunner } from './rule-change-runner.js';
+
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
+loadEnvFromNearestFile(repoRoot);
 
 const concurrency = clampInteger(Number(process.env.IMPORT_WORKER_CONCURRENCY ?? 1), 1, 4);
 const leaseSeconds = clampInteger(Number(process.env.IMPORT_JOB_LEASE_SECONDS ?? 60), 15, 600);
@@ -15,7 +20,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => 
 
 const dispatchDb = createDb(requiredUrl('SPORTOS_WORKER_DATABASE_URL'));
 const dataDb = createDb(requiredUrl('SPORTOS_WORKER_DATA_DATABASE_URL'));
-const storage = new LocalUploadStorage();
+const storage = new LocalUploadStorage(resolve(repoRoot, process.env.SPORTOS_UPLOAD_DIR ?? 'data/uploads'));
 try {
   const runners: Promise<void>[] = [
     ...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(dispatchDb, dataDb, storage, { workerId: `${processId}:import:${index + 1}`, leaseSeconds, pollIntervalMs }).run(controller.signal)),

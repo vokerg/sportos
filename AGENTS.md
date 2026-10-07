@@ -265,3 +265,18 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
 - See `docs/adr/0010-garmin-activity-reconciliation.md`. Full archive #98 is
   deferred by maintainer; #99 starts with a user-initiated single activity. #101
   owns source badges/Fetch Garmin UI. No scoring or bulk Strava detail fetch.
+
+### Targeted local Garmin Connect first phase (#99)
+
+- `tools/garmin/` and `scripts/garmin-local.mjs` implement the optional isolated
+  Python single-activity extractor. Use `pnpm garmin:setup/login/activity/test`.
+  No browser-cookie retrieval, agent-entered password, or repository token store.
+- `apps/api/src/activities/garmin-local-ingest.controller.ts` derives owner from
+  session, retains bounded multipart resources in the separate detail database,
+  retains originals via UploadStorage, then invokes #97. No implicit scoring.
+- Keep metadata/cache checks before rich network calls, validate all declared
+  resource chunks and original-byte availability, and preserve prior versions on
+  errors. See `docs/GARMIN_SINGLE_ACTIVITY.md` for bounds, auth and limitations.
+- Live terminal extraction, auxiliary retention/cache and unique Strava linking
+  passed with unchanged canonical facts/scores. Do not label the optional targeted phase as
+  completed incremental sync, bulk archive import or #101 UI.

@@ -8,7 +8,8 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const envPath = resolve(repoRoot, '.env');
 if (existsSync(envPath)) loadEnvFile(envPath);
 
-const rawArguments = process.argv.slice(2);
+// pnpm forwards an optional argument separator; it is not a Flyway flag.
+const rawArguments = process.argv.slice(2).filter((argument) => argument !== '--');
 const activityDetail = rawArguments[0] === '--activity-detail';
 const [command = 'info', ...arguments_] = rawArguments.slice(activityDetail ? 1 : 0);
 const supportedCommands = new Set(['info', 'migrate', 'validate', 'repair']);

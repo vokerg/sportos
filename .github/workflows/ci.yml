@@ -122,6 +122,18 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Set up Python for offline Garmin extractor tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/garmin/requirements.txt
+
+      - name: Offline Garmin extractor validation
+        run: |
+          pnpm garmin:setup
+          pnpm garmin:test
+
       - name: Database job and ownership integration
         if: steps.database_config.outputs.ready == 'true'
         env:

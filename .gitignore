@@ -36,3 +36,8 @@ apps/api/data/*
 # This repository uses pnpm exclusively
 package-lock.json
 yarn.lock
+
+# Python local extractor caches (tokens/sources/venv must live outside Git)
+__pycache__/
+*.pyc
+.venv/

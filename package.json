@@ -22,7 +22,11 @@
     "db:info": "node scripts/flyway.mjs info",
     "db:info:activity-detail": "node scripts/flyway.mjs --activity-detail info",
     "db:migrate:activity-detail": "node scripts/flyway.mjs --activity-detail migrate",
-    "import:local": "pnpm --filter @sportos/worker import:local"
+    "import:local": "pnpm --filter @sportos/worker import:local",
+    "garmin:setup": "node scripts/garmin-local.mjs setup",
+    "garmin:login": "node scripts/garmin-local.mjs login",
+    "garmin:activity": "node scripts/garmin-local.mjs activity",
+    "garmin:test": "node scripts/garmin-local.mjs test"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -1,3 +1,4 @@
+import { GarminLocalIngestController } from './activities/garmin-local-ingest.controller.js';
 import { GarminActivitiesController } from './activities/garmin-activities.controller.js';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
@@ -42,6 +43,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
     DynamicsController,
     ActivitiesController,
     GarminActivitiesController,
+    GarminLocalIngestController,
   ],
   providers: [
     DbProvider,
