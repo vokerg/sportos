@@ -27,4 +27,28 @@ integration('staged Garmin resources in the separate detail database', () => {
     await expect(withAccountContext(db, owner, (ctx) => ctx.updateTable('garmin_activity_resources').set({ payload_json: {} }).execute())).rejects.toThrow('permission denied');
     await expect(withAccountContext(db, owner, (ctx) => ctx.deleteFrom('garmin_activity_resources').execute())).rejects.toThrow('permission denied');
   });
+  it('reads bounded FIT session/lap messages in source order and isolates metadata from another account', async () => {
+    const owner = randomUUID(), foreign = randomUUID();
+    const ref = { identityKey: 'native:98765', sourceHash: 'c'.repeat(64) };
+    const first = { message: 'lap', fields: [{ name: 'total_distance', value: 1000, units: 'm' }] };
+    const second = { message: 'lap', fields: [{ name: 'total_distance', value: 2000, units: 'm' }] };
+    const session = { message: 'session', fields: [{ name: 'avg_stance_time', value: 250, units: 'ms' }] };
+    const expected = [{ resourceType: 'records', chunkIndex: 0 }, { resourceType: 'records', chunkIndex: 1 }, { resourceType: 'sets', chunkIndex: 0 }];
+    await withAccountContext(db, owner, async ctx => {
+      const repo = new GarminActivityResourcesRepository(ctx);
+      await repo.retain(ref, { resourceType: 'records', chunkIndex: 0, payload: [first, { message: 'record', fields: [] }] });
+      await repo.retain(ref, { resourceType: 'records', chunkIndex: 1, payload: [second, session] });
+      await repo.retain(ref, { resourceType: 'fit_manifest', chunkIndex: 0, payload: { expectedResources: expected, objectKey: 'private-not-returned' } });
+      expect(await repo.messages(ref, 'lap')).toEqual([first, second]);
+      expect(await repo.messages(ref, 'lap', 1)).toEqual([first]);
+      expect(await repo.messages(ref, 'session', 1)).toEqual([session]);
+      expect(await repo.expectedResources(ref)).toEqual(expected);
+    });
+    await withAccountContext(db, foreign, async ctx => {
+      const repo = new GarminActivityResourcesRepository(ctx);
+      expect(await repo.messages(ref, 'session')).toEqual([]);
+      expect(await repo.expectedResources(ref)).toBeNull();
+    });
+  });
+
 });

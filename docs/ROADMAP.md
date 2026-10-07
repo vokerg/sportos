@@ -133,13 +133,32 @@ Each PR must identify the milestone or operational exit criterion it advances an
 - [ADR 0006](adr/0006-provider-ingestion-and-strava.md) — provider adapters, encrypted credentials, durable synchronization, provenance, and cross-source identity.
 - [ADR 0007](adr/0007-read-only-ai-analysis.md) — read tools, deterministic calculations, generated-answer validation, audit, and UI separation.
 - [ADR 0009](adr/0009-manual-garmin-csv-staging.md) — manual Garmin CSV upload, raw retention, overlap-safe staging identity, and canonical isolation.
+- [ADR 0010](adr/0010-garmin-activity-reconciliation.md) — compact Garmin identity, immutable auxiliary retention and conservative canonical linking.
 - [Canonical export v1](CANONICAL_EXPORT.md) — versioned canonical datasets, stable ordering, reconciliation, provenance states, and privacy exclusions.
 
 See [ADR 0008](adr/0008-imported-ledger-authority-and-explicit-recalculation.md) for imported ledger authority, append-only score history, and explicit activity-based recalculation.
 
 Future decisions still required include provider webhook operations, time-zone/locale policy, hosted observability, backup/restoration, key lifecycle, deletion, hosted model-gateway operations, broader semantic evaluation, and any expansion of the analysis tool surface.
 
-Garmin activity reconciliation foundation is implemented in #97; single-activity
-Connect work #99 is maintainer-prioritized ahead of deferred full archive #98.
-See [ADR 0010](adr/0010-garmin-activity-reconciliation.md). Live Garmin validation
-and bulk archive measurements are separate from the identity foundation.
+## Garmin activity enrichment delivery status
+
+Maintainer reprioritization activates #97 and the targeted #99/#101 phases before
+full archive #98. Delivered functionality includes conservative identity/linking
+and reverse reconciliation, the isolated local FIT/Connect extractor, authenticated
+auxiliary retention and explicit activity-page Fetch/View/Refresh for both sources.
+Opening an activity never downloads rich provider data. Live local extraction,
+retention, cache reuse and unique Strava linking passed with unchanged canonical
+facts and official scores. Primary V124 and dedicated detail V002 are applied in
+the maintained local environment; fresh environments require both migration sets.
+
+#99 remains open for manual incremental discovery/jobs/checkpoints and broader
+MFA/expiry/rate-limit/device evidence. #101 remains open for list-wide coverage
+indicators and its remaining acceptance work. #98 full archive is still deferred;
+#100 broader retained-detail read models and #102 optional compact-Strava preflight
+are not implicitly completed by this delivery. No hosted Garmin token integration,
+Garmin-only canonical promotion, scoring change or Run Lab consolidation is added.
+Browser visual verification remains outstanding after local browser permission
+was declined; component/API/integration and root checks passed.
+
+See [Activities](ACTIVITIES.md), [local Garmin operation](GARMIN_SINGLE_ACTIVITY.md)
+and [ADR 0010](adr/0010-garmin-activity-reconciliation.md).

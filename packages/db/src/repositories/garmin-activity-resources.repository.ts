@@ -34,8 +34,28 @@ export class GarminActivityResourcesRepository {
   async coverage(reference: GarminResourceReference) {
     validate(reference);
     return this.db.selectFrom('garmin_activity_resources').select(['resource_type as resourceType', 'chunk_index as chunkIndex', 'created_at as retainedAt'])
-      .where('identity_key', '=', reference.identityKey).where('source_hash', '=', reference.sourceHash).orderBy('resource_type').orderBy('chunk_index').limit(100).execute();
+      .where('identity_key', '=', reference.identityKey).where('source_hash', '=', reference.sourceHash).orderBy('resource_type').orderBy('chunk_index').limit(101).execute();
   }
+  async expectedResources(reference: GarminResourceReference) {
+    validate(reference);
+    const row = await this.db.selectFrom('garmin_activity_resources')
+      .select(sql<Json>`payload_json->'expectedResources'`.as('expected'))
+      .where('identity_key', '=', reference.identityKey).where('source_hash', '=', reference.sourceHash)
+      .where('resource_type', '=', 'fit_manifest').where('chunk_index', '=', 0).executeTakeFirst();
+    return row?.expected ?? null;
+  }
+  async messages(reference: GarminResourceReference, message: 'session' | 'lap', limit = 100) {
+    validate(reference);
+    const rows = await sql<{ message: Json }>`select value as message
+      from garmin_activity_resources r cross join lateral jsonb_array_elements(
+        case when jsonb_typeof(r.payload_json) = 'array' then r.payload_json else '[]'::jsonb end) with ordinality as message(value, position)
+      where r.identity_key = ${reference.identityKey} and r.source_hash = ${reference.sourceHash}
+        and r.resource_type = 'records' and value->>'message' = ${message}
+        and octet_length(value::text) <= 65536
+      order by r.chunk_index, message.position limit ${Math.min(100, Math.max(1, limit))}`.execute(this.db);
+    return rows.rows.map(row => row.message);
+  }
+
   async read(reference: GarminResourceReference, resourceType: GarminResourceWrite['resourceType'], chunkIndex = 0) {
     validate(reference);
     const row = await this.db.selectFrom('garmin_activity_resources').select('payload_json')

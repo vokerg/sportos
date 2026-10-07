@@ -1,159 +1,23 @@
-import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Query, UploadedFile, UseInterceptors, ConflictException, HttpException, ServiceUnavailableException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { createHash, randomUUID } from 'node:crypto';
-import { GarminActivitiesRepository, GarminActivityResourcesRepository, GarminReconciliationConflict, garminIdentityKey, LEGACY_ACCOUNT_ID, type Json, type Kysely, type Database } from '@sportos/db';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
-import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
+import { DbProvider, ActivityDetailDbProvider } from '../db.provider.js';
 import { UploadStorage } from '../storage/upload-storage.js';
-import { parseGarminSnapshot } from './garmin-activities.controller.js';
-
-interface LocalFile { buffer: Buffer; size: number; }
-function record(value: unknown, allowed: string[]) {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some((key) => !allowed.includes(key))) throw new BadRequestException('Invalid Garmin artifact envelope.');
-  return value as Record<string, unknown>;
-}
-function parseFile(file: LocalFile | undefined) {
-  if (!file || file.size > 4_000_000 || file.buffer.length !== file.size) throw new BadRequestException('A bounded Garmin JSON artifact is required.');
-  try { return JSON.parse(file.buffer.toString('utf8')) as unknown; } catch { throw new BadRequestException('Invalid Garmin JSON artifact.'); }
-}
+import { GarminLocalIngestService } from './garmin-local-ingest.service.js';
 
 @Controller('garmin/local')
 export class GarminLocalIngestController {
-  constructor(
-    @Inject(DbProvider) private readonly primary: DbProvider,
-    @Inject(ActivityDetailDbProvider) private readonly detail: ActivityDetailDbProvider,
-    @Inject(UploadStorage) private readonly storage: UploadStorage,
-  ) {}
-
+  private readonly retention: GarminLocalIngestService;
+  constructor(primary: DbProvider, detail: ActivityDetailDbProvider, storage: UploadStorage) { this.retention = new GarminLocalIngestService(primary, detail, storage); }
   @Get('cache/:providerActivityId')
-  async cache(@Param('providerActivityId') id: string, @Query() query: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) {
-    if (!/^[0-9]{1,20}$/.test(id) || BigInt(id) === 0n || Object.keys(query).some((key) => key !== 'metadataHash')
-      || typeof query.metadataHash !== 'string' || !/^[a-f0-9]{64}$/.test(query.metadataHash)) throw new BadRequestException('Invalid Garmin cache request.');
-    const owner = account?.id ?? LEGACY_ACCOUNT_ID;
-    const reference = await this.withAccount(this.primary, owner, (db) => db.selectFrom('garmin_activity_identities').select(['identity_key', 'current_hash'])
-      .where('identity_key', '=', `native:${BigInt(id)}`).executeTakeFirst());
-    if (!reference) return { current: false };
-    return this.withAccount(this.detail, owner, async (db) => {
-      const repo = new GarminActivityResourcesRepository(db);
-      const ref = { identityKey: reference.identity_key, sourceHash: reference.current_hash };
-      const data = await repo.read(ref, 'detail');
-      const payload = data?.payload;
-      const sameMetadata = payload && typeof payload === 'object' && !Array.isArray(payload) && payload.metadataHash === query.metadataHash;
-      const manifest = await repo.read(ref, 'fit_manifest');
-      const coverage = await repo.coverage(ref);
-      const complete = this.coverageComplete(manifest?.payload, coverage);
-      const originalPresent = await this.originalPresent(manifest?.payload);
-      return { current: Boolean(sameMetadata && originalPresent && complete) };
-    });
-  }
-
+  cache(@Param('providerActivityId') id: string, @Query() query: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) { return this.retention.cache(id, query, account); }
   @Post('resource')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 4_000_000, files: 1, fields: 0 } }))
-  async retainResource(@UploadedFile() file: LocalFile | undefined, @CurrentAccount() account?: AuthenticatedAccount) {
-    const input = record(parseFile(file), ['snapshot', 'resourceType', 'chunkIndex', 'payload']);
-    const snapshot = parseGarminSnapshot(input.snapshot);
-    if (!['detail', 'sets', 'records', 'laps'].includes(String(input.resourceType)) || !Number.isInteger(input.chunkIndex) || Number(input.chunkIndex) < 0 || Number(input.chunkIndex) > 10000 || !('payload' in input)) throw new BadRequestException('Invalid Garmin resource descriptor.');
-    return this.withAccount(this.detail, account?.id ?? LEGACY_ACCOUNT_ID, async (db) => {
-      const inserted = await new GarminActivityResourcesRepository(db).retain({ identityKey: garminIdentityKey(snapshot), sourceHash: snapshot.contentHash },
-        { resourceType: input.resourceType as 'detail' | 'sets' | 'records' | 'laps', chunkIndex: input.chunkIndex as number, payload: input.payload as Json });
-      return { retained: true, inserted };
-    });
-  }
-
+  retainResource(@UploadedFile() file: { buffer: Buffer; size: number } | undefined, @CurrentAccount() account?: AuthenticatedAccount) { return this.retention.retainResource(file, account); }
   @Post('original')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 2, fieldSize: 16384 } }))
-  async retainOriginal(@UploadedFile() file: LocalFile | undefined, @Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
-    const input = record(body, ['snapshot', 'resources']);
-    const expectedResources = this.parseExpectedResources(input.resources);
-    let raw: unknown;
-    try { raw = JSON.parse(String(input.snapshot)); } catch { throw new BadRequestException('Invalid Garmin compact snapshot.'); }
-    const snapshot = parseGarminSnapshot(raw);
-    if (!file || file.size < 12 || file.size > 20 * 1024 * 1024 || file.size !== file.buffer.length) throw new BadRequestException('A bounded original Garmin activity file is required.');
-    const extension = file.buffer.subarray(8, 12).equals(Buffer.from('.FIT')) ? 'fit' : file.buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])) ? 'zip' : null;
-    if (!extension) throw new BadRequestException('Invalid original Garmin activity signature.');
-    const owner = account?.id ?? LEGACY_ACCOUNT_ID;
-    const reference = { identityKey: garminIdentityKey(snapshot), sourceHash: snapshot.contentHash };
-    const existing = await this.withAccount(this.detail, owner, (db) => new GarminActivityResourcesRepository(db).read(reference, 'fit_manifest'));
-    const hash = createHash('sha256').update(file.buffer).digest('hex');
-    if (existing) {
-      const manifest = existing.payload;
-      if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || manifest.sha256 !== hash) throw new BadRequestException('Original Garmin source version conflicts with retained bytes.');
-      if (!await this.originalPresent(manifest)) {
-        const match = typeof manifest.objectKey === 'string' ? /^[a-f0-9]{2}\/([a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})\.(fit|zip)$/.exec(manifest.objectKey) : null;
-        if (!match || manifest.storageProvider !== 'local' || match[2] !== extension || typeof manifest.objectKey !== 'string' || !manifest.objectKey.startsWith(hash.slice(0, 2) + '/')) throw new BadRequestException('Invalid retained original manifest.');
-        try { await this.storage.store({ uploadId: match[1]!, sha256: hash, bytes: file.buffer, extension }); }
-        catch { throw new BadRequestException('Original storage is unavailable or corrupt; restore the retained object before retrying.'); }
-      }
-      return { retained: true, inserted: false };
-    }
-    let stored;
-    try { stored = await this.storage.store({ uploadId: randomUUID(), sha256: hash, bytes: file.buffer, extension }); }
-    catch { throw new ServiceUnavailableException({ code: 'GARMIN_STORAGE_UNAVAILABLE', message: 'Original activity storage is unavailable.' }); }
-    try {
-      await this.withAccount(this.detail, owner, (db) => new GarminActivityResourcesRepository(db).retain(reference,
-        { resourceType: 'fit_manifest', chunkIndex: 0, payload: { storageProvider: stored.provider, objectKey: stored.objectKey, sha256: hash, byteSize: file.size, extension, expectedResources } }));
-    } catch (error) {
-      // Concurrent identical delivery may win with a different opaque storage key.
-      const winner = await this.withAccount(this.detail, owner, (db) => new GarminActivityResourcesRepository(db).read(reference, 'fit_manifest'));
-      const manifest = winner?.payload;
-      if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || manifest.sha256 !== hash) throw error;
-      try { await this.storage.delete(stored.objectKey); }
-      catch { throw new ServiceUnavailableException({ code: 'GARMIN_STORAGE_UNAVAILABLE', message: 'Original activity storage cleanup is unavailable.' }); }
-    }
-    return { retained: true, inserted: true };
-  }
-
+  retainOriginal(@UploadedFile() file: { buffer: Buffer; size: number } | undefined, @Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) { return this.retention.retainOriginal(file, body, account); }
   @Post('commit')
-  async commit(@Body() raw: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
-    const snapshot = parseGarminSnapshot(raw);
-    const owner = account?.id ?? LEGACY_ACCOUNT_ID;
-    const ref = { identityKey: garminIdentityKey(snapshot), sourceHash: snapshot.contentHash };
-    const ready = await this.withAccount(this.detail, owner, async (db) => {
-      const repo = new GarminActivityResourcesRepository(db);
-      const coverage = await repo.coverage(ref);
-      const manifest = await repo.read(ref, 'fit_manifest');
-      return await this.originalPresent(manifest?.payload) && this.coverageComplete(manifest?.payload, coverage);
-    });
-    if (!ready) throw new BadRequestException('Retain original and required detail resources before reconciliation.');
-    return this.withAccount(this.primary, owner, (db) => new GarminActivitiesRepository(db).ingest(snapshot));
-  }
-
-  private async withAccount<T>(provider: DbProvider | ActivityDetailDbProvider, owner: string, callback: (db: Kysely<Database>) => Promise<T>): Promise<T> {
-    try { return await provider.withAccount(owner, callback); }
-    catch (error) {
-      if (error instanceof HttpException) throw error;
-      if (error instanceof GarminReconciliationConflict) throw new ConflictException({ code: 'GARMIN_RECONCILIATION_CONFLICT', message: 'Retained source metadata conflicts with the supplied version.' });
-      throw new ServiceUnavailableException({ code: 'GARMIN_RETENTION_UNAVAILABLE', message: 'Garmin source retention is unavailable. Retry after checking storage and source version.' });
-    }
-  }
-
-  private parseExpectedResources(raw: unknown): { resourceType: string; chunkIndex: number }[] {
-    let data: unknown;
-    try { data = JSON.parse(String(raw)); } catch { throw new BadRequestException('Invalid Garmin resource manifest.'); }
-    if (!Array.isArray(data) || data.length < 3 || data.length > 100) throw new BadRequestException('Invalid Garmin resource count.');
-    const descriptors = data.map((item) => {
-      const entry = record(item, ['resourceType', 'chunkIndex']);
-      if (!['detail', 'sets', 'records', 'laps'].includes(String(entry.resourceType)) || !Number.isInteger(entry.chunkIndex) || Number(entry.chunkIndex) < 0 || Number(entry.chunkIndex) > 10000) throw new BadRequestException('Invalid Garmin resource manifest.');
-      return { resourceType: String(entry.resourceType), chunkIndex: Number(entry.chunkIndex) };
-    });
-    const keys = descriptors.map((item) => `${item.resourceType}:${item.chunkIndex}`);
-    if (new Set(keys).size !== keys.length || !['detail:0', 'sets:0', 'records:0'].every((key) => keys.includes(key))) throw new BadRequestException('Garmin resources are incomplete or repeated.');
-    return descriptors;
-  }
-
-  private coverageComplete(payload: Json | undefined, coverage: { resourceType: string; chunkIndex: number }[]) {
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload) || !Array.isArray(payload.expectedResources)) return false;
-    return payload.expectedResources.length >= 3 && payload.expectedResources.every((item) => item && typeof item === 'object' && !Array.isArray(item)
-      && coverage.some((row) => row.resourceType === item.resourceType && row.chunkIndex === item.chunkIndex));
-  }
-
-  private async originalPresent(payload: Json | undefined) {
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.storageProvider !== 'local'
-      || typeof payload.objectKey !== 'string' || typeof payload.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(payload.sha256)) return false;
-    try {
-      const bytes = await this.storage.read(payload.objectKey);
-      return bytes.length === payload.byteSize && createHash('sha256').update(bytes).digest('hex') === payload.sha256;
-    } catch { return false; }
-  }
+  commit(@Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) { return this.retention.commit(body, account); }
 }

@@ -264,7 +264,7 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
   Never store full Garmin JSON/FIT/telemetry in primary `source_records`.
 - See `docs/adr/0010-garmin-activity-reconciliation.md`. Full archive #98 is
   deferred by maintainer; #99 starts with a user-initiated single activity. #101
-  owns source badges/Fetch Garmin UI. No scoring or bulk Strava detail fetch.
+  owns detail-page source coverage/Fetch controls and remaining list badges. No scoring or bulk Strava detail fetch.
 
 ### Targeted local Garmin Connect first phase (#99)
 
@@ -273,10 +273,27 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
   No browser-cookie retrieval, agent-entered password, or repository token store.
 - `apps/api/src/activities/garmin-local-ingest.controller.ts` derives owner from
   session, retains bounded multipart resources in the separate detail database,
-  retains originals via UploadStorage, then invokes #97. No implicit scoring.
+  delegates validated retention to `garmin-local-ingest.service.ts`, retains
+  originals via UploadStorage, then invokes #97. No implicit scoring.
 - Keep metadata/cache checks before rich network calls, validate all declared
   resource chunks and original-byte availability, and preserve prior versions on
   errors. See `docs/GARMIN_SINGLE_ACTIVITY.md` for bounds, auth and limitations.
 - Live terminal extraction, auxiliary retention/cache and unique Strava linking
   passed with unchanged canonical facts/scores. Do not label the optional targeted phase as
-  completed incremental sync, bulk archive import or #101 UI.
+  completed incremental sync or bulk archive import. The #101 detail-page controls
+  are implemented separately; list-wide coverage indicators remain follow-up.
+
+### Explicit provider detail controls (#101)
+
+- Activity navigation reads canonical facts and availability only. Provider GETs
+  never download; explicit POST Fetch/Refresh requires normal session/CSRF.
+- `features/activities/state/activity-detail.store.ts` owns cancellation, repeated
+  click protection and independent provider read/fetch/resource state.
+- `activity-enrichment.service.ts` reads owner-scoped Garmin metadata/overviews;
+  local token use is opt-in, non-production dev-single-user legacy-account-only.
+  Other owners/hosted deployments may read their retained data without the helper.
+- `tools/garmin/activity_bridge.py` accepts fixed bounded stdin operations, never
+  passwords, owners, arbitrary URLs or shell commands. Compact discovery stays
+  capped; ambiguity/incomplete candidates never trigger original downloads.
+- Source-specific rich views remain independent of canonical facts and scores;
+  no provider request or large resource query runs merely to render badges.

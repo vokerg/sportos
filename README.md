@@ -29,6 +29,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Preserve existing workbook provenance when one exact Strava activity matches an existing canonical activity.
 - Retain unsupported or ambiguous provider records with warnings instead of guessing or discarding them.
 - Stage compact Garmin identity metadata and conservatively reconcile it with existing canonical activities, preserving corrected Strava values; retained Garmin resources use the separate detail database. The optional [single-activity local extractor](docs/GARMIN_SINGLE_ACTIVITY.md) is implemented as #99’s first phase; live extraction, retention, cache reuse and matching passed; full archive ingestion remains follow-up work.
+- Use explicit Fetch, View retained data, and Refresh controls for Strava/Garmin on an activity; opening the page reads canonical facts and coverage only. Garmin displays source-specific session/running-dynamics metrics, laps, exercise sets and bounded raw resources. New Garmin downloads use the opt-in workstation helper; hosted instances can read retained data. See [Activities](docs/ACTIVITIES.md).
 - Disconnect safely by attempting remote revocation, removing local credentials, and cancelling queued or running synchronization work.
 
 ### Review, score, and export canonical records
@@ -387,7 +388,7 @@ SPORTOS_TEST_DATABASE_URL=postgresql://sportos_legacy:<password>@<test-project>.
   pnpm --filter @sportos/importers test:integration
 ```
 
-CI covers frozen installation, fresh migration through V119, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, overlap-safe manual Garmin staging, imported-ledger authority, unified bonus authority, manual canonical facts, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
+CI covers frozen installation, type/unit/UI/build and offline Garmin parser/discovery checks. When the complete Neon CI secrets are provisioned, it additionally runs fresh primary migration through V124, populated ownership upgrades, account isolation, immutable ownership, split worker privileges, import/rule/provider job recovery, encrypted token refresh, raw provider provenance, idempotent delivery, workbook/provider overlap, overlap-safe manual Garmin staging, imported-ledger authority, unified bonus authority, manual canonical facts, explicit Strava recalculation, deterministic score provenance, canonical-export privacy, read-only analysis evaluations, cross-account analysis evidence, Angular workflow states, and production builds.
 
 The CI workflow expects dedicated Neon test branches and these repository secrets:
 `SPORTOS_CI_FLYWAY_URL`, `SPORTOS_CI_FLYWAY_USER`,
@@ -405,7 +406,8 @@ set before treating the database invariants as validated.
 
 The completed roadmap is a strong local and account-scoped foundation, not a finished hosted service. Work not yet implemented includes:
 
-- Garmin API synchronization, Google Sheets, FIT, or additional provider synchronization;
+- full Garmin archive/bulk ingestion and incremental jobs/checkpoints; the targeted local FIT/Connect extractor and activity-page controls are implemented;
+- hosted Garmin downloads or Garmin OAuth, list-wide rich-data coverage badges, richer provider charts, Google Sheets and other provider integrations;
 - operational provider-webhook subscription verification and inbox processing;
 - a broader cross-provider time-zone and locale policy;
 - hosted object deletion, backup, restoration, and account-erasure workflows;
@@ -418,6 +420,8 @@ New product or operational work must be added and prioritized explicitly in [iss
 
 ## Documentation
 
+- [Activities and explicit provider detail](docs/ACTIVITIES.md)
+- [Local Garmin setup and single-activity import](docs/GARMIN_SINGLE_ACTIVITY.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Authentication and ownership](docs/AUTHENTICATION.md)

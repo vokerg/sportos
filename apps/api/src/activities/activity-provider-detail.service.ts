@@ -36,14 +36,30 @@ export class ActivityProviderDetailService {
     private readonly activityDetailDbProvider: ActivityDetailDbProvider,
   ) {}
 
-  async load(accountId: string, activityId: string): Promise<ActivityProviderDetailResponse> {
+  async status(accountId: string, activityId: string) {
+    const reference = await this.dbProvider.withAccount(accountId, db => new ActivityProviderResourcesRepository(db).getProviderReference(activityId));
+    if (!reference) return { state: 'unavailable' as const };
+    const rows = await this.activityDetailDbProvider.withAccount(accountId, db => new ActivityProviderResourcesRepository(db).metadata(reference));
+    const complete = rows.length === 4 && new Set(rows.map(row => row.resourceType)).size === 4;
+    return { state: complete ? rows.every(row => row.providerVersion === reference.providerVersion) ? 'cached' as const : 'stale' as const : 'missing' as const };
+  }
+
+  async cached(accountId: string, activityId: string): Promise<ActivityProviderDetailResponse> {
+    const reference = await this.dbProvider.withAccount(accountId, db => new ActivityProviderResourcesRepository(db).getProviderReference(activityId));
+    if (!reference) throw activityNotFound();
+    const rows = await this.activityDetailDbProvider.withAccount(accountId, db => new ActivityProviderResourcesRepository(db).list(reference));
+    if (!isCompleteAndCurrent(rows, reference.providerVersion)) throw new NotFoundException({ code: 'PROVIDER_DETAIL_NOT_CACHED', message: 'Fetch Strava detail first.' });
+    return response(reference, rows, 'hit');
+  }
+
+  async load(accountId: string, activityId: string, refresh = false): Promise<ActivityProviderDetailResponse> {
     const reference = await this.dbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).getProviderReference(activityId));
     if (!reference) throw activityNotFound();
 
     const cached = await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).list(reference));
-    if (isCompleteAndCurrent(cached, reference.providerVersion)) {
+    if (!refresh && isCompleteAndCurrent(cached, reference.providerVersion)) {
       return response(reference, cached, 'hit');
     }
 

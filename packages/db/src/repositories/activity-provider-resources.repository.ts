@@ -73,6 +73,13 @@ export class ActivityProviderResourcesRepository {
     }));
   }
 
+  async metadata(reference: ActivityProviderReference) {
+    return this.db.selectFrom('activity_provider_resources')
+      .select(['resource_type as resourceType', 'provider_version as providerVersion', 'fetched_at as fetchedAt'])
+      .where('activity_id', '=', reference.activityId).where('provider', '=', reference.provider)
+      .where('provider_activity_id', '=', reference.providerActivityId).limit(4).execute();
+  }
+
   async replace(
     reference: ActivityProviderReference,
     resources: ActivityProviderResourceWrite[],

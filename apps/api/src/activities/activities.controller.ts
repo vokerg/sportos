@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { ACTIVITY_SOURCES, ACTIVITY_TYPES, ActivitiesRepository, LEGACY_ACCOUNT_ID, type ActivitiesQuery } from '@sportos/db';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
@@ -81,7 +81,15 @@ export class ActivitiesController {
   @Get(':activityId/provider-detail')
   async providerDetail(@Param('activityId') activityId: string, @CurrentAccount() account?: AuthenticatedAccount) {
     assertUuid(activityId, 'INVALID_ACTIVITY_ID');
-    return this.providerDetailService.load(account?.id ?? LEGACY_ACCOUNT_ID, activityId);
+    return this.providerDetailService.cached(account?.id ?? LEGACY_ACCOUNT_ID, activityId);
+  }
+
+  @Post(':activityId/provider-detail')
+  async fetchProviderDetail(@Param('activityId') activityId: string, @Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
+    assertUuid(activityId, 'INVALID_ACTIVITY_ID');
+    const input = body ?? {};
+    if (typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => key !== 'refresh') || ('refresh' in input && typeof input.refresh !== 'boolean')) throw new BadRequestException('Invalid provider fetch request.');
+    return this.providerDetailService.load(account?.id ?? LEGACY_ACCOUNT_ID, activityId, 'refresh' in input && input.refresh === true);
   }
 
   @Get(':activityId/source')

@@ -1,3 +1,5 @@
+import { ActivityEnrichmentController } from './activities/activity-enrichment.controller.js';
+import { ActivityEnrichmentService } from './activities/activity-enrichment.service.js';
 import { GarminLocalIngestController } from './activities/garmin-local-ingest.controller.js';
 import { GarminActivitiesController } from './activities/garmin-activities.controller.js';
 import { Module } from '@nestjs/common';
@@ -42,6 +44,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
     AnalysisController,
     DynamicsController,
     ActivitiesController,
+    ActivityEnrichmentController,
     GarminActivitiesController,
     GarminLocalIngestController,
   ],
@@ -58,6 +61,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
     AnalysisService,
     DynamicsService,
     ActivityProviderDetailService,
+    ActivityEnrichmentService,
     { provide: AnalysisTextGenerator, useFactory: createAnalysisTextGenerator },
     SessionGuard,
     { provide: APP_GUARD, useExisting: SessionGuard },

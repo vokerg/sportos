@@ -57,7 +57,7 @@ describe('Activities pages', () => {
     const list = new ActivitiesPageComponent(store,
       { queryParamMap: new BehaviorSubject(convertToParamMap({})) } as never, { navigate: vi.fn() } as never);
     list.ngOnInit(); expect(store.state()).toBe('error'); list.ngOnDestroy();
-    const detail = new ActivityDetailPageComponent({ detail: () => of({ id: 'abc', activity_type: 'swim' }) } as never,
+    const detail = new ActivityDetailPageComponent({ enrichment: () => of({}), detail: () => of({ id: 'abc', activity_type: 'swim' }) } as never,
       { paramMap: new BehaviorSubject(convertToParamMap({ id: 'abc' })) } as never);
     detail.ngOnInit(); expect(detail.activity()).toMatchObject({ id: 'abc', activity_type: 'swim' });
     expect(detail.state()).toBe('loaded'); detail.ngOnDestroy();
@@ -83,10 +83,12 @@ describe('Activities pages', () => {
       providerDetail: { provider: 'strava', providerActivityId: '20223486250' },
       provenance: { sourceRecordId: 'record', sourceRecordSource: 'strava_api' },
     }));
-    const page = new ActivityDetailPageComponent({ detail, providerDetail } as unknown as ActivitiesApiService,
+    const page = new ActivityDetailPageComponent({ detail, providerDetail, fetchProviderDetail: providerDetail, enrichment: () => of({}) } as unknown as ActivitiesApiService,
       { paramMap: params } as unknown as ActivatedRoute);
     page.ngOnInit();
-    expect(providerDetail).toHaveBeenCalledWith('strava-activity');
+    expect(providerDetail).not.toHaveBeenCalled();
+    page.loadProviderDetail();
+    expect(providerDetail).toHaveBeenCalledWith('strava-activity', false);
     expect(page.providerState()).toBe('loaded');
     expect(page.providerCacheStatus()).toBe('miss');
     expect(page.providerJson()).toContain('heartrate');
@@ -109,7 +111,7 @@ describe('Activities pages', () => {
     const params = new BehaviorSubject(convertToParamMap({ id: 'first' }));
     const sourceJson = vi.fn().mockReturnValue(of({ sourceRecordId: 'record', sourceRecordSource: 'strava_api', rawJson: { average_cadence: 88 } }));
     const detail = vi.fn().mockImplementation((id: string) => of({ id, activity_type: 'run', provenance: { sourceRecordId: 'record', sourceRecordSource: 'strava_api' } }));
-    const page = new ActivityDetailPageComponent({ detail, sourceJson } as unknown as ActivitiesApiService,
+    const page = new ActivityDetailPageComponent({ detail, sourceJson, enrichment: () => of({}) } as unknown as ActivitiesApiService,
       { paramMap: params } as unknown as ActivatedRoute);
     page.ngOnInit();
     expect(sourceJson).not.toHaveBeenCalled();

@@ -1,6 +1,6 @@
 # ADR 0010: Garmin auxiliary identity and conservative reconciliation
 
-- Status: implemented; real Garmin account/device proof remains part of #99
+- Status: implemented; one live local extraction/retention/link proof passed, broader account/device evidence remains part of #99
 - Date: 2026-10-07
 - Issues: #97, #99; full archive ingestion #98 deferred by maintainer
 
@@ -46,11 +46,11 @@ pending Garmin-only data safe until later Strava arrival. `detail`, `sets`, `lap
 `records` and private `fit_manifest` resources are supported by the storage
 contract. These are retained source data, not promoted metrics. Per-resource
 application JSON is bounded to 4 MB, with a 5 MiB database bound and explicit chunk
-indices; the reader loads one chunk at a time. Coverage returns at most 100 chunk
-metadata rows. Original FIT/ZIP bytes belong in replaceable blob storage, with
-private references/checksums in a manifest. Full archive streaming, FIT parsing,
-blob retention orchestration and representative volume measurements are #98/#99
-work; no private export sample was needed or committed for #97.
+indices; the reader loads one chunk at a time. Coverage returns at most 101
+metadata rows (100 declared resources plus the private original manifest). Original FIT/ZIP bytes belong in replaceable blob storage, with
+private references/checksums in a manifest. Targeted FIT parsing and blob/resource retention are implemented by #99; full
+archive streaming and broader volume/device evidence remain follow-up #98/#99
+work. No private export sample was needed or committed for #97.
 
 The importer/extractor must retain original resources before submitting the
 compact snapshot. Primary and detail databases have no distributed transaction:
@@ -78,7 +78,8 @@ required. UTC instants handle DST and midnight independently of local dates.
 | Uniqueness | Exactly one plausible candidate, including nearby weak/conflicting observations |
 
 These conservative thresholds are fixed and covered by synthetic fixtures. They
-are provisional until representative account/device evidence from #99 is tested;
+remain provisional despite one successful live-account match; broader device
+evidence belongs to #99, and
 the acceptance tests document the precise boundaries. Location/route/lap
 corroboration is not used because compact summaries do not reliably supply it.
 No field is fabricated to increase confidence. A strong match requires positive
@@ -129,8 +130,8 @@ Canonical list/detail responses add a bounded `garmin` link descriptor.
 Canonical reads remain available with a null descriptor when the optional
 enrichment schema has not yet been migrated; Garmin writes still require V124. Lists
 still count one canonical row; pending entries appear only in the reconciliation
-API. Source badges and a Fetch Garmin action are #101, and no page-view network
-fetch is introduced. Exports/analysis continue selecting their existing canonical
+API. #101 delivers detail-page source coverage and explicit Fetch/View/Refresh
+controls; list-wide indicators remain follow-up. No page-view network fetch occurs. Exports/analysis continue selecting their existing canonical
 allowlists and cannot read these auxiliary payloads.
 
 ## Validation
@@ -143,5 +144,6 @@ staging/later Strava arrival, review audit, unchanged canonical values, cross-ow
 links, immutable owner/history, dispatcher denial and worker-data scope. Dedicated
 detail tests cover unlinked retention, version conflicts, duplicate reuse, bounds
 and foreign-owner denial. Existing provider-worker and activity-detail regressions
-remain required. Full Garmin live-account authentication/data completeness and
-full archive performance are deliberately separate acceptance work.
+remain required. One live user-initiated login, strict targeted FIT extraction, resource retention,
+cache reuse and unique Strava link passed. Broader MFA/expiry/rate-limit/device
+coverage and full archive performance remain separate acceptance work.
