@@ -110,6 +110,7 @@ export class GarminLocalIngestService {
         .select(['i.id','v.origin']).where('i.identity_key','=',identityKey).where('v.content_hash','=',sourceHash)
         .where('i.activity_type','=','workout').orderBy('v.origin').executeTakeFirst();
       if (version) await new GarminStrengthRepository(db).retain(version.id, sourceHash, version.origin, summary);
+      await new GarminActivitiesRepository(db).reconsider(identityKey, sourceHash);
     });
     return true;
   }

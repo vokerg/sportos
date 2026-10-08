@@ -9,7 +9,7 @@ import { GarminLocalIngestService, type LocalGarminBundle } from '../activities/
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
 import { UploadStorage } from '../storage/upload-storage.js';
-import { projectGarminDay, publicGarminPayload, hasGarminDayEvidence } from './garmin-day-projection.js';
+import { projectGarminDay, publicGarminPayload, hasGarminDayEvidence, nonScoringGarminDayIdentities } from './garmin-day-projection.js';
 const retryable = (state: string) => ['failed','authentication_required','rate_limited'].includes(state);
 type CategoryResult = { category: GarminDayCategory; state: GarminDayState; sourceHash?: string; byteSize?: number };
 
@@ -33,15 +33,17 @@ export class GarminDayService {
       let projection = row?.projection_json ?? null;
       if (category === 'activities' && projection && typeof projection === 'object' && !Array.isArray(projection)) {
         const ids = Array.isArray(projection.identities) ? projection.identities.filter((id): id is string => typeof id === 'string').slice(0,20) : [];
-        const identities = ids.length ? await this.primary.withAccount(owner, db => db.selectFrom('garmin_activity_identities')
-          .select(['identity_key','activity_id','status']).where('identity_key','in',ids).limit(20).execute()) : [];
         const attempt = row?.attempt_json;
+        const excluded = attempt && typeof attempt === 'object' && !Array.isArray(attempt) && Array.isArray(attempt.excludedIdentities) ? attempt.excludedIdentities : [];
+        const scoredIds = ids.filter(id => !excluded.includes(id));
+        const identities = scoredIds.length ? await this.primary.withAccount(owner, db => db.selectFrom('garmin_activity_identities')
+          .select(['identity_key','activity_id','status']).where('identity_key','in',scoredIds).limit(20).execute()) : [];
         const failures = attempt && typeof attempt === 'object' && !Array.isArray(attempt) && Array.isArray(attempt.failures) ? attempt.failures : [];
         projection = { count: ids.length, complete: projection.complete ?? false, activities: ids.map((key, index) => {
           const identity = identities.find(item => item.identity_key === key);
           const failure = failures.find(item => item && typeof item === 'object' && !Array.isArray(item) && item.identityKey === key);
           return { ordinal: index + 1, activityId: identity?.activity_id ?? null, reconciliation: identity?.status ?? 'staged',
-            resourceState: failure && typeof failure === 'object' && !Array.isArray(failure) ? failure.state ?? 'failed' : 'retained' };
+            resourceState: excluded.includes(key) ? 'unsupported_non_scoring' : failure && typeof failure === 'object' && !Array.isArray(failure) ? failure.state ?? 'failed' : 'retained' };
         }) };
       }
       const recorded = projection !== null && hasGarminDayEvidence(category, projection);
@@ -74,7 +76,24 @@ export class GarminDayService {
     if (signal?.aborted) abort();
     const timeout = setTimeout(abort, 600_000);
     try {
-      const rows = await this.rows(account.id, date);
+      let rows = await this.rows(account.id, date);
+      const prior = rows.find(row => row.category === 'activities');
+      const priorProjection = prior?.projection_json;
+      const priorAttempt = prior?.attempt_json;
+      // Repair only a fully discovered retained day whose recorded failures are
+      // all explicitly known non-scoring walking entries. No provider call.
+      if (prior?.state === 'failed' && prior.source_hash && priorProjection && typeof priorProjection === 'object'
+        && !Array.isArray(priorProjection) && priorProjection.complete === true && priorAttempt && typeof priorAttempt === 'object'
+        && !Array.isArray(priorAttempt) && Array.isArray(priorAttempt.failures) && priorAttempt.failures.length) {
+        const resource = await this.detail.withAccount(account.id, db => new GarminDayResourcesRepository(db).read(date, 'activities', prior.source_hash!));
+        const excludedIdentities = nonScoringGarminDayIdentities(resource?.payload_json ?? null);
+        if (priorAttempt.failures.every(failure => failure && typeof failure === 'object' && !Array.isArray(failure)
+          && failure.state === 'failed' && excludedIdentities.includes(String(failure.identityKey)))) {
+          await this.publish(account.id, date, { category: 'activities', state: 'available', attemptedAt: new Date(),
+            attempt: { failures: [], excludedIdentities } });
+          rows = await this.rows(account.id, date);
+        }
+      }
       const retention = new GarminLocalIngestService(this.primary, this.detail, this.storage);
       const requested: GarminDayCategory[] = [];
       for (const category of GARMIN_DAY_CATEGORIES) {
@@ -82,7 +101,10 @@ export class GarminDayService {
         let complete = Boolean(row && !retryable(row.state));
         if (complete && row?.source_hash) complete = Boolean(await this.detail.withAccount(account.id, db => new GarminDayResourcesRepository(db).read(date, category, row.source_hash!)));
         if (complete && category === 'activities' && row?.projection_json && typeof row.projection_json === 'object' && !Array.isArray(row.projection_json) && Array.isArray(row.projection_json.identities)) {
+          const attempt = row.attempt_json;
+          const excluded = attempt && typeof attempt === 'object' && !Array.isArray(attempt) && Array.isArray(attempt.excludedIdentities) ? attempt.excludedIdentities : [];
           for (const key of row.projection_json.identities) {
+            if (excluded.includes(key)) continue;
             if (typeof key !== 'string') { complete = false; break; }
             const identity = await this.primary.withAccount(account.id, db => db.selectFrom('garmin_activity_identities').select(['current_hash']).where('identity_key','=',key).executeTakeFirst());
             if (!identity || !await retention.cachedBundle(key, identity.current_hash, account)) { complete = false; break; }
@@ -120,9 +142,11 @@ export class GarminDayService {
           if (entry.category === 'activities') {
             const ids = projection && typeof projection === 'object' && !Array.isArray(projection) && Array.isArray(projection.identities) ? projection.identities : [];
             const failures: Json[] = [];
+            const excludedIdentities = nonScoringGarminDayIdentities(payload);
             for (const identityKey of ids) {
               this.checkCancelled(cancellation.signal);
               if (typeof identityKey !== 'string') throw new BadRequestException('Invalid Garmin identity.');
+              if (excludedIdentities.includes(identityKey)) continue;
               try {
                 const reference = await this.primary.withAccount(account.id, db => db.selectFrom('garmin_activity_identities')
                   .select(['identity_key','current_hash']).where('identity_key','=',identityKey).executeTakeFirst());
@@ -140,7 +164,7 @@ export class GarminDayService {
                 }
               }
             }
-            attempt = { failures };
+            attempt = { failures, ...(excludedIdentities.length ? { excludedIdentities } : {}) };
             const complete = projection && typeof projection === 'object' && !Array.isArray(projection) && projection.complete === true;
             if (failures.length || !complete) state = 'failed';
           }

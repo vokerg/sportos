@@ -110,3 +110,45 @@ Follow-up validation: 11 focused Garmin day state/card tests and web typecheck
 passed. Chrome reload of the reported day confirmed retained categories remain
 expanded, with partial activity coverage visible. No fetch or recalculation was
 performed during this investigation; the user-started app remains running.
+
+## Gym session investigation
+
+Maintainer identified a canonical gym workout whose fetched Garmin sets did not
+score. Inspected retained primary reconciliation evidence, auxiliary set field
+shapes, day activity metadata, activity matching policy, Garmin extraction type
+map, enrichment reads, day projection tests and current workout calculation.
+Live evidence shows explicit ACTIVE/REST classifications are supported, but gym
+moving durations differ across providers and exact-only workout matching requires
+explicit review. No automatic link or matching-policy relaxation is justified.
+The other discovered activity is explicitly walking, unsupported by the activity
+extractor; that failure currently blocks the otherwise complete gym evidence.
+Fix known walking discovery to remain inspectable day evidence without being
+mistaken for a failed strength extraction. Unknown/partial discovery stays blocked.
+
+Maintainer explicitly authorized linking the identified gym session and improving
+matching generally across sports. The selected session was linked through the
+existing authenticated audited review endpoint. General improvements must be a
+new policy version, preserve historical audits, compare sport-appropriate metrics
+and retain uniqueness/subtype/ownership safeguards. Inspect activity-matching
+unit tests, Garmin repository integration/schema and the V124 audit constraint
+before changing the policy or adding the next append-only migration.
+
+Follow-up delivered: matching policy v2 records sport-specific metric criteria
+while preserving immutable v1 audits and established links/rejections; V127 was
+applied to the configured local primary. Explicit cached Fetch reconsiders one
+pending retained identity, with no downloads. Known walking-only extraction
+failures can repair from retained discovery JSON; unknown/workout failures and
+incomplete discovery still block replacement.
+
+The explicitly identified live gym session was linked through authenticated
+review. Cached day repair and explicit recalculation succeeded: complete linked
+strength supplied workout points, canonical metrics were unchanged and ledger
+matched score. This supersedes the earlier live-strength validation limitation.
+No private identifier, metric, provider sample or matching payload is committed.
+Root typecheck/tests/build passed; 15 pure matching tests, 14 non-owner
+reconciliation/strength tests and the non-owner primary/detail day-retention
+pipeline passed. Fresh 36-version primary migrations through V127 and populated
+V127 upgrade passed. Browser inspection was rejected because Computer Use was
+not permitted on Chrome's current URL; browser use remained stopped. API and
+test validation completed without a browser workaround. The user-started app
+remains running; no merge is authorized.

@@ -74,3 +74,17 @@ export function hasGarminDayEvidence(category: GarminDayCategory, projection: Js
   if (category === 'weight') return Array.isArray(projection.measurements) && projection.measurements.length > 0;
   return Object.values(projection).some(value => typeof value === 'number');
 }
+
+/** Walking has no strength-set semantics. Keep its discovery source inspectable,
+ * without attempting unsupported canonical activity extraction. Unknown types
+ * are deliberately not excluded. */
+export function nonScoringGarminDayIdentities(raw: Json): string[] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Array.isArray(raw.items) || raw.items.length > 20) return [];
+  return raw.items.flatMap(item => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const type = item.activityType;
+    if (!type || typeof type !== 'object' || Array.isArray(type) || type.typeKey !== 'walking'
+      || !/^[0-9]{1,20}$/.test(String(item.activityId)) || BigInt(String(item.activityId)) === 0n) return [];
+    return [`native:${BigInt(String(item.activityId))}`];
+  });
+}

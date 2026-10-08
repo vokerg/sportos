@@ -193,14 +193,15 @@ export class DailyScoringRepository {
       const discovery = dayRows.find(row => row.category === 'activities');
       const projection = jsonRecord(discovery?.projection_json);
       const failures = jsonRecord(discovery?.attempt_json).failures;
+      const excluded = jsonRecord(discovery?.attempt_json).excludedIdentities;
       let incompleteReason: string | undefined;
       if (discovery && (discovery.state !== 'available' || projection.complete !== true || (Array.isArray(failures) && failures.length))) {
         incompleteReason = 'Garmin activity discovery or extraction is incomplete; previous workout points were preserved.';
       }
       if (Array.isArray(projection.identities) && projection.identities.length) {
-        const ids = projection.identities.filter((item): item is string => typeof item === 'string');
-        const discovered = await transaction.selectFrom('garmin_activity_identities').select(['identity_key','activity_type','activity_id'])
-          .where('identity_key', 'in', ids).limit(21).execute();
+        const ids = projection.identities.filter((item): item is string => typeof item === 'string' && !(Array.isArray(excluded) && excluded.includes(item)));
+        const discovered = ids.length ? await transaction.selectFrom('garmin_activity_identities').select(['identity_key','activity_type','activity_id'])
+          .where('identity_key', 'in', ids).limit(21).execute() : [];
         if (discovered.length !== ids.length || discovered.some(item => item.activity_type === 'workout' &&
           (!item.activity_id || !summaries.some(summary => summary.activityId === item.activity_id)))) {
           incompleteReason = 'A discovered Garmin activity is unlinked or lacks current strength evidence; previous workout points were preserved.';

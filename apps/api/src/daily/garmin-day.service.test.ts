@@ -30,6 +30,17 @@ describe('Garmin day workflow',()=>{
     rows.mockResolvedValue(GARMIN_DAY_CATEGORIES.map(category=>({category,state:'unsupported',source_hash:null,projection_json:null,attempted_at:new Date()})) as never);
     expect((await service.fetch(account,date,false)).result).toBe('cached');expect(enrichment.bridge).not.toHaveBeenCalled();
   });
+  it('repairs a retained walking-only failure without a provider call or score write',async()=>{
+    const {service,enrichment,rows,publish}=setup(false);
+    const retained=GARMIN_DAY_CATEGORIES.map(category=>({category,state:'unsupported',source_hash:null,projection_json:null,attempted_at:new Date()}));
+    const walking={category:'activities',state:'failed',source_hash:hash,projection_json:{identities:['native:1'],complete:true},attempt_json:{failures:[{identityKey:'native:1',state:'failed'}]},attempted_at:new Date(),retrieved_at:new Date(),availability:'available'};
+    rows.mockResolvedValueOnce([...retained.filter(row=>row.category!=='activities'),walking] as never)
+      .mockResolvedValue([...retained.filter(row=>row.category!=='activities'),{...walking,state:'available',attempt_json:{failures:[],excludedIdentities:['native:1']}}] as never);
+    vi.mocked(GarminDayResourcesRepository.prototype.read).mockResolvedValue({payload_json:{items:[{activityId:'1',activityType:{typeKey:'walking'}}]}});
+    const result=await service.fetch(account,date,false);
+    expect(result.result).toBe('cached');expect(enrichment.bridge).not.toHaveBeenCalled();
+    expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({state:'available',attempt:{failures:[],excludedIdentities:['native:1']}}));
+  });
   it('disables new upstream requests when local helper policy forbids the account',async()=>{
     const {service,enrichment}=setup(false);
     await expect(service.fetch(account,date,false)).rejects.toMatchObject({response:{code:'GARMIN_LOCAL_FETCH_DISABLED'}});expect(enrichment.bridge).not.toHaveBeenCalled();

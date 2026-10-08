@@ -65,6 +65,21 @@ integration('Garmin identity and canonical authority under non-owner RLS', () =>
     expect(await scoped(ownerA, (repo) => repo.audit(pending.id))).toHaveLength(1);
   });
 
+  it('reconsiders retained gym evidence under v2 once, preserving explicit links/rejections and canonical facts', async () => {
+    const time='2095-04-12T10:00:00Z';
+    const input=snapshot('1012',time,{summary:{activityType:'workout',subtype:'indoor',startTime:new Date(time),elapsedTimeS:1800.8,movingTimeS:900,distanceM:0}});
+    const pending=await scoped(ownerA,repo=>repo.ingest(input));
+    const id=await withAccountContext(db,ownerA,async ctx=>(await ctx.insertInto('activities').values({source:'strava',activity_type:'workout',subtype:'indoor',activity_date:time.slice(0,10),start_time:new Date(time),duration_s:1800,moving_time_s:1800,distance_m:0}).returning('id').executeTakeFirstOrThrow()).id);
+    const before=await canonicalRows(ownerA);
+    expect(await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash))).toMatchObject({status:'strong_unique',activityId:id});
+    expect((await scoped(ownerA,repo=>repo.audit(pending.id)))[0]).toMatchObject({policyVersion:2,action:'auto_link'});
+    await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash));
+    expect(await scoped(ownerA,repo=>repo.audit(pending.id))).toHaveLength(1);
+    expect(await canonicalRows(ownerA)).toEqual(before);
+    await scoped(ownerA,repo=>repo.review(pending.id,'reject'));
+    expect(await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash))).toMatchObject({status:'rejected',activityId:null});
+  });
+
   it('keeps competing workouts ambiguous and supports audited accept/reject/reopen', async () => {
     const time = '2095-04-05T10:00:00Z'; const a = await activity(ownerA, time, 5000); await activity(ownerA, '2095-04-05T10:01:00Z', 5000);
     const pending = await scoped(ownerA, (repo) => repo.ingest(snapshot('1005', time)));

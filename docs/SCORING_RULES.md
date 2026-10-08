@@ -197,8 +197,9 @@ labels never imply performance. Missing reps/weight does not invalidate an
 explicit working set. Optional `exerciseName` labels produce bounded per-exercise
 counts; unlabeled exercises have no invented identity. At most 2,000 entries and
 100 labels are projected; oversized or missing/null/empty lists are incomplete.
-The selected live run/swim day has null/empty sets, so actual strength device
-payload variants remain subject to this fail-closed policy and live confirmation.
+Live strength evidence subsequently confirmed the ACTIVE/REST mapping. Other
+provider/device variants remain subject to this fail-closed policy; additional
+working/warm-up aliases are covered by sanitized policy fixtures.
 
 V126 `garmin_strength_summaries` is immutable, owner-scoped and keyed by Garmin
 identity/content version/policy, with same-owner version foreign keys and forced
@@ -217,3 +218,13 @@ strength session is never proof of zero. Garmin-only/ambiguous workouts never
 contribute; multiple uniquely linked complete sessions contribute once each.
 Garmin enrichment does not overwrite canonical distance/duration/type/source.
 Weight, sleep, HR/HRV, stress, Body Battery and calories remain non-scoring.
+
+Known Garmin walking discovery remains inspectable evidence without attempting
+unsupported canonical activity extraction. A fully discovered day whose only
+failed extraction is explicitly typed walking can repair its coverage from the
+retained original JSON on explicit Fetch, without contacting Garmin. Unknown
+activity types, partial discovery and actual workout extraction failures remain
+blocking. Walking is never converted into strength points or a canonical activity.
+The live gym payload confirmed ACTIVE and REST; exercise labels are supplied in
+Garmin's exercises array, so unlabeled v1 summaries do not invent exercise names.
+See ADR 0010 for sport-aware matching policy v2 and immutable manual review.
