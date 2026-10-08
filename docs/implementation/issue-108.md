@@ -94,3 +94,19 @@ Validation:
 No personal sample, metric, identifier, hash, screenshot or credential is
 committed. Live screenshot and private verification artifacts remain outside the
 repository. PR #109 remains draft; no merge or issue completion is authorized.
+
+## Reopening retained Garmin evidence follow-up
+
+Maintainer reported fetched day evidence disappearing when reopening a day.
+Before editing, inspected GarminDayStore, its tests, GarminDayCardComponent and
+its tests, day transport/model contracts, DailyDetailPageComponent and the
+GarminDayService read mapping. The live owner-scoped GET confirmed category
+versions and projections remain retained. The store instead resets `expanded`
+to false on every route load, whereas Fetch expands the card. Change route load
+to display retained categories immediately, including prior successful evidence
+on partial days. Missing days and raw resource disclosures remain collapsed.
+
+Follow-up validation: 11 focused Garmin day state/card tests and web typecheck
+passed. Chrome reload of the reported day confirmed retained categories remain
+expanded, with partial activity coverage visible. No fetch or recalculation was
+performed during this investigation; the user-started app remains running.

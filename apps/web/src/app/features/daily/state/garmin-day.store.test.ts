@@ -22,3 +22,22 @@ describe('Garmin day state',()=>{
     const {api,store}=setup();api.read.mockReturnValue(of({...day,fetchEnabled:false}));store.load(day.date);store.fetch();expect(api.fetch).not.toHaveBeenCalled();store.view();expect(store.expanded()).toBe(true);
   });
 });
+
+it.each(['current', 'partial'])('shows retained evidence immediately when reopening a %s day', state => {
+  const {api,store}=setup();
+  api.read.mockReturnValue(of({...day,state,categories:[{category:'summary',state:'available',retainedAt:'2026-03-30T08:00:00Z',evidence:{steps:12345}}]}) as never);
+  store.load(day.date);
+  expect(store.expanded()).toBe(true);
+  store.view();expect(store.expanded()).toBe(false);
+  store.load(day.date);expect(store.expanded()).toBe(true);
+  expect(api.fetch).not.toHaveBeenCalled();expect(api.resource).not.toHaveBeenCalled();
+});
+it('keeps an unfetched day collapsed and ignores a prior day response after navigation',()=>{
+  const {api,store}=setup(); const pending=new Subject<never>();
+  api.read.mockReturnValueOnce(pending as never);
+  store.load(day.date);
+  api.read.mockReturnValue(of({...day,state:'missing',categories:[]}) as never);
+  store.load('2026-03-30');
+  pending.next({...day,categories:[{retainedAt:'2026-03-30T08:00:00Z'}]} as never);
+  expect(store.expanded()).toBe(false);expect(pending.observed).toBe(false);
+});
