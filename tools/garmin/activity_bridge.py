@@ -19,6 +19,8 @@ def discover(transport, start):
     items = []
     uncertain = False
     for row in rows:
+        if isinstance(row, dict) and isinstance(row.get('activityType'), dict) and row['activityType'].get('typeKey') == 'walking':
+            continue
         try:
             summary = normalized_summary({'activityTypeDTO': row.get('activityType', {}), 'summaryDTO': row}, {})
             delta = abs((dt.datetime.fromisoformat(summary['startTime'].replace('Z', '+00:00')) - instant).total_seconds())

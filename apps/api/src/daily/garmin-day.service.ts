@@ -35,15 +35,17 @@ export class GarminDayService {
         const ids = Array.isArray(projection.identities) ? projection.identities.filter((id): id is string => typeof id === 'string').slice(0,20) : [];
         const attempt = row?.attempt_json;
         const excluded = attempt && typeof attempt === 'object' && !Array.isArray(attempt) && Array.isArray(attempt.excludedIdentities) ? attempt.excludedIdentities : [];
+        // Known walking remains in original day evidence/all-day steps, but is
+        // absent from activity coverage, linking status and failure warnings.
         const scoredIds = ids.filter(id => !excluded.includes(id));
         const identities = scoredIds.length ? await this.primary.withAccount(owner, db => db.selectFrom('garmin_activity_identities')
           .select(['identity_key','activity_id','status']).where('identity_key','in',scoredIds).limit(20).execute()) : [];
         const failures = attempt && typeof attempt === 'object' && !Array.isArray(attempt) && Array.isArray(attempt.failures) ? attempt.failures : [];
-        projection = { count: ids.length, complete: projection.complete ?? false, activities: ids.map((key, index) => {
+        projection = { count: scoredIds.length, complete: projection.complete ?? false, activities: scoredIds.map((key, index) => {
           const identity = identities.find(item => item.identity_key === key);
           const failure = failures.find(item => item && typeof item === 'object' && !Array.isArray(item) && item.identityKey === key);
           return { ordinal: index + 1, activityId: identity?.activity_id ?? null, reconciliation: identity?.status ?? 'staged',
-            resourceState: excluded.includes(key) ? 'unsupported_non_scoring' : failure && typeof failure === 'object' && !Array.isArray(failure) ? failure.state ?? 'failed' : 'retained' };
+            resourceState: failure && typeof failure === 'object' && !Array.isArray(failure) ? failure.state ?? 'failed' : 'retained' };
         }) };
       }
       const recorded = projection !== null && hasGarminDayEvidence(category, projection);

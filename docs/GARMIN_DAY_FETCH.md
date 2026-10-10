@@ -167,3 +167,10 @@ Endpoint reference: [pinned SDK source](https://github.com/cyberjunky/python-gar
 After retention, use the existing Recalculate action to apply Connect steps and
 complete linked strength sets. Fetch alone never recalculates. See
 [authority, classification and fallback policy](SCORING_RULES.md#retained-garmin-recalculation-108).
+
+Walking is excluded from activity extraction, matching candidates, coverage
+cards and workout completeness warnings. Its steps remain part of the retained
+all-day total. Original bounded discovery evidence remains available in the
+advanced resource; no walking canonical activity or link is created. Explicit
+Fetch can repair older walking-only failures using retained data, and normal
+Recalculate replaces a previously saved misleading workout explanation.

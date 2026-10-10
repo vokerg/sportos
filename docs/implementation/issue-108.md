@@ -152,3 +152,23 @@ V127 upgrade passed. Browser inspection was rejected because Computer Use was
 not permitted on Chrome's current URL; browser use remained stopped. API and
 test validation completed without a browser workaround. The user-started app
 remains running; no merge is authorized.
+
+## Walking exclusion follow-up
+
+Maintainer explicitly requested no walking linking attempts or warnings. Inspected
+current primary-only workout completeness checks, Garmin day retained coverage
+repair/extraction/read paths, raw projection classification, day workflow tests
+and card state. Known walking already skips extraction/linking and scoring after
+retained classification; remove it from the activity coverage presentation too.
+Keep original discovery evidence and all-day step totals. Repair the reported
+retained day through cached Fetch and normal explicit recalculation; preserve
+unknown/workout failures and immutable score/source history.
+
+Also inspected and updated activity_bridge.py/test_activity_bridge.py so explicit
+single-activity discovery excludes walking without creating ambiguity warnings.
+Regression tests cover walking with missing metadata, no linking candidate and
+no consumption of the selected-day activity limit. API tests and typecheck pass;
+Garmin helper suite passes (one existing optional test skipped). The reported
+live day was repaired using cached retained data and normal Recalculate: only
+the linked run is listed, workout warning is absent, and score/fact values are
+unchanged. No Garmin download or personal evidence was committed.

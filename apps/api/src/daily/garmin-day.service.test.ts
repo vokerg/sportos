@@ -39,6 +39,9 @@ describe('Garmin day workflow',()=>{
     vi.mocked(GarminDayResourcesRepository.prototype.read).mockResolvedValue({payload_json:{items:[{activityId:'1',activityType:{typeKey:'walking'}}]}});
     const result=await service.fetch(account,date,false);
     expect(result.result).toBe('cached');expect(enrichment.bridge).not.toHaveBeenCalled();
+    expect(result.state).toBe('current');
+    expect(result.categories.find(row=>row.category==='activities')).toMatchObject({state:'available',evidence:{count:0,complete:true,activities:[]}});
+    expect(JSON.stringify(result)).not.toContain('unsupported_non_scoring');
     expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({state:'available',attempt:{failures:[],excludedIdentities:['native:1']}}));
   });
   it('disables new upstream requests when local helper policy forbids the account',async()=>{
