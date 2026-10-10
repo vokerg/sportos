@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import type { DailyRunStepCalculation, DailyScoreBreakdown, DailyStepsCalculation } from './score-breakdown.models';
+import type { DailyRunStepCalculation, DailyScoreBreakdown, DailyStepsCalculation, DailyWorkoutCalculation } from './score-breakdown.models';
 import { formatDistance, formatDuration, formatNumber } from './score-breakdown.view-model';
 import { formatSwimMeters } from './swim-distance';
 
@@ -27,11 +27,25 @@ import { formatSwimMeters } from './swim-distance';
         <div><span>Bike · outdoor</span><strong>{{ formatDistance(current.facts.bikeOutdoorM) }}</strong></div>
         <div><span>Bike · unspecified</span><strong>{{ formatDistance(current.facts.bikeUnspecifiedM) }}</strong></div>
         <div><span>Swim</span><strong>{{ formatSwimMeters(current.facts.swimM) }}</strong></div>
-        <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong></div>
+        <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong><small>{{ workoutSource(current.facts.workoutCalculation) }}</small></div>
       </div>
+      @if (current.facts.workoutCalculation; as workout) {
+        @if (workout.source === 'garmin_sets') {
+          <div class="steps-calculation"><strong>{{ formatNumber(workout.workingSets ?? 0) }} Garmin working sets × 1,000 / 3 = {{ formatNumber(workout.resolvedPoints) }} workout points</strong>
+            <small>Policy v{{ workout.policyVersion }} · rounded once across {{ workout.activities?.length ?? 0 }} linked workout(s).</small>
+          </div>
+        }
+        @if (workout.incompleteReason) { <div class="steps-calculation">{{ workout.incompleteReason }}</div> }
+      }
       @if (current.facts.stepsCalculation?.source === 'garmin_adjusted' || current.facts.stepsCalculation?.source === 'manual_adjusted') {
         <div class="steps-calculation">
           <strong>{{ garminEquation(current.facts.stepsCalculation!) }}</strong>
+          @if (current.facts.stepsCalculation!.retainedAt; as retainedAt) {
+            <small>Garmin {{ current.facts.stepsCalculation!.garminSource === 'connect' ? 'Connect' : 'CSV' }} retained {{ retainedAt }}</small>
+          }
+          @if (current.facts.stepsCalculation!.latestAttemptState && current.facts.stepsCalculation!.latestAttemptState !== 'available') {
+            <small>Latest Garmin attempt: {{ current.facts.stepsCalculation!.latestAttemptState }}. Using the retained successful summary.</small>
+          }
           @if ((current.facts.stepsCalculation!.runs?.length ?? 0) > 0) {
             <ul>
               @for (run of current.facts.stepsCalculation!.runs; track run.activityId ?? $index) {
@@ -103,10 +117,15 @@ export class ScoreBreakdownFactsComponent {
     if (!calculation) return '';
     if (calculation.source === 'manual') return 'Manual value; recalculation preserves it';
     if (calculation.source === 'manual_adjusted') return 'All-day total after running-step deduction';
-    if (calculation.source === 'imported') return 'Imported value; recalculation preserves it';
+    if (calculation.source === 'imported') return 'Imported fallback';
     if (calculation.source === 'stored') return 'Existing value preserved';
-    if (calculation.source === 'garmin_adjusted') return 'Garmin total after running-step deduction';
+    if (calculation.source === 'garmin_adjusted') return calculation.garminSource === 'connect' ? 'Garmin Connect after running-step deduction' : 'Garmin CSV after running-step deduction';
     return '';
+  }
+
+  workoutSource(calculation?: DailyWorkoutCalculation): string {
+    if (!calculation) return '';
+    return { manual: 'Manual override', garmin_sets: 'Garmin working sets', imported: 'Imported fallback', stored: 'Existing value preserved', none: 'No workout points' }[calculation.source];
   }
 
   garminEquation(calculation: DailyStepsCalculation): string {

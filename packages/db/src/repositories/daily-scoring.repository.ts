@@ -1,8 +1,12 @@
+import { GarminDayRepository } from './garmin-day.repository.js';
+import { lockActivityReconciliation } from './garmin-activities.repository.js';
+import { GarminStrengthRepository } from './garmin-strength.repository.js';
+import { resolveDailyWorkout } from './daily-workout-resolution.js';
 import { createHash } from 'node:crypto';
 import { aggregateActivitiesToDailyFacts, deductRunningSteps, normalizeStravaRunCadenceSpm, scoreDay, type ActivityFact } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Activity, DailyMetric, Database, Json } from '../schema.js';
-import type { DailyMetricFactsInput, DailyStepsCalculation, ManualDailyFactsInput } from '../repository-contracts.js';
+import type { DailyMetricFactsInput, DailyStepsCalculation, DailyWorkoutCalculation, ManualDailyFactsInput } from '../repository-contracts.js';
 import { DailyRepository, type ScoringActivityRow } from './daily.repository.js';
 import { ImportsRepository } from './imports.repository.js';
 import { ScoringRepository } from './scoring.repository.js';
@@ -64,14 +68,15 @@ export class DailyScoringRepository {
             unestimatedRunCount: deduction.unestimatedRunCount,
           } : {}),
         },
+        workoutCalculation: { source: input.workoutPoints > 0 ? 'manual' : 'none', resolvedPoints: input.workoutPoints },
         excelAllPoints: optionalNumber(existing?.excel_all_points),
         excelRowHash: existing?.excel_row_hash ?? undefined,
       };
-      const score = scoreDay(
+      const score = attachWorkoutCalculation(attachStepsCalculation(scoreDay(
         { ...facts, excelAllPoints: undefined, excelRowHash: undefined },
         [],
         await new ScoringRepository(transaction).listEnabledRules(),
-      );
+      ), facts.stepsCalculation!), facts.workoutCalculation!);
 
       const rawJson: Json = { metricDate, facts: { ...input } };
       const rowHash = createHash('sha256').update(JSON.stringify(rawJson)).digest('hex');
@@ -129,6 +134,7 @@ export class DailyScoringRepository {
 
   async recalculateFromActivities(metricDate: string) {
     return this.db.transaction().execute(async (transaction) => {
+      await lockActivityReconciliation(transaction);
       await lockDailyScore(transaction, metricDate);
 
       const daily = await transaction
@@ -143,7 +149,15 @@ export class DailyScoringRepository {
       const sourceActivities = activities.filter((activity) => activity.source !== 'manual');
       const manualActivities = activities.filter((activity) => activity.source === 'manual');
       const stravaActivities = sourceActivities.filter((activity) => activity.source === 'strava');
-      const garminSteps = await dailyRepository.getGarminDailySteps(metricDate);
+      const csvEvidence = await dailyRepository.getGarminDailyStepEvidence(metricDate);
+      const garminSteps = csvEvidence?.steps ?? null;
+      const access = await sql<{ days: boolean; strength: boolean }>`select
+        has_table_privilege(current_user, 'garmin_day_heads', 'SELECT') as days,
+        has_table_privilege(current_user, 'garmin_strength_summaries', 'SELECT') as strength`.execute(transaction);
+      const dayRows = access.rows[0]?.days ? await new GarminDayRepository(transaction).read(metricDate) : [];
+      const connect = dayRows.find(row => row.category === 'summary' && row.availability === 'available');
+      const connectValue = jsonRecord(connect?.projection_json).steps;
+      const connectSteps = typeof connectValue === 'number' && Number.isSafeInteger(connectValue) && connectValue >= 0 ? connectValue : null;
       const snapshotFacts = daily?.score_snapshot_id
         ? (await transaction
           .selectFrom('daily_score_snapshots')
@@ -152,7 +166,7 @@ export class DailyScoringRepository {
           .executeTakeFirst())?.facts_json ?? null
         : null;
 
-      if (!daily && stravaActivities.length === 0 && garminSteps === null) {
+      if (!daily && stravaActivities.length === 0 && garminSteps === null && connectSteps === null) {
         throw new DailyRecalculationUnavailableError(metricDate);
       }
 
@@ -167,17 +181,52 @@ export class DailyScoringRepository {
         stravaActivities,
         garminSteps,
         snapshotFacts,
+        connectSteps === null || !connect ? undefined : { steps: connectSteps, sourceVersionId: connect.version_id!,
+          retainedAt: connect.retrieved_at!.toISOString(), latestAttemptAt: connect.attempted_at.toISOString(), latestAttemptState: connect.state },
       );
+      if (stepsCalculation.garminSource === 'csv' && csvEvidence) {
+        stepsCalculation.garminObservationId = csvEvidence.garminObservationId;
+        stepsCalculation.sourceRecordId = csvEvidence.sourceRecordId;
+        stepsCalculation.retainedAt = csvEvidence.retainedAt;
+      }
+      const summaries = access.rows[0]?.strength ? await new GarminStrengthRepository(transaction).forDate(metricDate) : [];
+      const discovery = dayRows.find(row => row.category === 'activities');
+      const projection = jsonRecord(discovery?.projection_json);
+      const failures = jsonRecord(discovery?.attempt_json).failures;
+      const excluded = jsonRecord(discovery?.attempt_json).excludedIdentities;
+      let incompleteReason: string | undefined;
+      if (discovery && (discovery.state !== 'available' || projection.complete !== true || (Array.isArray(failures) && failures.length))) {
+        incompleteReason = 'Garmin activity discovery or extraction is incomplete; previous workout points were preserved.';
+      }
+      if (Array.isArray(projection.identities) && projection.identities.length) {
+        const ids = projection.identities.filter((item): item is string => typeof item === 'string' && !(Array.isArray(excluded) && excluded.includes(item)));
+        const discovered = ids.length ? await transaction.selectFrom('garmin_activity_identities').select(['identity_key','activity_type','activity_id'])
+          .where('identity_key', 'in', ids).limit(21).execute() : [];
+        if (discovered.length !== ids.length || discovered.some(item => item.activity_type === 'workout' &&
+          (!item.activity_id || !summaries.some(summary => summary.activityId === item.activity_id)))) {
+          incompleteReason = 'A discovered Garmin activity is unlinked or lacks current strength evidence; previous workout points were preserved.';
+        }
+      }
+      const recordedWorkouts = sourceActivities.filter(item => item.activityType === 'workout' && (item.source === 'strava' || item.durationS !== undefined || item.movingTimeS !== undefined));
+      if (summaries.length > 20 || recordedWorkouts.some(item => !summaries.some(summary => summary.activityId === item.id))) {
+        incompleteReason = 'Not every recorded workout has complete linked Garmin strength evidence; previous workout points were preserved.';
+      }
+      const workoutCalculation = resolveDailyWorkout(baseFacts.workoutPoints, manualActivities,
+        daily?.score_status === 'imported', summaries.slice(0,20).map(row => ({ activityId: row.activityId,
+          identityId: row.identityId, workingSets: row.working_sets, complete: row.complete,
+          sourceVersionId: row.version_id, sourceUpdatedAt: row.source_updated_at.toISOString(), derivedAt: row.derived_at.toISOString() })), incompleteReason);
       const facts: DailyMetricFactsInput = {
         ...baseFacts,
         steps: stepsCalculation.resolvedSteps,
         stepsCalculation,
+        workoutPoints: workoutCalculation.resolvedPoints,
+        workoutCalculation,
       };
-      const score = attachStepsCalculation(scoreDay(
+      const score = attachWorkoutCalculation(attachStepsCalculation(scoreDay(
         { ...facts, excelAllPoints: undefined, excelRowHash: undefined },
         scoringActivities,
         await new ScoringRepository(transaction).listEnabledRules(),
-      ), stepsCalculation);
+      ), stepsCalculation), workoutCalculation);
 
       await dailyRepository.persistDailyScore(
         facts,
@@ -377,24 +426,19 @@ export function resolveDailySteps(
   stravaActivities: ActivityFact[],
   garminSteps: number | null,
   snapshotFacts: Json | null,
+  connect?: { steps: number; sourceVersionId: string; retainedAt: string; latestAttemptAt: string; latestAttemptState: string },
 ): DailyStepsCalculation {
   const previousSource = snapshotStepsSource(snapshotFacts);
   const manualSteps = activitySteps(manualActivities);
   if (manualSteps > 0) return { source: 'manual', resolvedSteps: manualSteps };
 
-  const importedSteps = activitySteps(sourceActivities.filter((activity) =>
-    activity.source !== 'garmin' && activity.source !== 'strava'));
-  if (importedSteps > 0 && previousSource !== 'none') return { source: 'imported', resolvedSteps: importedSteps };
-
   const storedSteps = daily ? number(daily.steps) : 0;
-  if (storedSteps > 0 && previousSource !== 'garmin_adjusted') {
-    return { source: 'stored', resolvedSteps: storedSteps };
-  }
-
-  if (garminSteps !== null) {
-    const deduction = deductRunningSteps(garminSteps, stravaActivities);
+  if (connect || garminSteps !== null) {
+    const deduction = deductRunningSteps(connect?.steps ?? garminSteps!, stravaActivities);
     return {
-      source: 'garmin_adjusted',
+      source: 'garmin_adjusted', garminSource: connect ? 'connect' : 'csv',
+      ...(connect ? { sourceVersionId: connect.sourceVersionId, retainedAt: connect.retainedAt,
+        latestAttemptAt: connect.latestAttemptAt, latestAttemptState: connect.latestAttemptState } : {}),
       resolvedSteps: deduction.nonRunningSteps,
       garminTotalSteps: deduction.garminTotalSteps,
       estimatedRunningSteps: deduction.estimatedRunningSteps,
@@ -402,6 +446,8 @@ export function resolveDailySteps(
       unestimatedRunCount: deduction.unestimatedRunCount,
     };
   }
+  const importedSteps = activitySteps(sourceActivities.filter(activity => activity.source !== 'garmin' && activity.source !== 'strava'));
+  if (importedSteps > 0 && previousSource !== 'none') return { source: 'imported', resolvedSteps: importedSteps };
 
   return { source: storedSteps > 0 ? 'stored' : 'none', resolvedSteps: storedSteps };
 }
@@ -416,6 +462,14 @@ export function attachStepsCalculation<T extends { ledger: Array<{ ruleCode?: st
       ? { ...entry, calculationJson: { ...entry.calculationJson, stepsCalculation: calculation } }
       : entry),
   };
+}
+
+export function attachWorkoutCalculation<T extends { ledger: Array<{ calculationJson: Record<string, unknown> }> }>(
+  score: T, calculation: DailyWorkoutCalculation,
+): T {
+  return { ...score, ledger: score.ledger.map(entry => entry.calculationJson.activityType === 'workout'
+    && entry.calculationJson.classification === 'base'
+    ? { ...entry, calculationJson: { ...entry.calculationJson, workoutCalculation: calculation } } : entry) };
 }
 
 function activitySteps(activities: ActivityFact[]): number {

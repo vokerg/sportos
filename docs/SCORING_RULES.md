@@ -53,7 +53,7 @@ The daily workbook may provide cached formula columns `Run to S`, `Bike to S`, `
 
 Confirmed run and bike subtype coefficients are application scoring semantics, not importer-only behavior. Once a canonical activity or daily fact split identifies treadmill/outdoor running or indoor/outdoor cycling, the same coefficient is used for workbook calculation, explicit Strava recalculation, rule recomputation, and manual daily facts. Unknown subtypes retain the configured generic rule coefficient. Ledger calculation metadata records both the configured fallback and the applied subtype coefficient.
 
-Explicit recalculation is a merge of compatible authorities rather than wholesale replacement. Canonical source activities refresh run, bike, and swim measurements. Stored steps and workout points are retained because Strava does not author those facts. A manual bonus override is discarded so active achievement rules become the sole bonus authority again. A saved manual distance remains when no canonical source activity exists for that activity type.
+Explicit recalculation is a merge of compatible authorities rather than wholesale replacement. Canonical source activities refresh run, bike, and swim measurements. Steps and workout points resolve from manual overrides, retained Garmin evidence and conservative stored/imported fallbacks, as described below. A manual bonus override is discarded so active achievement rules become the sole bonus authority again. A saved manual distance remains when no canonical source activity exists for that activity type.
 
 A component comparison is:
 
@@ -106,11 +106,10 @@ remain available as reconciliation evidence.
 
 Rows without `All` continue to use the deterministic rules above. Strava sync
 does not recalculate existing rows. `POST /daily/:date/recalculate` is the
-explicit transition to a calculated row: it requires Strava activity, uses all
+explicit transition to a calculated row: it accepts an existing daily row or canonical Strava/exact Garmin step evidence, uses all
 canonical activities for an existing row (or Strava activities only when no
 daily row exists), clears `All` from the scoring input, and persists a normal
-base/bonus ledger. A missing Strava activity produces a bounded conflict and
-leaves the current score unchanged.
+base/bonus ledger. Without any existing daily row or usable source evidence, it returns a bounded conflict and leaves scores unchanged.
 
 Every score write appends an immutable score snapshot before replacing the
 current daily row and live ledger. Migration V112 preserves the pre-change
@@ -163,3 +162,73 @@ The following items remain intentionally unresolved until permitted source evide
 - whether spreadsheet `All` includes any SportOS achievement bonuses.
 
 A future rule change must use a new effective period or versioned rule rather than silently tuning current values to reduce deltas.
+
+## Retained Garmin recalculation (#108)
+
+Explicit `POST /daily/:date/recalculate` uses retained primary projections only.
+It never contacts Garmin, invokes the helper, reads token stores or queries the
+separate detail database. Fetch/View/Refresh remains an independent evidence
+workflow and does not change official scores.
+
+Step precedence is positive manual steps, exact retained Connect summary, exact
+CSV `daily_summary`, imported/stored fallback, then zero. A manual zero unlocks
+provider resolution. Garmin all-day steps are reduced by the existing canonical
+Strava run deduction (normalized Strava cadence, then bounded pace fallback),
+clamped at zero. Snapshots and the step ledger record Connect/CSV origin, retained
+version and timestamp, latest attempt state, total/deducted/resolved steps,
+per-run cadence estimates and unestimated runs. A failed later Connect attempt
+can still use the prior retained successful summary.
+
+Workout precedence is positive manual points, complete linked Garmin strength
+sets, imported/stored fallback, then zero. A manual zero unlocks Garmin. Policy
+v1 uses `Math.round(sum(workingSets) * 1000 / 3)` once across unique linked
+identities for the day: 1/2/3/4/6 sets yield 333/667/1000/1333/2000 points.
+Snapshots and workout ledger metadata retain the exact rate, set count, policy,
+rounded result and per-activity immutable source-version references. The
+source-neutral `workout.points` rule converts resolved `effort_points` 1:1;
+V126 disables prior enabled `workout.manual` versions and creates replacement
+UUIDs without rewriting historical ledgers, snapshots or current scores.
+
+The bounded Connect `exerciseSets` wrapper and explicit `setType` are the only
+classification inputs. Policy fixtures cover ACTIVE/WORK/PERFORMED as working,
+REST/RECOVERY as rest, WARMUP/WARM_UP as warm-up. Missing/unknown types are retained
+as unknown and make the summary incomplete. Reps, weight, duration and exercise
+labels never imply performance. Missing reps/weight does not invalidate an
+explicit working set. Optional `exerciseName` labels produce bounded per-exercise
+counts; unlabeled exercises have no invented identity. At most 2,000 entries and
+100 labels are projected; oversized or missing/null/empty lists are incomplete.
+Live strength evidence subsequently confirmed the ACTIVE/REST mapping. Other
+provider/device variants remain subject to this fail-closed policy; additional
+working/warm-up aliases are covered by sanitized policy fixtures.
+
+V126 `garmin_strength_summaries` is immutable, owner-scoped and keyed by Garmin
+identity/content version/policy, with same-owner version foreign keys and forced
+RLS. Full JSON stays in auxiliary resources. Retention publishes raw/detail first,
+then identity/version and compact strength evidence atomically in primary.
+Current source hashes select summaries; later reconciliation exposes them through
+the existing link without refetching. Explicit cached Fetch can materialize
+pre-V126 retained resources; the local-only `pnpm garmin:project-strength --
+YYYY-MM-DD` command does the same for a bounded retained day without score writes
+or provider access (requires built packages).
+
+Unknown set classification, visibly partial discovery/extraction, an unlinked
+workout, a missing current summary, or another recorded Strava workout without
+linked evidence preserves prior workout points with an explanation. No retained
+strength session is never proof of zero. Garmin-only/ambiguous workouts never
+contribute; multiple uniquely linked complete sessions contribute once each.
+Garmin enrichment does not overwrite canonical distance/duration/type/source.
+Weight, sleep, HR/HRV, stress, Body Battery and calories remain non-scoring.
+
+Explicitly typed Garmin walking is excluded from activity extraction, matching
+candidates, coverage cards and workout completeness warnings. Its original day
+resource remains inspectable and its steps remain in the all-day total.
+A fully discovered day whose only
+failed extraction is explicitly typed walking can repair its coverage from the
+retained original JSON on explicit Fetch, without contacting Garmin. Unknown
+activity types, partial discovery and actual workout extraction failures remain
+blocking. Walking is never converted into strength points or a canonical activity.
+After repairing old coverage, explicit Recalculate appends a current snapshot
+without the previous walking-related warning; historical snapshots are preserved.
+The live gym payload confirmed ACTIVE and REST; exercise labels are supplied in
+Garmin's exercises array, so unlabeled v1 summaries do not invent exercise names.
+See ADR 0010 for sport-aware matching policy v2 and immutable manual review.

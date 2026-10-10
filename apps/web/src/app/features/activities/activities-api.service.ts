@@ -27,6 +27,9 @@ export interface Activity {
   notes: string | null;
 }
 export interface ActivityDetail extends Activity {
+  garminStrength?: { workingSets: number; totalRecordedSets: number; warmupSets: number; restMarkers: number;
+    unknownSets: number; exerciseCount: number; complete: boolean; policyVersion: number; sourceUpdatedAt: string;
+    exercises: Array<{name: string; workingSets: number}> } | null;
   garmin?: { provider: 'garmin'; identityId: string; providerActivityId: string | null; status: string } | null;
   provenance: { sourceRecordId: string | null; sourceRecordSource: string | null };
   providerDetail: { provider: 'strava'; providerActivityId: string } | null;

@@ -147,3 +147,44 @@ and foreign-owner denial. Existing provider-worker and activity-detail regressio
 remain required. One live user-initiated login, strict targeted FIT extraction, resource retention,
 cache reuse and unique Strava link passed. Broader MFA/expiry/rate-limit/device
 coverage and full archive performance remain separate acceptance work.
+
+## Matching policy v2 (#108 maintainer follow-up)
+
+New decisions record policy 2; V127 permits both policy versions in the immutable
+audit. Existing links and explicit rejected decisions never change automatically.
+Explicit cached Fetch can re-evaluate one pending retained identity under v2
+without downloading or rewriting canonical facts. No background rematching is
+introduced.
+
+Explicitly typed walking is excluded before day extraction and targeted discovery
+matching. It produces no linking candidate, coverage card or workout completeness
+warning. Original day evidence and all-day steps remain retained; unknown types
+and actual workout failures retain the conservative failure policy. See
+[day coverage and older retained-data repair](../GARMIN_DAY_FETCH.md#explicit-recalculation).
+
+All sports continue to require same sport, compatible indoor/outdoor subtype,
+positive comparable elapsed duration, bounded UTC start difference and exactly
+one plausible candidate (including weak competitors). Missing metrics do not
+supply agreement. Date equality, candidate ordering and closest distance are
+never identity criteria.
+
+For workout/gym, identical explicit subtype, start within two seconds and elapsed
+within two seconds corroborate provider rounding/truncation. Garmin active lifting
+time is not comparable to Strava's workout moving time; that difference is
+recorded as a policy reason rather than a contradiction. Comparable nonzero
+conflicting distances still block matching. This handles the observed fractional
+Garmin elapsed duration versus integer Strava elapsed duration without widening
+the workout window to general duration percentages.
+
+Run/bike/swim/rowing/SUP retain the 15-second strong start window, elapsed and
+moving tolerance of max(5 seconds, 1%), and distance tolerance of 5% with a
+sport-specific floor: 200 m for run/bike, 25 m for indoor swim, 100 m for outdoor
+swim/rowing/SUP. Indoor no-GPS matches require identical known subtype and
+compatible elapsed plus moving durations. Pool distance disagreement above one
+25 m length no longer inherits the generic 200 m floor. These are conservative
+versioned policy limits, not claimed provider accuracy guarantees.
+
+One live gym source confirmed ACTIVE/REST setType fields and incomparable
+moving durations. Tests cover every supported sport, fractional precision,
+short swims, zero/missing duration, unknown subtype, DST, conflicting metrics,
+competing candidates, rejected decisions and immutable existing links.

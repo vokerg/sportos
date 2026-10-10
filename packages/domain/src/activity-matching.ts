@@ -16,16 +16,17 @@ export interface ActivityMatchEvidence {
   reasons: string[];
 }
 export interface ActivityMatchResult {
-  policyVersion: 1;
+  policyVersion: 1 | 2;
   status: 'exact' | 'strong_unique' | 'ambiguous' | 'unmatched';
   activityId: string | null;
   candidates: ActivityMatchEvidence[];
 }
 
 export const GARMIN_MATCH_POLICY = Object.freeze({
-  version: 1, candidateStartS: 120, strongStartS: 15,
+  version: 2, candidateStartS: 120, strongStartS: 15,
   durationFloorS: 5, durationFraction: 0.01,
   distanceFloorM: 200, distanceFraction: 0.05,
+  workoutStartS: 2, workoutElapsedS: 2,
 });
 
 export function validateActivityMatchSummary(summary: ActivityMatchSummary): void {
@@ -58,20 +59,34 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
     // moving to moving: pauses must not masquerade as cross-provider agreement.
     const elapsed = compare(summary.elapsedTimeS, candidate.elapsedTimeS, 5, 0.01);
     const moving = compare(summary.movingTimeS, candidate.movingTimeS, 5, 0.01);
-    const distance = compare(summary.distanceM, candidate.distanceM, 200, 0.05);
+    // A fixed 200 m floor is too permissive for short pool swims. Distance
+    // corroboration uses the sport's recorded unit, independent of source.
+    const distanceFloor = summary.activityType === 'swim' ? (summary.subtype === 'indoor' ? 25 : 100)
+      : summary.activityType === 'rowing' || summary.activityType === 'sup' ? 100 : GARMIN_MATCH_POLICY.distanceFloorM;
+    const distance = compare(summary.distanceM, candidate.distanceM, distanceFloor, GARMIN_MATCH_POLICY.distanceFraction);
+    const workout = summary.activityType === 'workout';
     const reasons = [`START_DELTA_${Math.round(startS)}S`];
     if (elapsed === 'close') reasons.push('ELAPSED_COMPATIBLE');
-    if (moving === 'close') reasons.push('MOVING_COMPATIBLE');
+    if (workout) reasons.push('WORKOUT_ACTIVE_TIME_NOT_COMPARABLE');
+    else if (moving === 'close') reasons.push('MOVING_COMPATIBLE');
     if (distance === 'close') reasons.push('DISTANCE_COMPATIBLE');
-    if (elapsed === 'conflict' || moving === 'conflict' || distance === 'conflict') reasons.push('METRIC_CONFLICT');
-    const exact = startS === 0 && elapsed === 'close' && summary.elapsedTimeS === candidate.elapsedTimeS
+    if (elapsed === 'conflict' || (!workout && moving === 'conflict') || distance === 'conflict') reasons.push('METRIC_CONFLICT');
+    const exact = summary.elapsedTimeS !== null && summary.elapsedTimeS > 0 && startS === 0 && elapsed === 'close' && summary.elapsedTimeS === candidate.elapsedTimeS
       && summary.subtype === candidate.subtype && summary.subtype !== 'unknown'
       && summary.movingTimeS === candidate.movingTimeS && summary.distanceM === candidate.distanceM;
     const explicitSubtype = summary.subtype !== 'unknown' && candidate.subtype !== 'unknown';
-    const strong = summary.activityType !== 'workout' && startS <= GARMIN_MATCH_POLICY.strongStartS
+    const workoutCorroborated = workout && explicitSubtype && summary.subtype === candidate.subtype
+      && startS <= GARMIN_MATCH_POLICY.workoutStartS
+      && summary.elapsedTimeS !== null && candidate.elapsedTimeS !== null
+      && summary.elapsedTimeS > 0 && candidate.elapsedTimeS > 0
+      && Math.abs(summary.elapsedTimeS - candidate.elapsedTimeS) <= GARMIN_MATCH_POLICY.workoutElapsedS
+      && distance !== 'conflict';
+    if (workoutCorroborated) reasons.push('WORKOUT_START_AND_ELAPSED_CORROBORATED');
+    const strong = workoutCorroborated || (!workout && startS <= GARMIN_MATCH_POLICY.strongStartS
+      && summary.elapsedTimeS !== null && summary.elapsedTimeS > 0 && candidate.elapsedTimeS !== null && candidate.elapsedTimeS > 0
       && elapsed === 'close' && moving !== 'conflict' && distance !== 'conflict'
       && ((distance === 'close' && Math.max(summary.distanceM!, candidate.distanceM!) > 0)
-        || (explicitSubtype && moving === 'close'));
+        || (explicitSubtype && summary.subtype === candidate.subtype && moving === 'close')));
     evidence.push({ activityId: candidate.id, confidence: exact ? 'exact' : strong ? 'strong' : 'weak', reasons });
   }
   evidence.sort((a, b) => a.activityId.localeCompare(b.activityId));
@@ -80,7 +95,7 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
   const only = evidence.length === 1 ? evidence[0]! : null;
   const status = only?.confidence === 'exact' ? 'exact' : only?.confidence === 'strong' ? 'strong_unique'
     : evidence.length ? 'ambiguous' : 'unmatched';
-  return { policyVersion: 1, status, activityId: status === 'exact' || status === 'strong_unique' ? only!.activityId : null, candidates: evidence };
+  return { policyVersion: 2, status, activityId: status === 'exact' || status === 'strong_unique' ? only!.activityId : null, candidates: evidence };
 }
 
 function compare(a: number | null, b: number | null, floor: number, fraction: number): 'missing' | 'close' | 'conflict' {

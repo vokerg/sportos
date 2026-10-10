@@ -17,7 +17,7 @@ export interface GarminActivityVersionsTable {
 }
 export interface GarminReconciliationAuditTable {
   id: Generated<string>; owner_id: OwnerId; identity_id: string; activity_id: string | null;
-  action: 'auto_link' | 'manual_link' | 'reject' | 'reopen'; policy_version: 1;
+  action: 'auto_link' | 'manual_link' | 'reject' | 'reopen'; policy_version: 1 | 2;
   evidence_json: Json; created_at: GeneratedTimestamp;
 }
 
@@ -26,4 +26,10 @@ export interface GarminActivityResourcesTable {
   id: Generated<string>; owner_id: OwnerId; identity_key: string; source_hash: string;
   resource_type: 'detail' | 'sets' | 'laps' | 'records' | 'fit_manifest';
   chunk_index: number; resource_hash: string; payload_json: Json; created_at: GeneratedTimestamp;
+}
+export interface GarminStrengthSummariesTable {
+  owner_id: OwnerId; identity_id: string; content_hash: string; version_id: string;
+  policy_version: 1; total_recorded_sets: number; working_sets: number;
+  warmup_sets: number; rest_markers: number; unknown_sets: number;
+  exercise_count: number; exercises_json: Json; complete: boolean; derived_at: GeneratedTimestamp;
 }

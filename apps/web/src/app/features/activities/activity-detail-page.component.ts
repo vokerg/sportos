@@ -20,6 +20,19 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
       <div class="metric-sections">@for (group of metricGroups(item); track group.title) {
         <section class="card"><h2>{{ group.title }}</h2><dl class="metrics">@for (metric of group.items; track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl></section>
       }</div>
+      @if (item.garminStrength; as strength) {
+        <section class="card" aria-label="Garmin strength summary"><h2>Garmin strength sets</h2>
+          <dl class="metrics"><div><dt>Working sets</dt><dd>{{ strength.workingSets }}</dd></div>
+            <div><dt>Recorded set entries</dt><dd>{{ strength.totalRecordedSets }}</dd></div>
+            <div><dt>Exercises with labels</dt><dd>{{ strength.exerciseCount }}</dd></div>
+            <div><dt>Warm-up sets</dt><dd>{{ strength.warmupSets }}</dd></div>
+            <div><dt>Rest markers</dt><dd>{{ strength.restMarkers }}</dd></div>
+            <div><dt>Unknown sets</dt><dd>{{ strength.unknownSets }}</dd></div></dl>
+          <p>Policy v{{ strength.policyVersion }} · source updated {{ strength.sourceUpdatedAt }}</p>
+          @if (!strength.complete) { <p>Incomplete set classification. Existing workout points are preserved during recalculation.</p> }
+          @for (exercise of strength.exercises; track exercise.name) { <p>{{ exercise.name }} · {{ exercise.workingSets }} working sets</p> }
+        </section>
+      }
       @if (item.notes && item.source !== 'strava') { <section class="card notes-card"><h2>Notes</h2><p class="notes">{{ item.notes }}</p></section> }
       <section class="card provider-detail" aria-label="Provider data">
         <h2>Provider data</h2>
@@ -50,6 +63,7 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
         @if (store.coverage() && !store.coverage()?.garmin?.fetchEnabled) { <p>New Garmin downloads require the local desktop helper. Retained Garmin data can still be viewed.</p> }
         @if (store.garminState() === 'loading') { <p role="status">Checking retained data and fetching only if needed…</p> }
         @if (store.garminState() === 'error' || store.garminState() === 'missing') { <p role="alert">{{ store.garminError() }}</p> }
+        @if (store.garminState() === 'loaded' && store.garminError()) { <p role="alert">{{ store.garminError() }}</p> }
         @if (store.garmin(); as garmin) {
           <p>Retained Garmin data · {{ garmin.retainedAt }} @if (garmin.cacheStatus) { · {{ garmin.cacheStatus === 'hit' ? 'cache hit' : 'fetched from Garmin' }} }</p>
           <h4>Garmin session and running dynamics</h4>

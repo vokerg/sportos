@@ -97,3 +97,12 @@ page opens. See [ADR 0010](adr/0010-garmin-activity-reconciliation.md) for the
 compact ingress/review contracts, match thresholds, versioned resource storage,
 reverse reconciliation and the single-activity extractor. The explicit controls
 above override the earlier activity-navigation Strava fetch behavior.
+
+## Compact strength evidence
+
+V126 adds an immutable primary strength summary for retained activity versions.
+Matched workout detail shows working sets, recorded entries, labeled exercises,
+warm-ups, rest and unknown counts alongside the separate original Garmin set
+disclosure. Explicit daily recalculation can use complete linked summaries;
+retention and page navigation never change scores. See
+[scoring source policy](SCORING_RULES.md#retained-garmin-recalculation-108).

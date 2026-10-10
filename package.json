@@ -26,7 +26,8 @@
     "garmin:setup": "node scripts/garmin-local.mjs setup",
     "garmin:login": "node scripts/garmin-local.mjs login",
     "garmin:activity": "node scripts/garmin-local.mjs activity",
-    "garmin:test": "node scripts/garmin-local.mjs test"
+    "garmin:test": "node scripts/garmin-local.mjs test",
+    "garmin:project-strength": "node scripts/garmin-project-strength.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

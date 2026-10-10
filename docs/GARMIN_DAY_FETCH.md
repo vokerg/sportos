@@ -86,7 +86,7 @@ attempts cannot replace a newer published attempt.
 
 Connect projections are deliberately separate from manual CSV
 `garmin_observations`, which keeps existing CSV step-resolution semantics intact.
-Fetching introduces no scoring source or strength-to-points policy.
+Fetching remains evidence-only. Explicit recalculation may consume retained Connect steps and complete strength projections under the #108 policy.
 
 Category states distinguish available, not recorded, unsupported, private,
 failed, authentication required and rate limited. A failed category retains its
@@ -157,7 +157,20 @@ the focused Garmin day/identity/resource integration files separately.
 
 #106 builds on #97, the targeted #99/#101 phases and retained detail concepts in
 #100. Historical archive #98, recurring sync, richer Run Lab analytics, canonical
-weight selection and Garmin-aware score recalculation remain separate follow-ups.
+weight selection remain separate follow-ups. Explicit retained-evidence recalculation is documented in SCORING_RULES.md.
 See also [CSV daily evidence](garmin-daily-backfill.md).
 
 Endpoint reference: [pinned SDK source](https://github.com/cyberjunky/python-garminconnect/blob/0.3.17/garminconnect/__init__.py).
+
+## Explicit recalculation
+
+After retention, use the existing Recalculate action to apply Connect steps and
+complete linked strength sets. Fetch alone never recalculates. See
+[authority, classification and fallback policy](SCORING_RULES.md#retained-garmin-recalculation-108).
+
+Walking is excluded from activity extraction, matching candidates, coverage
+cards and workout completeness warnings. Its steps remain part of the retained
+all-day total. Original bounded discovery evidence remains available in the
+advanced resource; no walking canonical activity or link is created. Explicit
+Fetch can repair older walking-only failures using retained data, and normal
+Recalculate replaces a previously saved misleading workout explanation.

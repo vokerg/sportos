@@ -8,6 +8,16 @@ from fetch_day import fetch_day, day_activities, calendar_date
 from extract_activity import ExtractionError, read_json
 
 class DayTests(unittest.TestCase):
+    def test_walking_never_enters_linking_or_selected_activity_limit(self):
+        walks = [{'activityType': {'typeKey': 'walking'}} for _ in range(25)]
+        strength = {'activityId': 123, 'startTimeLocal': '2026-03-29 10:00:00', 'activityType': {'typeKey': 'strength_training'}}
+        result = day_activities(self.client(connectapi=lambda *a, **kw: walks + [strength]), dt.date(2026, 3, 29))
+        self.assertTrue(result['complete'])
+        self.assertEqual(result['items'], [strength])
+        self.assertEqual(len(result['ignoredItems']), 25)
+        self.assertEqual(result['unresolvedItems'], [])
+        self.assertEqual(result['deferredItems'], [])
+
     def client(self, **changes):
         values = {
             'get_user_summary': lambda date: {'calendarDate': date, 'totalSteps': 12345, 'totalDistanceMeters': 8000, 'totalKilocalories': 2400},

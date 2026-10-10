@@ -308,5 +308,42 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
   Preserve immutable versions and successful categories on partial failures.
 - `features/daily/state/garmin-day.store.ts` scopes request cancellation and repeated
   click protection to the card/date. Raw category resources load only explicitly.
-- Fetch/Refresh writes no canonical facts, scores, ledger or snapshots. No canonical
-  weight selection or strength-to-workout-points policy. See `docs/GARMIN_DAY_FETCH.md`.
+- Fetch/Refresh writes no canonical facts, scores, ledger or snapshots. Canonical
+  weight selection remains out of scope; explicit scoring is owned by #108 below.
+  See `docs/GARMIN_DAY_FETCH.md`.
+
+### Retained Garmin recalculation (#108)
+
+- `POST /daily/:date/recalculate` reads retained primary projections only; never
+  contact Garmin, invoke the helper or query the detail database during scoring.
+  Fetch/Refresh and source inspection remain evidence-only actions.
+- Primary V126 adds immutable owner-scoped `garmin_strength_summaries` and
+  source-neutral `workout.points` rule versions. Preserve historical ledgers,
+  snapshots and rule UUIDs. Full set JSON remains in the detail database.
+- Steps resolve positive manual override, retained Connect summary, exact CSV
+  daily summary, stored/imported fallback, then zero; preserve the canonical run
+  step deduction. Workout points resolve positive manual override, complete
+  uniquely linked current strength summaries, stored/imported fallback, then zero.
+  Manual zero unlocks provider resolution. Unknown, partial or unlinked workout
+  evidence preserves previous workout points with an explanation.
+- `packages/domain/src/garmin-strength.ts` owns explicit set classification and
+  once-per-day rounding: `Math.round(totalWorkingSets * 1000 / 3)`. Never infer
+  working sets from reps, weight, duration or exercise labels. See
+  `docs/SCORING_RULES.md#retained-garmin-recalculation-108` for bounds and provenance.
+- Matching policy v2 lives in `packages/domain/src/activity-matching.ts`; V127
+  allows both immutable audit versions. Use sport-specific start/duration/distance
+  criteria from ADR 0010, including corrected run distances and incomparable gym
+  moving time. Never choose the nearest candidate or guess through ambiguity.
+  Explicit cached Fetch may reconsider pending identities; existing links and
+  rejected decisions never change automatically. Preserve canonical Strava facts.
+- Explicitly typed walking is excluded from extraction, matching candidates,
+  activity cards and workout completeness warnings. Keep its original day resource
+  and all-day steps. Unknown types and actual workout failures still fail closed.
+  Older walking-only failures can be repaired from retained data via explicit
+  cached Fetch; Recalculate then appends a snapshot without the old warning.
+- Retained day categories are visible on reopening without downloading. Cached
+  Fetch can project pre-V126 strength resources without network access; the
+  bounded local `pnpm garmin:project-strength -- YYYY-MM-DD` command also projects
+  retained evidence without score writes. See `docs/GARMIN_SINGLE_ACTIVITY.md`.
+- Implementation and validation history is in `docs/implementation/issue-108.md`.
+  Work is on draft PR #109; do not treat it as merged or close the issue early.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projectGarminDay, publicGarminPayload, hasGarminDayEvidence } from './garmin-day-projection.js';
+import { projectGarminDay, publicGarminPayload, hasGarminDayEvidence, nonScoringGarminDayIdentities } from './garmin-day-projection.js';
 const date='2026-03-29';
 describe('Garmin day projection', () => {
   it('preserves exact day totals and missing fields', () => {
@@ -28,4 +28,9 @@ describe('Garmin day projection', () => {
     const value=publicGarminPayload({userProfileId:1,displayName:'private',password:'private',nested:{token:'private',filePath:'private',objectKey:'private',owner_id:'private',totalSteps:5}});
     expect(value).toEqual({nested:{totalSteps:5}});
   });
+});
+
+it('excludes only explicit walking from strength-required extraction, retaining unknown and strength types',()=>{
+  expect(nonScoringGarminDayIdentities({items:[{activityId:'1',activityType:{typeKey:'walking'}},{activityId:'2',activityType:{typeKey:'strength_training'}},{activityId:'3',activityType:{typeKey:'unknown'}}]})).toEqual(['native:1']);
+  expect(nonScoringGarminDayIdentities(null)).toEqual([]);
 });

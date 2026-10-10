@@ -204,18 +204,17 @@ export class DailyRepository {
   }
 
   async getGarminDailySteps(metricDate: string): Promise<number | null> {
-    const row = await this.db
-      .selectFrom('garmin_observations')
-      .select('values_json')
-      .where('report_type', '=', 'daily_summary')
-      .where('recorded_date', '=', metricDate)
-      .executeTakeFirst();
+    return (await this.getGarminDailyStepEvidence(metricDate))?.steps ?? null;
+  }
+
+  async getGarminDailyStepEvidence(metricDate: string) {
+    const row = await this.db.selectFrom('garmin_observations')
+      .select(['id', 'values_json', 'current_source_record_id', 'updated_at'])
+      .where('report_type', '=', 'daily_summary').where('recorded_date', '=', metricDate).executeTakeFirst();
     if (!row) return null;
     const steps = jsonRecord(row.values_json).steps;
-    if (typeof steps !== 'number' || !Number.isSafeInteger(steps) || steps < 0) {
-      throw new Error(`Garmin daily steps are invalid for ${metricDate}.`);
-    }
-    return steps;
+    if (typeof steps !== 'number' || !Number.isSafeInteger(steps) || steps < 0) throw new Error(`Garmin daily steps are invalid for ${metricDate}.`);
+    return { steps, garminObservationId: row.id, sourceRecordId: row.current_source_record_id, retainedAt: row.updated_at.toISOString() };
   }
 
   async upsertDailyMetric(
@@ -619,6 +618,7 @@ export function assembleDailyScoreBreakdown(
   ]);
   const ledgerTotal = ledger.reduce((sum, entry) => sum + entry.points, 0);
   const stepsCalculation = stepsCalculationFromSnapshot(header.snapshotFacts);
+  const workoutCalculation = workoutCalculationFromSnapshot(header.snapshotFacts);
   return {
     date: toIsoDate(header.date),
     recomputedAt: toIsoTimestamp(header.recomputedAt),
@@ -626,6 +626,7 @@ export function assembleDailyScoreBreakdown(
     facts: {
       steps: databaseNumber(header.steps, 'daily steps'),
       ...(stepsCalculation ? { stepsCalculation } : {}),
+      ...(workoutCalculation ? { workoutCalculation } : {}),
       runM: databaseNumber(header.runM, 'daily run distance'),
       bikeM: databaseNumber(header.bikeM, 'daily bike distance'),
       swimM: databaseNumber(header.swimM, 'daily swim distance'),
@@ -950,6 +951,13 @@ export function stepsCalculationFromSnapshot(value: Json | null | undefined): Da
 
   return {
     source: candidate.source as DailyStepsCalculation['source'],
+    ...(candidate.garminSource === 'connect' || candidate.garminSource === 'csv' ? { garminSource: candidate.garminSource } : {}),
+    ...(typeof candidate.garminObservationId === 'string' ? { garminObservationId: candidate.garminObservationId } : {}),
+    ...(typeof candidate.sourceRecordId === 'string' ? { sourceRecordId: candidate.sourceRecordId } : {}),
+    ...(typeof candidate.sourceVersionId === 'string' ? { sourceVersionId: candidate.sourceVersionId } : {}),
+    ...(typeof candidate.retainedAt === 'string' ? { retainedAt: candidate.retainedAt } : {}),
+    ...(typeof candidate.latestAttemptAt === 'string' ? { latestAttemptAt: candidate.latestAttemptAt } : {}),
+    ...(typeof candidate.latestAttemptState === 'string' ? { latestAttemptState: candidate.latestAttemptState } : {}),
     resolvedSteps: candidate.resolvedSteps,
     ...(typeof candidate.totalSteps === 'number' ? { totalSteps: finiteSnapshotNumber(candidate.totalSteps) } : {}),
     ...(typeof candidate.garminTotalSteps === 'number' ? { garminTotalSteps: finiteSnapshotNumber(candidate.garminTotalSteps) } : {}),
@@ -971,4 +979,22 @@ function jsonValue(value: unknown): Json {
   const serialized = JSON.stringify(value);
   if (serialized === undefined) return null;
   return JSON.parse(serialized) as Json;
+}
+
+export function workoutCalculationFromSnapshot(value: Json | null | undefined): import('../repository-contracts.js').DailyWorkoutCalculation | null {
+  const candidate = jsonRecord(jsonRecord(value ?? null).workoutCalculation as Json | null);
+  if (!['manual','garmin_sets','imported','stored','none'].includes(String(candidate.source))
+    || !Number.isSafeInteger(candidate.resolvedPoints) || Number(candidate.resolvedPoints) < 0) return null;
+  const activities = Array.isArray(candidate.activities) ? candidate.activities.flatMap(raw => {
+    const row = jsonRecord(raw as Json);
+    if (typeof row.activityId !== 'string' || typeof row.identityId !== 'string' || typeof row.sourceVersionId !== 'string'
+      || typeof row.sourceUpdatedAt !== 'string' || typeof row.derivedAt !== 'string' || !Number.isSafeInteger(row.workingSets) || Number(row.workingSets) < 0) return [];
+    return [{activityId: row.activityId, identityId: row.identityId, sourceVersionId: row.sourceVersionId,
+      sourceUpdatedAt: row.sourceUpdatedAt, derivedAt: row.derivedAt, workingSets: Number(row.workingSets)}];
+  }).slice(0,20) : undefined;
+  return { source: candidate.source as import('../repository-contracts.js').DailyWorkoutCalculation['source'], resolvedPoints: Number(candidate.resolvedPoints),
+    ...(candidate.policyVersion === 1 ? { policyVersion: 1 as const } : {}),
+    ...(candidate.pointsPerThreeSets === 1000 ? { pointsPerThreeSets: 1000 as const } : {}),
+    ...(Number.isSafeInteger(candidate.workingSets) && Number(candidate.workingSets) >= 0 ? { workingSets: Number(candidate.workingSets) } : {}),
+    ...(activities ? { activities } : {}), ...(typeof candidate.incompleteReason === 'string' ? { incompleteReason: candidate.incompleteReason.slice(0,300) } : {}) };
 }

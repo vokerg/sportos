@@ -17,7 +17,7 @@ export class GarminDayStore implements OnDestroy {
     this.cancel(); this.date = date; this.data.set(null); this.loading.set(true); this.fetching.set(false);
     this.error.set(''); this.expanded.set(false); this.resourceJson.set(null); this.resourceError.set(''); this.resourceLoading.set(false);
     const generation = this.generation;
-    this.request = this.api.read(date).subscribe({ next: data => { if (generation === this.generation) { this.data.set(data); this.loading.set(false); } },
+    this.request = this.api.read(date).subscribe({ next: data => { if (generation === this.generation) { this.data.set(data); this.expanded.set(data.categories.some(category => Boolean(category.retainedAt))); this.loading.set(false); } },
       error: () => { if (generation === this.generation) { this.loading.set(false); this.error.set('Could not read retained Garmin day evidence. Retry loading.'); } } });
   }
   view() { this.expanded.set(!this.expanded()); }

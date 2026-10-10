@@ -169,6 +169,13 @@ The maintainer-prioritized day workflow adds explicit Fetch/View/Refresh, immuta
 auxiliary payloads before compact Connect projections, independent partial retries,
 multiple body measurements and existing activity reconciliation. Primary V125 and
 detail V003 are required. Focused/offline/non-owner and selected live-day evidence
-passed; official rows are unchanged. Delivery remains draft until PR #107 is merged.
+passed; official rows are unchanged. PR #107 is merged.
 See [operation and limitations](GARMIN_DAY_FETCH.md). Garmin-aware recalculation,
 archive and recurring synchronization remain separate work.
+
+## Enriched explicit recalculation (#108)
+
+Implementation on PR #109 extends explicit recalculation with retained Connect
+steps and compact strength summaries. No Garmin network call occurs during
+scoring. See SCORING_RULES.md and implementation/issue-108.md for policy and
+validation; the queue item remains open until merge.

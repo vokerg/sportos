@@ -1,8 +1,8 @@
 import { scoreDay, type ActivityFact, type RuleChangePreview, type RulePreviewDay, type RuleProposal, type ScoringRule } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Activity, Database, Json, ScoringRuleChange, ScoringRuleRow } from '../schema.js';
-import { DailyRepository, stepsCalculationFromSnapshot } from './daily.repository.js';
-import { attachStepsCalculation } from './daily-scoring.repository.js';
+import { DailyRepository, stepsCalculationFromSnapshot, workoutCalculationFromSnapshot } from './daily.repository.js';
+import { attachWorkoutCalculation, attachStepsCalculation } from './daily-scoring.repository.js';
 
 export type RuleChangeStatus = ScoringRuleChange['status'];
 
@@ -466,6 +466,7 @@ export class RuleChangesRepository {
 
         const metricDate = dateString(row.metric_date);
         const stepsCalculation = stepsCalculationFromSnapshot(row.snapshotFacts);
+        const workoutCalculation = workoutCalculationFromSnapshot(row.snapshotFacts);
         const facts = {
           metricDate,
           steps: requiredNumber(row.steps),
@@ -475,6 +476,7 @@ export class RuleChangesRepository {
           workoutPoints: requiredNumber(row.workout_points),
           bonusPoints: snapshotBonusPoints(row.snapshotFacts),
           ...(stepsCalculation ? { stepsCalculation } : {}),
+          ...(workoutCalculation ? { workoutCalculation } : {}),
           ...(row.score_status === 'manual' ? manualSubtypeFacts(activitiesByDate.get(metricDate) ?? []) : {}),
           excelAllPoints: optionalNumber(row.excel_all_points),
           excelRowHash: row.excel_row_hash ?? undefined,
@@ -484,7 +486,8 @@ export class RuleChangesRepository {
           row.score_status === 'manual' ? [] : activitiesByDate.get(metricDate) ?? [],
           rules,
         );
-        const score = stepsCalculation ? attachStepsCalculation(calculatedScore, stepsCalculation) : calculatedScore;
+        const stepScore = stepsCalculation ? attachStepsCalculation(calculatedScore, stepsCalculation) : calculatedScore;
+        const score = workoutCalculation ? attachWorkoutCalculation(stepScore, workoutCalculation) : stepScore;
         await dailyRepository.persistDailyScore(
           facts,
           score,
