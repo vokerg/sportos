@@ -484,3 +484,12 @@ describe('scoreActivityWithRule', () => {
     expect(scoreActivityWithRule(activity, rule, '2026-02-01')).toBeNull();
   });
 });
+
+it('keeps walking outside aggregates and scores even with a supplied walk rule', () => {
+  const date='2026-01-01';
+  const walk={activityDate:date,activityType:'walk' as const,distanceM:5000,durationS:3000,steps:6000,effortPoints:9000};
+  const facts=aggregateActivitiesToDailyFacts(date,[walk]);
+  expect(facts).toMatchObject({steps:0,runM:0,bikeM:0,swimM:0,workoutPoints:0,bonusPoints:0});
+  const rule={code:'walk.test',name:'Walk',activityType:'walk' as const,ruleKind:'achievement' as const,metric:'distance_m',thresholdOperator:'gte' as const,thresholdValue:1,points:1000,validFrom:'1900-01-01',priority:1,enabled:true};
+  expect(scoreDay(facts,[walk],[rule])).toMatchObject({totalPoints:0,ledger:[]});
+});

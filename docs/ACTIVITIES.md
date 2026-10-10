@@ -10,6 +10,14 @@ Activities are the human-readable training history backed directly by the accoun
 - **Daily Log**: day-level facts, official scoring, ledger contributions, manual daily entry and provenance. Activities do not display or calculate day scores.
 - **Performance events and Run Lab**: separately imported running achievements and performance history. Run Lab keeps its existing data source and behavior; it is not derived from this Activities UI.
 
+## Walking history
+
+Strava Walk summaries are retained as type `walk`, with a Walk filter and normal
+activity/source/detail views. Explicit Garmin Fetch supports walking linkage.
+Walks contribute no activity points or performance events and are excluded from
+scored daily aggregates and workout completeness requirements. Garmin all-day
+steps remain unchanged. See [walking policy and backfill](WALKING_ACTIVITIES.md).
+
 ## Strava run data currently retained
 
 The Strava ingest path stores the activity date and start timestamp, provider identity, run subtype (such as treadmill, track, outdoor, or race), distance, elapsed and moving seconds, moving pace derived from moving time and distance, average speed, average and maximum heart rate, elevation gain, optional calories, and the Strava activity name in canonical `notes`. The Activities list and detail show these fields when present; run presentation uses pace rather than speed, while bike and other speed-based activities retain average speed. Detail groups time/distance, pace/terrain, and heart rate/energy, and derives stopped time only when elapsed time exceeds moving time. Durations use `m:ss` or `h:mm:ss` throughout the browser's activity readouts. Identical elapsed and moving times are not shown twice.

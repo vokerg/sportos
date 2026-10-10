@@ -14,7 +14,7 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Defined through V125; dedicated activity-detail V003 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Defined through V128; dedicated activity-detail V003 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped for XLSX and manual Garmin CSV staging | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
@@ -175,7 +175,13 @@ archive and recurring synchronization remain separate work.
 
 ## Enriched explicit recalculation (#108)
 
-Implementation on PR #109 extends explicit recalculation with retained Connect
+Merged PR #109 extends explicit recalculation with retained Connect
 steps and compact strength summaries. No Garmin network call occurs during
 scoring. See SCORING_RULES.md and implementation/issue-108.md for policy and
 validation; the queue item remains open until merge.
+
+## Non-scoring walking history (#110)
+
+Draft PR #111 retains Strava walks as Activities, supports conservative Garmin
+linkage and provides explicit retained-source backfill without changing scoring.
+See [walking operations](WALKING_ACTIVITIES.md) and implementation/issue-110.md.

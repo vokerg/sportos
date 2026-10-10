@@ -66,6 +66,8 @@ export interface ProviderWorkerAuthorization {
 }
 
 export interface ProviderActivitySnapshotInput {
+  /** Local retained walk replay: reuse source provenance and never overwrite a current link. */
+  retainedSourceRecordId?: string;
   batchId: string;
   connectionId: string;
   providerActivityId: string;
@@ -308,15 +310,42 @@ export class ProvidersRepository {
     await requireLease(this.db.updateTable('provider_sync_jobs').set({ status: 'cancelled', phase: 'cancelled', progress_percent: 100, lease_owner: null, lease_expires_at: null, heartbeat_at: new Date(), completed_at: new Date(), updated_at: new Date() }).where('id', '=', jobId).where('status', '=', 'running').where('lease_owner', '=', safeWorker(workerId)).returning('id').executeTakeFirst(), 'The worker cannot cancel after losing its lease.');
   }
 
+  /** Bounded, owner-scoped retained walks, newest observation first per native identity. */
+  async retainedWalkSources(limit = 10000) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 10000) throw new Error('Invalid retained walk limit.');
+    return this.db.selectFrom('source_records as s')
+      .innerJoin('import_batches as b', join => join.onRef('b.owner_id', '=', 's.owner_id').onRef('b.id', '=', 's.import_batch_id'))
+      .innerJoin('provider_connections as c', join => join.onRef('c.owner_id', '=', 'b.owner_id')
+        .on(sql<boolean>`c.id::text = b.metadata->>'connectionId'`).on('c.provider', '=', 'strava'))
+      .select(['s.id','s.import_batch_id','s.source_record_key','s.row_hash','s.raw_json','c.id as connection_id'])
+      .where('s.source', '=', 'strava_api').where('s.status', '=', 'skipped')
+      .where('s.normalized_entity_id', 'is', null)
+      .where(sql<boolean>`lower(coalesce(s.raw_json->>'sport_type', s.raw_json->>'type', '')) = 'walk'`)
+      .distinctOn(['c.id','s.source_record_key']).orderBy('c.id').orderBy('s.source_record_key')
+      .orderBy('s.created_at','desc').orderBy('s.id','desc').limit(limit + 1).execute();
+  }
+
   async ingestActivitySnapshot(input: ProviderActivitySnapshotInput): Promise<ProviderActivityIngestionResult> {
     return this.db.transaction().execute(async (tx) => {
       await lockActivityReconciliation(tx);
-      const source = await tx.insertInto('source_records').values({
+      const retained = input.retainedSourceRecordId ? await tx.selectFrom('source_records').selectAll()
+        .where('id', '=', input.retainedSourceRecordId).where('source', '=', 'strava_api')
+        .where('import_batch_id', '=', input.batchId).where('source_record_key', '=', input.providerActivityId)
+        .where('row_hash', '=', input.rawHash).executeTakeFirst() : null;
+      if (input.retainedSourceRecordId && (!retained || input.activity.activityType !== 'walk')) throw new Error('Invalid retained walk source.');
+      const source = retained ?? await tx.insertInto('source_records').values({
         import_batch_id: input.batchId, source: 'strava_api', sheet_name: null, row_index: null, source_record_key: input.providerActivityId,
         row_hash: input.rawHash, raw_json: input.raw, normalized_entity_type: null, normalized_entity_id: null, status: 'raw', errors: [], warnings: [],
       }).onConflict((oc) => oc.columns(['owner_id', 'import_batch_id', 'source_record_key', 'row_hash']).doUpdateSet({ raw_json: sql`excluded.raw_json` })).returningAll().executeTakeFirstOrThrow();
 
       const existingLink = await tx.selectFrom('provider_activity_links').selectAll().where('connection_id', '=', input.connectionId).where('provider_activity_id', '=', input.providerActivityId).executeTakeFirst();
+      if (input.retainedSourceRecordId && existingLink) {
+        await tx.updateTable('source_records').set({ normalized_entity_type: 'activity', normalized_entity_id: existingLink.activity_id,
+          status: 'normalized', warnings: sql`'[]'::jsonb` }).where('id', '=', source.id).execute();
+        await markRetainedWalkLineage(tx, input, existingLink.activity_id);
+        return {sourceRecordId: source.id, activityId: existingLink.activity_id, insertedActivity: false,
+          linkedExistingActivity: true, performanceEventWritten: false, warning: null};
+      }
       let activity: Activity | null = null;
       let insertedActivity = false;
       let linkedExistingActivity = false;
@@ -335,6 +364,15 @@ export class ProvidersRepository {
           .where('activity_type', '=', input.activity.activityType)
           .where('activity_date', '=', input.activity.activityDate)
           .where('start_time', '=', input.activity.startTime);
+        if (input.activity.activityType === 'walk') {
+          // Distinct native Strava walk IDs remain distinct even when metrics
+          // coincide; exact cross-source candidates also require elapsed/subtype.
+          candidateQuery = candidateQuery.where(eb => eb.or([
+            eb('source', '!=', 'strava'), eb('source_activity_id', '=', input.providerActivityId),
+          ])).where('subtype', '=', input.activity.subtype);
+          candidateQuery = input.activity.durationS === null ? candidateQuery.where('duration_s', 'is', null)
+            : candidateQuery.where('duration_s', '=', input.activity.durationS);
+        }
         candidateQuery = input.activity.distanceM === null ? candidateQuery.where('distance_m', 'is', null) : candidateQuery.where('distance_m', '=', input.activity.distanceM);
         candidateQuery = input.activity.movingTimeS === null ? candidateQuery.where('moving_time_s', 'is', null) : candidateQuery.where('moving_time_s', '=', input.activity.movingTimeS);
         const candidates = await candidateQuery.orderBy('id', 'asc').limit(2).execute();
@@ -354,7 +392,7 @@ export class ProvidersRepository {
       }
 
       if (warning) {
-        await tx.updateTable('source_records').set({ status: 'skipped', warnings: [{ code: warning, message: 'Multiple exact canonical activity candidates require explicit resolution.' }] }).where('id', '=', source.id).execute();
+        await tx.updateTable('source_records').set({ status: 'skipped', warnings: sql`${JSON.stringify([{ code: warning, message: 'Multiple exact canonical activity candidates require explicit resolution.' }])}::jsonb` }).where('id', '=', source.id).execute();
         return { sourceRecordId: source.id, activityId: null, insertedActivity: false, linkedExistingActivity: false, performanceEventWritten: false, warning };
       }
       if (!activity) throw new Error('Provider activity could not be resolved.');
@@ -367,8 +405,9 @@ export class ProvidersRepository {
         activity_id: activity!.id, latest_source_record_id: source.id, identity_fingerprint: input.identityFingerprint,
         availability: 'available', provider_updated_at: input.providerUpdatedAt, updated_at: new Date(),
       })).execute();
-      await tx.updateTable('source_records').set({ normalized_entity_type: 'activity', normalized_entity_id: activity.id, status: 'normalized', warnings: [] }).where('id', '=', source.id).execute();
+      await tx.updateTable('source_records').set({ normalized_entity_type: 'activity', normalized_entity_id: activity.id, status: 'normalized', warnings: sql`'[]'::jsonb` }).where('id', '=', source.id).execute();
 
+      if (input.retainedSourceRecordId) await markRetainedWalkLineage(tx, input, activity.id);
       let performanceEventWritten = false;
       if (!linkedExistingActivity && input.activity.activityType === 'run' && input.activity.distanceM !== null && input.activity.durationS !== null && input.activity.distanceM > 0) {
         await tx.insertInto('performance_events').values({
@@ -427,3 +466,13 @@ function jsonObject(value: Json): Record<string, Json> { return typeof value ===
 function parseDate(value: string): Date | null { const date = new Date(value); return Number.isFinite(date.getTime()) ? date : null; }
 function iso(value: unknown): string { const date = value instanceof Date ? value : new Date(String(value)); if (!Number.isFinite(date.getTime())) throw new Error('Invalid provider timestamp.'); return date.toISOString(); }
 function isoOrNull(value: unknown | null): string | null { return value === null ? null : iso(value); }
+
+async function markRetainedWalkLineage(db: Kysely<Database>, input: ProviderActivitySnapshotInput, activityId: string) {
+  await db.updateTable('source_records').set({status: 'normalized', normalized_entity_type: 'activity',
+    normalized_entity_id: activityId, warnings: sql`'[]'::jsonb`})
+    .where('source', '=', 'strava_api').where('source_record_key', '=', input.providerActivityId)
+    .where('status', '=', 'skipped').where('normalized_entity_id', 'is', null)
+    .where(sql<boolean>`lower(coalesce(raw_json->>'sport_type', raw_json->>'type', '')) = 'walk'`)
+    .where('import_batch_id', 'in', db.selectFrom('import_batches').select('id')
+      .where(sql<boolean>`metadata->>'connectionId' = ${input.connectionId}`)).execute();
+}

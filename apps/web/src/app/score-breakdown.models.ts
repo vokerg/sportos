@@ -26,7 +26,7 @@ export interface SourceRecordReference {
   batch: ImportBatchReference;
 }
 
-export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
+export type ActivityType = 'steps' | 'walk' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
 
 export interface DailyRunStepCalculation {
   activityId?: string;

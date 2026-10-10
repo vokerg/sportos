@@ -54,7 +54,13 @@ export function projectGarminDay(category: GarminDayCategory, raw: Json, date: s
     return `native:${BigInt(String(row.activityId))}`;
   });
   if (new Set(identities).size !== identities.length) throw new BadRequestException('Repeated Garmin activity identity.');
-  return { identities, complete: value.complete };
+  const walking = (item: unknown) => Boolean(item && typeof item === 'object' && !Array.isArray(item)
+    && (item as ObjectValue).activityType && typeof (item as ObjectValue).activityType === 'object'
+    && ((item as ObjectValue).activityType as ObjectValue).typeKey === 'walking');
+  const workoutComplete = value.complete || (value.discoveryTruncated === false
+    && Array.isArray(value.unresolvedItems) && Array.isArray(value.deferredItems)
+    && [...value.unresolvedItems, ...value.deferredItems].every(walking));
+  return { identities, complete: value.complete, workoutComplete };
 }
 /** Explicit disclosure removes upstream account/auth/storage fields recursively. */
 export function publicGarminPayload(value: Json, depth = 0): Json {
@@ -75,9 +81,9 @@ export function hasGarminDayEvidence(category: GarminDayCategory, projection: Js
   return Object.values(projection).some(value => typeof value === 'number');
 }
 
-/** Walking has no strength-set semantics. Keep its discovery source inspectable,
- * without attempting unsupported canonical activity extraction. Unknown types
- * are deliberately not excluded. */
+/** Walking has no strength-set semantics. This list excludes walks only from
+ * workout completeness, never from extraction, history or matching. Unknown
+ * types deliberately remain subject to conservative completeness checks. */
 export function nonScoringGarminDayIdentities(raw: Json): string[] {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Array.isArray(raw.items) || raw.items.length > 20) return [];
   return raw.items.flatMap(item => {

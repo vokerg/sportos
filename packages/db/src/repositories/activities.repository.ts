@@ -2,7 +2,7 @@ import { GarminStrengthRepository } from './garmin-strength.repository.js';
 import { sql, type Kysely } from 'kysely';
 import type { Activity, Database } from '../schema.js';
 
-export const ACTIVITY_TYPES = ['steps', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'bonus'] as const satisfies readonly Activity['activity_type'][];
+export const ACTIVITY_TYPES = ['steps', 'walk', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'bonus'] as const satisfies readonly Activity['activity_type'][];
 export const ACTIVITY_SOURCES = ['manual', 'my_sport_xlsx', 'run_db_xlsx', 'google_sheets', 'strava', 'garmin', 'fit'] as const satisfies readonly Activity['source'][];
 
 export interface ActivitiesQuery {

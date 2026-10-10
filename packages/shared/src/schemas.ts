@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const ActivityTypeSchema = z.enum([
+  'walk',
   'steps',
   'run',
   'bike',

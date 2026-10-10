@@ -146,7 +146,7 @@ export class DailyScoringRepository {
       const dailyRepository = new DailyRepository(transaction);
       const activityRows = await dailyRepository.listActivitiesForDates([metricDate]);
       const activities = activityRows.map(toActivityFact);
-      const sourceActivities = activities.filter((activity) => activity.source !== 'manual');
+      const sourceActivities = activities.filter((activity) => activity.source !== 'manual' && activity.activityType !== 'walk');
       const manualActivities = activities.filter((activity) => activity.source === 'manual');
       const stravaActivities = sourceActivities.filter((activity) => activity.source === 'strava');
       const csvEvidence = await dailyRepository.getGarminDailyStepEvidence(metricDate);
@@ -195,7 +195,14 @@ export class DailyScoringRepository {
       const failures = jsonRecord(discovery?.attempt_json).failures;
       const excluded = jsonRecord(discovery?.attempt_json).excludedIdentities;
       let incompleteReason: string | undefined;
-      if (discovery && (discovery.state !== 'available' || projection.complete !== true || (Array.isArray(failures) && failures.length))) {
+      const scoringFailures = Array.isArray(failures) ? failures.filter(failure => {
+        const item = jsonRecord(failure);
+        return !(Array.isArray(excluded) && excluded.includes(item.identityKey));
+      }) : [];
+      const workoutDiscoveryComplete = (projection.workoutComplete ?? projection.complete) === true;
+      const onlyNonScoringCoverageMissing = workoutDiscoveryComplete && Array.isArray(failures) && scoringFailures.length === 0;
+      if (discovery && (!workoutDiscoveryComplete || scoringFailures.length > 0
+        || (discovery.state !== 'available' && !onlyNonScoringCoverageMissing))) {
         incompleteReason = 'Garmin activity discovery or extraction is incomplete; previous workout points were preserved.';
       }
       if (Array.isArray(projection.identities) && projection.identities.length) {

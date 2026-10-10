@@ -31,16 +31,10 @@ def day_activities(transport, date):
     uncertain = len(rows) == 100
     identifiers = set()
     unresolved = []
-    ignored = []
     for row in rows:
         if not isinstance(row, dict):
             uncertain = True
-            continue
-        # Walking is day-step evidence only: no resource extraction, linking,
-        # selected-activity capacity or malformed-activity warning.
-        kind = row.get('activityType')
-        if isinstance(kind, dict) and kind.get('typeKey') == 'walking':
-            ignored.append(row)
+            unresolved.append(row)
             continue
         local = row.get('startTimeLocal')
         # Local wall date is authoritative; never infer Garmin timezone from UTC.
@@ -67,7 +61,7 @@ def day_activities(transport, date):
     if len(selected) > MAX_ACTIVITIES:
         uncertain = True
     return {'items': selected[:MAX_ACTIVITIES], 'complete': not uncertain,
-            'unresolvedItems': unresolved, 'deferredItems': selected[MAX_ACTIVITIES:], 'ignoredItems': ignored}
+            'unresolvedItems': unresolved, 'deferredItems': selected[MAX_ACTIVITIES:], 'discoveryTruncated': len(rows) == 100}
 
 
 def classification(error):

@@ -154,7 +154,7 @@ export interface ActivitiesTable {
   source_record_hash: string | null;
   activity_date: DateString;
   start_time: Timestamp | null;
-  activity_type: 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
+  activity_type: 'steps' | 'walk' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
   subtype: 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown' | null;
   distance_m: number | null;
   duration_s: number | null;

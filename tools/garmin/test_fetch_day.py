@@ -8,15 +8,15 @@ from fetch_day import fetch_day, day_activities, calendar_date
 from extract_activity import ExtractionError, read_json
 
 class DayTests(unittest.TestCase):
-    def test_walking_never_enters_linking_or_selected_activity_limit(self):
-        walks = [{'activityType': {'typeKey': 'walking'}} for _ in range(25)]
+    def test_walking_is_selected_for_extraction_with_normal_bounds(self):
+        walk = {'activityId': 124, 'startTimeLocal': '2026-03-29 09:00:00', 'activityType': {'typeKey': 'walking'}}
         strength = {'activityId': 123, 'startTimeLocal': '2026-03-29 10:00:00', 'activityType': {'typeKey': 'strength_training'}}
-        result = day_activities(self.client(connectapi=lambda *a, **kw: walks + [strength]), dt.date(2026, 3, 29))
+        result = day_activities(self.client(connectapi=lambda *a, **kw: [walk, strength]), dt.date(2026, 3, 29))
         self.assertTrue(result['complete'])
-        self.assertEqual(result['items'], [strength])
-        self.assertEqual(len(result['ignoredItems']), 25)
-        self.assertEqual(result['unresolvedItems'], [])
-        self.assertEqual(result['deferredItems'], [])
+        self.assertEqual(result['items'], [walk, strength])
+        overflow = day_activities(self.client(connectapi=lambda *a, **kw: [dict(walk, activityId=i+1) for i in range(25)]), dt.date(2026, 3, 29))
+        self.assertFalse(overflow['complete'])
+        self.assertEqual(len(overflow['items']), 20)
 
     def client(self, **changes):
         values = {

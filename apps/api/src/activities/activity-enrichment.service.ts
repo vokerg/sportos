@@ -79,7 +79,7 @@ export class ActivityEnrichmentService {
         return { ...(await this.read(account.id, activityId)), cacheStatus: 'hit' };
       }
       if (!this.localEnabled(account.id)) throw new ServiceUnavailableException({ code: 'GARMIN_LOCAL_FETCH_DISABLED', message: 'Garmin downloads require the enabled local desktop helper. Retained data can still be viewed.' });
-      if (!activity.start_time || !['run','bike','swim','workout','rowing','sup'].includes(String(activity.activity_type))) throw new ConflictException({ code: 'GARMIN_MATCH_REQUIRES_REVIEW', message: 'This activity lacks supported matching metadata.' });
+      if (!activity.start_time || !['walk','run','bike','swim','workout','rowing','sup'].includes(String(activity.activity_type))) throw new ConflictException({ code: 'GARMIN_MATCH_REQUIRES_REVIEW', message: 'This activity lacks supported matching metadata.' });
       const summary: ActivityMatchSummary = { activityType: activity.activity_type as ActivityMatchSummary['activityType'], subtype: (activity.subtype ?? 'unknown') as ActivityMatchSummary['subtype'], startTime: new Date(String(activity.start_time)), elapsedTimeS: activity.duration_s as number | null, movingTimeS: activity.moving_time_s as number | null, distanceM: activity.distance_m as number | null };
       let identifier = garmin?.identity_key.startsWith('native:') ? garmin.identity_key.slice(7) : null;
       if (!identifier) {

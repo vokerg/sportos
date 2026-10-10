@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   ImportsRepository, ProvidersRepository, WorkerDispatchRepository, withAccountContext,
-  type Database, type DispatchedProviderSync, type Json, type Kysely, type NewSourceRecord,
+  type ProviderActivitySnapshotInput, type Database, type DispatchedProviderSync, type Json, type Kysely, type NewSourceRecord,
 } from '@sportos/db';
 import {
   CredentialCipher, ProviderError, canonicalActivityType, stravaActivityFingerprint,
@@ -90,17 +90,9 @@ export class ProviderSyncRunner {
             warningCount += 1;
             continue;
           }
-          const result = await this.withOwner(job.ownerId, (db) => new ProvidersRepository(db).ingestActivitySnapshot({
-            batchId: requireBatch(batchId), connectionId: job.connectionId, providerActivityId: activity.providerActivityId,
-            providerUpdatedAt: activity.providerUpdatedAt, identityFingerprint: stravaActivityFingerprint(activity), rawHash, raw,
-            activity: {
-              activityDate: activity.localDate, startTime: activity.startDate, activityType: canonicalType, subtype: providerActivitySubtype(activity),
-              distanceM: finiteOrNull(activity.distanceM), durationS: finiteOrNull(activity.elapsedTimeS), movingTimeS: finiteOrNull(activity.movingTimeS),
-              calories: integerOrNull(activity.calories), avgHr: integerOrNull(activity.averageHeartrate), maxHr: integerOrNull(activity.maxHeartrate),
-              elevationGainM: finiteOrNull(activity.elevationGainM), avgSpeedMps: finiteOrNull(activity.averageSpeedMps),
-              avgPaceSPerKm: pace(activity), notes: activity.name?.slice(0, 500) ?? null,
-            },
-          }));
+          const result = await this.withOwner(job.ownerId, (db) => new ProvidersRepository(db).ingestActivitySnapshot(
+            stravaSnapshotInput(activity, {batchId: requireBatch(batchId), connectionId: job.connectionId, raw, rawHash}),
+          ));
           if (result.activityId) activityCount += 1;
           if (result.performanceEventWritten) performanceCount += 1;
           if (result.warning) warningCount += 1;
@@ -183,3 +175,22 @@ function requireBatch(value: string | null): string { if (!value) throw new Erro
 function safeWorkerId(value: string): string { return value.trim().slice(0, 200) || 'sportos-provider-worker'; }
 function clampInteger(value: number, minimum: number, maximum: number): number { if (!Number.isFinite(value)) return minimum; return Math.min(maximum, Math.max(minimum, Math.trunc(value))); }
 function delay(milliseconds: number, signal: AbortSignal): Promise<void> { return new Promise((resolve) => { if (signal.aborted) return resolve(); const timer = setTimeout(resolve, milliseconds); signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true }); }); }
+
+/** Shared by normal synchronization and retained-source walking backfill. */
+export function stravaSnapshotInput(activity: ProviderActivity, source: {
+  batchId: string; connectionId: string; raw: Json; rawHash: string;
+  retainedSourceRecordId?: string;
+}): ProviderActivitySnapshotInput {
+  const activityType = canonicalActivityType(activity);
+  if (!activityType) throw new Error('Unsupported retained activity.');
+  return { ...source, providerActivityId: activity.providerActivityId,
+    providerUpdatedAt: activity.providerUpdatedAt, identityFingerprint: stravaActivityFingerprint(activity),
+    activity: {activityDate: activity.localDate, startTime: activity.startDate, activityType,
+      subtype: providerActivitySubtype(activity), distanceM: finiteOrNull(activity.distanceM),
+      durationS: finiteOrNull(activity.elapsedTimeS), movingTimeS: finiteOrNull(activity.movingTimeS),
+      calories: integerOrNull(activity.calories), avgHr: integerOrNull(activity.averageHeartrate),
+      maxHr: integerOrNull(activity.maxHeartrate), elevationGainM: finiteOrNull(activity.elevationGainM),
+      avgSpeedMps: finiteOrNull(activity.averageSpeedMps), avgPaceSPerKm: pace(activity),
+      notes: activity.name?.slice(0, 500) ?? null},
+  };
+}

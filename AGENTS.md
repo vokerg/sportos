@@ -330,20 +330,33 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
   once-per-day rounding: `Math.round(totalWorkingSets * 1000 / 3)`. Never infer
   working sets from reps, weight, duration or exercise labels. See
   `docs/SCORING_RULES.md#retained-garmin-recalculation-108` for bounds and provenance.
-- Matching policy v2 lives in `packages/domain/src/activity-matching.ts`; V127
+- Matching policy v2 was introduced in `packages/domain/src/activity-matching.ts`; V127
   allows both immutable audit versions. Use sport-specific start/duration/distance
   criteria from ADR 0010, including corrected run distances and incomparable gym
   moving time. Never choose the nearest candidate or guess through ambiguity.
   Explicit cached Fetch may reconsider pending identities; existing links and
   rejected decisions never change automatically. Preserve canonical Strava facts.
-- Explicitly typed walking is excluded from extraction, matching candidates,
-  activity cards and workout completeness warnings. Keep its original day resource
-  and all-day steps. Unknown types and actual workout failures still fail closed.
-  Older walking-only failures can be repaired from retained data via explicit
-  cached Fetch; Recalculate then appends a snapshot without the old warning.
+- Walking policy is superseded by #110 below: walks remain non-scoring but are
+  retained in Activities and eligible for Garmin reconciliation.
 - Retained day categories are visible on reopening without downloading. Cached
   Fetch can project pre-V126 strength resources without network access; the
   bounded local `pnpm garmin:project-strength -- YYYY-MM-DD` command also projects
   retained evidence without score writes. See `docs/GARMIN_SINGLE_ACTIVITY.md`.
 - Implementation and validation history is in `docs/implementation/issue-108.md`.
-  Work is on draft PR #109; do not treat it as merged or close the issue early.
+  PR #109 is merged.
+
+### Non-scoring walking history (#110)
+
+- `walk` is a history-only canonical activity type. Strava Walk and Garmin walking
+  can reconcile under versioned policy v3/V128; preserve corrected Strava metrics,
+  uniqueness, ownership and immutable audit history. No Garmin-only promotion.
+- Never add walking scoring rules, activity points, run deductions or performance
+  events. Keep walks outside scored daily aggregates and workout completeness;
+  Garmin all-day steps still include walking. Activity detail explicitly labels
+  walks as non-scoring. Unknown types and incomplete workout discovery fail closed.
+- `pnpm strava:backfill-walks -- --apply` explicitly replays retained skipped walks
+  through normal owner-scoped provider ingestion; without --apply it is read-only.
+  Reuse latest native identity, source UUIDs and all raw provenance. Never overwrite
+  current provider links with old data. No network requests or score/history writes.
+- See `docs/WALKING_ACTIVITIES.md` for migration, bounds, cache and backfill behavior,
+  and `docs/implementation/issue-110.md` for validation. PR #111 remains draft.

@@ -22,6 +22,7 @@ MAX_FRAMES = 200_000
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_HOME = Path.home() / '.local/share/sportos/garmin'
 TYPE_MAP = {
+    'walking': ('walk', 'outdoor'),
     'running': ('run', 'outdoor'), 'treadmill_running': ('run', 'treadmill'),
     'track_running': ('run', 'track'), 'trail_running': ('run', 'outdoor'),
     'cycling': ('bike', 'outdoor'), 'indoor_cycling': ('bike', 'indoor'),

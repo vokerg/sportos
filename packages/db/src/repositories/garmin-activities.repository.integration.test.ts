@@ -72,7 +72,7 @@ integration('Garmin identity and canonical authority under non-owner RLS', () =>
     const id=await withAccountContext(db,ownerA,async ctx=>(await ctx.insertInto('activities').values({source:'strava',activity_type:'workout',subtype:'indoor',activity_date:time.slice(0,10),start_time:new Date(time),duration_s:1800,moving_time_s:1800,distance_m:0}).returning('id').executeTakeFirstOrThrow()).id);
     const before=await canonicalRows(ownerA);
     expect(await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash))).toMatchObject({status:'strong_unique',activityId:id});
-    expect((await scoped(ownerA,repo=>repo.audit(pending.id)))[0]).toMatchObject({policyVersion:2,action:'auto_link'});
+    expect((await scoped(ownerA,repo=>repo.audit(pending.id)))[0]).toMatchObject({policyVersion:3,action:'auto_link'});
     await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash));
     expect(await scoped(ownerA,repo=>repo.audit(pending.id))).toHaveLength(1);
     expect(await canonicalRows(ownerA)).toEqual(before);

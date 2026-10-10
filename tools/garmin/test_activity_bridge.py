@@ -23,10 +23,10 @@ class DiscoveryTests(unittest.TestCase):
         self.assertTrue(result['truncated'])
         self.assertEqual(result['items'], [])
 
-    def test_walking_does_not_enter_candidates_or_create_ambiguity_warnings(self):
-        rows = [{'activityType': {'typeKey': 'walking'}},
+    def test_walking_is_a_supported_discovery_candidate(self):
+        rows = [{'activityId': 124, 'activityType': {'typeKey': 'walking'}, 'startTimeGMT': '2026-01-01 10:00:00', 'elapsedDuration': 1800, 'movingDuration': 1800, 'distance': 2000},
                 {'activityId': 123, 'activityType': {'typeKey': 'running'}, 'startTimeGMT': '2026-01-01 10:00:00', 'elapsedDuration': 1800, 'movingDuration': 1800, 'distance': 5000}]
         transport = SimpleNamespace(client=SimpleNamespace(connectapi=lambda *a, **kw: rows, garmin_connect_activities='/activities'))
         result = discover(transport, '2026-01-01T10:00:00Z')
         self.assertFalse(result['uncertain'])
-        self.assertEqual([item['providerActivityId'] for item in result['items']], ['123'])
+        self.assertEqual([item['providerActivityId'] for item in result['items']], ['124', '123'])

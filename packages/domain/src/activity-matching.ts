@@ -16,22 +16,23 @@ export interface ActivityMatchEvidence {
   reasons: string[];
 }
 export interface ActivityMatchResult {
-  policyVersion: 1 | 2;
+  policyVersion: 1 | 2 | 3;
   status: 'exact' | 'strong_unique' | 'ambiguous' | 'unmatched';
   activityId: string | null;
   candidates: ActivityMatchEvidence[];
 }
 
 export const GARMIN_MATCH_POLICY = Object.freeze({
-  version: 2, candidateStartS: 120, strongStartS: 15,
+  version: 3, candidateStartS: 120, strongStartS: 15,
   durationFloorS: 5, durationFraction: 0.01,
   distanceFloorM: 200, distanceFraction: 0.05,
   workoutStartS: 2, workoutElapsedS: 2,
+  walkStartS: 2, walkElapsedS: 2, walkDistanceFloorM: 25, walkDistanceFraction: 0.01,
 });
 
 export function validateActivityMatchSummary(summary: ActivityMatchSummary): void {
   if (!(summary.startTime instanceof Date) || !Number.isFinite(summary.startTime.getTime())
-    || !['run', 'bike', 'swim', 'workout', 'rowing', 'sup'].includes(summary.activityType)
+    || !['walk', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup'].includes(summary.activityType)
     || !['outdoor', 'indoor', 'treadmill', 'track', 'manual', 'race', 'unknown'].includes(summary.subtype)) {
     throw new Error('Invalid activity matching summary.');
   }
@@ -82,7 +83,21 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
       && Math.abs(summary.elapsedTimeS - candidate.elapsedTimeS) <= GARMIN_MATCH_POLICY.workoutElapsedS
       && distance !== 'conflict';
     if (workoutCorroborated) reasons.push('WORKOUT_START_AND_ELAPSED_CORROBORATED');
-    const strong = workoutCorroborated || (!workout && startS <= GARMIN_MATCH_POLICY.strongStartS
+    // A narrowly corroborated walk can retain differing moving estimates without
+    // treating them as identity. Never relax start/elapsed/distance or uniqueness.
+    const walkCorroborated = summary.activityType === 'walk' && explicitSubtype && summary.subtype === candidate.subtype
+      && startS <= GARMIN_MATCH_POLICY.walkStartS
+      && summary.elapsedTimeS !== null && candidate.elapsedTimeS !== null
+      && summary.elapsedTimeS > 0 && candidate.elapsedTimeS > 0
+      && Math.abs(summary.elapsedTimeS - candidate.elapsedTimeS) <= GARMIN_MATCH_POLICY.walkElapsedS
+      && summary.distanceM !== null && candidate.distanceM !== null && summary.distanceM > 0 && candidate.distanceM > 0
+      && compare(summary.distanceM, candidate.distanceM, GARMIN_MATCH_POLICY.walkDistanceFloorM, GARMIN_MATCH_POLICY.walkDistanceFraction) === 'close';
+    if (walkCorroborated) {
+      reasons.push('WALK_START_ELAPSED_DISTANCE_CORROBORATED');
+      if (moving === 'conflict') reasons.push('WALK_MOVING_DIFFERENCE_RETAINED');
+    }
+
+    const strong = workoutCorroborated || walkCorroborated || (!workout && startS <= GARMIN_MATCH_POLICY.strongStartS
       && summary.elapsedTimeS !== null && summary.elapsedTimeS > 0 && candidate.elapsedTimeS !== null && candidate.elapsedTimeS > 0
       && elapsed === 'close' && moving !== 'conflict' && distance !== 'conflict'
       && ((distance === 'close' && Math.max(summary.distanceM!, candidate.distanceM!) > 0)
@@ -95,7 +110,7 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
   const only = evidence.length === 1 ? evidence[0]! : null;
   const status = only?.confidence === 'exact' ? 'exact' : only?.confidence === 'strong' ? 'strong_unique'
     : evidence.length ? 'ambiguous' : 'unmatched';
-  return { policyVersion: 2, status, activityId: status === 'exact' || status === 'strong_unique' ? only!.activityId : null, candidates: evidence };
+  return { policyVersion: 3, status, activityId: status === 'exact' || status === 'strong_unique' ? only!.activityId : null, candidates: evidence };
 }
 
 function compare(a: number | null, b: number | null, floor: number, fraction: number): 'missing' | 'close' | 'conflict' {

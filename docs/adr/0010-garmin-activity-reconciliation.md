@@ -156,11 +156,9 @@ Explicit cached Fetch can re-evaluate one pending retained identity under v2
 without downloading or rewriting canonical facts. No background rematching is
 introduced.
 
-Explicitly typed walking is excluded before day extraction and targeted discovery
-matching. It produces no linking candidate, coverage card or workout completeness
-warning. Original day evidence and all-day steps remain retained; unknown types
-and actual workout failures retain the conservative failure policy. See
-[day coverage and older retained-data repair](../GARMIN_DAY_FETCH.md#explicit-recalculation).
+The original #108 walking exclusion is superseded by #110: walking is retained
+as non-scoring activity history and participates in conservative reconciliation.
+See the policy-v3 amendment below.
 
 All sports continue to require same sport, compatible indoor/outdoor subtype,
 positive comparable elapsed duration, bounded UTC start difference and exactly
@@ -188,3 +186,17 @@ One live gym source confirmed ACTIVE/REST setType fields and incomparable
 moving durations. Tests cover every supported sport, fractional precision,
 short swims, zero/missing duration, unknown subtype, DST, conflicting metrics,
 competing candidates, rejected decisions and immutable existing links.
+
+## Matching policy v3: walking history (#110)
+
+V128 allows `walk` canonical/compact Garmin history and audit policy 3, preserving
+all v1/v2 decisions. Walking uses the v2 general distance/start/duration criteria
+with a 200 m distance floor. A narrow alternative requires identical explicit
+subtype, UTC start and elapsed within 2 seconds, and positive distance within
+max(25 m, 1%). It permits differing moving estimates while preserving the conflict
+and corroboration reasons. Both paths require exactly one plausible same-sport
+candidate, including weak competitors.
+Gym and other sport criteria remain unchanged. Explicit Garmin extraction supports
+walking; unlinked/missing walking resources do not block strength scoring. Walking
+never creates scoring rules, performance events or activity points. See
+[walking operations and retained-source backfill](../WALKING_ACTIVITIES.md).

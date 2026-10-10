@@ -11,7 +11,7 @@ const base: Activity = {
 
 describe('activity presentation', () => {
   it('covers every canonical type without generic empty metrics', () => {
-    expect(TYPE_OPTIONS.map((option) => option.value)).toEqual(['', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'steps', 'bonus']);
+    expect(TYPE_OPTIONS.map((option) => option.value)).toEqual(['', 'walk', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'steps', 'bonus']);
     expect(metrics(base).map((metric) => metric.label)).toEqual(['Distance', 'Elapsed time', 'Moving pace', 'Average HR']);
     expect(metrics({ ...base, activity_type: 'bike', avg_speed_mps: 8, avg_pace_s_per_km: null }).map((metric) => metric.label))
       .toEqual(['Distance', 'Elapsed time', 'Average speed', 'Average HR']);
@@ -45,4 +45,10 @@ describe('activity presentation', () => {
     expect(quickRangeDates('all', today)).toEqual({ from: '', to: '' });
     expect(matchQuickRange('2026-02-28', '2026-03-31', today)).toBe('1m');
   });
+});
+
+it('presents walking distance, pace and elevation as history metrics',()=>{
+ const walk={...base,activity_type:'walk' as const,distance_m:3500,avg_pace_s_per_km:600,elevation_gain_m:10};
+ const values=metrics(walk,true);
+ expect(values).toEqual(expect.arrayContaining([expect.objectContaining({label:'Distance'}),expect.objectContaining({label:'Moving pace'}),expect.objectContaining({label:'Elevation gain'})]));
 });
