@@ -156,6 +156,12 @@ Explicit cached Fetch can re-evaluate one pending retained identity under v2
 without downloading or rewriting canonical facts. No background rematching is
 introduced.
 
+Explicitly typed walking is excluded before day extraction and targeted discovery
+matching. It produces no linking candidate, coverage card or workout completeness
+warning. Original day evidence and all-day steps remain retained; unknown types
+and actual workout failures retain the conservative failure policy. See
+[day coverage and older retained-data repair](../GARMIN_DAY_FETCH.md#explicit-recalculation).
+
 All sports continue to require same sport, compatible indoor/outdoor subtype,
 positive comparable elapsed duration, bounded UTC start difference and exactly
 one plausible candidate (including weak competitors). Missing metrics do not

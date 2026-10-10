@@ -172,3 +172,15 @@ Garmin helper suite passes (one existing optional test skipped). The reported
 live day was repaired using cached retained data and normal Recalculate: only
 the linked run is listed, workout warning is absent, and score/fact values are
 unchanged. No Garmin download or personal evidence was committed.
+
+## Future-agent documentation review
+
+Inspected AGENTS.md, README.md, ARCHITECTURE.md, ROADMAP.md, SCORING_RULES.md,
+GARMIN_DAY_FETCH.md, GARMIN_SINGLE_ACTIVITY.md, ADR 0010, this implementation log,
+the matching policy, day service, helper discovery/extraction and CI configuration.
+Found the agent entry point still describing the pre-#108 absence of strength
+scoring. Updated it with the scoring/evidence boundary, migrations, source
+precedence, classification, v2 reconciliation, walking exclusion, cached repair
+and draft PR status. Aligned the scoring guide and ADR walking language with the
+implemented behavior. Documentation-only change; reviewed the diff and local
+documentation links. No runtime changes or additional test run.

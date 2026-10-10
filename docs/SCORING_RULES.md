@@ -219,12 +219,16 @@ contribute; multiple uniquely linked complete sessions contribute once each.
 Garmin enrichment does not overwrite canonical distance/duration/type/source.
 Weight, sleep, HR/HRV, stress, Body Battery and calories remain non-scoring.
 
-Known Garmin walking discovery remains inspectable evidence without attempting
-unsupported canonical activity extraction. A fully discovered day whose only
+Explicitly typed Garmin walking is excluded from activity extraction, matching
+candidates, coverage cards and workout completeness warnings. Its original day
+resource remains inspectable and its steps remain in the all-day total.
+A fully discovered day whose only
 failed extraction is explicitly typed walking can repair its coverage from the
 retained original JSON on explicit Fetch, without contacting Garmin. Unknown
 activity types, partial discovery and actual workout extraction failures remain
 blocking. Walking is never converted into strength points or a canonical activity.
+After repairing old coverage, explicit Recalculate appends a current snapshot
+without the previous walking-related warning; historical snapshots are preserved.
 The live gym payload confirmed ACTIVE and REST; exercise labels are supplied in
 Garmin's exercises array, so unlabeled v1 summaries do not invent exercise names.
 See ADR 0010 for sport-aware matching policy v2 and immutable manual review.
