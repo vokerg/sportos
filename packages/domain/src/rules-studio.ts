@@ -91,6 +91,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
 const RULE_KINDS: RuleKind[] = ['coefficient', 'achievement', 'manual_points'];
 const THRESHOLD_OPERATORS: ThresholdOperator[] = ['lt', 'lte', 'gt', 'gte', 'eq', 'exists'];
 const METRICS_BY_ACTIVITY: Record<ActivityType, string[]> = {
+  walk: [],
   steps: ['steps'],
   run: ['distance_m', 'distance_km', 'duration_s', 'pace_s_per_km', 'avg_speed_mps', 'avg_speed_kmh'],
   bike: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],

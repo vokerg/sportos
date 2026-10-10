@@ -70,7 +70,7 @@ export class GarminActivitiesRepository {
     });
   }
 
-  /** Explicit retained Fetch may reconsider pending v1 evidence under the current
+  /** Explicit retained Fetch may reconsider pending evidence under the current
    * policy. Existing links and rejected decisions are never changed. */
   async reconsider(identityKey: string, contentHash: string) {
     return this.db.transaction().execute(async tx => {
@@ -124,9 +124,9 @@ export class GarminActivitiesRepository {
       const nextActivity = decision === 'link' ? activityId : null;
       const status = decision === 'link' ? 'manual' : decision === 'reject' ? 'rejected' : 'unmatched';
       if (decision === 'reopen' && identity.activity_id !== null) throw new GarminReconciliationConflict('Reject the existing link before reopening reconciliation.');
-      const evidence = { policyVersion: 2, previousActivityId: identity.activity_id, previousStatus: identity.status };
+      const evidence = { policyVersion: 3, previousActivityId: identity.activity_id, previousStatus: identity.status };
       await tx.insertInto('garmin_reconciliation_audit').values({ identity_id: id, activity_id: nextActivity ?? identity.activity_id,
-        action: decision === 'link' ? 'manual_link' : decision === 'reject' ? 'reject' : 'reopen', policy_version: 2, evidence_json: evidence }).execute();
+        action: decision === 'link' ? 'manual_link' : decision === 'reject' ? 'reject' : 'reopen', policy_version: 3, evidence_json: evidence }).execute();
       let row = await tx.updateTable('garmin_activity_identities').set({ activity_id: nextActivity, status, match_evidence: evidence, updated_at: new Date() })
         .where('id', '=', id).returningAll().executeTakeFirstOrThrow();
       if (decision === 'reopen') row = await this.resolve(tx, row);
@@ -142,7 +142,7 @@ export class GarminActivitiesRepository {
       .where('start_time', '<=', new Date(identity.start_time.getTime() + 120000))
       .orderBy('id', 'asc').limit(101).execute();
     let result: ActivityMatchResult;
-    if (rows.length > 100) result = { policyVersion: 2, status: 'ambiguous', activityId: null, candidates: [] };
+    if (rows.length > 100) result = { policyVersion: 3, status: 'ambiguous', activityId: null, candidates: [] };
     else result = matchGarminActivity(identitySummary(identity), rows.map(canonicalSummary));
     if (identity.identity_kind === 'fingerprint_v1') result = { ...result, status: 'ambiguous', activityId: null };
     if (result.activityId !== null) {
@@ -152,7 +152,7 @@ export class GarminActivitiesRepository {
     const evidence: Json = { ...result, candidates: result.candidates.map((c) => ({ ...c })),
       reason: rows.length > 100 ? 'CANDIDATE_LIMIT' : identity.identity_kind === 'fingerprint_v1' ? 'FALLBACK_IDENTITY_REQUIRES_REVIEW' : result.activityId === null && result.candidates.some((c) => c.confidence !== 'weak') ? 'COMPETING_OR_ALREADY_LINKED_CANDIDATES' : 'POLICY_V2' };
     if (result.activityId) await tx.insertInto('garmin_reconciliation_audit').values({
-      identity_id: identity.id, activity_id: result.activityId, action: 'auto_link', policy_version: 2, evidence_json: evidence,
+      identity_id: identity.id, activity_id: result.activityId, action: 'auto_link', policy_version: 3, evidence_json: evidence,
     }).execute();
     return tx.updateTable('garmin_activity_identities').set({ activity_id: result.activityId, status: result.status, match_evidence: evidence, updated_at: new Date() })
       .where('id', '=', identity.id).returningAll().executeTakeFirstOrThrow();

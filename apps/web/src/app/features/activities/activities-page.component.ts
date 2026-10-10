@@ -105,7 +105,7 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
     });
   }
   ngOnDestroy(): void { this.routeSubscription?.unsubscribe(); this.store.destroy(); }
-  isDistanceSport(): boolean { return ['run', 'bike', 'swim'].includes(this.activityType()); }
+  isDistanceSport(): boolean { return ['walk', 'run', 'bike', 'swim'].includes(this.activityType()); }
   selectedDistanceSport(): ActivityType { return this.activityType() as ActivityType; }
   sportLabel(): string { return this.typeOptions.find((option) => option.value === this.activityType())?.label ?? ''; }
   distanceOptions(): readonly number[] { return DISTANCE_OPTIONS_M[this.activityType() as keyof typeof DISTANCE_OPTIONS_M] ?? []; }

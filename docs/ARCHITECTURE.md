@@ -392,3 +392,12 @@ activities reuse the existing reconciliation/resource path. The dispatcher and
 worker-data roles cannot access these new day tables. See
 [Garmin day operation](GARMIN_DAY_FETCH.md) for fixed categories, bounds and failure
 semantics.
+
+## Non-scoring walking history
+
+V128 expands Activities/Garmin identity constraints with `walk` and preserves
+immutable matching-policy audits under versions 1/2/3. Strava Walk ingestion and
+retained-source replay share the adapter, snapshot builder and owner-scoped
+provider repository. Walking stays outside scoring rules, official calculations,
+performance events and workout completeness; all-day Garmin steps are unchanged.
+See [walking history and operations](WALKING_ACTIVITIES.md).

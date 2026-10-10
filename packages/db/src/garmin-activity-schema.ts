@@ -17,7 +17,7 @@ export interface GarminActivityVersionsTable {
 }
 export interface GarminReconciliationAuditTable {
   id: Generated<string>; owner_id: OwnerId; identity_id: string; activity_id: string | null;
-  action: 'auto_link' | 'manual_link' | 'reject' | 'reopen'; policy_version: 1 | 2;
+  action: 'auto_link' | 'manual_link' | 'reject' | 'reopen'; policy_version: 1 | 2 | 3;
   evidence_json: Json; created_at: GeneratedTimestamp;
 }
 

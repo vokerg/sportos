@@ -99,3 +99,8 @@ function createController() {
     providerDetailService,
   };
 }
+
+it('allows walking history and distance filters without allowing run-specific filters',()=>{
+ expect(parseActivitiesQuery({activityType:'walk',minDistanceM:'3000'})).toMatchObject({activityType:'walk',minDistanceM:3000});
+ expect(()=>parseActivitiesQuery({activityType:'walk',paceUnderSPerKm:'300'})).toThrow(BadRequestException);
+});

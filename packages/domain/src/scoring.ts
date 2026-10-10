@@ -56,7 +56,7 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
     .sort((a, b) => a.priority - b.priority || a.code.localeCompare(b.code));
 
   const ledger: ScoreLedgerEntry[] = [];
-  const datedActivities = activities.filter((candidate) => candidate.activityDate === facts.metricDate);
+  const datedActivities = activities.filter((candidate) => candidate.activityDate === facts.metricDate && candidate.activityType !== 'walk');
   const distanceActivities = datedActivities.filter(
     (candidate) => candidate.activityType === 'run' || candidate.activityType === 'bike',
   );
@@ -164,6 +164,7 @@ export function scoreDay(facts: DailyMetricFacts, activities: ActivityFact[], ru
 }
 
 export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule, metricDate: string): ScoreLedgerEntry | null {
+  if (activity.activityType === 'walk' || rule.activityType === 'walk') return null;
   if (!rule.enabled || !isRuleActiveForDate(rule, metricDate)) return null;
   if (rule.activitySubtype && rule.activitySubtype !== activity.subtype) return null;
 

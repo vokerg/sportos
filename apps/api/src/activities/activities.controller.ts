@@ -37,7 +37,7 @@ export function parseActivitiesQuery(raw: Record<string, unknown>): ActivitiesQu
   const minAvgSpeedMps = boundedPositive(query.minAvgSpeedMps, 'minAvgSpeedMps', 100);
   const swimPaceUnderSPer100m = boundedPositive(query.swimPaceUnderSPer100m, 'swimPaceUnderSPer100m', 3_600);
   if ((subtype !== undefined && query.activityType !== 'run')
-    || (minDistanceM !== undefined && !['run', 'bike', 'swim'].includes(query.activityType ?? ''))
+    || (minDistanceM !== undefined && !['walk', 'run', 'bike', 'swim'].includes(query.activityType ?? ''))
     || (paceUnderSPerKm !== undefined && query.activityType !== 'run')
     || (minAvgSpeedMps !== undefined && query.activityType !== 'bike')
     || (swimPaceUnderSPer100m !== undefined && query.activityType !== 'swim')) {

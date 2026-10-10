@@ -81,7 +81,7 @@ export class StravaAdapter implements ProviderAdapter {
     const response = await this.authorizedGet(url, input.authorization);
     if (!Array.isArray(response.body)) throw new ProviderError('PROVIDER_RESPONSE_INVALID', 'Strava returned an invalid activity page.', false);
     const rawActivities = response.body.map((item) => record(item, 'activity'));
-    return { activities: rawActivities.map(parseActivity), rawActivities, rateLimit: rateLimit(response.headers, response.status) };
+    return { activities: rawActivities.map(parseStravaActivity), rawActivities, rateLimit: rateLimit(response.headers, response.status) };
   }
 
   async fetchActivity(input: ActivityRequest): Promise<ProviderActivity | null> {
@@ -92,7 +92,7 @@ export class StravaAdapter implements ProviderAdapter {
     });
     if (response.status === 404) return null;
     success(response, 'Strava activity could not be loaded.');
-    return parseActivity(record(response.body, 'activity'));
+    return parseStravaActivity(record(response.body, 'activity'));
   }
 
   async fetchActivityDetailBundle(input: ActivityRequest): Promise<ProviderActivityDetailBundle | null> {
@@ -200,10 +200,11 @@ export function stravaActivityFingerprint(activity: ProviderActivity): string {
   })).digest('hex');
 }
 
-export function canonicalActivityType(activity: ProviderActivity): 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | null {
+export function canonicalActivityType(activity: ProviderActivity): 'walk' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | null {
   const value = (activity.sportType ?? activity.type).replace(/[^A-Za-z]/g, '').toLowerCase();
   if (['run', 'trailrun', 'trackrun', 'virtualrun', 'wheelchair'].includes(value)) return 'run';
   if (['ride', 'mountainbikeride', 'gravelride', 'virtualride', 'ebikeride', 'velomobile'].includes(value)) return 'bike';
+  if (value === 'walk') return 'walk';
   if (value === 'swim') return 'swim';
   if (['rowing', 'virtualrowing'].includes(value)) return 'rowing';
   if (['standuppaddling', 'sup'].includes(value)) return 'sup';
@@ -211,7 +212,7 @@ export function canonicalActivityType(activity: ProviderActivity): 'run' | 'bike
   return null;
 }
 
-function parseActivity(raw: Record<string, unknown>): ProviderActivity {
+export function parseStravaActivity(raw: Record<string, unknown>): ProviderActivity {
   const startDate = date(raw.start_date, 'activity start date');
   const localDate = typeof raw.start_date_local === 'string' ? raw.start_date_local.slice(0, 10) : startDate.toISOString().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) throw new ProviderError('PROVIDER_RESPONSE_INVALID', 'Strava returned an invalid local activity date.', false);

@@ -4,7 +4,8 @@ import { GarminLocalIngestService } from '../activities/garmin-local-ingest.serv
 import { GarminDayService } from './garmin-day.service.js';
 const date='2026-03-29', hash='a'.repeat(64), account={id:LEGACY_ACCOUNT_ID,displayName:'Test',email:null};
 function setup(enabled=true) {
-  const primary={withAccount:vi.fn(async (_owner: string,fn:(db:unknown)=>unknown) => fn({}))};
+  const query={select:vi.fn().mockReturnThis(),where:vi.fn().mockReturnThis(),limit:vi.fn().mockReturnThis(),execute:vi.fn().mockResolvedValue([]),executeTakeFirst:vi.fn().mockResolvedValue(undefined)};
+  const primary={withAccount:vi.fn(async (_owner: string,fn:(db:unknown)=>unknown) => fn({selectFrom:()=>query}))};
   const detail={withAccount:vi.fn(async (_owner: string,fn:(db:unknown)=>unknown) => fn({}))};
   const enrichment={localEnabled:vi.fn(()=>enabled),bridge:vi.fn()};
   const service=new GarminDayService(primary as never,detail as never,{} as never,enrichment as never);
@@ -30,19 +31,16 @@ describe('Garmin day workflow',()=>{
     rows.mockResolvedValue(GARMIN_DAY_CATEGORIES.map(category=>({category,state:'unsupported',source_hash:null,projection_json:null,attempted_at:new Date()})) as never);
     expect((await service.fetch(account,date,false)).result).toBe('cached');expect(enrichment.bridge).not.toHaveBeenCalled();
   });
-  it('repairs a retained walking-only failure without a provider call or score write',async()=>{
-    const {service,enrichment,rows,publish}=setup(false);
+  it('shows retained walking coverage and requires explicit fetching for missing resources',async()=>{
+    const {service,enrichment,rows}=setup(false);
     const retained=GARMIN_DAY_CATEGORIES.map(category=>({category,state:'unsupported',source_hash:null,projection_json:null,attempted_at:new Date()}));
-    const walking={category:'activities',state:'failed',source_hash:hash,projection_json:{identities:['native:1'],complete:true},attempt_json:{failures:[{identityKey:'native:1',state:'failed'}]},attempted_at:new Date(),retrieved_at:new Date(),availability:'available'};
-    rows.mockResolvedValueOnce([...retained.filter(row=>row.category!=='activities'),walking] as never)
-      .mockResolvedValue([...retained.filter(row=>row.category!=='activities'),{...walking,state:'available',attempt_json:{failures:[],excludedIdentities:['native:1']}}] as never);
-    vi.mocked(GarminDayResourcesRepository.prototype.read).mockResolvedValue({payload_json:{items:[{activityId:'1',activityType:{typeKey:'walking'}}]}});
-    const result=await service.fetch(account,date,false);
-    expect(result.result).toBe('cached');expect(enrichment.bridge).not.toHaveBeenCalled();
-    expect(result.state).toBe('current');
-    expect(result.categories.find(row=>row.category==='activities')).toMatchObject({state:'available',evidence:{count:0,complete:true,activities:[]}});
-    expect(JSON.stringify(result)).not.toContain('unsupported_non_scoring');
-    expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({state:'available',attempt:{failures:[],excludedIdentities:['native:1']}}));
+    const walking={category:'activities',state:'available',source_hash:hash,projection_json:{identities:['native:1'],complete:true},attempt_json:{failures:[],excludedIdentities:['native:1']},attempted_at:new Date(),retrieved_at:new Date(),availability:'available'};
+    rows.mockResolvedValue([...retained.filter(row=>row.category!=='activities'),walking] as never);
+    const result=await service.read(account.id,date);
+    expect(result.categories.find(row=>row.category==='activities')).toMatchObject({evidence:{count:1,complete:true,activities:[{ordinal:1,reconciliation:'staged',resourceState:'missing'}]}});
+    expect(enrichment.bridge).not.toHaveBeenCalled();
+    await expect(service.fetch(account,date,false)).rejects.toMatchObject({response:{code:'GARMIN_LOCAL_FETCH_DISABLED'}});
+    expect(enrichment.bridge).not.toHaveBeenCalled();
   });
   it('disables new upstream requests when local helper policy forbids the account',async()=>{
     const {service,enrichment}=setup(false);
@@ -77,7 +75,7 @@ describe('Garmin day workflow',()=>{
     const ingest=vi.spyOn(GarminLocalIngestService.prototype,'retainBundle').mockImplementation(async input=>{if(input.bundle.snapshot.providerActivityId==='456')throw new Error('private');return {activityId:'canonical',status:'strong_unique'} as never;});
     await service.fetch(account,date,false);
     expect(ingest).toHaveBeenCalledTimes(2);
-    expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({category:'activities',state:'failed',version:expect.objectContaining({projection:{identities:['native:123','native:456'],complete:true}}),attempt:{failures:[{identityKey:'native:456',state:'failed'}]}}));
+    expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({category:'activities',state:'failed',version:expect.objectContaining({projection:{identities:['native:123','native:456'],complete:true,workoutComplete:true}}),attempt:{failures:[{identityKey:'native:456',state:'failed'}]}}));
   });
   it('serializes repeated clicks and cancels helper work',async()=>{
     const {service,enrichment}=setup(); let resolve: (value:unknown)=>void=()=>{};

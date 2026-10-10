@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { integerOrNull, providerActivitySubtype } from './provider-sync-runner.js';
+import { integerOrNull, providerActivitySubtype, stravaSnapshotInput } from './provider-sync-runner.js';
 import type { ProviderActivity } from '@sportos/importers';
 
 const baseActivity: ProviderActivity = {
@@ -27,4 +27,13 @@ describe('provider sync integer metrics', () => {
     expect(providerActivitySubtype({ ...baseActivity, isTrack: false, isIndoor: true })).toBe('treadmill');
     expect(providerActivitySubtype({ ...baseActivity, isTrack: false })).toBe('outdoor');
   });
+});
+
+it('uses the same walk snapshot construction for sync and retained replay',()=>{
+ const walk={...baseActivity,type:'Walk',sportType:'Walk',isTrack:false,distanceM:3500,elapsedTimeS:3000,movingTimeS:2900};
+ const provenance={batchId:'batch',connectionId:'connection',raw:{id:1,type:'Walk'},rawHash:'a'.repeat(64)};
+ const normal=stravaSnapshotInput(walk,provenance);
+ const replay=stravaSnapshotInput(walk,{...provenance,retainedSourceRecordId:'source'});
+ expect(replay).toEqual({...normal,retainedSourceRecordId:'source'});
+ expect(normal.activity).toMatchObject({activityType:'walk',subtype:'outdoor',distanceM:3500,durationS:3000,movingTimeS:2900});
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HttpRequest, HttpResponse, ProviderHttpTransport } from './provider-types.js';
-import { StravaAdapter, canonicalActivityType, stravaActivityFingerprint } from './strava-adapter.js';
+import { StravaAdapter, parseStravaActivity, canonicalActivityType, stravaActivityFingerprint } from './strava-adapter.js';
 
 class FakeTransport implements ProviderHttpTransport {
   readonly requests: HttpRequest[] = [];
@@ -146,4 +146,9 @@ describe('StravaAdapter', () => {
       retryable: true,
     });
   });
+});
+
+it('retains Walk as its own activity type without treating Hike as walking',()=>{
+  expect(canonicalActivityType(parseStravaActivity({...activity,type:'Walk',sport_type:'Walk'}))).toBe('walk');
+  expect(canonicalActivityType(parseStravaActivity({...activity,type:'Hike',sport_type:'Hike'}))).toBeNull();
 });

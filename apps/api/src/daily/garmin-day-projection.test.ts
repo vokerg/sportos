@@ -21,7 +21,7 @@ describe('Garmin day projection', () => {
     expect(projectGarminDay('body_battery',[{date,charged:70,drained:30}],date)).toEqual({charged:70,drained:30});
   });
   it('retains compact activity identities with local calendar semantics', () => {
-    expect(projectGarminDay('activities',{items:[{activityId:123,startTimeLocal:`${date} 00:05:00`,startTimeGMT:'2026-03-28 23:05:00'}],complete:true},date)).toEqual({identities:['native:123'],complete:true});
+    expect(projectGarminDay('activities',{items:[{activityId:123,startTimeLocal:`${date} 00:05:00`,startTimeGMT:'2026-03-28 23:05:00'}],complete:true},date)).toEqual({identities:['native:123'],complete:true,workoutComplete:true});
     expect(() => projectGarminDay('activities',{items:[{activityId:123,startTimeLocal:'2026-03-28 23:05:00'}],complete:true},date)).toThrow();
   });
   it('excludes credentials, account references, hashes and paths from resource disclosure', () => {
@@ -30,7 +30,14 @@ describe('Garmin day projection', () => {
   });
 });
 
-it('excludes only explicit walking from strength-required extraction, retaining unknown and strength types',()=>{
+it('excludes only explicit walking from workout completeness, retaining unknown and strength types',()=>{
   expect(nonScoringGarminDayIdentities({items:[{activityId:'1',activityType:{typeKey:'walking'}},{activityId:'2',activityType:{typeKey:'strength_training'}},{activityId:'3',activityType:{typeKey:'unknown'}}]})).toEqual(['native:1']);
   expect(nonScoringGarminDayIdentities(null)).toEqual([]);
+});
+
+it('distinguishes partial walk history from incomplete workout discovery',()=>{
+ const base={items:[],complete:false,discoveryTruncated:false,unresolvedItems:[],deferredItems:[{activityType:{typeKey:'walking'}}]};
+ expect(projectGarminDay('activities',base,'2026-03-29')).toMatchObject({complete:false,workoutComplete:true});
+ expect(projectGarminDay('activities',{...base,discoveryTruncated:true},'2026-03-29')).toMatchObject({workoutComplete:false});
+ expect(projectGarminDay('activities',{...base,deferredItems:[{activityType:{typeKey:'strength_training'}}]},'2026-03-29')).toMatchObject({workoutComplete:false});
 });

@@ -17,6 +17,7 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
       <header><span class="page-kicker">Canonical activity</span><h1>{{ title(item) }} @if (item.subtype && item.subtype !== 'unknown') { <small>· {{ subtypeLabel(item.subtype) }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
         @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
       </header>
+      @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
       <div class="metric-sections">@for (group of metricGroups(item); track group.title) {
         <section class="card"><h2>{{ group.title }}</h2><dl class="metrics">@for (metric of group.items; track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl></section>
       }</div>

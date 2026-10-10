@@ -168,9 +168,7 @@ After retention, use the existing Recalculate action to apply Connect steps and
 complete linked strength sets. Fetch alone never recalculates. See
 [authority, classification and fallback policy](SCORING_RULES.md#retained-garmin-recalculation-108).
 
-Walking is excluded from activity extraction, matching candidates, coverage
-cards and workout completeness warnings. Its steps remain part of the retained
-all-day total. Original bounded discovery evidence remains available in the
-advanced resource; no walking canonical activity or link is created. Explicit
-Fetch can repair older walking-only failures using retained data, and normal
-Recalculate replaces a previously saved misleading workout explanation.
+Walking is supported by explicit activity extraction and matching and appears in
+coverage cards. It remains excluded from workout completeness requirements and
+activity points; its steps stay in the all-day total. This supersedes #108's
+walking exclusion. See [walking history and old retained evidence](WALKING_ACTIVITIES.md).

@@ -27,7 +27,8 @@
     "garmin:login": "node scripts/garmin-local.mjs login",
     "garmin:activity": "node scripts/garmin-local.mjs activity",
     "garmin:test": "node scripts/garmin-local.mjs test",
-    "garmin:project-strength": "node scripts/garmin-project-strength.mjs"
+    "garmin:project-strength": "node scripts/garmin-project-strength.mjs",
+    "strava:backfill-walks": "node scripts/strava-backfill-walks.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

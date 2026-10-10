@@ -2,7 +2,7 @@ import type { Activity, ActivityType } from './activities-api.service';
 import { formatDurationClock } from '../../shared/util/duration';
 
 export const TYPE_OPTIONS: Array<{ value: ActivityType | ''; label: string }> = [
-  { value: '', label: 'All types' }, { value: 'run', label: 'Run' }, { value: 'bike', label: 'Bike' },
+  { value: '', label: 'All types' }, { value: 'walk', label: 'Walk' }, { value: 'run', label: 'Run' }, { value: 'bike', label: 'Bike' },
   { value: 'swim', label: 'Swim' }, { value: 'workout', label: 'Workout' }, { value: 'rowing', label: 'Rowing' },
   { value: 'sup', label: 'SUP' }, { value: 'hiit', label: 'HIIT' }, { value: 'steps', label: 'Steps' },
   { value: 'bonus', label: 'Bonus' },
@@ -40,6 +40,7 @@ export const SWIM_PACE_OPTIONS = [
   { value: 120, label: 'Sub 2:00 /100 m' }, { value: 150, label: 'Sub 2:30 /100 m' },
 ] as const;
 export const DISTANCE_OPTIONS_M = {
+  walk: [0, 1000, 3000, 5000, 10000],
   run: [0, 5000, 10000, 21000, 42000],
   bike: [0, 20000, 40000, 80000, 100000],
   swim: [0, 500, 1000, 1500, 2000],
@@ -95,7 +96,7 @@ export function metrics(activity: Activity, detailed = false): Metric[] {
   const add = (label: string, value: number | null, format: (value: number) => string, group: MetricGroup) => {
     if (value !== null) output.push({ label, value: format(value), group });
   };
-  const isDistance = ['run', 'bike', 'swim', 'rowing', 'sup'].includes(activity.activity_type);
+  const isDistance = ['walk', 'run', 'bike', 'swim', 'rowing', 'sup'].includes(activity.activity_type);
   if (isDistance) add('Distance', activity.distance_m, (v) => sportDistance(v, activity.activity_type), 'Time and distance');
   add(activity.source === 'strava' ? 'Elapsed time' : 'Duration', activity.duration_s, duration, 'Time and distance');
   if (activity.moving_time_s !== null && activity.moving_time_s !== activity.duration_s) {
@@ -104,14 +105,14 @@ export function metrics(activity: Activity, detailed = false): Metric[] {
       add('Stopped time', activity.duration_s - activity.moving_time_s, duration, 'Time and distance');
     }
   }
-  if (activity.activity_type === 'run') add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, pace, 'Pace and terrain');
+  if (['walk', 'run'].includes(activity.activity_type)) add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, pace, 'Pace and terrain');
   if (activity.activity_type === 'swim') add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, (v) => `${formatDurationClock(v / 10)} /100 m`, 'Pace and terrain');
   if (['bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Average speed', activity.avg_speed_mps, (v) => `${(v * 3.6).toFixed(1)} km/h`, 'Pace and terrain');
   if (activity.activity_type !== 'bonus' && activity.activity_type !== 'steps') {
     add('Average HR', activity.avg_hr, (v) => `${v} bpm`, 'Heart rate and energy');
     add('Max HR', activity.max_hr, (v) => `${v} bpm`, 'Heart rate and energy');
   }
-  if (['run', 'bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Elevation gain', activity.elevation_gain_m, (v) => `${Math.round(v)} m`, 'Pace and terrain');
+  if (['walk', 'run', 'bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Elevation gain', activity.elevation_gain_m, (v) => `${Math.round(v)} m`, 'Pace and terrain');
   add('Calories', activity.calories, (v) => `${v} kcal`, 'Heart rate and energy');
   if (detailed || activity.activity_type === 'steps') add('Steps', activity.steps, (v) => v.toLocaleString('en-US'), 'Other');
   if (detailed) add('Effort points', activity.effort_points, String, 'Other');

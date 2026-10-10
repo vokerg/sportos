@@ -58,7 +58,8 @@ FIT parsing uses pinned `fitdecode` 0.11.0 with strict CRC and parse errors.
 Canonical matching metadata uses explicitly supported Garmin activity types,
 `startTimeGMT`, distance, `movingDuration` and `elapsedDuration` (or original FIT
 `total_elapsed_time`). FIT timer time is **not** guessed to be moving time.
-Unknown source semantics require review. The selected live sample passed strict
+Garmin walking is supported as non-scoring `walk/outdoor` history and can link to
+Strava Walk. See [walking policy](WALKING_ACTIVITIES.md). Unknown source semantics require review. The selected live sample passed strict
 parsing and retained running dynamics and power. Availability varies by device
 and activity; null or unavailable fields are preserved without fabrication.
 
