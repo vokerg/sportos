@@ -179,3 +179,34 @@ Walking is supported by explicit activity extraction and matching and appears in
 coverage cards. It remains excluded from workout completeness requirements and
 activity points; its steps stay in the all-day total. This supersedes #108's
 walking exclusion. See [walking history and old retained evidence](WALKING_ACTIVITIES.md).
+
+## Retained reconciliation
+
+Policy v4/V131 adds tightly corroborated cycling matches despite different
+reported moving durations. Walk/run/swim/workout matching retains its existing
+criteria. Neither linking nor later source comparison replaces canonical values
+or implicitly changes a score.
+
+After applying primary V131, the optional local operator command audits/replays
+**pending retained identities**, without Garmin/Strava downloads:
+
+```bash
+pnpm garmin:reconcile -- --all
+pnpm garmin:reconcile -- --all --apply
+```
+
+Default mode is a read-only preview; `linked` means eligible to link when
+`dryRun` is true. The command requires non-production `dev-single-user`, fixes
+the legacy owner, checks the non-owner `sportos_app` role, and prints only counts,
+reason categories and a pagination cursor. It scans up to 100 identities per
+batch and 10,000 per invocation. `--limit 1..100` sets the batch size; `--cursor
+UUID` resumes after a reported cursor. Without `--all`, it processes one batch.
+Replaying a batch is safe: linked and rejected identities are excluded, current
+source hashes are rechecked, established UUIDs never change, and each successful
+link appends one policy-v4 audit record. Failures leave prior committed links safe.
+
+Activity/day navigation reads the resulting current links. For newly linked
+activity metric comparisons, use the existing explicit retained-data normalization
+on the activity page; reconciliation alone does not read or transform rich JSON.
+Original Garmin session data is available through its retained provider view.
+No score recalculation is needed merely to reveal the paired source.

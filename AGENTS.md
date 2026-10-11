@@ -360,3 +360,19 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
   current provider links with old data. No network requests or score/history writes.
 - See `docs/WALKING_ACTIVITIES.md` for migration, bounds, cache and backfill behavior,
   and `docs/implementation/issue-110.md` for validation. PR #111 remains draft.
+
+### Retained pairing and cycling policy (#116)
+
+- Primary V131 admits match policy v4 while preserving all prior audit versions.
+  Cycling can retain a moving-time disagreement only with identical explicit
+  subtype, start/elapsed within two seconds, positive distance within max(25 m,
+  1%), and a unique candidate. Other sport criteria remain unchanged. Never
+  widen general tolerances, choose the nearest session or force a pending pair.
+- `pnpm garmin:reconcile -- --all` previews pending retained identities; `--apply`
+  explicitly links under the existing account reconciliation lock. The bounded
+  local command fixes the legacy owner and checks the non-owner runtime role.
+  It performs no downloads, source retention, canonical/scoring writes or rich
+  normalization. Rejected decisions and existing links remain immutable.
+- Retained metric normalization remains the separate existing projection path;
+  newly paired Garmin values never replace canonical Strava facts. See ADR 0010
+  and `docs/GARMIN_DAY_FETCH.md#retained-reconciliation`.

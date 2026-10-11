@@ -99,3 +99,89 @@ No provider network requests or writes occurred. Personal dates, native IDs,
 canonical IDs, source payloads and exact personal measurements are excluded from
 this committed record. This follow-up is documentation-only; no additional
 runtime test matrix was required.
+
+## Retained matching improvement preflight
+
+Maintainer explicitly expanded #116/#117 to audit all exported Garmin activities
+and improve automatic pairing. Inspected domain matcher/tests, primary
+reconciliation repository/integration tests, schema types, account context/pool,
+day repository/read mapping, activity enrichment, retained backfill scripts,
+package commands, CI and every primary migration declaration (full V124/V127/V128).
+V130 is the latest; V131 must preserve audit versions 1–3. Runtime audit also
+compared separate-detail identity coverage with primary identities. No private
+source sample or identity is committed.
+
+Exit criterion: audit all retained identities, explain every pending outcome,
+accept only independently corroborated unique pairs, preserve historical audits
+and established/rejected links, and prove canonical/scoring/source equality.
+The earlier frontend-only validation limit does not apply to this scope expansion.
+
+## Versioned retained matching delivery
+
+The authorized full retained audit classified all pending identities. Existing
+walk/run/swim/workout links were intact; pending native cycling identities each
+had one Strava candidate with exact start and tightly corroborated elapsed and
+distance. Moving-time disagreement was the only veto. Separate detail identity
+coverage had no entries without corresponding primary metadata. No personal
+counts, dates, identifiers or measurements are committed here.
+
+Policy v4 adds only the independent cycling corroboration path documented in ADR
+0010. V131 preserves all historical policy rows and changes no canonical/scoring
+data. Repository preview/replay uses the existing owner transaction lock; bounded
+keyset paging avoids skipping pending rows as earlier records link. The local
+operator CLI is read-only by default and accepts explicit `--apply`. Rejections,
+existing links, occupied candidates, missing data, fallback identities and
+competing candidates remain protected. New reasons distinguish a weak sole
+candidate, missing counterpart, competing candidates and an occupied link.
+
+Validation:
+
+- Domain matcher: 28 tests passed, including new cycling bounds, disagreement,
+  competing/weak candidates, ordering, missing/zero/unknown and unrelated sports.
+- Non-owner PostgreSQL reconciliation: 12 integration tests passed, including
+  preview without writes, apply/repeat, cross-owner denial, rejected decisions,
+  immutable links/history, stable paging and dispatcher denial.
+- Fresh Flyway: all 40 migrations through V131 passed on isolated PostgreSQL 16.
+- Populated V130→V131: canonical/identity/source-version/audit fixtures unchanged;
+  policy versions 1–3 preserved, new policy 4 accepted by `sportos_app`.
+- Split-role provider-sync worker integration: two tests passed with the
+  non-owner dispatcher/worker-data identities.
+- Root typecheck, available repository tests and production build passed.
+  Unconfigured unrelated database/API/worker integrations remain skipped; the
+  matching integration above was separately configured and fully executed.
+- Live non-owner preview identified only independently corroborated pairs. V131
+  was applied through the separate schema-owner Flyway identity; explicit retained
+  replay linked every pending pair. Existing source metrics were normalized via
+  the existing retained projector with no downloads. A repeated replay was empty.
+- Before/after owner-scoped in-memory digests verified unchanged canonical
+  activities, daily metrics, ledgers, snapshots, performance, rules, raw sources,
+  Garmin immutable versions/strength/day evidence and original detail resources.
+  Every established link and previous audit row stayed byte-for-byte equivalent;
+  only new policy-v4 links/audits and derived provider metrics were added.
+- Read-only live day reload verified Garmin badges on all displayed sessions and
+  no pending day entries. No Fetch, Refresh or recalculation was invoked.
+
+This supersedes the earlier investigation-only conclusion under current policy
+v3. #117 remains draft; no merge or issue completion is implied.
+
+Additional inspected paths during validation/documentation:
+
+- `packages/db/src/ownership-context.ts`, `packages/db/src/pool.ts`,
+  `packages/db/src/index.ts`, `packages/db/src/garmin-activity-schema.ts`
+- `packages/db/src/repositories/garmin-day.repository.ts` and its integration test
+- `packages/db/src/activity-metric-projector.ts`,
+  `packages/db/src/activity-metric-backfill.ts`
+- `apps/api/src/db.provider.ts`,
+  `apps/api/src/daily/garmin-day.service.ts`,
+  `apps/api/src/activities/activity-enrichment.service.ts`,
+  `apps/api/src/activities/activity-metrics.service.ts` and enrichment integration
+- `apps/worker/src/provider-sync-runner.integration.test.ts`
+- `scripts/activity-metrics-backfill.mjs`, `scripts/strava-backfill-walks.mjs`,
+  `scripts/flyway.mjs`, `package.json`, `packages/db/package.json`
+- `.github/workflows/ci.yml`, `AGENTS.md`, `docs/ACTIVITIES.md`,
+  `docs/GARMIN_SINGLE_ACTIVITY.md`, `docs/implementation/issue-108.md`,
+  `docs/implementation/issue-112.md`, `docs/implementation/issue-114.md`
+
+Existing documentation mismatch: historical policy reason `POLICY_V2` was still
+emitted by policy v3; current outcomes now carry the correct policy and explicit
+blocking reason. Historical JSON and audit history are left intact.

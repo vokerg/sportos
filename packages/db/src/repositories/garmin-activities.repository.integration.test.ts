@@ -72,12 +72,46 @@ integration('Garmin identity and canonical authority under non-owner RLS', () =>
     const id=await withAccountContext(db,ownerA,async ctx=>(await ctx.insertInto('activities').values({source:'strava',activity_type:'workout',subtype:'indoor',activity_date:time.slice(0,10),start_time:new Date(time),duration_s:1800,moving_time_s:1800,distance_m:0}).returning('id').executeTakeFirstOrThrow()).id);
     const before=await canonicalRows(ownerA);
     expect(await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash))).toMatchObject({status:'strong_unique',activityId:id});
-    expect((await scoped(ownerA,repo=>repo.audit(pending.id)))[0]).toMatchObject({policyVersion:3,action:'auto_link'});
+    expect((await scoped(ownerA,repo=>repo.audit(pending.id)))[0]).toMatchObject({policyVersion:4,action:'auto_link'});
     await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash));
     expect(await scoped(ownerA,repo=>repo.audit(pending.id))).toHaveLength(1);
     expect(await canonicalRows(ownerA)).toEqual(before);
     await scoped(ownerA,repo=>repo.review(pending.id,'reject'));
     expect(await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash))).toMatchObject({status:'rejected',activityId:null});
+  });
+
+  it('previews and replays pending cycling matches once without mutating facts, scores or rejected links', async () => {
+    const owner = await account();
+    const time = '2095-06-01T10:00:00Z';
+    const input = snapshot('2001', time, {summary: {activityType: 'bike', subtype: 'outdoor', startTime: new Date(time), elapsedTimeS: 2400.8, movingTimeS: 1700, distanceM: 12000}});
+    const pending = await scoped(owner, repo => repo.ingest(input));
+    const canonical = await withAccountContext(db, owner, async ctx => (await ctx.insertInto('activities').values({source: 'strava', activity_type: 'bike', subtype: 'outdoor', activity_date: '2095-06-01', start_time: new Date(time), duration_s: 2400, moving_time_s: 1900, distance_m: 12000.1}).returning('id').executeTakeFirstOrThrow()).id);
+    const rejectedInput = {...input, providerActivityId: '2002', summary: {...input.summary, startTime: new Date('2095-06-02T10:00:00Z')}};
+    const rejected = await scoped(owner, repo => repo.ingest(rejectedInput));
+    await scoped(owner, repo => repo.review(rejected.id, 'reject'));
+    const before = await canonicalRows(owner);
+    expect(await scoped(owner, repo => repo.reconcileRetained())).toMatchObject({dryRun: true, examined: 1, linked: 1, policyVersion: 4, bySport: {bike: 1}});
+    expect(await scoped(owner, repo => repo.get(pending.id))).toMatchObject({activityId: null});
+    expect(await scoped(owner, repo => repo.audit(pending.id))).toHaveLength(0);
+    expect(await scoped(owner, repo => repo.reconcileRetained({dryRun: false}))).toMatchObject({examined: 1, linked: 1});
+    expect(await scoped(owner, repo => repo.get(pending.id))).toMatchObject({activityId: canonical});
+    expect(await scoped(owner, repo => repo.audit(pending.id))).toMatchObject([{policyVersion: 4, action: 'auto_link'}]);
+    expect(await scoped(owner, repo => repo.reconcileRetained({dryRun: false}))).toMatchObject({examined: 0, linked: 0});
+    expect(await scoped(owner, repo => repo.audit(pending.id))).toHaveLength(1);
+    expect(await scoped(owner, repo => repo.get(rejected.id))).toMatchObject({status: 'rejected', activityId: null});
+    expect(await canonicalRows(owner)).toEqual(before);
+    expect(await scoped(ownerB, repo => repo.reconsider(garminIdentityKey(input), input.contentHash, true))).toBeNull();
+  });
+
+  it('bounds retained replay with stable cursors and leaves pending/occupied/fallback cases inspectable', async () => {
+    const owner = await account();
+    for (let i = 1; i <= 3; i++) await scoped(owner, repo => repo.ingest(snapshot(String(3000+i), `2095-07-0${i}T10:00:00Z`)));
+    const first = await scoped(owner, repo => repo.reconcileRetained({limit: 2}));
+    expect(first).toMatchObject({examined: 2, unmatched: 2, reasons: {NO_COMPATIBLE_CANDIDATE: 2}});
+    expect(first.nextCursor).not.toBeNull();
+    const second = await scoped(owner, repo => repo.reconcileRetained({limit: 2, cursor: first.nextCursor!}));
+    expect(second).toMatchObject({examined: 1, unmatched: 1, nextCursor: null});
+    for (const options of [{limit: 0}, {limit: 101}, {cursor: 'invalid'}]) await expect(scoped(owner, repo => repo.reconcileRetained(options))).rejects.toThrow('Invalid retained');
   });
 
   it('keeps competing workouts ambiguous and supports audited accept/reject/reopen', async () => {
