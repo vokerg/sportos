@@ -20,7 +20,7 @@ steps remain unchanged. See [walking policy and backfill](WALKING_ACTIVITIES.md)
 
 ## Strava run data currently retained
 
-The Strava ingest path stores the activity date and start timestamp, provider identity, run subtype (such as treadmill, track, outdoor, or race), distance, elapsed and moving seconds, moving pace derived from moving time and distance, average speed, average and maximum heart rate, elevation gain, optional calories, and the Strava activity name in canonical `notes`. The Activities list and detail show these fields when present; run presentation uses pace rather than speed, while bike and other speed-based activities retain average speed. Detail groups time/distance, pace/terrain, and heart rate/energy, and derives stopped time only when elapsed time exceeds moving time. Durations use `m:ss` or `h:mm:ss` throughout the browser's activity readouts. Identical elapsed and moving times are not shown twice.
+The Strava ingest path stores the activity date and start timestamp, provider identity, run subtype (such as treadmill, track, outdoor, or race), distance, elapsed and moving seconds, moving pace derived from moving time and distance, average speed, average and maximum heart rate, elevation gain, optional calories, and the Strava activity name in canonical `notes`. The Activities list and detail show these fields when present; run presentation uses pace rather than speed, while bike and other speed-based activities retain average speed. Detail leads with a sport-specific summary: runs show distance, pace and moving time; bikes show distance, average speed and moving time; swims show metres, pace per 100 m and elapsed time. Missing moving time falls back to explicitly labeled elapsed time. Secondary groups retain heart rate, terrain, dynamics and training metrics, and derive stopped time only when elapsed time exceeds moving time. Durations use `m:ss` or `h:mm:ss` throughout the browser's activity readouts. Identical elapsed and moving times are not shown twice.
 
 Some Strava fields may be present only in retained raw source data, and some list responses do not include every optional metric. The detail page offers a collapsed **Raw source JSON (advanced)** section when a source record exists. Opening it fetches and formats the retained summary response for inspection; it can include location and other private source details.
 
@@ -121,7 +121,7 @@ Primary V129 adds independent versioned Strava/Garmin scalar observations and
 per-provider processing checkpoints. List badges separate linkage, raw retention,
 normalization, partial coverage, failures and stale versions. Detail comparisons
 show the existing canonical selection and provider values side by side: e.g.
-Strava 10.02 km and Garmin 10.00 km, with canonical distance still Strava's.
+Strava 10.2 km and Garmin 10 km, with canonical distance still Strava's.
 Metric provenance exposes safe projection UUIDs, fields, units and derivation.
 Normal pages read primary projections without loading raw provider JSON.
 
@@ -133,3 +133,18 @@ have zero optional values. Pending Garmin identities remain pending.
 See [metric catalog, versions and operator backfill](ACTIVITY_METRICS.md) for
 `POST /activities/:id/metrics/reprocess`, authority, missing-value semantics,
 retained-only cursor batches and deployment/validation requirements.
+
+## Activity presentation (#118)
+
+Activity list cards and detail summaries prioritize each sport's key metrics,
+with blue run, green ride and cyan swim accents. Kilometres display at most one
+decimal; swimming distances remain whole metres. Summary values retain source
+labels, primary authority and explicit read-only fallback status. Meaningful
+provider differences remain separate even if rounding produces the same display
+text; exact observations are available in advanced normalized provenance.
+Canonical-only fields join the secondary detail groups, so stopped time no longer
+appears as a standalone first card. Highlighted fields are not repeated there.
+Small screens stack summary metrics vertically. Missing metrics are omitted from
+the summary without deriving replacements, while missing comparison observations
+remain visible in the secondary groups. Display formatting never changes stored
+facts, provider selection, matching tolerances, official points or fetch behavior.

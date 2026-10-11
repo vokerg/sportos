@@ -74,3 +74,22 @@ describe('activity metrics rendered UI', () => {
     expect(el.textContent).toContain('alternative'); expect(el.textContent).toContain('test-version');
   });
 });
+
+it('leads with run highlights and retains stopped time in secondary metrics', () => {
+  const fixture = TestBed.createComponent(ActivityMetricComparisonComponent);
+  Object.defineProperty(fixture.componentInstance, 'metrics', { value: signal([distance]) });
+  Object.defineProperty(fixture.componentInstance, 'sport', { value: signal('run') });
+  Object.defineProperty(fixture.componentInstance, 'activity', { value: signal({
+    activity_type: 'run', source: 'strava', distance_m: 10000, duration_s: 3900, moving_time_s: 3600,
+    avg_pace_s_per_km: 360, avg_speed_mps: null, avg_hr: 140, max_hr: null, elevation_gain_m: null,
+    calories: null, steps: null, effort_points: null,
+  }) });
+  fixture.detectChanges(); const el = fixture.nativeElement as HTMLElement;
+  expect(el.querySelector('section')?.getAttribute('aria-label')).toBe('Activity highlights');
+  const summary = el.querySelector('.highlights')!;
+  expect([...summary.querySelectorAll('dt')].map(dt => dt.textContent)).toEqual(['Distance', 'Moving pace', 'Moving time']);
+  expect(summary.textContent).toContain('Strava · Garmin');
+  expect(summary.textContent).not.toContain('Stopped time');
+  expect(el.querySelector('[aria-label="Activity metrics"]')?.textContent).toContain('Stopped time');
+  expect(el.querySelectorAll('dt')).toHaveLength(6);
+});

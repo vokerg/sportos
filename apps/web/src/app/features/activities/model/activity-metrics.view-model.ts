@@ -127,7 +127,8 @@ export function highlightMetrics(groups: readonly MetricGroupView[], sport: stri
   const main = keys.flatMap(key => { const row = available(key); return row ? [row] : []; });
   if (time) main.push(time);
   return main.map(row => ({ ...row, label: ({ moving_duration: 'Moving time', elapsed_duration: 'Elapsed time',
-    timer_duration: 'Garmin timer time', average_pace: 'Average pace', average_speed: 'Average speed' } as Record<string, string>)[row.key] ?? row.label }));
+    timer_duration: 'Garmin timer time', average_pace: row.label.toLowerCase().includes('moving') ? 'Moving pace' : 'Average pace',
+    average_speed: 'Average speed' } as Record<string, string>)[row.key] ?? row.label }));
 }
 
 /** Include canonical-only fields for older/partial responses in the same layout. */

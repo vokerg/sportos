@@ -36,3 +36,19 @@ and two-decimal comparison example; update it with the new display hierarchy.
 The existing supplemental canonical cards precede comparisons, so stopped time
 can become the first and only top card. Merge canonical-only fields into the
 secondary metric groups and prioritize sport-specific summary metrics first.
+
+## Delivered behavior and validation
+
+- Summary first: run distance/pace/moving time, bike distance/speed/moving time,
+  swim metres/pace per 100 m/elapsed time; missing fields remain honest.
+- Same priority on activity list cards; sport colour accents and responsive layout.
+- Kilometres use at most one decimal. Source comparisons retain numeric precision,
+  authority, read-only fallback status and advanced provenance.
+- Stopped time and other canonical-only fields join secondary metric groups.
+- Focused Vitest: 67 tests passed across activity presentation, comparison model,
+  comparison UI and page workflows. Web typecheck and production build passed.
+- Browser inspection: live run/bike/swim summaries and list ordering, plus swim
+  at 390 px width. No Fetch/Refresh/Normalize action was invoked.
+- No database/backend/worker/migration or full repository suites were run because
+  the change is frontend presentation only. No live facts or scores were written.
+- Draft PR #119; issue #118 remains open until an explicitly authorized merge.
