@@ -119,6 +119,12 @@ count is a per-owner inventory, not a count within the canonical cursor batch;
 pending identities never acquire a fabricated canonical UUID. Other activities
 remain valid and receive no invented provider status.
 
+Within a batch, compact metadata is read together and rich resources are inspected
+per source. Checkpoints and publication use separate bounded primary transactions,
+each rechecking source membership and inspection freshness under the reconciliation
+lock. Scalar inserts are chunked to bound SQL parameters. A bulk publication error
+falls back to the same per-source workflow so valid rows can converge.
+
 Persist/advance the cursor only on exit zero. Rerun from the beginning after
 new imports/source changes; UUIDs inserted behind an existing cursor belong to
 the next scan. With errors, `nextCursor` remains

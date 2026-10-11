@@ -144,6 +144,39 @@ integration('retained activity metric projections under non-owner RLS',()=>{
     expect(await scoped(db=>new RetainedActivityMetricsProjector(db,fn=>rich(fn,foreign)).projectBatch([f.activity],true),foreign)).toEqual(new Map());
     await expect(scoped(db=>new RetainedActivityMetricsProjector(db,fn=>rich(fn)).projectBatch(Array(101).fill(f.activity),true))).rejects.toThrow('batch exceeds limit');
   });
+  it('publishes multiple activities in bounded bulk phases and leaves unchanged replay untouched',async()=>{
+    const fixtures=await Promise.all([fixture(),fixture(),fixture()]);
+    const refs=await scoped(db=>new ActivityMetricsRepository(db).references(fixtures.map(f=>f.activity)));
+    const writes:ProjectionWrite[]=refs.map(reference=>({reference,inputHash:'d'.repeat(64),inspectedAt:new Date(),state:'processed',richRetained:true,compactOnly:false,missing:0,rejected:0,
+      observations:Array.from({length:200},(_,i)=>({metricKey:'distance',value:10000+i,unit:'m',sourceKind:'compact',sourceField:`field_${i}`,sourceUnit:'m',origin:'provider_derived',precedence:10}))}));
+    const first=await scoped(db=>new ActivityMetricsRepository(db).publishBatch(writes));expect([...first.values()]).toEqual(Array(3).fill('newly_projected'));
+    expect(Number((await scoped(db=>db.selectFrom('activity_provider_metric_values').select(eb=>eb.fn.countAll<string>().as('n')).where('activity_id','in',fixtures.map(f=>f.activity)).executeTakeFirstOrThrow())).n)).toBe(600);
+    const before=await scoped(db=>db.selectFrom('activity_metric_heads').selectAll().where('activity_id','in',fixtures.map(f=>f.activity)).orderBy('activity_id').execute());
+    const replay=await scoped(db=>new ActivityMetricsRepository(db).publishBatch(writes.map(w=>({...w,inspectedAt:new Date()}))));expect([...replay.values()]).toEqual(Array(3).fill('already_current'));
+    expect(await scoped(db=>db.selectFrom('activity_metric_heads').selectAll().where('activity_id','in',fixtures.map(f=>f.activity)).orderBy('activity_id').execute())).toEqual(before);
+    await expect(scoped(db=>new ActivityMetricsRepository(db).publishBatch([writes[0]!,writes[0]!]))).rejects.toThrow('repeats a provider');
+  });
+  it('retains a committed bulk checkpoint when publication fails, then converges on normal replay',async()=>{
+    const f=await fixture();await project(f.activity);
+    const reference=(await scoped(db=>new ActivityMetricsRepository(db).references([f.activity])))[0]!;
+    const before=await scoped(db=>db.selectFrom('activity_metric_heads').selectAll().where('activity_id','=',f.activity).executeTakeFirstOrThrow());
+    const write:ProjectionWrite={reference,inputHash:'e'.repeat(64),inspectedAt:new Date(),state:'processed',richRetained:true,compactOnly:false,missing:0,rejected:0,
+      observations:[{metricKey:'distance',value:-200,unit:'m',sourceKind:'compact',sourceField:'distance',sourceUnit:'m',origin:'provider_derived',precedence:10}]};
+    await expect(scoped(db=>new ActivityMetricsRepository(db).publishBatch([write]))).rejects.toThrow();
+    const pending=await scoped(db=>db.selectFrom('activity_metric_heads').selectAll().where('activity_id','=',f.activity).executeTakeFirstOrThrow());
+    expect(pending.state).toBe('unprocessed');expect(pending.projection_id).toBe(before.projection_id);
+    expect(pending.expected_input_hash).toBe(write.inputHash);
+    await project(f.activity);expect((await scoped(db=>new ActivityMetricsRepository(db).statuses([f.activity])))[f.activity]?.find(s=>s.provider==='strava')?.state).toBe('partial');
+  });
+  it('bulk publication preserves precise freshness checks, source membership and foreign-owner isolation',async()=>{
+    const f=await fixture();await project(f.activity);
+    const reference=(await scoped(db=>new ActivityMetricsRepository(db).references([f.activity])))[0]!;
+    const write:ProjectionWrite={reference,inputHash:'e'.repeat(64),inspectedAt:'2090-01-01 00:00:00.123456+00',state:'processed',richRetained:true,compactOnly:false,missing:0,rejected:0,observations:[]};
+    await scoped(db=>db.updateTable('activity_metric_heads').set({inspected_at:'2090-01-01 00:00:00.123987+00'}).where('activity_id','=',f.activity).execute());
+    expect([...(await scoped(db=>new ActivityMetricsRepository(db).publishBatch([write]))).values()]).toEqual(['stale']);
+    expect([...(await scoped(db=>new ActivityMetricsRepository(db).publishBatch([{...write,reference:{...reference,sourceVersion:'f'.repeat(64)},inspectedAt:'2091-01-01'}]))).values()]).toEqual(['stale']);
+    expect([...(await scoped(db=>new ActivityMetricsRepository(db).publishBatch([write]),foreign)).values()]).toEqual(['stale']);
+  });
   it('never forces a pending Garmin link and allows later retained-only projection after explicit review',async()=>{
     const f=await fixture();const pending=await scoped(db=>new GarminActivitiesRepository(db).ingest({provider:'garmin',providerActivityId:'80002',contentHash:'c'.repeat(64),origin:'connect',sourceUpdatedAt:new Date('2095-02-01'),summary:{activityType:'run',subtype:'outdoor',startTime:new Date('2095-02-01'),elapsedTimeS:3100,movingTimeS:3000,distanceM:10000}}));
     expect(pending.activityId).toBeNull();

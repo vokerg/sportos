@@ -124,6 +124,67 @@ export class ActivityMetricsRepository {
       return 'newly_projected';
     });
   }
+  /** Two separately committed, bounded phases. All source/freshness checks run
+   * under the same reconciliation lock as the single-activity workflow. */
+  async publishBatch(writes:readonly ProjectionWrite[]):Promise<Map<string,'newly_projected'|'already_current'|'stale'>> {
+    const ids=[...new Set(writes.map(w=>w.reference.activityId))];
+    if (ids.length>100 || writes.length>200 || writes.some(w=>w.observations.length>200)
+      || new Set(writes.map(w=>metricWriteKey(w.reference))).size!==writes.length) throw new Error('Metric projection batch exceeds bound or repeats a provider.');
+    const results=new Map<string,'newly_projected'|'already_current'|'stale'>();
+    if (!writes.length) return results;
+    const eligible=await this.db.transaction().execute(async tx=>{
+      await lockActivityReconciliation(tx);
+      const refs=await new ActivityMetricsRepository(tx).references(ids);
+      const heads=await tx.selectFrom('activity_metric_heads').selectAll().where('activity_id','in',ids).execute();
+      const newer=await newerBatchInspections(tx,writes);
+      const accepted=writes.filter(w=>sameReference(refs.find(r=>metricWriteKey(r)===metricWriteKey(w.reference)),w.reference) && !newer.has(metricWriteKey(w.reference)));
+      const changed=accepted.filter(w=>{const h=heads.find(h=>metricWriteKey({activityId:h.activity_id,provider:h.provider})===metricWriteKey(w.reference));return !h || h.source_ref!==w.reference.sourceRef || h.source_version!==w.reference.sourceVersion || h.expected_input_hash!==w.inputHash;});
+      if (changed.length) await tx.insertInto('activity_metric_heads').values(changed.map(w=>({...metricHeadWrite(w),projection_id:null,state:'unprocessed' as const})))
+        .onConflict(oc=>oc.columns(['owner_id','activity_id','provider']).doUpdateSet(eb=>({
+          source_ref:eb.ref('excluded.source_ref'),source_version:eb.ref('excluded.source_version'),expected_input_hash:eb.ref('excluded.expected_input_hash'),
+          state:eb.ref('excluded.state'),rich_retained:eb.ref('excluded.rich_retained'),failure_category:eb.ref('excluded.failure_category'),inspected_at:eb.ref('excluded.inspected_at'),updated_at:eb.ref('excluded.updated_at'),
+        }))).execute();
+      return accepted;
+    });
+    for (const w of writes) results.set(metricWriteKey(w.reference),'stale');
+    if (!eligible.length) return results;
+    await this.db.transaction().execute(async tx=>{
+      await lockActivityReconciliation(tx);
+      const refs=await new ActivityMetricsRepository(tx).references(ids);
+      const heads=await tx.selectFrom('activity_metric_heads').selectAll().where('activity_id','in',ids).execute();
+      const newer=await newerBatchInspections(tx,eligible);
+      const historical=await tx.selectFrom('activity_metric_projections').select(['id','activity_id','provider','source_ref','source_version','input_hash','parser_version']).where('parser_version','=',ACTIVITY_METRIC_PARSER_VERSION)
+        .where(eb=>eb.or(eligible.map(w=>eb.and([eb('activity_id','=',w.reference.activityId),eb('provider','=',w.reference.provider),eb('source_ref','=',w.reference.sourceRef),eb('source_version','=',w.reference.sourceVersion),eb('input_hash','=',w.inputHash)])))).execute();
+      const publishing:ProjectionWrite[]=[]; const projectionIds=new Map<string,string>();
+      for (const w of eligible) {
+        const key=metricWriteKey(w.reference); const r=w.reference;
+        if (!sameReference(refs.find(ref=>metricWriteKey(ref)===key),r) || newer.has(key)) continue;
+        const existing=historical.find(p=>p.activity_id===r.activityId && p.provider===r.provider && p.source_ref===r.sourceRef && p.source_version===r.sourceVersion && p.input_hash===w.inputHash);
+        const head=heads.find(h=>h.activity_id===r.activityId && h.provider===r.provider);
+        if (existing && head?.projection_id===existing.id && head.state===w.state && head.failure_category===null) {results.set(key,'already_current');continue;}
+        if (existing) projectionIds.set(key,existing.id);
+        publishing.push(w);
+      }
+      const fresh=publishing.filter(w=>!projectionIds.has(metricWriteKey(w.reference)));
+      if (fresh.length) {
+        const inserted=await tx.insertInto('activity_metric_projections').values(fresh.map(w=>({activity_id:w.reference.activityId,provider:w.reference.provider,source_ref:w.reference.sourceRef,source_version:w.reference.sourceVersion,input_hash:w.inputHash,
+          parser_version:ACTIVITY_METRIC_PARSER_VERSION,state:w.state,rich_retained:w.richRetained,compact_only:w.compactOnly,missing_count:w.missing,rejected_count:w.rejected,value_count:selectProviderMetrics(w.observations).length})))
+          .returning(['id','activity_id','provider']).execute();
+        for (const p of inserted) projectionIds.set(metricWriteKey({activityId:p.activity_id,provider:p.provider}),p.id);
+        const values=fresh.flatMap(w=>w.observations.map(o=>({activity_id:w.reference.activityId,provider:w.reference.provider,projection_id:projectionIds.get(metricWriteKey(w.reference))!,metric_key:o.metricKey,value:o.value,unit:o.unit,
+          source_kind:o.sourceKind,source_field:o.sourceField,source_unit:o.sourceUnit,origin:o.origin,precedence:o.precedence})));
+        // Bound SQL parameters as well as each individual inspection.
+        for (let start=0;start<values.length;start+=500) await tx.insertInto('activity_provider_metric_values').values(values.slice(start,start+500)).execute();
+      }
+      if (publishing.length) await tx.insertInto('activity_metric_heads').values(publishing.map(w=>({...metricHeadWrite(w),projection_id:projectionIds.get(metricWriteKey(w.reference))!})))
+        .onConflict(oc=>oc.columns(['owner_id','activity_id','provider']).doUpdateSet(eb=>({
+          source_ref:eb.ref('excluded.source_ref'),source_version:eb.ref('excluded.source_version'),projection_id:eb.ref('excluded.projection_id'),expected_input_hash:eb.ref('excluded.expected_input_hash'),state:eb.ref('excluded.state'),
+          rich_retained:eb.ref('excluded.rich_retained'),failure_category:eb.ref('excluded.failure_category'),inspected_at:eb.ref('excluded.inspected_at'),updated_at:eb.ref('excluded.updated_at'),
+        }))).execute();
+      for (const w of publishing) results.set(metricWriteKey(w.reference),'newly_projected');
+    });
+    return results;
+  }
   async failure(reference: MetricReference, category: 'retained_read_failed' | 'projection_failed', richRetained: boolean | null, inspectedAt: Date | string) {
     await this.db.transaction().execute(async tx=> {
       await lockActivityReconciliation(tx);
@@ -135,6 +196,14 @@ export class ActivityMetricsRepository {
       await tx.insertInto('activity_metric_heads').values({...values,projection_id:null}).onConflict(oc=>oc.columns(['owner_id','activity_id','provider']).doUpdateSet(values)).execute();
     });
   }
+}
+export function metricWriteKey(ref:Pick<MetricReference,'activityId'|'provider'>) {return `${ref.activityId}:${ref.provider}`;}
+function metricHeadWrite(w:ProjectionWrite) {return {activity_id:w.reference.activityId,provider:w.reference.provider,source_ref:w.reference.sourceRef,source_version:w.reference.sourceVersion,expected_input_hash:w.inputHash,state:w.state,rich_retained:w.richRetained,failure_category:null,inspected_at:w.inspectedAt,updated_at:new Date()};}
+async function newerBatchInspections(db:Kysely<Database>,writes:readonly ProjectionWrite[]) {
+  const newer=await db.selectFrom('activity_metric_heads').select(['activity_id','provider']).where(eb=>eb.or(writes.map(w=>eb.and([
+    eb('activity_id','=',w.reference.activityId),eb('provider','=',w.reference.provider),eb('inspected_at','>',sql<Date>`${w.inspectedAt}::timestamptz`),
+  ])))).execute();
+  return new Set(newer.map(h=>metricWriteKey({activityId:h.activity_id,provider:h.provider})));
 }
 function observation(r: {metric_key:string;value:number;unit:string;source_kind:MetricObservation['sourceKind'];source_field:string;source_unit:string;origin:MetricObservation['origin'];precedence:number}): MetricObservation {
   return {metricKey:r.metric_key,value:r.value,unit:r.unit,sourceKind:r.source_kind,sourceField:r.source_field,sourceUnit:r.source_unit,origin:r.origin,precedence:r.precedence};

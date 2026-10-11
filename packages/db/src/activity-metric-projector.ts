@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { ACTIVITY_METRIC_CATALOG, ACTIVITY_METRIC_PARSER_VERSION, inspectActivityMetrics, type MetricInput, type MetricProvider } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Database, Json } from './schema.js';
-import { ActivityMetricsRepository, type MetricReference, type ProjectionWrite } from './repositories/activity-metrics.repository.js';
+import { ActivityMetricsRepository, metricWriteKey, type MetricReference, type ProjectionWrite } from './repositories/activity-metrics.repository.js';
 import { GarminActivityResourcesRepository } from './repositories/garmin-activity-resources.repository.js';
 import { GarminStrengthRepository } from './repositories/garmin-strength.repository.js';
 export type DetailExecutor = <T>(callback:(db:Kysely<Database>)=>Promise<T>)=>Promise<T>;
@@ -28,7 +28,42 @@ export class RetainedActivityMetricsProjector {
     const activities=await this.primary.selectFrom('activities').select(['id','activity_type']).where('id','in',[...activityIds]).execute();
     const refs=await new ActivityMetricsRepository(this.primary).references(activities.map(a=>a.id));
     const results=new Map<string,MetricProjectionResult[]>();
-    for (const activity of activities) results.set(activity.id,await this.projectReferences(activity.activity_type,refs.filter(r=>r.activityId===activity.id),dryRun));
+    if (dryRun) {
+      for (const activity of activities) results.set(activity.id,await this.projectReferences(activity.activity_type,refs.filter(r=>r.activityId===activity.id),true));
+      return results;
+    }
+    const repo=new ActivityMetricsRepository(this.primary); const writes:ProjectionWrite[]=[];
+    const clock=await sql<{time:string}>`select clock_timestamp()::text as time`.execute(this.primary);
+    const inspectedAt=clock.rows[0]!.time;
+    for (const activity of activities) {
+      const entries:MetricProjectionResult[]=[];results.set(activity.id,entries);
+      for (const reference of refs.filter(r=>r.activityId===activity.id)) {
+        try {
+          const inspection=await this.inspect(reference,activity.activity_type);
+          writes.push({...inspection,reference,inspectedAt});
+          entries.push({provider:reference.provider,category:'eligible',compactOnly:inspection.compactOnly,linkedButUnretained:!inspection.richRetained,missingCategories:inspection.missingCategories});
+        } catch {
+          await repo.failure(reference,'retained_read_failed',null,inspectedAt);
+          entries.push({provider:reference.provider,category:'errors',compactOnly:false,linkedButUnretained:false,missingCategories:['retained_read_failed']});
+        }
+      }
+    }
+    let published:Map<string,MetricProjectionResult['category']>;
+    try { published=await repo.publishBatch(writes); }
+    catch {
+      // A malformed source must not prevent valid sources in the batch from
+      // converging. Both bulk phases are transactional; replay each safe write.
+      published=new Map();
+      for (const write of writes) {
+        try {published.set(metricWriteKey(write.reference),await repo.checkpoint(write) ? await repo.publish(write) : 'stale');}
+        catch {await repo.failure(write.reference,'projection_failed',write.richRetained,write.inspectedAt);published.set(metricWriteKey(write.reference),'errors');}
+      }
+    }
+    for (const write of writes) {
+      const entry=results.get(write.reference.activityId)!.find(r=>r.provider===write.reference.provider)!;
+      entry.category=published.get(metricWriteKey(write.reference)) ?? 'stale';
+      if (entry.category==='errors') entry.missingCategories=['projection_failed'];
+    }
     return results;
   }
   private async projectReferences(sport:string,refs:MetricReference[],dryRun:boolean):Promise<MetricProjectionResult[]> {

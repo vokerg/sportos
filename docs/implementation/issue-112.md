@@ -99,26 +99,76 @@ precision for concurrent projections. Unknown rich fields remain in raw retentio
 
 ## Neon validation follow-up (2026-10-11)
 
-The maintainer authorized V129 and retained-only dry-run/apply/replay against real
-history, with no provider download or merge. Flyway validated all 38 migrations
-and applied only V129, upgrading the maintained primary Neon database from V128.
-The new metric tables were empty after migration; no implicit backfill ran.
+The maintainer authorized live V129 and retained-only dry-run/apply/replay, without
+provider downloads or merge. Flyway validated all 38 migrations and applied only
+V129, upgrading the maintained primary Neon database from V128. The new tables
+were empty after migration; no implicit backfill ran. Both primary/detail runs
+used non-owner `sportos_app` connections. Local detail runtime configuration was
+corrected from schema-owner credentials using the existing Neon runtime URL;
+no credentials were reset, and no secrets are committed.
 
-An owner-scoped non-owner runtime baseline compared complete row digests and
-counts before and after migration for canonical activities, daily metrics, ledger,
-score snapshots, performance events, rules, provider links, Garmin identities and
-strength summaries. Every comparison was unchanged. Private digests and operator
-artifacts remain outside the repository. Root typecheck and eight focused catalog/
-backfill tests passed again; existing PR CI is successful.
+### Real retained-history results
 
-Backfill has not started: local `SPORTOS_ACTIVITY_DETAIL_DATABASE_URL` currently
-uses the detail schema-owner/bypass-RLS identity. The backfill role guard correctly
-rejects it. The primary project's runtime credentials do not authenticate in the
-separate detail project. Requested the existing detail `sportos_app` runtime URL
-in local configuration; no credential reset, owner-role backfill, provider request
-or score write was performed. Dry-run/apply counts and final verification remain
-pending that prerequisite. Do not interpret migration completion as issue closure.
+The complete dry run inspected 20,301 canonical activities in 204 bounded batches.
+There were 8,235 linked Strava activities and 18 linked Garmin identities, with
+12,066 activities requiring no provider projection. The separate Garmin inventory
+had two pending/unlinked identities, which remained unlinked.
+
+| Provider | Current projections | Processed | Partial | Stale | Failed | Missing rich data |
+|---|---:|---:|---:|---:|---:|---:|
+| Strava | 8,235 | 4 | 8,231 | 0 | 0 | 8,231 detail resources |
+| Garmin | 18 | 18 | 0 | 0 | 0 | 0 for linked identities |
+
+The applied run completed all 20,301 activities without errors. Its final replay
+from the beginning created 7,954 Strava and 16 Garmin projections and reused 281
+Strava and two Garmin projections completed before an intentional interruption.
+All seven interrupted/unprocessed checkpoints converged. The resulting primary
+inventory is 8,253 heads, 8,253 immutable projections and 80,608 scalar observations.
+There are no inconsistent heads or stranded unprocessed states.
+
+One compact Strava heart-rate observation was below the supported minimum and
+was excluded; original raw evidence remained intact. Optional absent metrics
+remain absent. Garmin running dynamics, power, Training Effect, swimming lengths
+and existing strength counts projected where supported retained fields existed.
+No full Garmin archive, provider login or new download was required.
+
+An owner-scoped baseline compared complete row digests and counts before migration,
+after migration, after interruption and after full apply for canonical activities,
+daily metrics, ledger, score snapshots, performance events, rules, provider links,
+Garmin identities and strength summaries. Every comparison was unchanged. Private
+digests, cursors and operator artifacts remain outside the repository.
+
+The API verified 21 detail activities and a 25-item list. Eighteen samples expose
+both provider distances; ten retain differing source distances. All 21 retain
+canonical distance/source authority. Dispatcher access to all three new tables
+is denied on Neon; owner-scoped worker-data reads see 8,253 heads, while an app
+read without account context sees zero.
+
+### Backfill efficiency and validation
+
+The real dataset exposed repeated metadata reads and reconciliation-lock round
+trips in the row-at-a-time implementation. Compact metadata now batches up to
+100 canonical activities. Successful retained inspections use two separately
+committed bounded checkpoint/publication phases, each validating current source
+membership and Postgres timestamp precision under the existing account lock.
+Scalar inserts are chunked to bound SQL parameters. If bulk publication fails,
+the original per-source workflow allows valid inspections to converge.
+
+New non-owner tests cover metadata batching, 600-observation insert chunking,
+unchanged replay/timestamps, committed checkpoint recovery after publication
+failure, stale source membership, sub-millisecond ordering and foreign ownership.
+Final focused checks passed: 7 catalog, 35 API, 23 UI and 29 database/backfill tests
+(94 total), plus root typecheck and diff checks. The original production web build
+and fresh/populated migration validation remain applicable; no frontend source or
+migration SQL changed in this follow-up. No full repository matrix or browser
+visual inspection was performed.
+
+A real operator CLI dry-run passed; an applied 25-activity replay reported all 15
+eligible Strava activities already current and zero new versions/errors/downloads.
+Full retained replay and timestamp verification are being completed before the PR
+results are finalized. PR #113 remains draft/unmerged; issue and queue remain open.
 
 Additional inspected files: activity-metric-backfill.ts and its tests;
-activity-metric-projector.ts; pool.ts; activity-detail V001; operator and Flyway
-scripts; official-row verifier; current PR checks and #112 acceptance criteria.
+activity-metric-projector.ts; pool.ts; activity-detail V001; operator/Flyway scripts;
+official-row verifier; metric repository/tests; canonical Activities repository;
+current PR checks and #112 acceptance criteria.
