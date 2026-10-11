@@ -14,7 +14,7 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Defined through V130; dedicated activity-detail V003 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Defined through V133; dedicated activity-detail V003 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped for XLSX and manual Garmin CSV staging | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
@@ -196,3 +196,7 @@ common, running, power/training, swimming and paddlesport fields; strength scala
 reuse the #108 summary. Time series and detailed exercises remain #100 work.
 See [catalog and operator guide](ACTIVITY_METRICS.md) and implementation/issue-112.md
 for scope, migration, focused evidence and outstanding live/visual validation.
+
+## Per-activity running efforts (#122)
+
+Implemented on the issue branch with primary V133: independent retained Strava-stream/Garmin-FIT analytical windows, source-backed summary estimates, compact owner-scoped versions, explicit retained-only processing/backfill and run detail comparison. Selective rich fetching remains optional; official scoring and Run Lab remain independent. See [operator/pause policy](RUNNING_EFFORTS.md) and implementation/issue-122.md. Production migration/backfill remain separate operator steps.

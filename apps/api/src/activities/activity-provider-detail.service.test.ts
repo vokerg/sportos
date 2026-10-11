@@ -1,3 +1,4 @@
+import { RunningEffortsService } from './running-efforts.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -28,6 +29,8 @@ const cached = ['detail', 'streams', 'laps', 'zones'].map((resourceType) => ({
 
 describe('ActivityProviderDetailService', () => {
   beforeEach(() => {
+    vi.spyOn(RunningEffortsService.prototype,'project').mockResolvedValue([]);
+    vi.spyOn(RunningEffortsService.prototype,'invalidate').mockResolvedValue();
     vi.spyOn(ActivityMetricsService.prototype,'project').mockResolvedValue([]);
     process.env.STRAVA_CLIENT_ID = 'client';
     process.env.STRAVA_CLIENT_SECRET = 'secret';
@@ -46,6 +49,7 @@ describe('ActivityProviderDetailService', () => {
     });
     expect(providerFetch).not.toHaveBeenCalled();
     expect(ActivityMetricsService.prototype.project).toHaveBeenCalledWith(accountId,activityId);
+    expect(RunningEffortsService.prototype.project).toHaveBeenCalledWith(accountId,activityId,'strava');
   });
 
   it('cached reads never fetch or refresh credentials when current resources are missing', async () => {
@@ -57,6 +61,8 @@ describe('ActivityProviderDetailService', () => {
     await expect(service.cached(accountId, activityId)).rejects.toMatchObject({ response: { code: 'PROVIDER_DETAIL_NOT_CACHED' } });
     expect(fetch).not.toHaveBeenCalled(); expect(authorization).not.toHaveBeenCalled();
     expect(ActivityMetricsService.prototype.project).not.toHaveBeenCalled();
+    expect(RunningEffortsService.prototype.project).not.toHaveBeenCalled();
+    expect(RunningEffortsService.prototype.invalidate).not.toHaveBeenCalled();
   });
 
   it('metadata availability excludes payload reads and provider calls', async () => {

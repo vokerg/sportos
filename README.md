@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V132, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V133, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -443,3 +443,5 @@ New product or operational work must be added and prioritized explicitly in [iss
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing authentication, ownership, imports, providers, jobs, scoring rules, migrations, read models, analysis, or exports. Always use the authoritative queue in [issue #3](https://github.com/vokerg/sportos/issues/3) to select implementation work.
+
+Per-run [running efforts](docs/RUNNING_EFFORTS.md) compare independently calculated retained Strava/Garmin windows with clearly labeled Strava summary estimates. Processing is explicit and pause-excluded; canonical facts, scores and Run Lab remain independent. Primary V133 is required.

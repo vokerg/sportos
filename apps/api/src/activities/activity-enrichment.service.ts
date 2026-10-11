@@ -1,3 +1,4 @@
+import { RunningEffortsService } from './running-efforts.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
 import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ActivitiesRepository, GarminActivityResourcesRepository, LEGACY_ACCOUNT_ID } from '@sportos/db';
@@ -19,7 +20,8 @@ export class ActivityEnrichmentService {
   constructor(private readonly primary: DbProvider, private readonly detail: ActivityDetailDbProvider,
     private readonly storage: UploadStorage, private readonly auth: AuthService,
     private readonly strava: ActivityProviderDetailService,
-    private readonly metrics: ActivityMetricsService = new ActivityMetricsService(primary, detail)) {}
+    private readonly metrics: ActivityMetricsService = new ActivityMetricsService(primary, detail),
+    private readonly efforts: RunningEffortsService = new RunningEffortsService(primary,detail)) {}
 
   localEnabled(accountId: string) {
     return this.auth.isDevelopmentMode() && accountId === LEGACY_ACCOUNT_ID && process.env.SPORTOS_GARMIN_LOCAL_FETCH_ENABLED === 'true';
@@ -78,7 +80,7 @@ export class ActivityEnrichmentService {
       const activity = canonical as typeof canonical & Record<string, unknown>;
       const retention = new GarminLocalIngestService(this.primary, this.detail, this.storage);
       if (!refresh && garmin && await retention.cachedBundle(garmin.identity_key, garmin.current_hash, account)) {
-        return { ...(await this.read(account.id, activityId)), cacheStatus: 'hit', metricProjection: await this.metrics.project(account.id,activityId) };
+        return { ...(await this.read(account.id, activityId)), cacheStatus: 'hit', effortProjection: await this.efforts.project(account.id,activityId,'garmin'), metricProjection: await this.metrics.project(account.id,activityId) };
       }
       if (!this.localEnabled(account.id)) throw new ServiceUnavailableException({ code: 'GARMIN_LOCAL_FETCH_DISABLED', message: 'Garmin downloads require the enabled local desktop helper. Retained data can still be viewed.' });
       if (!activity.start_time || !['walk','run','bike','swim','workout','rowing','sup'].includes(String(activity.activity_type))) throw new ConflictException({ code: 'GARMIN_MATCH_REQUIRES_REVIEW', message: 'This activity lacks supported matching metadata.' });
@@ -98,7 +100,7 @@ export class ActivityEnrichmentService {
       if (check.activityId !== activityId) throw new ConflictException({ code: 'GARMIN_MATCH_REQUIRES_REVIEW', message: 'Downloaded Garmin metadata does not confidently match this activity.' });
       const linked = await retention.retainBundle(result as LocalGarminBundle, account);
       if (linked.activityId !== activityId) throw new ConflictException({ code: 'GARMIN_MATCH_REQUIRES_REVIEW', message: 'Garmin data was retained for review; no confident link to this activity was made.' });
-      return { ...(await this.read(account.id, activityId)), cacheStatus: 'miss', metricProjection: await this.metrics.project(account.id,activityId) };
+      return { ...(await this.read(account.id, activityId)), cacheStatus: 'miss', effortProjection: await this.efforts.project(account.id,activityId,'garmin'), metricProjection: await this.metrics.project(account.id,activityId) };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       throw new ServiceUnavailableException({ code: 'GARMIN_FETCH_FAILED', message: 'Garmin fetch failed. Check the local login and retry.' });

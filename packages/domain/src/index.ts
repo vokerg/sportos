@@ -10,3 +10,5 @@ export * from './activity-matching.js';
 export * from './garmin-strength.js';
 
 export * from './activity-metrics.js';
+
+export * from './running-efforts.js';

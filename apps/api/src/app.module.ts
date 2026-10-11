@@ -1,3 +1,4 @@
+import { RunningEffortsService } from './activities/running-efforts.service.js';
 import { ActivityMetricsService } from './activities/activity-metrics.service.js';
 import { GarminDayController } from './daily/garmin-day.controller.js';
 import { GarminDayService } from './daily/garmin-day.service.js';
@@ -53,6 +54,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
     GarminLocalIngestController,
   ],
   providers: [
+    RunningEffortsService,
     DbProvider,
     ActivityDetailDbProvider,
     AuthService,

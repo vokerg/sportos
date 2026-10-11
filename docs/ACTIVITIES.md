@@ -209,3 +209,7 @@ the canonical activity date; no timezone is guessed for unlinked identities.
 Failed-only, absent and unavailable day evidence does not add an icon. Icons
 report evidence coverage, not score authority or complete rich-resource coverage.
 Score authority remains available in the day workspace and canonical export.
+
+## Running best efforts (#122)
+
+Run detail adds a compact per-distance Strava/Garmin comparison with explicit Estimated, Calculated, Unavailable, Stale and Failed states. **Calculate retained efforts** reads retained evidence only; selective Fetch Strava detail can upgrade estimates. GET never processes streams/FIT or contacts a provider. See [policy, bounds, persistence and backfill](RUNNING_EFFORTS.md).

@@ -1,3 +1,4 @@
+import type { RunningEfforts } from './model/running-efforts.models';
 import type { ProviderMetricStatus, ActivityMetricComparison } from './model/activity-metrics.models';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
@@ -30,6 +31,7 @@ export interface Activity {
   notes: string | null;
 }
 export interface ActivityDetail extends Activity {
+  bestEfforts?: RunningEfforts | null;
   metricComparisons?: ActivityMetricComparison[];
   garminStrength?: { workingSets: number; totalRecordedSets: number; warmupSets: number; restMarkers: number;
     unknownSets: number; exerciseCount: number; complete: boolean; policyVersion: number; sourceUpdatedAt: string;
@@ -111,6 +113,8 @@ export class ActivitiesApiService {
   garminDetail(id: string) { return this.http.get<GarminDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail`); }
   fetchGarminDetail(id: string, refresh = false) { return this.http.post<GarminDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail`, { refresh }); }
   garminResource(id: string, resourceType: string, chunkIndex: number) { return this.http.get<{ payload: unknown }>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail/resource`, { params: { resourceType, chunkIndex } }); }
+
+  reprocessEfforts(id:string) { return this.http.post(`${this.apiBase}/activities/${encodeURIComponent(id)}/efforts/reprocess`,{}); }
 
   reprocessMetrics(id:string) { return this.http.post(`${this.apiBase}/activities/${encodeURIComponent(id)}/metrics/reprocess`,{}); }
 

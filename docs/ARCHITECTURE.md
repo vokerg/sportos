@@ -416,3 +416,7 @@ forced RLS, explicit runtime grants and immutable history protect the new model.
 A current-source check under the reconciliation lock and full-precision inspection
 timestamps prevent stale/out-of-order publication. These two database commits do
 not pretend to be a cross-database transaction. See [metric operations](ACTIVITY_METRICS.md).
+
+## Running effort projections (#122)
+
+Primary V133 adds independent immutable per-run/provider/target analytical results and mutable current heads. The pure running-effort module calculates pause-excluded windows from retained native stream/FIT evidence and source-backed Strava summary estimates. It never changes canonical/scoring/performance authority. Current source references, expected mutable-resource fingerprints and precise inspection timestamps guard publication under the reconciliation lock. Original resources remain auxiliary; navigation reads compact projections only. Explicit provider retention and retained-only processing/backfill own all writes. See [running effort operations](RUNNING_EFFORTS.md).
