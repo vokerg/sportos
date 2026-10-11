@@ -14,7 +14,7 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Defined through V129; dedicated activity-detail V003 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Defined through V130; dedicated activity-detail V003 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped for XLSX and manual Garmin CSV staging | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
@@ -188,7 +188,7 @@ See [walking operations](WALKING_ACTIVITIES.md) and implementation/issue-110.md.
 
 ## Provider activity-level observations (#112)
 
-Draft PR #113 adds independent versioned Strava/Garmin metric observations,
+Merged PR #113 (closed issue #112) adds independent versioned Strava/Garmin metric observations,
 source-selected read comparisons, list/detail processing indicators and explicit
 retained-only reprocessing/backfill. Primary V129 preserves existing core source
 authority, scores and historical provenance. The metric catalog covers evidenced

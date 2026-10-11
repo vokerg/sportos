@@ -95,7 +95,7 @@ const METRICS_BY_ACTIVITY: Record<ActivityType, string[]> = {
   steps: ['steps'],
   run: ['distance_m', 'distance_km', 'duration_s', 'pace_s_per_km', 'avg_speed_mps', 'avg_speed_kmh'],
   bike: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
-  swim: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
+  swim: ['distance_m', 'distance_km', 'duration_s', 'pace_s_per_km', 'avg_speed_mps', 'avg_speed_kmh'],
   workout: ['effort_points'],
   rowing: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
   sup: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],

@@ -64,6 +64,7 @@ describe('Rules Studio view model', () => {
       'avg_speed_kmh',
     ]);
     expect(metricOptionsFor('bike')).not.toContain('pace_s_per_km');
+    expect(metricOptionsFor('swim')).toContain('pace_s_per_km');
     expect(metricOptionsFor('steps')).toEqual(['steps']);
     expect(metricOptionsFor('workout')).toEqual(['effort_points']);
 

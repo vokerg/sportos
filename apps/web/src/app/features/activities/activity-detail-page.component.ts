@@ -1,3 +1,5 @@
+import { ActivityMetricProvenanceComponent } from './ui/activity-metric-provenance.component';
+import { supplementalMetricGroups } from './model/activity-metrics.view-model';
 import { ProviderMetricStatusComponent } from './ui/provider-metric-status.component';
 import { ActivityMetricComparisonComponent } from './ui/activity-metric-comparison.component';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
@@ -6,10 +8,10 @@ import { Subscription } from 'rxjs';
 import { ActivitiesApiService } from './activities-api.service';
 import { ActivityDetailStore } from './state/activity-detail.store';
 import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.view-model';
-import { metricGroups, startTime, subtypeLabel, title } from './activity.view-model';
+import { startTime, subtypeLabel, title } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ProviderMetricStatusComponent, ActivityMetricComparisonComponent], providers: [ActivityDetailStore],
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
   template: `
     <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
     @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
@@ -20,10 +22,10 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
         @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
       </header>
       @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
-      <div class="metric-sections">@for (group of metricGroups(item); track group.title) {
+      <div class="metric-sections">@for (group of supplementalMetricGroups(item); track group.title) {
         <section class="card"><h2>{{ group.title }}</h2><dl class="metrics">@for (metric of group.items; track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl></section>
       }</div>
-      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" />
+      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" />
       @if (item.garminStrength; as strength) {
         <section class="card" aria-label="Garmin strength summary"><h2>Garmin strength sets</h2>
           <dl class="metrics"><div><dt>Working sets</dt><dd>{{ strength.workingSets }}</dd></div>
@@ -101,7 +103,7 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
         <div><dt>Canonical activity ID</dt><dd>{{ item.id }}</dd></div>
         @if (item.provenance.sourceRecordId) { <div><dt>Source record ID</dt><dd>{{ item.provenance.sourceRecordId }}</dd></div> }
         @if (item.provenance.sourceRecordSource) { <div><dt>Source record type</dt><dd>{{ item.provenance.sourceRecordSource }}</dd></div> }
-      </dl></details>
+      </dl><sportos-activity-metric-provenance [metrics]="item.metricComparisons ?? []" /></details>
       @if (item.provenance.sourceRecordId) {
         <details class="card source-json" (toggle)="onSourceToggle($event)">
           <summary>Raw source JSON (advanced)</summary>
@@ -129,7 +131,7 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
   `],
 })
 export class ActivityDetailPageComponent implements OnInit, OnDestroy {
-  readonly metricGroups = metricGroups; readonly startTime = startTime; readonly subtypeLabel = subtypeLabel; readonly title = title;
+  readonly supplementalMetricGroups = supplementalMetricGroups; readonly startTime = startTime; readonly subtypeLabel = subtypeLabel; readonly title = title;
   readonly exerciseSetRows = exerciseSetRows; readonly fitMetrics = fitMetrics; readonly stravaMetrics = stravaMetrics;
   readonly resourceIndex = signal(0);
   private id = ''; private routeSubscription?: Subscription;
