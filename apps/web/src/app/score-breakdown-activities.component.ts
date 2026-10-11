@@ -1,4 +1,5 @@
 import { Component, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type { DailyScoreBreakdown } from './score-breakdown.models';
 import { formatSwimMeters } from './swim-distance';
 import {
@@ -16,6 +17,7 @@ import {
 @Component({
   selector: 'sportos-score-breakdown-activities',
   standalone: true,
+  imports: [RouterLink],
   template: `
     @let current = breakdown();
     <section class="data-section" aria-labelledby="day-activities-title">
@@ -39,7 +41,7 @@ import {
               @for (activity of current.activities; track activity.id) {
                 <tr>
                   <td><span class="source-badge" [attr.data-source]="activity.source">{{ sourceName(activity.source) }}</span></td>
-                  <td><strong>{{ activityName(activity) }}</strong><small>{{ formatTimestamp(activity.startTime, 'No start time') }}</small></td>
+                  <td><a [routerLink]="['/activity', activity.id]"><strong>{{ activityName(activity) }}</strong></a><small>{{ formatTimestamp(activity.startTime, 'No start time') }}</small></td>
                   <td>{{ activity.distanceM === null ? '—' : activity.activityType === 'swim' ? formatSwimMeters(activity.distanceM) : formatDistance(activity.distanceM) }}</td>
                   <td>{{ activity.durationS === null ? '—' : formatDuration(activity.durationS) }}</td>
                   <td>{{ activity.movingTimeS === null ? '—' : formatDuration(activity.movingTimeS) }}</td>
@@ -68,6 +70,9 @@ import {
     .activity-table th { color: #667085; background: #f8fafc; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
     .activity-table tbody tr:last-child td { border-bottom: 0; }
     .activity-table td strong { display: block; color: #243b73; }
+    .activity-table td a { color: #243b73; text-decoration: underline; text-underline-offset: 3px; }
+    .activity-table td a:hover { color: #1d4ed8; }
+    .activity-table td a:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 3px; border-radius: 2px; }
     .activity-table td small { display: block; margin-top: 3px; color: #667085; }
     .source-badge, .score-link { display: inline-block; padding: 4px 7px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 10px; font-weight: 800; white-space: nowrap; }
     .source-badge[data-source='strava'] { background: #fff0e8; color: #b54708; }

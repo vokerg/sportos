@@ -73,3 +73,19 @@ no merge is authorized.
 Maintainer follow-up: removed repeated Authoritative badges. Equal/single values
 receive no authority emphasis; disagreement uses bold styling explained once.
 Rendered regression tests verify badge absence and primary-value styling.
+
+## Maintainer scope addition: day-to-activity navigation
+
+The maintainer explicitly requested clickable activities on the day page in the
+same review. Inspected `score-breakdown-activities.component.ts`,
+`score-breakdown.models.ts`, `score-breakdown-panel.component.test.ts`,
+`daily-detail-page.component.ts`, `app.routes.ts` and the closest activity-name
+presenter. Canonical activity IDs already exist in day rows; no API change is
+needed. The activity name now links to `/activity/:id` with normal RouterLink
+navigation and keyboard focus styling. No source IDs or score entries are used
+as navigation identity.
+
+Day-link validation: nine tests across the rendered activity-table, day-page and
+panel files passed. Web typecheck/build and whitespace check passed. The rendered
+test verifies both Strava/manual URLs use canonical IDs and a click invokes the
+router with the correct activity route.
