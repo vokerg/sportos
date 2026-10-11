@@ -2,11 +2,30 @@ import { ProviderMetricStatusComponent } from './ui/provider-metric-status.compo
 import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { Activity } from './activities-api.service';
-import { listMetricHighlights, listSecondaryMetrics, startTime, subtypeLabel, title } from './activity.view-model';
+import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, startTime, subtypeLabel, title } from './activity.view-model';
 
 @Component({
   selector: 'sportos-activity-list', standalone: true, imports: [RouterLink, ProviderMetricStatusComponent],
   template: `
+    @if (compact()) {
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Compact activity list">
+        <table><caption class="visually-hidden">Activities — one row per activity</caption>
+          <thead><tr><th scope="col">Date</th><th scope="col">Activity</th><th scope="col">Distance</th><th scope="col">Pace / speed</th><th scope="col">Time</th><th scope="col">Avg HR</th><th scope="col">Ascent</th><th scope="col">Source</th><th scope="col">Providers</th></tr></thead>
+          <tbody>@for (activity of activities(); track activity.id) {
+            @let values = compactActivityMetrics(activity);
+            <tr [attr.data-sport]="activity.activity_type">
+              <td>{{ activity.activity_date }} @if (startTime(activity.start_time); as time) { <span class="muted">{{ time }}</span> }</td>
+              <th scope="row"><a [routerLink]="['/activity', activity.id]">{{ title(activity) }} @if (activity.subtype && activity.subtype !== 'unknown') { <span class="muted">· {{ subtypeLabel(activity.subtype) }}</span> } @if (activity.source === 'strava' && activity.notes) { <span class="row-name" [title]="activity.notes">{{ activity.notes }}</span> }</a></th>
+              <td class="number">{{ values.distance }}</td><td class="number">{{ values.paceOrSpeed }}</td>
+              <td class="number" [title]="values.time?.label ?? 'Time unavailable'" [attr.aria-label]="values.time ? values.time.label + ': ' + values.time.value : 'Time unavailable'">{{ values.time?.value ?? '—' }}</td>
+              <td class="number">{{ values.heartRate }}</td><td class="number">{{ values.elevation }}</td>
+              <td class="source">{{ activity.source.replaceAll('_', ' ') }}</td>
+              <td><sportos-provider-metric-status [statuses]="activity.providerMetrics ?? []" /></td>
+            </tr>
+          }</tbody>
+        </table>
+      </div>
+    } @else {
     <div class="activity-list">
       @for (activity of activities(); track activity.id) {
         <a class="card activity" [attr.data-sport]="activity.activity_type" [routerLink]="['/activity', activity.id]">
@@ -19,8 +38,21 @@ import { listMetricHighlights, listSecondaryMetrics, startTime, subtypeLabel, ti
         </a>
       }
     </div>
+    }
   `,
   styles: [`
+    :host { display: block; min-width: 0; }
+    .table-scroll { overflow-x: auto; border: 1px solid #e4e7ec; border-radius: 12px; background: white; }
+    .table-scroll:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; white-space: nowrap; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eaecf0; }
+    thead th { background: #f8fafc; color: #475467; font-size: 11px; font-weight: 650; }
+    tbody th { font-weight: 600; } tbody tr:last-child :is(th, td) { border-bottom: 0; }
+    tbody tr:hover { background: #f8faff; } tbody a { display: flex; align-items: center; gap: 6px; color: #3457bd; text-decoration: none; }
+    tr[data-sport=bike] a { color: #087969; } tr[data-sport=swim] a { color: #096e9a; }
+    .muted, .row-name { color: #667085; font-weight: 400; }.muted { margin-left: 4px; }
+    .row-name { display: inline-block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+    .number { font-variant-numeric: tabular-nums; }
     .activity-list { display: grid; gap: 10px; }
     .activity { --accent: #3457bd; border-left: 4px solid var(--accent); display: grid; gap: 10px; color: inherit; text-decoration: none; }
     .activity[data-sport=bike] { --accent: #087969; }.activity[data-sport=swim] { --accent: #096e9a; }
@@ -36,6 +68,8 @@ import { listMetricHighlights, listSecondaryMetrics, startTime, subtypeLabel, ti
 })
 export class ActivityListComponent {
   readonly activities = input.required<Activity[]>();
+  readonly compact = input(false);
+  readonly compactActivityMetrics = compactActivityMetrics;
   readonly listMetricHighlights = listMetricHighlights;
   readonly listSecondaryMetrics = listSecondaryMetrics;
   readonly startTime = startTime;

@@ -140,3 +140,16 @@ export function listSecondaryMetrics(activity: Activity): Metric[] {
   const labels = new Set(listMetricHighlights(activity).map(m => m.label));
   return metrics(activity).filter(m => !labels.has(m.label));
 }
+
+export function compactActivityMetrics(activity: Activity) {
+  const all = metrics(activity);
+  const find = (...labels: string[]) => all.find(m => labels.includes(m.label));
+  return {
+    distance: find('Distance')?.value ?? '—',
+    paceOrSpeed: find('Moving pace', 'Average pace', 'Average speed')?.value ?? '—',
+    time: find(activity.activity_type === 'swim' ? (activity.source === 'strava' ? 'Elapsed time' : 'Duration') : 'Moving time')
+      ?? find('Elapsed time', 'Duration'),
+    heartRate: find('Average HR')?.value ?? '—',
+    elevation: find('Elevation gain')?.value ?? '—',
+  };
+}

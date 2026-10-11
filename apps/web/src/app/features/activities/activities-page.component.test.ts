@@ -126,3 +126,24 @@ describe('Activities pages', () => {
     page.ngOnDestroy();
   });
 });
+
+it('keeps compact view through paging and skips view-only API reads', () => {
+  const params = new BehaviorSubject(convertToParamMap({ view: 'compact', range: 'all', source: 'all' }));
+  const api = { list: vi.fn().mockReturnValue(of(empty)) };
+  const store = new ActivitiesStore(api as unknown as ActivitiesApiService);
+  const router = { navigate: vi.fn().mockResolvedValue(true) };
+  const page = new ActivitiesPageComponent(store, { queryParamMap: params } as never, router as never);
+  page.ngOnInit(); expect(page.view()).toBe('compact');
+  page.page(50); expect(router.navigate).toHaveBeenLastCalledWith(['/activities'], { queryParams: expect.objectContaining({ view: 'compact', offset: 50 }) });
+  page.setView('cards'); expect(page.view()).toBe('cards');
+  params.next(convertToParamMap({ range: 'all', source: 'all' }));
+  expect(api.list).toHaveBeenCalledTimes(1);
+  params.next(convertToParamMap({ view: 'compact', range: 'all', source: 'all', offset: '50' }));
+  expect(api.list).toHaveBeenCalledTimes(2);
+  page.ngOnDestroy();
+});
+it('ignores unsupported list view values', () => {
+  const store = new ActivitiesStore({ list: () => of(empty) } as never);
+  const page = new ActivitiesPageComponent(store, { queryParamMap: new BehaviorSubject(convertToParamMap({ view: 'unknown' })) } as never, { navigate: vi.fn() } as never);
+  page.ngOnInit(); expect(page.view()).toBe('cards'); page.ngOnDestroy();
+});

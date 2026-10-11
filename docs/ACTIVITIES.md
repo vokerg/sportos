@@ -148,3 +148,19 @@ Small screens stack summary metrics vertically. Missing metrics are omitted from
 the summary without deriving replacements, while missing comparison observations
 remain visible in the secondary groups. Display formatting never changes stored
 facts, provider selection, matching tolerances, official points or fetch behavior.
+
+The activity list offers **Cards** and **Compact** views. Cards remain the default;
+`view=compact` preserves a single table row per activity across filters, paging,
+reload and browser back navigation. Compact columns show date/start, activity,
+distance, pace/speed, time, average heart rate, ascent, source and providers. Time
+follows the sport summary: moving time where available for runs/rides, elapsed
+for swims; its hover/accessibility label identifies the basis. Missing values
+show a dash. Activity links open the existing detail page. The table scrolls
+horizontally on small screens and retains one row per activity.
+
+List provider badges use short states: **No link**, **Pending**, **Summary only**,
+**Ready**, **Partial**, **Failed**, and **Outdated**. Pending means metrics have
+not been processed; Ready means processing completed. Hover/accessibility text
+keeps saved/missing/unchecked detail separate. Expanded provider diagnostics on
+the single activity page retain counts, dates and processing information.
+Switching views reuses loaded activity results and does not fetch provider data.
