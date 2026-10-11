@@ -72,9 +72,9 @@ Passed on the final source:
   `fetched:false`, `scoreWrites:false`.
 - Root `pnpm typecheck`, production web build and `git diff --check`.
 
-No live migration, personal-data backfill, provider download, full repository
-matrix, hosted/Neon validation or browser visual inspection was performed.
-Migration checks used disposable PostgreSQL, not the maintained Neon projects.
+Initial implementation validation used disposable PostgreSQL. The later Neon
+validation below supersedes the original no-live-migration limitation. No provider
+download, full repository matrix or browser visual inspection was performed.
 CI still skips tests requiring detail database secrets when unconfigured; the
 focused primary/detail suite above ran explicitly with all non-owner identities.
 The draft PR is not merged, and the issue/queue are not marked complete.
@@ -95,3 +95,30 @@ The draft PR is not merged, and the issue/queue are not marked complete.
 Review found and fixed NUMERIC serialization for core selections, canonical
 history deletion compatibility, failed-batch cursor advancement and timestamp
 precision for concurrent projections. Unknown rich fields remain in raw retention.
+
+
+## Neon validation follow-up (2026-10-11)
+
+The maintainer authorized V129 and retained-only dry-run/apply/replay against real
+history, with no provider download or merge. Flyway validated all 38 migrations
+and applied only V129, upgrading the maintained primary Neon database from V128.
+The new metric tables were empty after migration; no implicit backfill ran.
+
+An owner-scoped non-owner runtime baseline compared complete row digests and
+counts before and after migration for canonical activities, daily metrics, ledger,
+score snapshots, performance events, rules, provider links, Garmin identities and
+strength summaries. Every comparison was unchanged. Private digests and operator
+artifacts remain outside the repository. Root typecheck and eight focused catalog/
+backfill tests passed again; existing PR CI is successful.
+
+Backfill has not started: local `SPORTOS_ACTIVITY_DETAIL_DATABASE_URL` currently
+uses the detail schema-owner/bypass-RLS identity. The backfill role guard correctly
+rejects it. The primary project's runtime credentials do not authenticate in the
+separate detail project. Requested the existing detail `sportos_app` runtime URL
+in local configuration; no credential reset, owner-role backfill, provider request
+or score write was performed. Dry-run/apply counts and final verification remain
+pending that prerequisite. Do not interpret migration completion as issue closure.
+
+Additional inspected files: activity-metric-backfill.ts and its tests;
+activity-metric-projector.ts; pool.ts; activity-detail V001; operator and Flyway
+scripts; official-row verifier; current PR checks and #112 acceptance criteria.
