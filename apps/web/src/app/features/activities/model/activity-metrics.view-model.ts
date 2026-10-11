@@ -33,7 +33,7 @@ export function formatMetric(value: number, key: string, unit: string, sport: st
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} ${sport === 'swim' ? '/100m' : '/km'}`;
   }
   if (unit === 'm/s') return `${(value * 3.6).toFixed(1)} km/h`;
-  if (key === 'distance') return sport === 'swim' || value < 1000 ? `${number(value, 0)} m` : `${number(value / 1000, 3)} km`;
+  if (key === 'distance') return sport === 'swim' || value < 1000 ? `${number(value, 0)} m` : `${number(value / 1000, 1)} km`;
   if (key === 'step_length' || key === 'pool_length') return `${value.toFixed(2)} m`;
   if (unit === 'C') return `${number(value, 1)} °C`;
   const digits = ['%', 'mm', 'TE', 'tss', 'kJ', 'SWOLF', 'strokes/length'].includes(unit) ? 1 : unit === 'm/stroke' ? 2 : 0;
@@ -112,4 +112,50 @@ export function supplementalMetricGroups(activity: ActivityDetail) {
     'Elevation gain': 'ascent', Calories: 'calories',
   };
   return metricGroups(activity).map(g => ({ ...g, items: g.items.filter(m => !keys.has(keyByLabel[m.label])) })).filter(g => g.items.length);
+}
+
+/** Presentation priority only; authority and provider agreement remain unchanged. */
+export function highlightMetrics(groups: readonly MetricGroupView[], sport: string): MetricRowView[] {
+  const rows = groups.flatMap(g => g.items);
+  const available = (key: string) => rows.find(row => row.key === key && row.values.length);
+  const time = sport === 'swim'
+    ? available('elapsed_duration') ?? available('timer_duration') ?? available('moving_duration')
+    : available('moving_duration') ?? available('elapsed_duration') ?? available('timer_duration');
+  const keys = ['run', 'walk', 'swim'].includes(sport) ? ['distance', 'average_pace']
+    : ['bike', 'rowing', 'sup'].includes(sport) ? ['distance', 'average_speed']
+    : ['average_heart_rate', 'calories'];
+  const main = keys.flatMap(key => { const row = available(key); return row ? [row] : []; });
+  if (time) main.push(time);
+  return main.map(row => ({ ...row, label: ({ moving_duration: 'Moving time', elapsed_duration: 'Elapsed time',
+    timer_duration: 'Garmin timer time', average_pace: 'Average pace', average_speed: 'Average speed' } as Record<string, string>)[row.key] ?? row.label }));
+}
+
+/** Include canonical-only fields for older/partial responses in the same layout. */
+export function detailMetricGroups(activity: ActivityDetail, metrics = activity.metricComparisons ?? []): MetricGroupView[] {
+  const groups = comparisonGroups(metrics, activity.activity_type);
+  const keys: Record<string, string> = {
+    Distance: 'distance', Duration: 'elapsed_duration', 'Elapsed time': 'elapsed_duration',
+    'Moving time': 'moving_duration', 'Stopped time': 'stopped_duration',
+    'Moving pace': 'average_pace', 'Average pace': 'average_pace', 'Average speed': 'average_speed',
+    'Average HR': 'average_heart_rate', 'Max HR': 'maximum_heart_rate', 'Elevation gain': 'ascent',
+    Calories: 'calories', Steps: 'steps', 'Effort points': 'effort_points',
+  };
+  const rows = groups.flatMap(g => g.items);
+  const canonicalValues: Record<string, number | null> = {
+    distance: activity.distance_m, elapsed_duration: activity.duration_s, moving_duration: activity.moving_time_s,
+    stopped_duration: activity.duration_s !== null && activity.moving_time_s !== null ? activity.duration_s - activity.moving_time_s : null,
+    average_pace: activity.avg_pace_s_per_km, average_speed: activity.avg_speed_mps,
+    average_heart_rate: activity.avg_hr, maximum_heart_rate: activity.max_hr, ascent: activity.elevation_gain_m,
+    calories: activity.calories, steps: activity.steps, effort_points: activity.effort_points,
+  };
+  for (const metric of metricGroups(activity).flatMap(g => g.items)) {
+    const key = keys[metric.label];
+    if (rows.some(row => row.key === key)) continue;
+    const value = canonicalValues[key];
+    if (value === null || !Number.isFinite(value)) continue;
+    rows.push({ key, label: metric.label, values: [{ value, text: metric.value,
+      sources: [sourceLabel(activity.source)], authoritative: true, fallback: false }] });
+  }
+  return METRIC_GROUPS.map(title => ({ title, items: rows.filter(row =>
+    (row.key === 'stopped_duration' ? 'Time & Distance' : groupFor(row.key)) === title) })).filter(g => g.items.length);
 }
