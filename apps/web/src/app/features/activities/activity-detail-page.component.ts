@@ -7,7 +7,7 @@ import { Subscription } from 'rxjs';
 import { ActivitiesApiService } from './activities-api.service';
 import { ActivityDetailStore } from './state/activity-detail.store';
 import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.view-model';
-import { startTime, subtypeLabel, title, displayedSubtype } from './activity.view-model';
+import { startTime, title, displayedSubtype } from './activity.view-model';
 
 @Component({
   selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
@@ -17,7 +17,7 @@ import { startTime, subtypeLabel, title, displayedSubtype } from './activity.vie
     @else if (state() === 'error') { <section class="card" role="alert">Could not load this activity. <button type="button" (click)="load()">Try again</button></section> }
     @else if (state() === 'missing') { <section class="card">Activity not found.</section> }
     @else { @if (activity(); as item) {
-      <header><span class="page-kicker">Canonical activity</span><h1>{{ title(item) }} @if (displayedSubtype(item)) { <small>· {{ displayedSubtype(item) }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
+      <header><span class="page-kicker">Canonical activity</span><h1>{{ title(item) }} @if (displayedSubtype(item)) { <small [attr.title]="item.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(item) }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
         @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
       </header>
       @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
@@ -126,7 +126,7 @@ import { startTime, subtypeLabel, title, displayedSubtype } from './activity.vie
   `],
 })
 export class ActivityDetailPageComponent implements OnInit, OnDestroy {
-  readonly startTime = startTime; readonly subtypeLabel = subtypeLabel;
+  readonly startTime = startTime;
   readonly displayedSubtype = displayedSubtype; readonly title = title;
   readonly exerciseSetRows = exerciseSetRows; readonly fitMetrics = fitMetrics; readonly stravaMetrics = stravaMetrics;
   readonly resourceIndex = signal(0);

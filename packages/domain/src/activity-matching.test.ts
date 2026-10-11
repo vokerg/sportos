@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { matchGarminActivity, type ActivityMatchSummary } from './activity-matching.js';
 const run: ActivityMatchSummary = { activityType: 'run', subtype: 'outdoor', startTime: new Date('2026-10-25T02:30:00+02:00'), elapsedTimeS: 1800, movingTimeS: 1750, distanceM: 5000 };
 const candidate = (changes = {}) => ({ ...run, id: 'canonical', ...changes });
-describe('Garmin matching policy v4', () => {
+describe('Garmin matching policy v5', () => {
   it('links an exact observation and tolerates compact Strava distance correction', () => {
     expect(matchGarminActivity(run, [candidate()]).status).toBe('exact');
     expect(matchGarminActivity(run, [candidate({ distanceM: 5200, elapsedTimeS: 1810 })])).toMatchObject({ status: 'strong_unique', activityId: 'canonical' });

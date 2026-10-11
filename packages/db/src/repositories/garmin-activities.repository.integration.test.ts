@@ -5,6 +5,8 @@ import { createDb } from '../pool.js';
 import { withAccountContext } from '../ownership-context.js';
 import { GarminActivitiesRepository, garminIdentityKey, type GarminActivitySnapshot } from './garmin-activities.repository.js';
 import { ProvidersRepository } from './providers.repository.js';
+import { CockpitRepository } from './cockpit.repository.js';
+import { DailyRepository } from './daily.repository.js';
 import { ActivitiesRepository } from './activities.repository.js';
 
 const runtimeUrl = process.env.SPORTOS_OWNER_TEST_DATABASE_URL;
@@ -37,11 +39,49 @@ integration('Garmin identity and canonical authority under non-owner RLS', () =>
     expect(await scoped(ownerA, (repo) => repo.ingest(input))).toMatchObject({ id: first.id, activityId: canonical, versionAdded: false });
     expect(await scoped(ownerA, (repo) => repo.ingest({ ...input, origin: 'archive' }))).toMatchObject({ id: first.id, activityId: canonical, versionAdded: true });
     expect(await canonicalRows(ownerA)).toEqual(before);
-    expect(await withAccountContext(db, ownerA, (ctx) => new ActivitiesRepository(ctx).get(canonical))).toMatchObject({ distance_m: 5200, garmin: { identityId: first.id, providerActivityId: '1001', status: 'strong_unique' } });
+    expect(await withAccountContext(db, ownerA, (ctx) => new ActivitiesRepository(ctx).get(canonical))).toMatchObject({ distance_m: 5200, runClassification: null, garmin: { identityId: first.id, providerActivityId: '1001', status: 'strong_unique' } });
     const versions = await withAccountContext(db, ownerA, (ctx) => ctx.selectFrom('garmin_activity_versions').selectAll().where('identity_id', '=', first.id).execute());
     expect(versions).toHaveLength(2);
     expect(JSON.stringify(versions)).not.toContain('raw_json');
     expect(await scoped(ownerA, (repo) => repo.audit(first.id))).toHaveLength(1);
+  });
+
+  it('classifies old/new linked track and treadmill runs without canonical or score writes', async () => {
+    for (const [index, subtype] of ['track', 'treadmill'].entries()) {
+      const time = `2095-05-0${index + 1}T10:00:00Z`;
+      const canonical = await activity(ownerA, time, 5000);
+      await withAccountContext(db, ownerA, ctx => ctx.updateTable('activities').set({ source: 'strava' }).where('id', '=', canonical).execute());
+      const input = snapshot(`900${index}`, time);
+      input.summary.subtype = subtype as 'track' | 'treadmill';
+      const before = await canonicalRows(ownerA);
+      const first = await scoped(ownerA, repo => repo.ingest(input));
+      expect(first.activityId).toBe(canonical);
+      expect(await withAccountContext(db, ownerA, ctx => new ActivitiesRepository(ctx).get(canonical)))
+        .toMatchObject({ subtype: 'outdoor', runClassification: { subtype, source: 'garmin' } });
+      const result = await withAccountContext(db, ownerA, ctx => new ActivitiesRepository(ctx).list({ activityType: 'run', subtype: subtype as 'track' | 'treadmill', limit: 100, offset: 0 }));
+      expect(result.items.map(item => item.id)).toContain(canonical);
+      expect(result.summary.count).toBe(result.items.length);
+      expect(await canonicalRows(ownerA)).toEqual(before);
+      expect(await withAccountContext(db, ownerB, ctx => new ActivitiesRepository(ctx).get(canonical))).toBeNull();
+      await withAccountContext(db, ownerA, async ctx => {
+        await ctx.insertInto('daily_metrics').values({ metric_date: time.slice(0, 10), total_points: 100 }).execute();
+        const summary = await new CockpitRepository(ctx).listDailySummary({ from: time.slice(0, 10), to: time.slice(0, 10) });
+        expect(summary[0]?.providerSources).toEqual({ strava: true, garmin: true });
+        const breakdown = await new DailyRepository(ctx).getDailyScoreBreakdown(time.slice(0, 10));
+        expect(breakdown?.activities.find(a => a.id === canonical)?.runClassification).toEqual({ subtype, source: 'garmin' });
+      });
+    }
+  });
+
+  it('shows retained day evidence without a Garmin activity and isolates same-date foreign evidence', async () => {
+    const date = '2095-06-01';
+    for (const owner of [ownerA, ownerB]) await withAccountContext(db, owner, ctx => ctx.insertInto('daily_metrics').values({ metric_date: date }).execute());
+    await withAccountContext(db, ownerA, ctx => ctx.insertInto('garmin_day_versions').values({ calendar_date: date, category: 'summary', source_hash: 'c'.repeat(64), availability: 'available', projection_json: { steps: 123 }, retrieved_at: new Date() }).execute());
+    const summary = (owner: string) => withAccountContext(db, owner, ctx => new CockpitRepository(ctx).listDailySummary({ from: date, to: date }));
+    expect((await summary(ownerA))[0]?.providerSources).toEqual({ strava: false, garmin: true });
+    expect((await summary(ownerB))[0]?.providerSources).toEqual({ strava: false, garmin: false });
+    await withAccountContext(db, ownerB, ctx => ctx.insertInto('garmin_day_heads').values({ calendar_date: date, category: 'summary', version_id: null, state: 'failed', attempt_json: {}, attempted_at: new Date() }).execute());
+    expect((await summary(ownerB))[0]?.providerSources.garmin).toBe(false);
   });
 
   it('retains changed/out-of-order versions without retargeting canonical UUIDs', async () => {

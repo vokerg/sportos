@@ -86,15 +86,17 @@ export class GarminActivitiesRepository {
   }
 
   /** Bounded explicit operator replay. No downloads, new sources or canonical writes. */
-  async reconcileRetained(options: { limit?: number; cursor?: string; dryRun?: boolean } = {}) {
+  async reconcileRetained(options: { limit?: number; cursor?: string; dryRun?: boolean; runsOnly?: boolean } = {}) {
     const limit = options.limit ?? 100;
     if (!Number.isInteger(limit) || limit < 1 || limit > 100
       || (options.dryRun !== undefined && typeof options.dryRun !== 'boolean')
+      || (options.runsOnly !== undefined && typeof options.runsOnly !== 'boolean')
       || (options.cursor !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(options.cursor))) {
       throw new Error('Invalid retained reconciliation pagination.');
     }
     let query = this.db.selectFrom('garmin_activity_identities').select(['id', 'identity_key', 'current_hash', 'activity_type'])
       .where('activity_id', 'is', null).where('status', '!=', 'rejected').orderBy('id').limit(limit + 1);
+    if (options.runsOnly) query = query.where('activity_type', '=', 'run');
     if (options.cursor) query = query.where('id', '>', options.cursor);
     const rows = await query.execute();
     const selected = rows.slice(0, limit);

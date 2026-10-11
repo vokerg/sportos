@@ -164,3 +164,48 @@ not been processed; Ready means processing completed. Hover/accessibility text
 keeps saved/missing/unchecked detail separate. Expanded provider diagnostics on
 the single activity page retain counts, dates and processing information.
 Switching views reuses loaded activity results and does not fetch provider data.
+
+
+## Garmin run labels and filters (#120)
+
+For a linked Strava run whose canonical subtype is default outdoor, unknown or
+missing, current compact Garmin metadata supplies `runClassification` with
+`subtype` and `source: garmin`. Only explicit `track`, `treadmill` or `outdoor`
+values qualify. Garmin names, GPS absence and arbitrary raw fields never classify
+a run. Explicit canonical treadmill/track/race and manual/workbook subtypes remain
+unchanged. The activity list, detail and Daily training sessions use this auxiliary
+classification; run subtype filters and filtered totals use the same expression.
+Ordinary outdoor runs display **Run**; special types display **Run · Track** or
+**Run · Treadmill**. Other sports retain their subtype labels.
+
+Existing retained links receive this projection immediately, including historical
+runs; no provider download, re-import, canonical subtype rewrite or scoring
+backfill is needed. Classification is presentation metadata and does not change
+canonical metrics, exports, scoring inputs, daily aggregates, ledgers or snapshots.
+Unlinking removes the auxiliary classification; current Garmin summary changes
+can update it while preserving the established canonical UUID.
+
+For pending retained runs, after applying primary V132:
+
+```bash
+pnpm garmin:reconcile -- --all --runs-only
+pnpm garmin:reconcile -- --all --runs-only --apply
+```
+
+The first command previews; the second explicitly reconciles only runs under the
+existing owner lock. Both use the fixed legacy account, bounded batches and the
+non-owner app role. No provider calls or score writes occur. Policy v5 permits a
+Garmin indoor/treadmill versus Strava default-outdoor disagreement only with UTC
+start and positive elapsed durations within two seconds, positive distances
+within max(25 m, 1%), no conflicting moving time and exactly one plausible
+candidate. An explicit canonical subtype conflict, manual/workbook outdoor,
+missing distance or ambiguous candidates still prevents automatic pairing.
+
+Daily Log now shows compact accessible Strava/Garmin source icons instead of the
+Authority column. Strava means an activity sourced from Strava or an available
+Strava link. Garmin means a linked retained activity, an available retained
+Connect day category or a CSV observation for that date. Linked activities use
+the canonical activity date; no timezone is guessed for unlinked identities.
+Failed-only, absent and unavailable day evidence does not add an icon. Icons
+report evidence coverage, not score authority or complete rich-resource coverage.
+Score authority remains available in the day workspace and canonical export.

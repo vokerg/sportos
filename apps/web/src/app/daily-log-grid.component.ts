@@ -130,7 +130,7 @@ export class DailyLogGridComponent {
       flex: 0,
       valueFormatter: (params) => formatDate(params.value),
     },
-    { colId: 'providerSources', headerName: 'Sources', cellRenderer: DailyProviderSourcesComponent, width: 82, minWidth: 82, maxWidth: 82, flex: 0, sortable: false, filter: false, suppressHeaderMenuButton: true },
+    { colId: 'providerSources', headerName: 'Sources', cellRenderer: DailyProviderSourcesComponent, width: 96, minWidth: 96, maxWidth: 96, flex: 0, sortable: false, filter: false, suppressHeaderMenuButton: true },
     { field: 'steps', headerName: 'Steps', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('steps', params.value, '203, 176, 110') },
     { field: 'run_m', headerName: 'Run', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('run_m', params.value, '116, 168, 132') },
     { field: 'bike_m', headerName: 'Bike', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('bike_m', params.value, '119, 151, 194') },

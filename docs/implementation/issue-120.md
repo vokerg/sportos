@@ -49,3 +49,43 @@ Inspected files:
 ## Invariants and exit criteria
 
 Use explicit Garmin compact run subtypes through current owner-scoped links. Preserve canonical subtype/metrics and all score history. Display/filter classification is separate from scoring. Old linked runs receive the same read projection as new links without data rewrites. Pending treadmill identity matching may disregard only Strava default outdoor subtype, with tight independent start/elapsed/distance corroboration and unique candidates; all explicit conflicts, manual sources and ambiguous cases stay closed. Daily source coverage uses compact retained evidence only, no rich queries or downloads.
+
+## Delivery and validation
+
+- Added read-only current Garmin classification shared by list/filter/detail and
+  daily session presentation. Existing retained links require no data rewrite.
+- Matching v5 has a narrow exception for repository-derived default Strava run
+  subtype with strict independent corroboration. V132 admits policies 1–5 only.
+- Daily source icons query owner-scoped compact retained evidence. No rich reads,
+  helper invocation, downloads, scoring or canonical mutations are added.
+- Browser verification found that deep-linked select controls showed their first
+  option instead of the applied range/type/subtype. Explicit selected-option
+  bindings now restore those controls correctly; live track filter verified.
+- Primary migration histories through V131 and all predecessor SQL inspected.
+  Fresh migrations through V132 and a populated V131→V132 upgrade passed in an
+  isolated PostgreSQL 16 database. The upgrade preserved complete activity,
+  daily, identity and policy-1–4 audit rows. V132 also applied through Flyway to
+  the configured local primary database.
+- Root typecheck, web production build, 30 domain matching tests, focused API
+  tests, repository/contract and frontend tests passed. Non-owner app,
+  dispatcher-denial and worker-data tests passed, including cross-owner
+  classification, filter consistency, current day evidence and failed-day
+  exclusion. Browser checks passed for historical track labels/filter restoration
+  and Daily source icons.
+- Live owner-scoped retained-history verification passed: existing run links
+  classified immediately; the runs-only replay had no pending identities.
+  Complete canonical activity, daily metric, ledger, snapshot and performance
+  row digests were unchanged. Personal counts, IDs and metrics remain private.
+- Full repository test/CI matrix and hosted deployment are not run for this
+  focused change. Draft PR #121 is unmerged; #120/#3 remain open/unchecked.
+
+Additional inspected files before subsequent edits: all `flyway/sql/*.sql`,
+`packages/db/src/garmin-activity-schema.ts`, `packages/db/src/score-breakdown-contract.ts`,
+`packages/db/src/repositories/daily.repository.test.ts`,
+`apps/web/src/app/score-breakdown.models.ts`, `apps/web/src/app/daily-quick-sheet.component.ts`,
+`apps/web/src/app/score-breakdown.view-model.test.ts`,
+`apps/web/src/app/score-breakdown-facts.component.ts`,
+`apps/web/src/app/score-breakdown-manual-facts.component.ts`,
+`apps/web/src/app/features/activities/activities-page.component.ts`,
+`apps/web/src/app/features/activities/activities-page.component.test.ts`,
+`docs/ACTIVITIES.md`, `.github/workflows/ci.yml`, `scripts/flyway.mjs`.
