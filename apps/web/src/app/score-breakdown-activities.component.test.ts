@@ -19,9 +19,13 @@ it('links day activities by canonical ID and supports normal router navigation',
   const breakdown = {date:'2026-10-11',activities:[activity,{...activity,id:'canonical-manual',source:'manual'}],ledger:[]} as unknown as DailyScoreBreakdown;
   // Supply input signals directly for Vitest's JIT compilation.
   Object.defineProperty(fixture.componentInstance,'breakdown',{value:signal(breakdown)});
+  Object.defineProperty(fixture.componentInstance,'garminActivityIds',{value:signal(['canonical-run'])});
   fixture.detectChanges();
   const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll('a')];
-  expect(links.map(a => a.getAttribute('href'))).toEqual(['/activity/canonical-run','/activity/canonical-manual']);
+  expect(links.map(a => a.getAttribute('href'))).toEqual(['/activity/canonical-run']);
+  expect((fixture.nativeElement as HTMLElement).textContent).toContain('Garmin');
+  expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Manual');
+  expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Provenance');
   expect(links[0].textContent).toContain('run');
   const router = TestBed.inject(Router);
   const navigate = vi.spyOn(router,'navigateByUrl').mockResolvedValue(true);

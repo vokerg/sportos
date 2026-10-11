@@ -16,16 +16,17 @@ export interface ActivityMatchEvidence {
   reasons: string[];
 }
 export interface ActivityMatchResult {
-  policyVersion: 1 | 2 | 3;
+  policyVersion: 1 | 2 | 3 | 4;
   status: 'exact' | 'strong_unique' | 'ambiguous' | 'unmatched';
   activityId: string | null;
   candidates: ActivityMatchEvidence[];
 }
 
 export const GARMIN_MATCH_POLICY = Object.freeze({
-  version: 3, candidateStartS: 120, strongStartS: 15,
+  version: 4, candidateStartS: 120, strongStartS: 15,
   durationFloorS: 5, durationFraction: 0.01,
   distanceFloorM: 200, distanceFraction: 0.05,
+  bikeStartS: 2, bikeElapsedS: 2, bikeDistanceFloorM: 25, bikeDistanceFraction: 0.01,
   workoutStartS: 2, workoutElapsedS: 2,
   walkStartS: 2, walkElapsedS: 2, walkDistanceFloorM: 25, walkDistanceFraction: 0.01,
 });
@@ -72,6 +73,9 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
     else if (moving === 'close') reasons.push('MOVING_COMPATIBLE');
     if (distance === 'close') reasons.push('DISTANCE_COMPATIBLE');
     if (elapsed === 'conflict' || (!workout && moving === 'conflict') || distance === 'conflict') reasons.push('METRIC_CONFLICT');
+    if (elapsed === 'conflict') reasons.push('ELAPSED_CONFLICT');
+    if (!workout && moving === 'conflict') reasons.push('MOVING_CONFLICT');
+    if (distance === 'conflict') reasons.push('DISTANCE_CONFLICT');
     const exact = summary.elapsedTimeS !== null && summary.elapsedTimeS > 0 && startS === 0 && elapsed === 'close' && summary.elapsedTimeS === candidate.elapsedTimeS
       && summary.subtype === candidate.subtype && summary.subtype !== 'unknown'
       && summary.movingTimeS === candidate.movingTimeS && summary.distanceM === candidate.distanceM;
@@ -97,7 +101,22 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
       if (moving === 'conflict') reasons.push('WALK_MOVING_DIFFERENCE_RETAINED');
     }
 
-    const strong = workoutCorroborated || walkCorroborated || (!workout && startS <= GARMIN_MATCH_POLICY.strongStartS
+    // Cycling providers can disagree on moving time even for the same recording.
+    // Tight independent start/elapsed/distance agreement identifies the session;
+    // retain the moving discrepancy instead of loosening general sport tolerances.
+    const bikeCorroborated = summary.activityType === 'bike' && explicitSubtype && summary.subtype === candidate.subtype
+      && startS <= GARMIN_MATCH_POLICY.bikeStartS
+      && summary.elapsedTimeS !== null && candidate.elapsedTimeS !== null
+      && summary.elapsedTimeS > 0 && candidate.elapsedTimeS > 0
+      && Math.abs(summary.elapsedTimeS - candidate.elapsedTimeS) <= GARMIN_MATCH_POLICY.bikeElapsedS
+      && summary.distanceM !== null && candidate.distanceM !== null && summary.distanceM > 0 && candidate.distanceM > 0
+      && compare(summary.distanceM, candidate.distanceM, GARMIN_MATCH_POLICY.bikeDistanceFloorM, GARMIN_MATCH_POLICY.bikeDistanceFraction) === 'close';
+    if (bikeCorroborated) {
+      reasons.push('BIKE_START_ELAPSED_DISTANCE_CORROBORATED');
+      if (moving === 'conflict') reasons.push('BIKE_MOVING_DIFFERENCE_RETAINED');
+    }
+
+    const strong = workoutCorroborated || walkCorroborated || bikeCorroborated || (!workout && startS <= GARMIN_MATCH_POLICY.strongStartS
       && summary.elapsedTimeS !== null && summary.elapsedTimeS > 0 && candidate.elapsedTimeS !== null && candidate.elapsedTimeS > 0
       && elapsed === 'close' && moving !== 'conflict' && distance !== 'conflict'
       && ((distance === 'close' && Math.max(summary.distanceM!, candidate.distanceM!) > 0)
@@ -110,7 +129,7 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
   const only = evidence.length === 1 ? evidence[0]! : null;
   const status = only?.confidence === 'exact' ? 'exact' : only?.confidence === 'strong' ? 'strong_unique'
     : evidence.length ? 'ambiguous' : 'unmatched';
-  return { policyVersion: 3, status, activityId: status === 'exact' || status === 'strong_unique' ? only!.activityId : null, candidates: evidence };
+  return { policyVersion: GARMIN_MATCH_POLICY.version, status, activityId: status === 'exact' || status === 'strong_unique' ? only!.activityId : null, candidates: evidence };
 }
 
 function compare(a: number | null, b: number | null, floor: number, fraction: number): 'missing' | 'close' | 'conflict' {

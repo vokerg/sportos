@@ -38,8 +38,8 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
         <p class="refresh-error" role="alert">{{ stravaRefreshError() }}</p>
       }
     </section>
-    @if (date(); as selectedDate) { <sportos-garmin-day-card [date]="selectedDate" /> }
-    <sportos-score-breakdown-panel
+    <sportos-score-breakdown-panel #panel
+      [garminActivityIds]="garminActivityIds()"
       [state]="state()"
       [date]="date()"
       [breakdown]="breakdown()"
@@ -53,7 +53,11 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
       (retry)="load()"
       (recalculate)="recalculate()"
       (saveManualFacts)="saveManualFacts($event)"
-      (closed)="close()" />
+      (closed)="close()">
+      @if (date(); as selectedDate) {
+        <sportos-garmin-day-card [date]="selectedDate" [inspection]="panel.activeTab() === 'sources'" (linkedActivities)="garminActivityIds.set($event)" />
+      }
+    </sportos-score-breakdown-panel>
   `,
   styles: [`
     .breadcrumb { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #667085; font-size: 12px; }
@@ -71,6 +75,7 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
   `],
 })
 export class DailyDetailPageComponent implements OnInit, OnDestroy {
+  readonly garminActivityIds = signal<string[]>([]);
   readonly date = signal<string | null>(null);
   readonly state = signal<ScoreBreakdownViewState>('loading');
   readonly breakdown = signal<DailyScoreBreakdown | null>(null);

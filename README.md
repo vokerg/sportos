@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V130, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V131, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -29,6 +29,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Preserve existing workbook provenance when one exact Strava activity matches an existing canonical activity.
 - Retain Strava walks as non-scoring activity history, with conservative Garmin linkage and [retained-source backfill](docs/WALKING_ACTIVITIES.md).
 - Retain unsupported or ambiguous provider records with warnings instead of guessing or discarding them.
+- Preview/replay pending retained Garmin identities with `pnpm garmin:reconcile -- --all` (add `--apply` to link), without provider downloads or score changes.
 - Stage compact Garmin identity metadata and conservatively reconcile it with existing canonical activities, preserving corrected Strava values; retained Garmin resources use the separate detail database. The optional [single-activity local extractor](docs/GARMIN_SINGLE_ACTIVITY.md) is implemented as #99’s first phase; live extraction, retention, cache reuse and matching passed; full archive ingestion remains follow-up work.
 - Compare normalized Strava/Garmin activity-level values with independent processing status and existing canonical authority. Reprocess retained evidence without downloads; use the [bounded operator backfill](docs/ACTIVITY_METRICS.md) for history.
 - Use explicit Fetch, View retained data, and Refresh controls for Strava/Garmin on an activity; opening the page reads canonical facts and coverage only. Garmin displays source-specific session/running-dynamics metrics, laps, exercise sets and bounded raw resources. New Garmin downloads use the opt-in workstation helper; hosted instances can read retained data. See [Activities](docs/ACTIVITIES.md).
@@ -262,7 +263,7 @@ After authentication, the Angular cockpit provides:
 - **Analysis** — cited daily-range or score-breakdown guidance, official evidence, quality flags, and audit reference.
 - **Daily Log** — the full-density, filterable canonical summary table and trend chart. Selecting a row opens a lightweight highlights sheet without replacing the table.
 - **Daily Log Quick entry** — the exact editable manual fact fields, with a per-day durable Strava refresh followed by deterministic recalculation.
-- **Daily score** (`/daily/:date`) — the complete day workspace: all canonical fact splits, editing, activities, source/batch metadata, raw workbook cells or provider payloads, ledger contributions, rule inputs, reconciliation, and explicit recalculation.
+- **Daily score** (`/daily/:date`) — Overview shows daily totals, editing/recalculation, concise training sessions and Garmin day metrics. Manual total entries stay out of the session list. Score contains calculations and reconciliation; Sources contains workbook/provider provenance and explicit Garmin resource inspection.
 - **Run Lab** — performance rankings, bounded event search, event detail, and provenance.
 - **Rules** — current rule versions, read-only preview, activation, recomputation progress, retry, and cancellation.
 - **Providers** — Strava connection, backfill, incremental sync, status, retry, cancellation, disconnect, and provenance.

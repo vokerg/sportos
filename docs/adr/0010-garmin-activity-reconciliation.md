@@ -200,3 +200,38 @@ Gym and other sport criteria remain unchanged. Explicit Garmin extraction suppor
 walking; unlinked/missing walking resources do not block strength scoring. Walking
 never creates scoring rules, performance events or activity points. See
 [walking operations and retained-source backfill](../WALKING_ACTIVITIES.md).
+
+## Matching policy v4: independently corroborated cycling (#116)
+
+The retained-identity audit found uniquely corresponding cycling observations
+blocked solely by moving-duration disagreement. Policy v4 adds a narrow alternate
+cycling path, analogous to the existing independently corroborated walk path:
+
+- same sport and identical explicit subtype;
+- UTC start within two seconds;
+- positive elapsed durations within two seconds;
+- positive recorded distances within max(25 metres, 1% of the larger distance);
+- exactly one plausible canonical candidate, including weaker nearby candidates.
+
+With those independent corroborators, a moving-duration conflict remains in
+evidence (`MOVING_CONFLICT`, `BIKE_MOVING_DIFFERENCE_RETAINED`) but no longer vetoes
+identity. Canonical corrected Strava values remain authoritative and Garmin values
+remain separate. Missing/zero distance, unknown subtype, conflicting elapsed/start
+values, competing candidates, an occupied canonical UUID and fallback identities
+still require review. General tolerances and other sports' behavior are unchanged.
+
+Primary V131 admits audit policy 4 while preserving versions 1–3. Migration changes
+only the audit constraint; it does not reassign links, rewrite history or calculate
+scores. New decisions use the current policy constant. Existing links and explicit
+rejections survive ingestion, retained preview/replay and later source changes.
+
+`pnpm garmin:reconcile -- --all` previews pending retained native/fallback identities
+for the local legacy account. Adding `--apply` replays under the same account
+transaction lock as Strava ingestion, rechecking current source hashes and
+occupied links per identity and appending successful decisions once. It has no
+provider client, detail-resource downloads, canonical/scoring writes or new source
+retention. See [retained replay operation](../GARMIN_DAY_FETCH.md#retained-reconciliation).
+
+Pending is not always an algorithm defect: absent counterpart exports, incomplete
+metadata, repeated sessions or explicit rejected decisions can legitimately remain
+unlinked. The audit should identify which blocker applies instead of guessing.

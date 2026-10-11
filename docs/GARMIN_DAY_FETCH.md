@@ -3,8 +3,15 @@
 On `/daily/:date`, **Fetch Garmin day** retains evidence for one completed
 Garmin calendar date. It never recalculates, replaces manual/workbook authority,
 changes Strava canonical activity metrics, or writes official scores, ledger
-contributions or score snapshots. Page navigation and **View retained Garmin
-data** make no Garmin requests.
+contributions or score snapshots. Page navigation and **Show metrics** make no Garmin requests.
+
+The default **Overview** shows available metrics with readable units and rounded
+values. Empty category cards, retention timestamps, missing-field details and
+reconciliation codes are in **Sources**. Linked activities receive a Garmin badge
+from retained day links; pending evidence remains separate and does not duplicate
+canonical sessions. This badge is day-coverage evidence, not a claim of complete
+provider-resource coverage. Switching views does not reload coverage or fetch
+provider data. Original evidence and scoring precision are unchanged.
 
 ## Setup and controls
 
@@ -31,12 +38,12 @@ have no access to the new day tables.
 - **Retry missing Garmin data** fetches failed/missing categories while preserving
   successful categories. Retained activity identity/resources are checked before
   expensive downloads.
-- **View retained Garmin data** expands compact evidence already read from
+- **Show metrics** expands compact evidence already read from
   SportOS. It works without local Garmin authorization.
 - **Refresh from Garmin** explicitly reads all categories again and refreshes
   selected activity resources. Changed content gets a new immutable version;
   identical content converges to the existing version.
-- **Inspect retained … resource** reads one bounded auxiliary payload on demand.
+- **View source JSON**, in the day’s **Sources** view, reads one bounded auxiliary payload on demand.
   Upstream account/auth/storage fields are removed from browser disclosure.
 
 The selected date is a Garmin-local wall date. Activity discovery queries only
@@ -172,3 +179,34 @@ Walking is supported by explicit activity extraction and matching and appears in
 coverage cards. It remains excluded from workout completeness requirements and
 activity points; its steps stay in the all-day total. This supersedes #108's
 walking exclusion. See [walking history and old retained evidence](WALKING_ACTIVITIES.md).
+
+## Retained reconciliation
+
+Policy v4/V131 adds tightly corroborated cycling matches despite different
+reported moving durations. Walk/run/swim/workout matching retains its existing
+criteria. Neither linking nor later source comparison replaces canonical values
+or implicitly changes a score.
+
+After applying primary V131, the optional local operator command audits/replays
+**pending retained identities**, without Garmin/Strava downloads:
+
+```bash
+pnpm garmin:reconcile -- --all
+pnpm garmin:reconcile -- --all --apply
+```
+
+Default mode is a read-only preview; `linked` means eligible to link when
+`dryRun` is true. The command requires non-production `dev-single-user`, fixes
+the legacy owner, checks the non-owner `sportos_app` role, and prints only counts,
+reason categories and a pagination cursor. It scans up to 100 identities per
+batch and 10,000 per invocation. `--limit 1..100` sets the batch size; `--cursor
+UUID` resumes after a reported cursor. Without `--all`, it processes one batch.
+Replaying a batch is safe: linked and rejected identities are excluded, current
+source hashes are rechecked, established UUIDs never change, and each successful
+link appends one policy-v4 audit record. Failures leave prior committed links safe.
+
+Activity/day navigation reads the resulting current links. For newly linked
+activity metric comparisons, use the existing explicit retained-data normalization
+on the activity page; reconciliation alone does not read or transform rich JSON.
+Original Garmin session data is available through its retained provider view.
+No score recalculation is needed merely to reveal the paired source.

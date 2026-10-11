@@ -11,24 +11,29 @@ import { formatSwimMeters } from './swim-distance';
     <section class="facts-section" aria-labelledby="daily-facts-title">
       <div class="section-heading">
         <div>
-          <span class="section-label">Canonical facts</span>
-          <h4 id="daily-facts-title">Everything SportOS used for this day</h4>
+          <span class="section-label">Daily totals</span>
+          <h4 id="daily-facts-title">Totals</h4>
         </div>
-        <button type="button" class="secondary-button" (click)="edit.emit()">Edit facts</button>
+        <button type="button" class="secondary-button" (click)="edit.emit()">Edit totals</button>
       </div>
       <div class="facts-grid">
-        <div><span>Steps</span><strong>{{ formatNumber(current.facts.steps) }}</strong><small>{{ stepsSource(current.facts.stepsCalculation) }}</small></div>
+        <div><span>Steps</span><strong>{{ formatNumber(current.facts.steps) }}</strong>@if (detailed()) { <small>{{ stepsSource(current.facts.stepsCalculation) }}</small> }</div>
         <div><span>Run</span><strong>{{ formatDistance(current.facts.runM) }}</strong></div>
+        @if (detailed()) {
         <div><span>Run · treadmill</span><strong>{{ formatDistance(current.facts.runIndoorM) }}</strong></div>
         <div><span>Run · outdoor</span><strong>{{ formatDistance(current.facts.runOutdoorM) }}</strong></div>
         <div><span>Run · unspecified</span><strong>{{ formatDistance(current.facts.runUnspecifiedM) }}</strong></div>
+        }
         <div><span>Bike</span><strong>{{ formatDistance(current.facts.bikeM) }}</strong></div>
+        @if (detailed()) {
         <div><span>Bike · indoor</span><strong>{{ formatDistance(current.facts.bikeIndoorM) }}</strong></div>
         <div><span>Bike · outdoor</span><strong>{{ formatDistance(current.facts.bikeOutdoorM) }}</strong></div>
         <div><span>Bike · unspecified</span><strong>{{ formatDistance(current.facts.bikeUnspecifiedM) }}</strong></div>
+        }
         <div><span>Swim</span><strong>{{ formatSwimMeters(current.facts.swimM) }}</strong></div>
-        <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong><small>{{ workoutSource(current.facts.workoutCalculation) }}</small></div>
+        <div><span>Workout points</span><strong>{{ formatNumber(current.facts.workoutPoints) }}</strong>@if (detailed()) { <small>{{ workoutSource(current.facts.workoutCalculation) }}</small> }</div>
       </div>
+      @if (detailed()) {
       @if (current.facts.workoutCalculation; as workout) {
         @if (workout.source === 'garmin_sets') {
           <div class="steps-calculation"><strong>{{ formatNumber(workout.workingSets ?? 0) }} Garmin working sets × 1,000 / 3 = {{ formatNumber(workout.resolvedPoints) }} workout points</strong>
@@ -58,6 +63,7 @@ import { formatSwimMeters } from './swim-distance';
           }
         </div>
       }
+      }
     </section>
   `,
   styles: [`
@@ -80,7 +86,7 @@ import { formatSwimMeters } from './swim-distance';
     .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
     .facts-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(100px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 8px;
     }
     .facts-grid > div {
@@ -106,6 +112,7 @@ import { formatSwimMeters } from './swim-distance';
 })
 export class ScoreBreakdownFactsComponent {
   readonly breakdown = input.required<DailyScoreBreakdown>();
+  readonly detailed = input(false);
   readonly edit = output<void>();
 
   readonly formatDistance = formatDistance;

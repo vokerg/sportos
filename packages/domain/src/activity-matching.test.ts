@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { matchGarminActivity, type ActivityMatchSummary } from './activity-matching.js';
 const run: ActivityMatchSummary = { activityType: 'run', subtype: 'outdoor', startTime: new Date('2026-10-25T02:30:00+02:00'), elapsedTimeS: 1800, movingTimeS: 1750, distanceM: 5000 };
 const candidate = (changes = {}) => ({ ...run, id: 'canonical', ...changes });
-describe('Garmin matching policy v3', () => {
+describe('Garmin matching policy v4', () => {
   it('links an exact observation and tolerates compact Strava distance correction', () => {
     expect(matchGarminActivity(run, [candidate()]).status).toBe('exact');
     expect(matchGarminActivity(run, [candidate({ distanceM: 5200, elapsedTimeS: 1810 })])).toMatchObject({ status: 'strong_unique', activityId: 'canonical' });
@@ -41,15 +41,15 @@ describe('Garmin matching policy v3', () => {
 describe('sport-aware v2 matching criteria',()=>{
   it('accepts rounded gym elapsed time without confusing active lifting time with Strava moving time',()=>{
     const gym={...run,activityType:'workout' as const,subtype:'indoor' as const,elapsedTimeS:1800.8,movingTimeS:900,distanceM:0};
-    expect(matchGarminActivity(gym,[{...gym,id:'gym',elapsedTimeS:1800,movingTimeS:1800}])).toMatchObject({policyVersion:3,status:'strong_unique',activityId:'gym'});
+    expect(matchGarminActivity(gym,[{...gym,id:'gym',elapsedTimeS:1800,movingTimeS:1800}])).toMatchObject({policyVersion:4,status:'strong_unique',activityId:'gym'});
     expect(matchGarminActivity(gym,[{...gym,id:'gym',elapsedTimeS:1804}]).status).toBe('ambiguous');
     expect(matchGarminActivity(gym,[{...gym,id:'gym',startTime:new Date(gym.startTime.getTime()+3000)}]).status).toBe('ambiguous');
     expect(matchGarminActivity(gym,[{...gym,id:'gym',elapsedTimeS:null}]).status).toBe('ambiguous');
   });
   it.each(['walk','run','bike','swim','rowing','sup'] as const)('accepts fractional-to-integer duration precision for %s with independent distance evidence',activityType=>{
     const source={...run,activityType,elapsedTimeS:1800.8};
-    expect(matchGarminActivity(source,[{...source,id:'a',elapsedTimeS:1800}])).toMatchObject({status:'strong_unique',policyVersion:3});
-    expect(matchGarminActivity(source,[{...source,id:'a',movingTimeS:900}]).status).toBe(activityType === 'walk' ? 'strong_unique' : 'ambiguous');
+    expect(matchGarminActivity(source,[{...source,id:'a',elapsedTimeS:1800}])).toMatchObject({status:'strong_unique',policyVersion:4});
+    expect(matchGarminActivity(source,[{...source,id:'a',movingTimeS:900}]).status).toBe(['walk', 'bike'].includes(activityType) ? 'strong_unique' : 'ambiguous');
   });
   it('uses a pool-length floor instead of 200m tolerance for short indoor swims',()=>{
     const swim={...run,activityType:'swim' as const,subtype:'indoor' as const,distanceM:75};
@@ -69,10 +69,47 @@ it('uses narrow walking identity evidence while retaining a moving-time conflict
  const walk={...run,activityType:'walk' as const,elapsedTimeS:3000.8,movingTimeS:1800,distanceM:3500};
  const other={...walk,id:'walk',elapsedTimeS:3000,movingTimeS:2900,distanceM:3499};
  const matched=matchGarminActivity(walk,[other]);
- expect(matched).toMatchObject({status:'strong_unique',activityId:'walk',policyVersion:3});
+ expect(matched).toMatchObject({status:'strong_unique',activityId:'walk',policyVersion:4});
  expect(matched.candidates[0]!.reasons).toContain('WALK_MOVING_DIFFERENCE_RETAINED');
  for(const changes of [{startTime:new Date(walk.startTime.getTime()+3000)},{elapsedTimeS:3004},{distanceM:3600},{distanceM:null},{distanceM:0}]){
    expect(matchGarminActivity(walk,[{...other,...changes}]).activityId).toBeNull();
  }
  expect(matchGarminActivity(walk,[other,{...other,id:'competitor',startTime:new Date(walk.startTime.getTime()+60000)}]).activityId).toBeNull();
+});
+
+
+describe('independently corroborated cycling identity', () => {
+  const bike = { ...run, activityType: 'bike' as const, elapsedTimeS: 2400.75, movingTimeS: 1700, distanceM: 12000 };
+  const pair = { ...bike, id: 'ride', elapsedTimeS: 2400, movingTimeS: 1900, distanceM: 12000.1 };
+  it('retains moving-time disagreement when start, elapsed and distance identify a unique ride', () => {
+    const result = matchGarminActivity(bike, [pair]);
+    expect(result).toMatchObject({ policyVersion: 4, status: 'strong_unique', activityId: 'ride' });
+    expect(result.candidates[0]!.reasons).toEqual(expect.arrayContaining([
+      'BIKE_START_ELAPSED_DISTANCE_CORROBORATED', 'BIKE_MOVING_DIFFERENCE_RETAINED', 'MOVING_CONFLICT',
+    ]));
+    expect(bike.movingTimeS).toBe(1700);
+    expect(pair.movingTimeS).toBe(1900);
+  });
+  it.each([
+    {startTime: new Date(bike.startTime.getTime() + 2001)},
+    {elapsedTimeS: bike.elapsedTimeS + 2.001},
+    {distanceM: 13000}, {distanceM: null}, {distanceM: 0},
+    {subtype: 'unknown' as const}, {subtype: 'indoor' as const}, {elapsedTimeS: null},
+  ])('requires every independent corroborator: %o', changes => {
+    expect(matchGarminActivity(bike, [{...pair, ...changes}]).activityId).toBeNull();
+  });
+  it('accepts the inclusive bounds and a stationary bike with real positive distance', () => {
+    const boundary = {...pair, startTime: new Date(bike.startTime.getTime() + 2000), elapsedTimeS: bike.elapsedTimeS + 2, distanceM: 11900};
+    expect(matchGarminActivity(bike, [boundary]).activityId).toBe('ride');
+    const indoor = {...bike, subtype: 'indoor' as const};
+    expect(matchGarminActivity(indoor, [{...pair, subtype: 'indoor'}]).activityId).toBe('ride');
+  });
+  it('does not choose among exact and weaker neighbouring rides or alter unrelated sports', () => {
+    const competitor = {...pair, id: 'other', startTime: new Date(bike.startTime.getTime() + 60000)};
+    expect(matchGarminActivity(bike, [pair, competitor]).activityId).toBeNull();
+    expect(matchGarminActivity(bike, [competitor, pair])).toEqual(matchGarminActivity(bike, [pair, competitor]));
+    for (const activityType of ['run', 'swim', 'rowing', 'sup'] as const) {
+      expect(matchGarminActivity({...bike, activityType}, [{...pair, activityType}]).activityId).toBeNull();
+    }
+  });
 });

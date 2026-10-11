@@ -37,9 +37,9 @@ import { formatScoreDate } from './score-breakdown.view-model';
       [attr.aria-labelledby]="headingId">
       <header class="panel-header">
         <div>
-          <div class="eyebrow">Score explanation</div>
-          <h3 [id]="headingId">{{ date() ? 'Daily score · ' + formatScoreDate(date()) : 'Daily score breakdown' }}</h3>
-          <p class="panel-subtitle">Scores, canonical facts, activities, and dated source evidence are shown with their authority kept explicit.</p>
+          <div class="eyebrow">Day overview</div>
+          <h3 [id]="headingId">{{ date() ? 'Day · ' + formatScoreDate(date()) : 'Daily score breakdown' }}</h3>
+          <p class="panel-subtitle">Your daily totals and training.</p>
         </div>
         @if (date()) {
           <button type="button" class="secondary-button" aria-label="Close score breakdown" (click)="closed.emit()">
@@ -48,6 +48,11 @@ import { formatScoreDate } from './score-breakdown.view-model';
         }
       </header>
 
+      <nav class="view-tabs" aria-label="Day views">
+        @for (tab of tabs; track tab.id) {
+          <button type="button" [attr.aria-pressed]="activeTab() === tab.id" (click)="activeTab.set(tab.id)">{{ tab.label }}</button>
+        }
+      </nav>
       @let current = breakdown();
       @if (state() === 'idle') {
         <div class="state-box">
@@ -84,31 +89,27 @@ import { formatScoreDate } from './score-breakdown.view-model';
           <button type="button" (click)="requestManualEdit()">Enter facts manually</button>
         </div>
       } @else {
-        <sportos-score-breakdown-summary
-          [breakdown]="current"
-          [recalculating]="recalculating()"
-          [recalculationError]="recalculationError()"
-          (recalculate)="recalculate.emit()" />
-
-        <sportos-score-breakdown-facts
-          [breakdown]="current"
-          (edit)="requestManualEdit()" />
-
-        <sportos-score-breakdown-source-summary [breakdown]="current" />
-
-        <sportos-score-breakdown-garmin [observations]="current.garminObservations" />
-
-        <sportos-score-breakdown-activities [breakdown]="current" />
-
-        <sportos-score-breakdown-provenance [breakdown]="current" />
-
-        <sportos-score-breakdown-ledger [breakdown]="current" />
+        @if (activeTab() === 'overview') {
+          <sportos-score-breakdown-summary [breakdown]="current" [recalculating]="recalculating()" [recalculationError]="recalculationError()" (recalculate)="recalculate.emit()" />
+          <sportos-score-breakdown-facts [breakdown]="current" (edit)="requestManualEdit()" />
+          <sportos-score-breakdown-activities [breakdown]="current" [garminActivityIds]="garminActivityIds()" />
+        } @else if (activeTab() === 'score') {
+          <sportos-score-breakdown-summary [breakdown]="current" [detailed]="true" [recalculating]="recalculating()" [recalculationError]="recalculationError()" (recalculate)="recalculate.emit()" />
+          <sportos-score-breakdown-facts [breakdown]="current" [detailed]="true" (edit)="requestManualEdit()" />
+          <sportos-score-breakdown-ledger [breakdown]="current" />
+        } @else {
+          <sportos-score-breakdown-source-summary [breakdown]="current" />
+          <sportos-score-breakdown-garmin [observations]="current.garminObservations" />
+          <sportos-score-breakdown-provenance [breakdown]="current" />
+        }
       }
-
       @if (!current && visibleGarminObservations().length > 0) {
         <sportos-score-breakdown-garmin [observations]="visibleGarminObservations()" />
-        <sportos-score-breakdown-provenance [sourceRecords]="evidence()?.sourceRecords ?? []" />
+        @if (activeTab() === 'sources') {
+          <sportos-score-breakdown-provenance [sourceRecords]="evidence()?.sourceRecords ?? []" />
+        }
       }
+      <div [hidden]="activeTab() === 'score'"><ng-content /></div>
 
       <sportos-score-breakdown-manual-facts
         [active]="state() === 'loaded'"
@@ -121,6 +122,10 @@ import { formatScoreDate } from './score-breakdown.view-model';
     </section>
   `,
   styles: [`
+    .view-tabs { display: flex; gap: 6px; margin: 18px 0; border-bottom: 1px solid #dbe4f0; padding-bottom: 8px; }
+    .view-tabs button { background: transparent; color: #667085; box-shadow: none; border: 1px solid transparent; border-radius: 8px; padding: 9px 16px; }
+    .view-tabs button[aria-pressed='true'] { color: #243b73; background: #eaf0ff; font-weight: 750; }
+    [hidden] { display: none !important; }
     .breakdown-panel {
       margin-top: 18px;
       border: 1px solid #dbe4f0;
@@ -162,12 +167,19 @@ import { formatScoreDate } from './score-breakdown.view-model';
     .error-box .state-icon { background: #ffe2e2; color: #b54747; }
     .error-box button, .state-box > button { margin-left: auto; }
     @media (max-width: 680px) {
-      .breakdown-panel { padding: 14px; }
-      .panel-header { align-items: stretch; flex-direction: column; }
+      .view-tabs { display: flex; gap: 6px; margin: 18px 0; border-bottom: 1px solid #dbe4f0; padding-bottom: 8px; }
+    .view-tabs button { background: transparent; color: #667085; box-shadow: none; border: 1px solid transparent; border-radius: 8px; padding: 9px 16px; }
+    .view-tabs button[aria-pressed='true'] { color: #243b73; background: #eaf0ff; font-weight: 750; }
+    [hidden] { display: none !important; }
+    .breakdown-panel { padding: 14px; }
+      .panel-header h3 { font-size: 20px; }
     }
   `],
 })
 export class ScoreBreakdownPanelComponent {
+  readonly activeTab = signal<'overview' | 'score' | 'sources'>('overview');
+  readonly tabs = [{id: 'overview', label: 'Overview'}, {id: 'score', label: 'Score'}, {id: 'sources', label: 'Sources'}] as const;
+  readonly garminActivityIds = input<string[]>([]);
   readonly state = input<ScoreBreakdownViewState>('idle');
   readonly date = input<string | null>(null);
   readonly breakdown = input<DailyScoreBreakdown | null>(null);
