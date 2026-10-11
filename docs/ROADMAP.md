@@ -188,7 +188,7 @@ See [walking operations](WALKING_ACTIVITIES.md) and implementation/issue-110.md.
 
 ## Provider activity-level observations (#112)
 
-Draft PR #113 adds independent versioned Strava/Garmin metric observations,
+Merged PR #113 (closed issue #112) adds independent versioned Strava/Garmin metric observations,
 source-selected read comparisons, list/detail processing indicators and explicit
 retained-only reprocessing/backfill. Primary V129 preserves existing core source
 authority, scores and historical provenance. The metric catalog covers evidenced

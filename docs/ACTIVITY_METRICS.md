@@ -27,7 +27,9 @@ compact summary and source-backed canonical fallback. All observations are kept.
 
 For core metrics, the read comparison selects the existing canonical column and
 its source, including manual/workbook authority. An absent canonical core value
-stays absent even if an auxiliary provider has a value. For extended metrics,
+stays absent even if an auxiliary provider has a value. The activity UI may
+display a labelled read-only Garmin fallback; that does not fill the canonical
+column or change API selection/scoring authority. For extended metrics,
 the catalog supplies explicit applicable sports and provider priorities:
 Strava then Garmin for shared cadence/power/energy, Garmin alone for FIT running
 or swimming dynamics/Training Effect/normalized power/training stress, Strava
@@ -211,3 +213,46 @@ run `scripts/activity-metrics-upgrade-fixture.sql` with the separate schema-owne
 test identity, apply V129, and run `scripts/verify-activity-metrics-upgrade.sql`.
 It compares complete canonical, daily, ledger, snapshot and performance rows and
 checks that the migration performs no implicit projection/backfill.
+
+## Activity metrics display (#114)
+
+The feature-owned UI view model groups comparisons into Time & Distance, Heart
+Rate, Running Dynamics, Power & Training and Other. It shows one value for
+providers within the absolute display tolerances below; every member of a
+combined row must agree. A combined row keeps the exact authoritative value
+when available. Meaningfully different values remain separate with Strava first.
+The Authoritative marker identifies canonical or catalog-selected authority;
+Garmin values filling a display gap are marked Read-only fallback instead.
+Manual/workbook authority is preserved even when both providers disagree.
+
+| Metric | Absolute tolerance (normalized units) |
+|---|---|
+| Distance | 10 m |
+| Elapsed, moving, timer duration | 1 s (separate metrics) |
+| Pace | 1 s/km; swimming 1 s/100m |
+| Speed | 0.1 km/h |
+| Heart rate | 1 bpm |
+| Running/cycling/stroke cadence | 1 steps/min, rpm or strokes/min respectively |
+| Power | 1 W |
+| Calories, ascent/descent, ground contact time, Relative Effort | 1 kcal, m, ms or RE respectively |
+| Temperature, vertical oscillation, ratios/balance, Training Effect, training stress, work, SWOLF, strokes/length | 0.1 in the metric's normalized unit |
+| Step length, pool length, distance/stroke | 0.01 m or m/stroke |
+| Counts and unrecognized metrics | Exact equality |
+
+Durations use m:ss/h:mm:ss; pace uses m:ss /km or /100m for swimming; speed
+uses km/h. Swimming distance stays in metres; other distances use metres below
+1 km and kilometres thereafter. HR/power/cadence/counts use whole units;
+dynamics and provider indices retain their relevant decimal precision.
+
+For runs only, the UI combines general `average_cadence` rpm observations
+(cycles/strides per minute ×2) with explicit running cadence already projected
+as steps/min. Explicit Garmin running subfields take precedence over generic
+Garmin cadence. Cycling remains rpm and is never doubled. See [Strava cadence definitions](https://support.strava.com/en-us/articles/15401948-what-is-cadence-on-strava) for the sport-specific display dimensions. This presentation
+conversion changes neither original observations nor persisted catalog units.
+
+Only current provider winners are compared; alternative fields/versions remain
+in the unchanged comparison contract. Complete per-metric provenance is accessible
+under **Source and provenance → Normalized metric provenance (advanced)**,
+separate from the metrics component. Canonical cards omit fields already in the
+comparison while retaining steps, effort points and stopped time. Provider data,
+normalization, Fetch/View/Refresh and explicit raw-resource access remain intact.
