@@ -63,7 +63,7 @@ export class DailyQuickEntryGridComponent {
     { field: 'date', headerName: 'Date', pinned: 'left', editable: false, width: 140, flex: 0, valueFormatter: (p) => formatDate(p.value) },
     this.numberColumn('steps', 'Steps', true),
     this.kilometerColumn('runIndoorM', 'Run treadmill'),
-    this.kilometerColumn('runOutdoorM', 'Run outdoor'),
+    this.kilometerColumn('runOutdoorM', 'Run'),
     this.kilometerColumn('runUnspecifiedM', 'Run other'),
     this.kilometerColumn('bikeIndoorM', 'Bike indoor'),
     this.kilometerColumn('bikeOutdoorM', 'Bike outdoor'),
@@ -72,7 +72,6 @@ export class DailyQuickEntryGridComponent {
     this.numberColumn('workoutPoints', 'Workout points', true),
     this.numberColumn('bonusPoints', 'Bonus points', true),
     { field: 'totalPoints', headerName: 'Total', editable: false, valueFormatter: (p) => Number(p.value ?? 0).toLocaleString() },
-    { field: 'scoreStatus', headerName: 'Authority', editable: false },
     { colId: 'status', headerName: 'Save status', editable: false, valueGetter: (p) => p.data?.saving ? 'Saving…' : p.data?.error || 'Saved', minWidth: 150 },
     { colId: 'refresh', headerName: 'Data', cellRenderer: DailyQuickEntryActionComponent, editable: false, minWidth: 130, sortable: false },
   ];

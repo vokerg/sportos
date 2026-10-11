@@ -1,3 +1,4 @@
+import { activitySubtypeLabel } from './shared/util/activity-subtype';
 import { Component, input, output, signal } from '@angular/core';
 import { formatDurationClock } from './shared/util/duration';
 import { RouterLink } from '@angular/router';
@@ -42,7 +43,7 @@ import { formatSwimMeters } from './swim-distance';
               <div class="section-heading"><h4>Activities</h4><span>{{ current.activities.length }}</span></div>
               @for (activity of current.activities.slice(0, 3); track activity.id) {
                 <article>
-                  <div><strong>{{ activity.activityType }}{{ activity.subtype ? ' · ' + activity.subtype : '' }}</strong><small>{{ activity.source }} · {{ activity.distanceM === null ? 'no distance' : activity.activityType === 'swim' ? formatSwimMeters(activity.distanceM) : distance(activity.distanceM) }}</small></div>
+                  <div><strong>{{ activity.activityType }}{{ activitySubtypeLabel(activity.activityType, activity.subtype, activity.runClassification) ? ' · ' + activitySubtypeLabel(activity.activityType, activity.subtype, activity.runClassification) : '' }}</strong><small>{{ activity.source }} · {{ activity.distanceM === null ? 'no distance' : activity.activityType === 'swim' ? formatSwimMeters(activity.distanceM) : distance(activity.distanceM) }}</small></div>
                   <span>{{ activity.durationS === null ? '—' : duration(activity.durationS) }}</span>
                 </article>
               }
@@ -104,6 +105,7 @@ import { formatSwimMeters } from './swim-distance';
   `],
 })
 export class DailyQuickSheetComponent {
+  readonly activitySubtypeLabel = activitySubtypeLabel;
   readonly state = input<ScoreBreakdownViewState>('idle');
   readonly date = input<string | null>(null);
   readonly breakdown = input<DailyScoreBreakdown | null>(null);

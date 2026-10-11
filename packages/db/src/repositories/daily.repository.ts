@@ -1,3 +1,4 @@
+import { runClassification } from './run-classification.js';
 import { sql, type Kysely } from 'kysely';
 import type {
   DailyMetricFactsInput,
@@ -85,6 +86,7 @@ export interface DailyScoreBreakdownLedgerRow {
   activityStartTime: unknown | null;
   activityType: ActivitiesTable['activity_type'] | null;
   activitySubtype: ActivitiesTable['subtype'] | null;
+  runClassification?: { subtype: ActivitiesTable['subtype']; source: 'garmin' } | null;
   activityDistanceM: number | null;
   activityDurationS: number | null;
   activityMovingTimeS: number | null;
@@ -528,6 +530,7 @@ export class DailyRepository {
         'asr.normalized_entity_type as activitySourceNormalizedEntityType',
         'asr.normalized_entity_id as activitySourceNormalizedEntityId',
       ])
+      .select(runClassification('a').as('runClassification'))
       .where('a.activity_date', '=', metricDate)
       .orderBy('a.source', 'asc')
       .orderBy('a.activity_type', 'asc')
@@ -765,6 +768,7 @@ function mapActivity(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownActivityR
     startTime: toNullableIsoTimestamp(row.activityStartTime),
     activityType: row.activityType,
     subtype: row.activitySubtype,
+    runClassification: row.runClassification ?? null,
     distanceM: nullableDatabaseNumber(row.activityDistanceM, 'activity distance'),
     durationS: nullableDatabaseNumber(row.activityDurationS, 'activity duration'),
     movingTimeS: nullableDatabaseNumber(row.activityMovingTimeS, 'activity moving time'),

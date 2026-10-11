@@ -148,6 +148,7 @@ export interface ScoreBreakdownActivityReadModel {
   startTime: string | null;
   activityType: ActivitiesTable['activity_type'];
   subtype: ActivitiesTable['subtype'];
+  runClassification?: { subtype: ActivitiesTable['subtype']; source: 'garmin' } | null;
   distanceM: number | null;
   durationS: number | null;
   movingTimeS: number | null;

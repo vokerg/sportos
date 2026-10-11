@@ -189,7 +189,7 @@ export class GarminActivitiesRepository {
       : identity.identity_kind === 'fingerprint_v1' ? 'FALLBACK_IDENTITY_REQUIRES_REVIEW'
       : occupied ? 'CANONICAL_ALREADY_LINKED'
       : result.candidates.length === 0 ? 'NO_COMPATIBLE_CANDIDATE'
-      : result.activityId !== null ? 'POLICY_V4'
+      : result.activityId !== null ? 'POLICY_V5'
       : result.candidates.length > 1 ? 'COMPETING_CANDIDATES'
       : 'SINGLE_CANDIDATE_NOT_CORROBORATED';
     const evidence = { ...result, candidates: result.candidates.map(c => ({ ...c })), reason };
@@ -223,7 +223,7 @@ function identitySummary(s: Identity): ActivityMatchSummary {
   return { activityType: s.activity_type, subtype: s.subtype, startTime: s.start_time, elapsedTimeS: s.elapsed_time_s, movingTimeS: s.moving_time_s, distanceM: s.distance_m };
 }
 function canonicalSummary(a: Activity) {
-  const summary = { id: a.id, activityType: a.activity_type, subtype: a.subtype ?? 'unknown', startTime: a.start_time!,
+  const summary = { runSubtypeIsDefault: a.source === 'strava' && a.activity_type === 'run' && a.subtype === 'outdoor', id: a.id, activityType: a.activity_type, subtype: a.subtype ?? 'unknown', startTime: a.start_time!,
     elapsedTimeS: a.duration_s === null ? null : Number(a.duration_s), movingTimeS: a.moving_time_s === null ? null : Number(a.moving_time_s), distanceM: a.distance_m === null ? null : Number(a.distance_m) };
   try { validateActivityMatchSummary(summary); } catch {
     // Malformed legacy observations remain weak collisions, never disappear

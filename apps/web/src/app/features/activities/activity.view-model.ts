@@ -1,3 +1,4 @@
+import { activitySubtypeLabel } from '../../shared/util/activity-subtype';
 import type { Activity, ActivityType } from './activities-api.service';
 import { formatDurationClock } from '../../shared/util/duration';
 
@@ -152,4 +153,8 @@ export function compactActivityMetrics(activity: Activity) {
     heartRate: find('Average HR')?.value ?? '—',
     elevation: find('Elevation gain')?.value ?? '—',
   };
+}
+
+export function displayedSubtype(activity: Activity): string {
+  return activitySubtypeLabel(activity.activity_type, activity.subtype, activity.runClassification);
 }

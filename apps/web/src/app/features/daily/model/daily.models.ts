@@ -5,6 +5,7 @@ export interface DateRangeQuery {
 }
 
 export interface DailySummaryRow {
+  providerSources?: { strava: boolean; garmin: boolean };
   metric_date: string;
   steps: number;
   run_m: number;

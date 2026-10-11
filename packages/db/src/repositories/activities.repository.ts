@@ -1,3 +1,4 @@
+import { runClassification, displaySubtype } from './run-classification.js';
 import { ActivityMetricsRepository } from './activity-metrics.repository.js';
 import { GarminStrengthRepository } from './garmin-strength.repository.js';
 import { sql, type Kysely } from 'kysely';
@@ -46,13 +47,13 @@ export class ActivitiesRepository {
     if (input.to) filtered = filtered.where('activity_date', '<=', input.to);
     if (input.activityType) filtered = filtered.where('activity_type', '=', input.activityType);
     if (input.source) filtered = filtered.where('source', '=', input.source);
-    if (input.subtype) filtered = filtered.where('subtype', '=', input.subtype);
+    if (input.subtype) filtered = filtered.where(hasGarmin ? displaySubtype('activities') : sql.ref('activities.subtype'), '=', input.subtype);
     if (input.minDistanceM !== undefined) filtered = filtered.where('distance_m', '>=', input.minDistanceM);
     if (input.paceUnderSPerKm !== undefined) filtered = filtered.where('avg_pace_s_per_km', '<', input.paceUnderSPerKm);
     if (input.minAvgSpeedMps !== undefined) filtered = filtered.where('avg_speed_mps', '>=', input.minAvgSpeedMps);
     if (input.swimPaceUnderSPer100m !== undefined) filtered = filtered.where('avg_pace_s_per_km', '<', input.swimPaceUnderSPer100m * 10);
     const [rows, summary] = await Promise.all([
-      filtered.select(publicColumns).select((hasGarmin ? garminLink('activities') : sql<null>`null`).as('garmin'))
+      filtered.select(publicColumns).select((hasGarmin ? runClassification('activities') : sql<null>`null`).as('runClassification')).select((hasGarmin ? garminLink('activities') : sql<null>`null`).as('garmin'))
         .orderBy('activity_date', 'desc').orderBy('start_time', 'desc').orderBy('id', 'desc')
         .limit(input.limit).offset(input.offset).execute(),
       filtered.select((eb) => [
@@ -92,6 +93,7 @@ export class ActivitiesRepository {
         .onRef('providerConnection.owner_id', '=', 'providerLink.owner_id')
         .onRef('providerConnection.id', '=', 'providerLink.connection_id'))
       .select(publicColumns.map((column) => `activity.${column}` as const))
+      .select((hasGarmin ? runClassification('activity') : sql<null>`null`).as('runClassification'))
       .select((hasGarmin ? garminLink('activity') : sql<null>`null`).as('garmin'))
       .select(['record.id as sourceRecordId', 'record.source as sourceRecordSource', 'providerConnection.provider as linkedProvider', 'providerLink.provider_activity_id as linkedProviderActivityId'])
       .where('activity.id', '=', activityId)

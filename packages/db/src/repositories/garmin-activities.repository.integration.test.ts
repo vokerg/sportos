@@ -72,7 +72,7 @@ integration('Garmin identity and canonical authority under non-owner RLS', () =>
     const id=await withAccountContext(db,ownerA,async ctx=>(await ctx.insertInto('activities').values({source:'strava',activity_type:'workout',subtype:'indoor',activity_date:time.slice(0,10),start_time:new Date(time),duration_s:1800,moving_time_s:1800,distance_m:0}).returning('id').executeTakeFirstOrThrow()).id);
     const before=await canonicalRows(ownerA);
     expect(await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash))).toMatchObject({status:'strong_unique',activityId:id});
-    expect((await scoped(ownerA,repo=>repo.audit(pending.id)))[0]).toMatchObject({policyVersion:4,action:'auto_link'});
+    expect((await scoped(ownerA,repo=>repo.audit(pending.id)))[0]).toMatchObject({policyVersion:5,action:'auto_link'});
     await scoped(ownerA,repo=>repo.reconsider(garminIdentityKey(input),input.contentHash));
     expect(await scoped(ownerA,repo=>repo.audit(pending.id))).toHaveLength(1);
     expect(await canonicalRows(ownerA)).toEqual(before);
@@ -90,12 +90,12 @@ integration('Garmin identity and canonical authority under non-owner RLS', () =>
     const rejected = await scoped(owner, repo => repo.ingest(rejectedInput));
     await scoped(owner, repo => repo.review(rejected.id, 'reject'));
     const before = await canonicalRows(owner);
-    expect(await scoped(owner, repo => repo.reconcileRetained())).toMatchObject({dryRun: true, examined: 1, linked: 1, policyVersion: 4, bySport: {bike: 1}});
+    expect(await scoped(owner, repo => repo.reconcileRetained())).toMatchObject({dryRun: true, examined: 1, linked: 1, policyVersion: 5, bySport: {bike: 1}});
     expect(await scoped(owner, repo => repo.get(pending.id))).toMatchObject({activityId: null});
     expect(await scoped(owner, repo => repo.audit(pending.id))).toHaveLength(0);
     expect(await scoped(owner, repo => repo.reconcileRetained({dryRun: false}))).toMatchObject({examined: 1, linked: 1});
     expect(await scoped(owner, repo => repo.get(pending.id))).toMatchObject({activityId: canonical});
-    expect(await scoped(owner, repo => repo.audit(pending.id))).toMatchObject([{policyVersion: 4, action: 'auto_link'}]);
+    expect(await scoped(owner, repo => repo.audit(pending.id))).toMatchObject([{policyVersion: 5, action: 'auto_link'}]);
     expect(await scoped(owner, repo => repo.reconcileRetained({dryRun: false}))).toMatchObject({examined: 0, linked: 0});
     expect(await scoped(owner, repo => repo.audit(pending.id))).toHaveLength(1);
     expect(await scoped(owner, repo => repo.get(rejected.id))).toMatchObject({status: 'rejected', activityId: null});
