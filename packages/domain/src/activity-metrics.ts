@@ -19,6 +19,10 @@ const moving: MetricSport[] = ['walk','run','bike','swim','rowing','sup'];
 const strava = (field: string, unit: string, factor = 1): MetricMapping[] => ['compact','strava_detail'].map(sourceKind => ({ provider: 'strava', sourceKind: sourceKind as MetricSourceKind, field, sourceUnit: unit, factor, origin: 'provider_derived', precedence: sourceKind === 'compact' ? 10 : 20 }));
 const fit = (field: string, unit: string, factor = 1, precedence = 30): MetricMapping => ({ provider: 'garmin', sourceKind: 'fit_session', field, sourceUnit: unit, factor, origin: 'recorded', precedence });
 const compact = (field: string, unit: string): MetricMapping => ({ provider: 'garmin', sourceKind: 'compact', field, sourceUnit: unit, factor: 1, origin: 'provider_derived', precedence: 10 });
+const strengthLabels = {
+  workingSets: 'Working sets', totalRecordedSets: 'Total recorded sets', restMarkers: 'Rest markers',
+  warmupSets: 'Warmup sets', unknownSets: 'Unknown sets', exerciseCount: 'Exercise count',
+};
 function metric(key: string, label: string, dimension: string, unit: string, max: number, mappings: MetricMapping[], options: Partial<MetricDefinition> = {}): MetricDefinition {
   return { key, label, dimension, unit, max, min: 0, sports: all, priority: ['strava','garmin'], missing: 'absent_is_missing', mappings, ...options };
 }
@@ -68,7 +72,7 @@ export const ACTIVITY_METRIC_CATALOG: readonly MetricDefinition[] = [
   metric('strokes_per_length','Strokes per length','count','strokes/length',1000,[fit('avg_strokes_per_length','strokes/length')],{sports:['swim']}),
   metric('swolf','Average SWOLF','provider_index','SWOLF',1000,[fit('avg_swolf','')],{sports:['swim']}),
   metric('distance_per_stroke','Distance per stroke','length','m/stroke',100,[fit('avg_stroke_distance','m')],{sports:['swim','rowing','sup']}),
-  ...(['workingSets','totalRecordedSets','restMarkers','warmupSets','unknownSets','exerciseCount'] as const).map(field => metric(`strength_${field}`, field.replace(/([A-Z])/g,' $1'), 'count','count',2000,[{provider:'garmin',sourceKind:'strength_summary',field,sourceUnit:'count',factor:1,origin:'provider_derived',precedence:50}],{sports:['workout'],priority:['garmin'],integer:true})),
+  ...(['workingSets','totalRecordedSets','restMarkers','warmupSets','unknownSets','exerciseCount'] as const).map(field => metric(`strength_${field}`, strengthLabels[field], 'count','count',2000,[{provider:'garmin',sourceKind:'strength_summary',field,sourceUnit:'count',factor:1,origin:'provider_derived',precedence:50}],{sports:['workout'],priority:['garmin'],integer:true})),
 ];
 export interface MetricInput { provider: MetricProvider; sourceKind: MetricSourceKind; fields: unknown; }
 export interface MetricObservation {

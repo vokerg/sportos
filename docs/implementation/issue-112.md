@@ -1,6 +1,7 @@
 # Issue 112: provider activity metrics
 
-Status: implementation in draft PR #113; no merge authorized.
+Status: validated implementation in PR #113; maintainer authorized squash merge
+after the successful visual check on 2026-10-11.
 
 Maintainer explicitly selected #112. Main/origin main were identical at
 `3ea765982feba61d8f991270bcb340ba052ba7e4`; no open PRs or competing claims.
@@ -160,8 +161,8 @@ failure, stale source membership, sub-millisecond ordering and foreign ownership
 Final focused checks passed: 7 catalog, 35 API, 23 UI and 29 database/backfill tests
 (94 total), plus root typecheck and diff checks. The original production web build
 and fresh/populated migration validation remain applicable; no frontend source or
-migration SQL changed in this follow-up. No full repository matrix or browser
-visual inspection was performed.
+migration SQL changed in this follow-up. No full repository matrix was performed. The later visual check below supersedes
+the original browser-inspection limitation.
 
 A real operator CLI dry-run passed; an applied 25-activity replay reported all 15
 eligible Strava activities already current and zero new versions/errors/downloads.
@@ -169,9 +170,25 @@ A full read-only retained replay inspected all 20,301 activities: all 8,235 Stra
 and 18 Garmin projections were already current, with zero new projections, stale
 results or errors. Complete metric-row digests (including head/projection
 timestamps) were unchanged after the applied CLI replay, API GET checks and full
-read-only replay. PR #113 remains draft/unmerged; issue and queue remain open.
+read-only replay. PR #113 is ready for the authorized squash merge; issue/queue closure follows merge.
 
 Additional inspected files: activity-metric-backfill.ts and its tests;
 activity-metric-projector.ts; pool.ts; activity-detail V001; operator/Flyway scripts;
 official-row verifier; metric repository/tests; canonical Activities repository;
 current PR checks and #112 acceptance criteria.
+
+
+## Visual verification before authorized merge (2026-10-11)
+
+Inspected the live authenticated Activities list, running detail with differing
+provider distances, fully processed swim detail and strength detail at the
+browser's default desktop viewport. Verified compact-only/processed/not-linked
+badges, independent raw-retention labels, selected canonical values, extended
+metrics, expanded per-source provenance, and explicit provider controls. No layout
+clipping/overlap or browser errors were observed. No Fetch/Refresh was invoked.
+
+The strength metric labels exposed camel-case formatting; corrected them to
+human-readable labels without changing keys, values, parser version or stored
+projections. Rechecked the API and the rendered strength page. Catalog tests and
+root typecheck passed again. Screenshots remain private outside the repository.
+The maintainer explicitly authorized squash merge and updating the local main.
