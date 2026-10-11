@@ -61,7 +61,7 @@ export function metricOptionsFor(activityType: ActivityType): string[] {
   if (activityType === 'steps') return ['steps'];
   if (['workout', 'hiit', 'bonus'].includes(activityType)) return ['effort_points'];
   const distanceMetrics = ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'];
-  return activityType === 'run'
+  return activityType === 'run' || activityType === 'swim'
     ? [...distanceMetrics.slice(0, 3), 'pace_s_per_km', ...distanceMetrics.slice(3)]
     : distanceMetrics;
 }

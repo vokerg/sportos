@@ -89,3 +89,60 @@ Day-link validation: nine tests across the rendered activity-table, day-page and
 panel files passed. Web typecheck/build and whitespace check passed. The rendered
 test verifies both Strava/manual URLs use canonical IDs and a click invokes the
 router with the correct activity route.
+
+## Maintainer scope addition: swim bonus ladder
+
+The maintainer explicitly requested this scoring policy in the same issue/PR
+and confirmed one bonus per swim. Policy: one highest tier per canonical swim
+of at least 1,000 m, using elapsed seconds per kilometre; strict thresholds of
+20:00/19:30/19:00/18:30 award 2,000/3,000/4,000/5,000. No block multiplier,
+no additional tiers, no provider fetch, no moving-time substitution.
+
+Before implementation inspected all primary Flyway migration declarations and
+full V003, V005, V115, V116, V117, V126; domain scoring/types/tests and Rules
+Studio validation; day scoring repository unit/integration tests and lock
+boundaries; Rules Studio metric options; Flyway wrapper; ADRs 0004/0008; scoring
+semantics and earlier scoring implementation evidence. Existing V129 is the
+latest migration; V130 will be append-only. No table/type shape changes are
+needed. The selected live day was inspected read-only; no personal payload,
+identifier or metric is added to this document or committed fixtures.
+
+This expansion crosses domain/database boundaries, so focused domain, Rules
+Studio and disposable-database migration/upgrade/account tests are necessary.
+The frontend-only validation limitation above applies to the original UI scope.
+
+## Swim policy validation and self-review
+
+- Domain scoring/Rules Studio: 55 tests passed (23 new swim cases plus existing
+  scoring and proposal regressions).
+- Daily step/workout resolution: 12 focused tests passed.
+- API daily/rules controllers: 17 focused tests passed.
+- Web Rules Studio: 10 focused tests passed; swim pace is an explicit metric
+  choice so migrated rules remain editable/previewable through the existing UI.
+- Non-owner `sportos_app` swim repository: two integration tests passed on a
+  disposable loopback database, including new-account rule seeding, one exact
+  rule-linked contribution, repeated recalculation/history and foreign-ID denial.
+- Fresh Flyway: all 39 primary migrations through V130 passed.
+- Populated V129→V130: 45 synthetic dates across three owners passed boundary,
+  longer/short/zero/missing swim cases, manual/imported status, disjoint enabled
+  ranges, untouched customized account rules, base/unrelated ledger preservation,
+  canonical equality and append-only snapshot/metadata checks. A fourth custom
+  owner is preserved independently. Fixture errors were corrected before live use.
+- Root typecheck and web production build passed; no full repository test matrix
+  or heavy remote CI was run.
+
+Self-review matched SQL tier selection and ledger inputs to domain evaluation,
+checked date/owner joins and transaction locks, preserved exact prior UUIDs and
+snapshot facts/provenance, and verified that version numbering handles multiple
+legacy effective ranges. Kysely shapes/grants/RLS are unchanged; this migration
+adds rule data and recalculates only related contributions, not new tables.
+
+With the maintainer's requested local fix, V130 was applied via the existing
+schema-owner Flyway configuration to the configured local primary database.
+Private before/after digests proved canonical activity fields, imported daily
+rows, unrelated ledger rows and every prior snapshot unchanged. Browser read-only
+verification of the requested calibration day confirmed one matching swim tier,
+updated bonus/total and ledger equality. No provider call or additional explicit
+recalculation was needed; no live date, ID, payload, metric, screenshot, hash or
+credential is committed. Only synthetic fixtures are checked in. The PR remains
+open; no merge is authorized.

@@ -338,6 +338,14 @@ function achievementAuxiliaryConditions(
   activity: ActivityFact,
   rule: ScoringRule,
 ): Array<{ metric: string; operator: string; expected: number; actual: number; passed: boolean }> {
+  if (rule.achievementGroup === 'swim.pace.1k') {
+    const actual = activity.distanceM ?? 0;
+    const duration = activity.durationS ?? 0;
+    return [
+      { metric: 'distance_m', operator: 'gte', expected: 1000, actual, passed: Number.isFinite(actual) && actual >= 1000 },
+      { metric: 'duration_s', operator: 'gt', expected: 0, actual: duration, passed: Number.isFinite(duration) && duration > 0 },
+    ];
+  }
   if (rule.code === 'swim.1k.sub20.bonus') {
     const actual = activity.distanceM ?? 0;
     return [{ metric: 'distance_m', operator: 'gte', expected: 1000, actual, passed: actual >= 1000 }];
