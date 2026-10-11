@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { DailyScoreBreakdown } from './score-breakdown.models';
 import { formatSwimMeters } from './swim-distance';
@@ -23,31 +23,29 @@ import {
     <section class="data-section" aria-labelledby="day-activities-title">
       <div class="section-heading">
         <div>
-          <span class="section-label">All canonical activities</span>
-          <h4 id="day-activities-title">Activities recorded for {{ formatScoreDate(current.date) }}</h4>
-          <p class="section-help">Imported rows use the saved workbook ledger. Recalculated rows use the canonical activities shown here, including Strava records.</p>
+          <span class="section-label">Training</span>
+          <h4 id="day-activities-title">Activities</h4>
+          <p class="section-help">Daily totals are shown above. Garmin links enrich the same activity.</p>
         </div>
-        <strong class="count-badge">{{ current.activities.length }}</strong>
+        <strong class="count-badge">{{ activities().length }}</strong>
       </div>
-      @if (current.activities.length === 0) {
+      @if (activities().length === 0) {
         <div class="empty-inline">No canonical activities were recorded for this date.</div>
       } @else {
         <div class="table-scroll">
           <table class="activity-table">
             <thead>
-              <tr><th>Source</th><th>Activity</th><th>Distance</th><th>Elapsed</th><th>Moving</th><th>Pace / speed</th><th>Score link</th><th>Provenance</th></tr>
+              <tr><th>Source</th><th>Activity</th><th>Distance</th><th>Duration</th><th>Pace / speed</th></tr>
             </thead>
             <tbody>
-              @for (activity of current.activities; track activity.id) {
+              @for (activity of activities(); track activity.id) {
                 <tr>
-                  <td><span class="source-badge" [attr.data-source]="activity.source">{{ sourceName(activity.source) }}</span></td>
-                  <td><a [routerLink]="['/activity', activity.id]"><strong>{{ activityName(activity) }}</strong></a><small>{{ formatTimestamp(activity.startTime, 'No start time') }}</small></td>
+                  <td><span class="source-badge" [attr.data-source]="activity.source">{{ sourceName(activity.source) }}</span> @if (garminActivityIds().includes(activity.id)) { <span class="source-badge" data-source="garmin">Garmin</span> }</td>
+                  <td><a [routerLink]="['/activity', activity.id]"><strong>{{ activityName(activity) }}</strong></a><small>{{ activity.startTime ? formatTimestamp(activity.startTime).split(', ').slice(1).join(', ') : '' }}</small></td>
                   <td>{{ activity.distanceM === null ? '—' : activity.activityType === 'swim' ? formatSwimMeters(activity.distanceM) : formatDistance(activity.distanceM) }}</td>
                   <td>{{ activity.durationS === null ? '—' : formatDuration(activity.durationS) }}</td>
-                  <td>{{ activity.movingTimeS === null ? '—' : formatDuration(activity.movingTimeS) }}</td>
                   <td>{{ formatActivityRate(activity) }}</td>
-                  <td><span class="score-link" [class.context-only]="activityScoreLabel(activity, current) === 'Context only'" [class.daily-fact]="activityScoreLabel(activity, current) === 'Daily fact'">{{ activityScoreLabel(activity, current) }}</span></td>
-                  <td>{{ sourceSummary(activity.sourceRecord) }}</td>
+
                 </tr>
               }
             </tbody>
@@ -65,7 +63,7 @@ import {
     .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 12px; }
     .empty-inline { padding: 14px; border: 1px dashed #c7d2e5; border-radius: 10px; color: #667085; background: #fff; }
     .table-scroll { overflow-x: auto; border: 1px solid #e1e7f0; border-radius: 10px; background: #fff; }
-    .activity-table { width: 100%; min-width: 980px; border-collapse: collapse; font-size: 12px; }
+    .activity-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 12px; }
     .activity-table th, .activity-table td { padding: 10px 11px; border-bottom: 1px solid #edf0f5; text-align: left; vertical-align: top; }
     .activity-table th { color: #667085; background: #f8fafc; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
     .activity-table tbody tr:last-child td { border-bottom: 0; }
@@ -75,6 +73,7 @@ import {
     .activity-table td a:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 3px; border-radius: 2px; }
     .activity-table td small { display: block; margin-top: 3px; color: #667085; }
     .source-badge, .score-link { display: inline-block; padding: 4px 7px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .source-badge[data-source='garmin'] { background: #e8f4ff; color: #1769aa; }
     .source-badge[data-source='strava'] { background: #fff0e8; color: #b54708; }
     .source-badge[data-source='my_sport_xlsx'] { background: #eaf7ee; color: #13795b; }
     .score-link.daily-fact { background: #eaf7ee; color: #13795b; }
@@ -84,6 +83,8 @@ import {
 })
 export class ScoreBreakdownActivitiesComponent {
   readonly breakdown = input.required<DailyScoreBreakdown>();
+  readonly garminActivityIds = input<string[]>([]);
+  readonly activities = computed(() => this.breakdown().activities.filter(activity => activity.source !== 'manual' && activity.activityType !== 'steps' && activity.activityType !== 'bonus'));
 
   readonly activityName = activityName;
   readonly activityScoreLabel = activityScoreLabel;

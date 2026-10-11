@@ -21,7 +21,9 @@ it('links day activities by canonical ID and supports normal router navigation',
   Object.defineProperty(fixture.componentInstance,'breakdown',{value:signal(breakdown)});
   fixture.detectChanges();
   const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll('a')];
-  expect(links.map(a => a.getAttribute('href'))).toEqual(['/activity/canonical-run','/activity/canonical-manual']);
+  expect(links.map(a => a.getAttribute('href'))).toEqual(['/activity/canonical-run']);
+  expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Manual');
+  expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Provenance');
   expect(links[0].textContent).toContain('run');
   const router = TestBed.inject(Router);
   const navigate = vi.spyOn(router,'navigateByUrl').mockResolvedValue(true);

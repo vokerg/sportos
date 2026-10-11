@@ -22,7 +22,7 @@ import {
         <span class="metric-label">Total score</span>
         <strong>{{ formatNumber(current.score.appTotal) }}</strong>
         <span class="status-badge" [attr.data-status]="current.scoreStatus">{{ scoreStatusLabel(current.scoreStatus) }}</span>
-        <span class="total-note">{{ scoreAuthorityNote(current.scoreStatus) }}</span>
+        
         <button type="button" class="secondary-button recalculation-action" (click)="recalculate.emit()" [disabled]="recalculating()">
           {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
         </button>
@@ -39,14 +39,11 @@ import {
           <span class="metric-label">{{ current.scoreStatus === 'imported' ? 'Calculated bonus' : 'Bonus' }}</span>
           <strong class="positive-points">{{ current.scoreStatus === 'imported' ? 'Not applied' : formatSigned(current.score.bonusPoints) }}</strong>
         </div>
-        <div class="metric-card delta-card" [attr.data-delta]="deltaKind(current.score.delta)">
-          <span class="metric-label">Compared with Excel</span>
-          <strong>{{ deltaValue(current.score.delta) }}</strong>
-          <small>{{ deltaDescription(current.score.delta) }}</small>
-        </div>
+
       </div>
     </div>
 
+    @if (!ledgerMatchesAppTotal(current)) {
     <div class="consistency-row" [class.consistency-warning]="!ledgerMatchesAppTotal(current)">
       <span class="consistency-icon" aria-hidden="true">{{ ledgerMatchesAppTotal(current) ? '✓' : '!' }}</span>
       <div>
@@ -54,6 +51,7 @@ import {
         <span>Ledger total: {{ formatNumber(ledgerSum(current)) }} · {{ ledgerMatchesAppTotal(current) ? 'matches' : 'does not match' }} the app total.</span>
       </div>
     </div>
+    }
   `,
   styles: [`
     .score-overview {
@@ -93,7 +91,7 @@ import {
     .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
     .recalculation-action { align-self: flex-start; margin-top: 10px; font-size: 12px; }
     .recalculation-error { margin-top: 6px; color: #b54747; font-size: 12px; }
-    .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .metric-card {
       display: flex;
       min-height: 96px;
