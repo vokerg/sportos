@@ -1,3 +1,4 @@
+import { RunningEffortsService } from './running-efforts.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
 import { normalizeGarminStrength } from '@sportos/domain';
 import { homedir } from 'node:os';
@@ -34,6 +35,7 @@ export class GarminLocalIngestService {
     @Inject(ActivityDetailDbProvider) private readonly detail: ActivityDetailDbProvider,
     @Inject(UploadStorage) private readonly storage: UploadStorage,
     private readonly metrics: ActivityMetricsService = new ActivityMetricsService(primary,detail),
+    private readonly efforts: RunningEffortsService = new RunningEffortsService(primary,detail),
   ) {}
 
   async retainBundle(input: LocalGarminBundle, account: AuthenticatedAccount) {
@@ -106,14 +108,15 @@ export class GarminLocalIngestService {
     if (!summary) return false;
     // An explicit cached Fetch can materialize pre-V126 retained resources,
     // including on hosted instances, without a helper or a provider request.
-    await this.withAccount(this.primary, account.id, async db => {
+    const identity = await this.withAccount(this.primary, account.id, async db => {
       const version = await db.selectFrom('garmin_activity_identities as i').innerJoin('garmin_activity_versions as v', join => join
         .onRef('v.owner_id','=','i.owner_id').onRef('v.identity_id','=','i.id'))
         .select(['i.id','v.origin']).where('i.identity_key','=',identityKey).where('v.content_hash','=',sourceHash)
         .where('i.activity_type','=','workout').orderBy('v.origin').executeTakeFirst();
       if (version) await new GarminStrengthRepository(db).retain(version.id, sourceHash, version.origin, summary);
-      await new GarminActivitiesRepository(db).reconsider(identityKey, sourceHash);
+      return new GarminActivitiesRepository(db).reconsider(identityKey, sourceHash);
     });
+    if (identity?.activityId) await this.efforts.project(account.id, identity.activityId, 'garmin');
     return true;
   }
 
@@ -193,7 +196,7 @@ export class GarminLocalIngestService {
       const identity = await new GarminActivitiesRepository(db).ingest(snapshot, ready);
       return identity;
     });
-    if (identity.activityId) await this.metrics.project(owner,identity.activityId);
+    if (identity.activityId) { await this.efforts.project(owner,identity.activityId,'garmin'); await this.metrics.project(owner,identity.activityId); }
     return identity;
   }
 

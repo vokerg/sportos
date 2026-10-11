@@ -376,3 +376,10 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
 - Retained metric normalization remains the separate existing projection path;
   newly paired Garmin values never replace canonical Strava facts. See ADR 0010
   and `docs/GARMIN_DAY_FETCH.md#retained-reconciliation`.
+
+### Running best efforts (#122)
+
+- `packages/domain/src/running-efforts.ts` owns the versioned target catalog, independent native-provider window algorithms and strict pause/gap validation. Summary estimates never become measured efforts or official PRs.
+- Primary V133 retains compact immutable effort versions/results and scoped current heads; streams/FIT remain in the existing detail database. Preserve expected Strava resource fingerprints before replacement, source rechecks and precise inspection ordering.
+- Navigation never calculates, writes or downloads. Explicit Fetch and retained-only POST/operator processing update only the intended providers. No canonical/scoring/Run Lab mutation or bulk rich fetch.
+- `pnpm activities:efforts -- --owner UUID` previews one bounded retained-only batch; `--apply` commits explicitly. Use separate non-owner app roles. See `docs/RUNNING_EFFORTS.md` for conservative transitions, gaps, coverage, retries and deployment.

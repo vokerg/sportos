@@ -1,3 +1,4 @@
+import { RunningEffortsRepository } from './running-efforts.repository.js';
 import { runClassification, displaySubtype } from './run-classification.js';
 import { ActivityMetricsRepository } from './activity-metrics.repository.js';
 import { GarminStrengthRepository } from './garmin-strength.repository.js';
@@ -105,6 +106,7 @@ export class ActivitiesRepository {
     return {
       ...serialize(activity),
       providerMetrics: (await new ActivityMetricsRepository(this.db).statuses([activityId]))[activityId] ?? [],
+      bestEfforts: row.activity_type === 'run' ? await new RunningEffortsRepository(this.db).read(activityId) : null,
       metricComparisons: await new ActivityMetricsRepository(this.db).comparisons(row),
       garminStrength: row.activity_type === 'workout' ? await new GarminStrengthRepository(this.db).forActivity(activityId) : null,
       provenance: { sourceRecordId, sourceRecordSource },

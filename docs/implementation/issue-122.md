@@ -102,4 +102,25 @@ GitHub issues #122, #3 (body and claims), #100 and open PR list. File inspection
 
 ## Validation
 
-Pending implementation and focused validation. No live provider download or production backfill authorized.
+Implemented independent pause-excluded Strava summary/stream and Garmin FIT efforts, compact immutable V133 projections/results and owner-scoped heads, explicit retained-only POST/backfill, selective fetch hooks and run detail comparison. Source/version checks and expected mutable-stream fingerprints reject old publication; failed/stale durations are hidden. Existing canonical/scoring/performance authority remains intact.
+
+Narrow conservative policy choices: Strava transition intervals count active when either boundary flag is moving; only intervals bounded by two false flags are excluded. Garmin distance crossing a timer transition is unavailable because its distance at the transition is unknown. Invalid measured timelines fail as a whole; Strava explicitly estimates with a reason, Garmin remains unavailable. Known-short Garmin summaries skip FIT chunks. No generic normalized time-series layer or automatic summary-ingestion/GET projection was added; preexisting/new unprocessed history requires explicit retained processing/backfill. These decisions are documented in RUNNING_EFFORTS.md.
+
+Passed:
+
+- 10 pure running calculation tests covering all target distances, fixed/split/middle windows, fractional boundaries, exact/short runs, ties, slow active time, stopped time, FIT timer variants, missing/invalid input and gaps.
+- 12 non-owner effort integration tests plus 2 compact inspection/bounds tests. Separate primary/detail runtime roles cover estimates/rich upgrades, both-provider differences, source/algorithm changes, FIT-only linked data, canonical fallback guards, missing pauses, replay, retry, dry-run/apply/cursor resume, mutable refresh races, history integrity, ownership/FKs and dispatcher denial.
+- 14 existing provider metric integration regressions passed on disposable primary/detail databases.
+- 42 focused API/retention/day/session/CSRF tests, including provider-specific hooks and empty-body/UUID/owner validation.
+- 21 focused Activities component/state/page tests: estimates versus calculations, equal-source display, stale/failed duration hiding, display rounding, cancellation/repeated clicks and primary-result refresh after explicit processing or failed fetch.
+- Root `pnpm typecheck`; Angular production build.
+- Fresh primary Flyway migrations through V133 and validation of all 42 migration versions; existing dedicated detail migrations through V003.
+- Populated V132 → V133 Flyway upgrade with synthetic canonical/day/ledger/snapshot/Run Lab fixtures and complete official-row comparison; no implicit backfill.
+- Synthetic non-owner operator command dry-run, explicit apply and unchanged replay: dry-run writes zero heads, apply creates one projection, replay creates zero projections, zero provider requests.
+- `git diff --check` and self-review. All test data/databases are disposable loopback instances; no personal source or credential was committed.
+
+Not run: heavy general CI/full repository test matrix (explicit issue scope), browser visual inspection, live provider downloads, live migration or production backfill. Component DOM tests and production template compilation provide focused UI evidence. Primary V133 and an authorized retained-only backfill remain deployment/operator steps. PR stays draft; no merge/issue closure/queue checkbox is authorized.
+
+## Additional implementation inspections
+
+`apps/api/src/auth/session.guard.test.ts`, `apps/api/src/activities/activities.controller.test.ts`, `apps/api/src/activities/garmin-local-ingest.controller.test.ts`, `apps/api/src/daily/garmin-day.service.test.ts`, `apps/web/src/app/features/activities/activities-page.component.test.ts`, `apps/web/src/app/features/activities/ui/activity-metric-comparison.component.test.ts`, `packages/db/src/repositories/garmin-activities.repository.ts`, `scripts/activity-metrics-upgrade-fixture.sql`, `scripts/verify-activity-metrics-upgrade.sql`, `flyway/activity-detail-sql/V001__create_activity_provider_resource_cache.sql`, package TypeScript configs and root tsconfig.base.json. New/changed effort files were inspected throughout implementation and self-review.

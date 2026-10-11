@@ -47,3 +47,10 @@ export * from './activity-metric-schema.js';
 export * from './repositories/activity-metrics.repository.js';
 export * from './activity-metric-projector.js';
 export * from './activity-metric-backfill.js';
+
+export * from './running-effort-schema.js';
+export * from './repositories/running-efforts.repository.js';
+
+export * from './running-effort-projector.js';
+
+export * from './running-effort-backfill.js';

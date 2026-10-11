@@ -1,3 +1,4 @@
+import { RunningEffortsService } from './running-efforts.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { ACTIVITY_SOURCES, ACTIVITY_TYPES, ActivitiesRepository, LEGACY_ACCOUNT_ID, type ActivitiesQuery } from '@sportos/db';
@@ -64,6 +65,7 @@ export class ActivitiesController {
     @Inject(DbProvider) private readonly dbProvider: DbProvider,
     private readonly providerDetailService: ActivityProviderDetailService,
     private readonly metrics?: ActivityMetricsService,
+    private readonly efforts?: RunningEffortsService,
   ) {}
 
   @Get()
@@ -102,6 +104,17 @@ export class ActivitiesController {
     const activity = await this.dbProvider.withAccount(owner, db => new ActivitiesRepository(db).get(activityId));
     if (!activity) throw new NotFoundException({code:'ACTIVITY_NOT_FOUND',message:'Activity was not found.'});
     return {metricProjection: await this.metrics!.project(owner,activityId)};
+  }
+
+  @Post(':activityId/efforts/reprocess')
+  async reprocessEfforts(@Param('activityId') activityId: string, @Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
+    assertUuid(activityId, 'INVALID_ACTIVITY_ID');
+    if (body !== undefined && body !== null && (typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length)) throw new BadRequestException('Retained effort processing accepts no fields.');
+    const owner = account?.id ?? LEGACY_ACCOUNT_ID;
+    const activity = await this.dbProvider.withAccount(owner, db => db.selectFrom('activities').select('activity_type').where('id', '=', activityId).executeTakeFirst());
+    if (!activity) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
+    if (activity.activity_type !== 'run') throw new BadRequestException('Running efforts require a run.');
+    return { effortProjection: await this.efforts!.project(owner, activityId) };
   }
 
   @Get(':activityId/source')
