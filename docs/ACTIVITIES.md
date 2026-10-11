@@ -91,7 +91,7 @@ The canonical implementation lives in `packages/db/src/repositories/activities.r
 
 ## MVP limits
 
-The list uses bounded offset pagination; concurrent imports may shift rows between pages. Summaries include all filtered activities, including those beyond the current page. The canonical detail view still does not promote splits, GPS track, cadence, power, training load, or other provider-only fields into the SportOS activity model; source-specific Garmin session/lap/sets and selected Strava detail values are displayed separately, while streams and unknown fields remain available through explicit advanced disclosures. There is no map/chart rendering, editing, or sport-specific deep analysis yet. Canonical rows without a name receive a type-based title, with no invented activity name.
+The list uses bounded offset pagination; concurrent imports may shift rows between pages. Summaries include all filtered activities, including those beyond the current page. The canonical detail view adds separate normalized provider activity-level metrics and read-only selections ([catalog and offline backfill](ACTIVITY_METRICS.md)), while splits, GPS tracks and time series remain retained resources; source-specific Garmin session/lap/sets and selected Strava detail values are displayed separately, while streams and unknown fields remain available through explicit advanced disclosures. There is no map/chart rendering, editing, or sport-specific deep analysis yet. Canonical rows without a name receive a type-based title, with no invented activity name.
 
 `activity_provider_resources` resides in a separate Neon project configured by the explicit `SPORTOS_ACTIVITY_DETAIL_DATABASE_URL`. The API first resolves the canonical/provider reference and credentials in the primary project, then opens the detail project under the same account context. The cache has no cross-project foreign keys; identity and authorization remain authoritative in the primary database, and the detail rows are bounded, derived, owner-scoped, and rebuildable. The runtime and Flyway URLs must not be derived from or reuse the primary project. Run `pnpm db:migrate:activity-detail` with the separate project's schema-owner settings before starting the API.
 
@@ -114,3 +114,22 @@ warm-ups, rest and unknown counts alongside the separate original Garmin set
 disclosure. Explicit daily recalculation can use complete linked summaries;
 retention and page navigation never change scores. See
 [scoring source policy](SCORING_RULES.md#retained-garmin-recalculation-108).
+
+## Normalized provider observations (#112)
+
+Primary V129 adds independent versioned Strava/Garmin scalar observations and
+per-provider processing checkpoints. List badges separate linkage, raw retention,
+normalization, partial coverage, failures and stale versions. Detail comparisons
+show the existing canonical selection and provider values side by side: e.g.
+Strava 10.02 km and Garmin 10.00 km, with canonical distance still Strava's.
+Metric provenance exposes safe projection UUIDs, fields, units and derivation.
+Normal pages read primary projections without loading raw provider JSON.
+
+Fetch/Refresh/cache reuse and explicit **Normalize retained data** process
+available evidence; normalization alone never contacts a provider or changes
+scores. Historical raw coverage remains explicitly unknown until inspected.
+Compact-only older history reports partial coverage. Completed inspection can
+have zero optional values. Pending Garmin identities remain pending.
+See [metric catalog, versions and operator backfill](ACTIVITY_METRICS.md) for
+`POST /activities/:id/metrics/reprocess`, authority, missing-value semantics,
+retained-only cursor batches and deployment/validation requirements.

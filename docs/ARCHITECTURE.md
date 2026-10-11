@@ -401,3 +401,18 @@ retained-source replay share the adapter, snapshot builder and owner-scoped
 provider repository. Walking stays outside scoring rules, official calculations,
 performance events and workout completeness; all-day Garmin steps are unchanged.
 See [walking history and operations](WALKING_ACTIVITIES.md).
+
+## Provider metric projections (#112)
+
+Primary V129 stores immutable bounded scalar projection versions and observations
+alongside one current processing checkpoint per activity/provider. Original
+provider resources remain in the separate detail database. Canonical core fields
+keep their current source authority; provider disagreements remain independent
+and extended metric selections are deterministic read output. Projection writes
+occur only after explicit retention/cache reuse, link review or retained-only
+reprocessing/backfill. Navigation reads compact identity and primary projections,
+never downloads or processes provider JSON. Source/version membership checks,
+forced RLS, explicit runtime grants and immutable history protect the new model.
+A current-source check under the reconciliation lock and full-precision inspection
+timestamps prevent stale/out-of-order publication. These two database commits do
+not pretend to be a cross-database transaction. See [metric operations](ACTIVITY_METRICS.md).

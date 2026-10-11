@@ -1,3 +1,4 @@
+import { ActivityMetricsService } from './activity-metrics.service.js';
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import {
   ACTIVITY_PROVIDER_RESOURCE_TYPES,
@@ -18,6 +19,7 @@ import {
 import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
 
 export interface ActivityProviderDetailResponse {
+  metricProjection?: import('@sportos/db').MetricProjectionResult[];
   provider: 'strava';
   providerActivityId: string;
   fetchedAt: string;
@@ -34,6 +36,7 @@ export class ActivityProviderDetailService {
   constructor(
     private readonly dbProvider: DbProvider,
     private readonly activityDetailDbProvider: ActivityDetailDbProvider,
+    private readonly metrics: ActivityMetricsService = new ActivityMetricsService(dbProvider, activityDetailDbProvider),
   ) {}
 
   async status(accountId: string, activityId: string) {
@@ -60,7 +63,7 @@ export class ActivityProviderDetailService {
     const cached = await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).list(reference));
     if (!refresh && isCompleteAndCurrent(cached, reference.providerVersion)) {
-      return response(reference, cached, 'hit');
+      return {...response(reference, cached, 'hit'), metricProjection: await this.metrics.project(accountId,activityId)};
     }
 
     let authorization = await this.loadAuthorization(accountId, reference);
@@ -104,7 +107,7 @@ export class ActivityProviderDetailService {
       new ActivityProviderResourcesRepository(db).replace(reference, writes));
     const stored = await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).list(reference));
-    return response(reference, stored, 'miss');
+    return {...response(reference, stored, 'miss'), metricProjection: await this.metrics.project(accountId,activityId)};
   }
 
   private async loadAuthorization(accountId: string, reference: ActivityProviderReference): Promise<ProviderAuthorization> {

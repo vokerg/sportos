@@ -1,3 +1,4 @@
+import { ActivityMetricsRepository } from './activity-metrics.repository.js';
 import { GarminStrengthRepository } from './garmin-strength.repository.js';
 import { sql, type Kysely } from 'kysely';
 import type { Activity, Database } from '../schema.js';
@@ -64,8 +65,9 @@ export class ActivitiesRepository {
           : sql<null>`null`.as('avg_pace_s_per_km'),
       ]).executeTakeFirstOrThrow(),
     ]);
+    const metricStatus = await new ActivityMetricsRepository(this.db).statuses(rows.map(row=>row.id));
     return {
-      items: rows.map((row) => serialize(row)),
+      items: rows.map((row) => ({...serialize(row), providerMetrics: metricStatus[row.id] ?? []})),
       summary: {
         count: Number(summary.count),
         durationS: Number(summary.duration_s ?? 0),
@@ -100,6 +102,8 @@ export class ActivitiesRepository {
     const { sourceRecordId, sourceRecordSource, linkedProvider, linkedProviderActivityId, ...activity } = row;
     return {
       ...serialize(activity),
+      providerMetrics: (await new ActivityMetricsRepository(this.db).statuses([activityId]))[activityId] ?? [],
+      metricComparisons: await new ActivityMetricsRepository(this.db).comparisons(row),
       garminStrength: row.activity_type === 'workout' ? await new GarminStrengthRepository(this.db).forActivity(activityId) : null,
       provenance: { sourceRecordId, sourceRecordSource },
       providerDetail: linkedProvider && linkedProviderActivityId ? { provider: linkedProvider, providerActivityId: linkedProviderActivityId } : null,

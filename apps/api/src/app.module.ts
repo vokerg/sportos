@@ -1,3 +1,4 @@
+import { ActivityMetricsService } from './activities/activity-metrics.service.js';
 import { GarminDayController } from './daily/garmin-day.controller.js';
 import { GarminDayService } from './daily/garmin-day.service.js';
 import { ActivityEnrichmentController } from './activities/activity-enrichment.controller.js';
@@ -65,6 +66,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
     AnalysisService,
     DynamicsService,
     ActivityProviderDetailService,
+    ActivityMetricsService,
     ActivityEnrichmentService,
     { provide: AnalysisTextGenerator, useFactory: createAnalysisTextGenerator },
     SessionGuard,

@@ -1,3 +1,4 @@
+import type { ProviderMetricStatus, ActivityMetricComparison } from './model/activity-metrics.models';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { SPORTOS_API_BASE } from '../../core/config/api-base';
@@ -6,6 +7,7 @@ export type ActivityType = 'steps' | 'walk' | 'run' | 'bike' | 'swim' | 'workout
 export type ActivitySubtype = 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown';
 export type ActivitySource = 'manual' | 'my_sport_xlsx' | 'run_db_xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit';
 export interface Activity {
+  providerMetrics?: ProviderMetricStatus[];
   id: string;
   activity_date: string;
   start_time: string | null;
@@ -27,6 +29,7 @@ export interface Activity {
   notes: string | null;
 }
 export interface ActivityDetail extends Activity {
+  metricComparisons?: ActivityMetricComparison[];
   garminStrength?: { workingSets: number; totalRecordedSets: number; warmupSets: number; restMarkers: number;
     unknownSets: number; exerciseCount: number; complete: boolean; policyVersion: number; sourceUpdatedAt: string;
     exercises: Array<{name: string; workingSets: number}> } | null;
@@ -107,6 +110,8 @@ export class ActivitiesApiService {
   garminDetail(id: string) { return this.http.get<GarminDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail`); }
   fetchGarminDetail(id: string, refresh = false) { return this.http.post<GarminDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail`, { refresh }); }
   garminResource(id: string, resourceType: string, chunkIndex: number) { return this.http.get<{ payload: unknown }>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail/resource`, { params: { resourceType, chunkIndex } }); }
+
+  reprocessMetrics(id:string) { return this.http.post(`${this.apiBase}/activities/${encodeURIComponent(id)}/metrics/reprocess`,{}); }
 
   sourceJson(id: string) {
     return this.http.get<ActivitySourceJson>(`${this.apiBase}/activities/${encodeURIComponent(id)}/source`);

@@ -1,3 +1,5 @@
+import { ProviderMetricStatusComponent } from './ui/provider-metric-status.component';
+import { ActivityMetricComparisonComponent } from './ui/activity-metric-comparison.component';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -7,7 +9,7 @@ import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.vi
 import { metricGroups, startTime, subtypeLabel, title } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink], providers: [ActivityDetailStore],
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ProviderMetricStatusComponent, ActivityMetricComparisonComponent], providers: [ActivityDetailStore],
   template: `
     <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
     @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
@@ -21,6 +23,7 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
       <div class="metric-sections">@for (group of metricGroups(item); track group.title) {
         <section class="card"><h2>{{ group.title }}</h2><dl class="metrics">@for (metric of group.items; track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl></section>
       }</div>
+      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" />
       @if (item.garminStrength; as strength) {
         <section class="card" aria-label="Garmin strength summary"><h2>Garmin strength sets</h2>
           <dl class="metrics"><div><dt>Working sets</dt><dd>{{ strength.workingSets }}</dd></div>
@@ -37,6 +40,12 @@ import { metricGroups, startTime, subtypeLabel, title } from './activity.view-mo
       @if (item.notes && item.source !== 'strava') { <section class="card notes-card"><h2>Notes</h2><p class="notes">{{ item.notes }}</p></section> }
       <section class="card provider-detail" aria-label="Provider data">
         <h2>Provider data</h2>
+        <sportos-provider-metric-status [statuses]="item.providerMetrics ?? []" [expanded]="true" />
+        @if (item.providerDetail || item.garmin) {
+          <button type="button" [disabled]="store.metricState() === 'loading'" (click)="store.reprocessMetrics()">{{ store.metricState() === 'loading' ? 'Normalizing retained data…' : 'Normalize retained data' }}</button>
+          <p>This processes retained activity metrics without contacting either provider.</p>
+        }
+        @if (store.metricError()) { <p role="alert">{{ store.metricError() }}</p> }
         <p>Fetch downloads detail for this activity. View reads retained data. Canonical activity facts and scores stay unchanged.</p>
         @if (store.coverageError()) { <p role="alert">Could not check retained data. <button type="button" (click)="store.refreshCoverage()">Check again</button></p> }
         @else if (!store.coverage()) { <p role="status">Checking retained data…</p> }

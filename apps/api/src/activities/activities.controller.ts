@@ -1,3 +1,4 @@
+import { ActivityMetricsService } from './activity-metrics.service.js';
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { ACTIVITY_SOURCES, ACTIVITY_TYPES, ActivitiesRepository, LEGACY_ACCOUNT_ID, type ActivitiesQuery } from '@sportos/db';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
@@ -62,6 +63,7 @@ export class ActivitiesController {
   constructor(
     @Inject(DbProvider) private readonly dbProvider: DbProvider,
     private readonly providerDetailService: ActivityProviderDetailService,
+    private readonly metrics?: ActivityMetricsService,
   ) {}
 
   @Get()
@@ -90,6 +92,16 @@ export class ActivitiesController {
     const input = body ?? {};
     if (typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => key !== 'refresh') || ('refresh' in input && typeof input.refresh !== 'boolean')) throw new BadRequestException('Invalid provider fetch request.');
     return this.providerDetailService.load(account?.id ?? LEGACY_ACCOUNT_ID, activityId, 'refresh' in input && input.refresh === true);
+  }
+
+  @Post(':activityId/metrics/reprocess')
+  async reprocess(@Param('activityId') activityId: string, @Body() body: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
+    assertUuid(activityId, 'INVALID_ACTIVITY_ID');
+    if (body !== undefined && body !== null && (typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length)) throw new BadRequestException('Retained reprocessing accepts no fields.');
+    const owner = account?.id ?? LEGACY_ACCOUNT_ID;
+    const activity = await this.dbProvider.withAccount(owner, db => new ActivitiesRepository(db).get(activityId));
+    if (!activity) throw new NotFoundException({code:'ACTIVITY_NOT_FOUND',message:'Activity was not found.'});
+    return {metricProjection: await this.metrics!.project(owner,activityId)};
   }
 
   @Get(':activityId/source')

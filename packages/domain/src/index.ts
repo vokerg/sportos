@@ -8,3 +8,5 @@ export * from './daily.js';
 export * from './steps.js';
 export * from './activity-matching.js';
 export * from './garmin-strength.js';
+
+export * from './activity-metrics.js';

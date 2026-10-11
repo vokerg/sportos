@@ -1,3 +1,4 @@
+import type { ActivityMetricProjectionsTable, ActivityProviderMetricValuesTable, ActivityMetricHeadsTable } from './activity-metric-schema.js';
 import type { GarminDayVersionsTable, GarminDayHeadsTable, GarminDayResourcesTable } from './garmin-day-schema.js';
 import type { GarminStrengthSummariesTable, GarminActivityIdentitiesTable, GarminActivityVersionsTable, GarminReconciliationAuditTable, GarminActivityResourcesTable } from './garmin-activity-schema.js';
 import type { ColumnType, Generated, Insertable, Selectable } from 'kysely';
@@ -413,6 +414,9 @@ export interface ProviderWebhookEventsTable {
 }
 
 export interface Database {
+  activity_metric_projections: ActivityMetricProjectionsTable;
+  activity_provider_metric_values: ActivityProviderMetricValuesTable;
+  activity_metric_heads: ActivityMetricHeadsTable;
   garmin_day_versions: GarminDayVersionsTable;
   garmin_day_heads: GarminDayHeadsTable;
   garmin_day_resources: GarminDayResourcesTable;
