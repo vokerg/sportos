@@ -262,7 +262,7 @@ After authentication, the Angular cockpit provides:
 - **Analysis** — cited daily-range or score-breakdown guidance, official evidence, quality flags, and audit reference.
 - **Daily Log** — the full-density, filterable canonical summary table and trend chart. Selecting a row opens a lightweight highlights sheet without replacing the table.
 - **Daily Log Quick entry** — the exact editable manual fact fields, with a per-day durable Strava refresh followed by deterministic recalculation.
-- **Daily score** (`/daily/:date`) — the complete day workspace: all canonical fact splits, editing, activities, source/batch metadata, raw workbook cells or provider payloads, ledger contributions, rule inputs, reconciliation, and explicit recalculation.
+- **Daily score** (`/daily/:date`) — Overview shows daily totals, editing/recalculation, concise training sessions and Garmin day metrics. Manual total entries stay out of the session list. Score contains calculations and reconciliation; Sources contains workbook/provider provenance and explicit Garmin resource inspection.
 - **Run Lab** — performance rankings, bounded event search, event detail, and provenance.
 - **Rules** — current rule versions, read-only preview, activation, recomputation progress, retry, and cancellation.
 - **Providers** — Strava connection, backfill, incremental sync, status, retry, cancellation, disconnect, and provenance.

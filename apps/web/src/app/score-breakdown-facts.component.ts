@@ -86,7 +86,7 @@ import { formatSwimMeters } from './swim-distance';
     .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
     .facts-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(100px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 8px;
     }
     .facts-grid > div {

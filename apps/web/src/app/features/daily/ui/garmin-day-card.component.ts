@@ -1,4 +1,4 @@
-import { Component, OnChanges, inject, input, output, effect } from '@angular/core';
+import { Component, OnChanges, SimpleChanges, inject, input, output, effect } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { GarminDayStore } from '../state/garmin-day.store';
@@ -49,6 +49,7 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
                     }
                   } @else if (item.category === 'activities') {
                     <p>{{ evidence.count ?? 0 }} Garmin activities @if (!evidence.complete) { · Incomplete } </p>
+                    @if (inspection()) {
                     <ul>@for (activity of evidence.activities ?? []; track activity.ordinal) {
                       <li>
                         @if (inspection()) { Activity {{ activity.ordinal }} · {{ activity.reconciliation }} · {{ activity.resourceState }} }
@@ -56,6 +57,7 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
                         @if (activity.activityId) { <a [routerLink]="['/activity', activity.activityId]">Activity {{ activity.ordinal }}</a> }
                       </li>
                     }</ul>
+                    } @else { <p class="muted">{{ linkedCount(evidence) }} linked · {{ (evidence.count ?? 0) - linkedCount(evidence) }} not linked. Details in Sources.</p> }
                   } @else {
                     <dl>@for (metric of metricRows(evidence); track metric.key) { <dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd> }</dl>
                   }
@@ -95,12 +97,15 @@ export class GarminDayCardComponent implements OnChanges {
       this.linkedActivities.emit(activities.flatMap(activity => activity.activityId ? [activity.activityId] : []));
     });
   }
+  linkedCount(evidence: GarminDayEvidence): number {
+    return evidence.activities?.filter(activity => activity.activityId).length ?? 0;
+  }
   visibleCategories(categories: GarminDayCategoryEvidence[]) {
     return this.inspection() ? categories : categories.filter(item => item.evidence && (this.metricRows(item.evidence).length > 0 || (item.evidence.measurements?.length ?? 0) > 0 || item.category === 'activities'));
   }
   readonly date = input.required<string>();
   readonly store = inject(GarminDayStore); readonly labels = GARMIN_CATEGORY_LABELS;
-  ngOnChanges() { if (this.date()) this.store.load(this.date()); }
+  ngOnChanges(changes?: SimpleChanges) { if ((!changes || changes['date']) && this.date()) this.store.load(this.date()); }
   status(state: GarminDayCategoryState): string {
     return { missing: 'Not fetched', available: 'Available', not_recorded: 'Not recorded for this date', unsupported: 'Unsupported by this endpoint/device', private: 'Private in Garmin', failed: 'Failed — retry available', authentication_required: 'Authentication required — run pnpm garmin:login locally', rate_limited: 'Rate limited — retry later' }[state];
   }

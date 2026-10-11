@@ -94,6 +94,7 @@ import { formatScoreDate } from './score-breakdown.view-model';
           <sportos-score-breakdown-facts [breakdown]="current" (edit)="requestManualEdit()" />
           <sportos-score-breakdown-activities [breakdown]="current" [garminActivityIds]="garminActivityIds()" />
         } @else if (activeTab() === 'score') {
+          <sportos-score-breakdown-summary [breakdown]="current" [detailed]="true" [recalculating]="recalculating()" [recalculationError]="recalculationError()" (recalculate)="recalculate.emit()" />
           <sportos-score-breakdown-facts [breakdown]="current" [detailed]="true" (edit)="requestManualEdit()" />
           <sportos-score-breakdown-ledger [breakdown]="current" />
         } @else {
@@ -171,7 +172,7 @@ import { formatScoreDate } from './score-breakdown.view-model';
     .view-tabs button[aria-pressed='true'] { color: #243b73; background: #eaf0ff; font-weight: 750; }
     [hidden] { display: none !important; }
     .breakdown-panel { padding: 14px; }
-      .panel-header { align-items: stretch; flex-direction: column; }
+      .panel-header h3 { font-size: 20px; }
     }
   `],
 })

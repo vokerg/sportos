@@ -23,6 +23,7 @@ import {
         <strong>{{ formatNumber(current.score.appTotal) }}</strong>
         <span class="status-badge" [attr.data-status]="current.scoreStatus">{{ scoreStatusLabel(current.scoreStatus) }}</span>
         
+        @if (detailed()) { <span class="total-note">{{ scoreAuthorityNote(current.scoreStatus) }}</span> }
         <button type="button" class="secondary-button recalculation-action" (click)="recalculate.emit()" [disabled]="recalculating()">
           {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
         </button>
@@ -40,10 +41,17 @@ import {
           <strong class="positive-points">{{ current.scoreStatus === 'imported' ? 'Not applied' : formatSigned(current.score.bonusPoints) }}</strong>
         </div>
 
+        @if (detailed()) {
+          <div class="metric-card delta-card" [attr.data-delta]="deltaKind(current.score.delta)">
+            <span class="metric-label">Compared with Excel</span>
+            <strong>{{ deltaValue(current.score.delta) }}</strong>
+            <small>{{ deltaDescription(current.score.delta) }}</small>
+          </div>
+        }
       </div>
     </div>
 
-    @if (!ledgerMatchesAppTotal(current)) {
+    @if (detailed() || !ledgerMatchesAppTotal(current)) {
     <div class="consistency-row" [class.consistency-warning]="!ledgerMatchesAppTotal(current)">
       <span class="consistency-icon" aria-hidden="true">{{ ledgerMatchesAppTotal(current) ? '✓' : '!' }}</span>
       <div>
@@ -135,11 +143,12 @@ import {
     .consistency-warning .consistency-icon { background: #ffedc7; color: #a15c00; }
     @media (max-width: 900px) { .score-overview { grid-template-columns: 1fr; } }
     @media (max-width: 680px) { .metric-grid { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 460px) { .metric-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 460px) { .metric-card { min-height: 65px; padding: 12px; } }
   `],
 })
 export class ScoreBreakdownSummaryComponent {
   readonly breakdown = input.required<DailyScoreBreakdown>();
+  readonly detailed = input(false);
   readonly recalculating = input(false);
   readonly recalculationError = input<string | null>(null);
   readonly recalculate = output<void>();

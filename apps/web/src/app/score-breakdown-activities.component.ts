@@ -4,14 +4,12 @@ import type { DailyScoreBreakdown } from './score-breakdown.models';
 import { formatSwimMeters } from './swim-distance';
 import {
   activityName,
-  activityScoreLabel,
   formatDistance,
   formatDuration,
   formatActivityRate,
   formatScoreDate,
   formatTimestamp,
   sourceName,
-  sourceSummary,
 } from './score-breakdown.view-model';
 
 @Component({
@@ -42,9 +40,9 @@ import {
                 <tr>
                   <td><span class="source-badge" [attr.data-source]="activity.source">{{ sourceName(activity.source) }}</span> @if (garminActivityIds().includes(activity.id)) { <span class="source-badge" data-source="garmin">Garmin</span> }</td>
                   <td><a [routerLink]="['/activity', activity.id]"><strong>{{ activityName(activity) }}</strong></a><small>{{ activity.startTime ? formatTimestamp(activity.startTime).split(', ').slice(1).join(', ') : '' }}</small></td>
-                  <td>{{ activity.distanceM === null ? '—' : activity.activityType === 'swim' ? formatSwimMeters(activity.distanceM) : formatDistance(activity.distanceM) }}</td>
+                  <td>{{ activity.distanceM === null || activity.distanceM === 0 ? '—' : activity.activityType === 'swim' ? formatSwimMeters(activity.distanceM) : formatDistance(activity.distanceM) }}</td>
                   <td>{{ activity.durationS === null ? '—' : formatDuration(activity.durationS) }}</td>
-                  <td>{{ formatActivityRate(activity) }}</td>
+                  <td>{{ activity.activityType === 'workout' ? '—' : formatActivityRate(activity) }}</td>
 
                 </tr>
               }
@@ -87,7 +85,6 @@ export class ScoreBreakdownActivitiesComponent {
   readonly activities = computed(() => this.breakdown().activities.filter(activity => activity.source !== 'manual' && activity.activityType !== 'steps' && activity.activityType !== 'bonus'));
 
   readonly activityName = activityName;
-  readonly activityScoreLabel = activityScoreLabel;
   readonly formatDistance = formatDistance;
   readonly formatSwimMeters = formatSwimMeters;
   readonly formatDuration = formatDuration;
@@ -95,5 +92,4 @@ export class ScoreBreakdownActivitiesComponent {
   readonly formatScoreDate = formatScoreDate;
   readonly formatTimestamp = formatTimestamp;
   readonly sourceName = sourceName;
-  readonly sourceSummary = sourceSummary;
 }

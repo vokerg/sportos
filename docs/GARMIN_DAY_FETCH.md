@@ -3,8 +3,15 @@
 On `/daily/:date`, **Fetch Garmin day** retains evidence for one completed
 Garmin calendar date. It never recalculates, replaces manual/workbook authority,
 changes Strava canonical activity metrics, or writes official scores, ledger
-contributions or score snapshots. Page navigation and **View retained Garmin
-data** make no Garmin requests.
+contributions or score snapshots. Page navigation and **Show metrics** make no Garmin requests.
+
+The default **Overview** shows available metrics with readable units and rounded
+values. Empty category cards, retention timestamps, missing-field details and
+reconciliation codes are in **Sources**. Linked activities receive a Garmin badge
+from retained day links; pending evidence remains separate and does not duplicate
+canonical sessions. This badge is day-coverage evidence, not a claim of complete
+provider-resource coverage. Switching views does not reload coverage or fetch
+provider data. Original evidence and scoring precision are unchanged.
 
 ## Setup and controls
 
@@ -31,12 +38,12 @@ have no access to the new day tables.
 - **Retry missing Garmin data** fetches failed/missing categories while preserving
   successful categories. Retained activity identity/resources are checked before
   expensive downloads.
-- **View retained Garmin data** expands compact evidence already read from
+- **Show metrics** expands compact evidence already read from
   SportOS. It works without local Garmin authorization.
 - **Refresh from Garmin** explicitly reads all categories again and refreshes
   selected activity resources. Changed content gets a new immutable version;
   identical content converges to the existing version.
-- **Inspect retained … resource** reads one bounded auxiliary payload on demand.
+- **View source JSON**, in the day’s **Sources** view, reads one bounded auxiliary payload on demand.
   Upstream account/auth/storage fields are removed from browser disclosure.
 
 The selected date is a Garmin-local wall date. Activity discovery queries only
