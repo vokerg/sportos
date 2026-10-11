@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Activity } from './activities-api.service';
-import { duration, metricGroups, metrics, TYPE_OPTIONS, RUN_PACE_OPTIONS, RUN_SUBTYPE_OPTIONS, quickRangeDates, matchQuickRange } from './activity.view-model';
+import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, duration, metricGroups, metrics, TYPE_OPTIONS, RUN_PACE_OPTIONS, RUN_SUBTYPE_OPTIONS, quickRangeDates, matchQuickRange } from './activity.view-model';
 
 const base: Activity = {
   id: '1', activity_date: '2026-01-01', start_time: null, activity_type: 'run', subtype: null,
@@ -51,4 +51,25 @@ it('presents walking distance, pace and elevation as history metrics',()=>{
  const walk={...base,activity_type:'walk' as const,distance_m:3500,avg_pace_s_per_km:600,elevation_gain_m:10};
  const values=metrics(walk,true);
  expect(values).toEqual(expect.arrayContaining([expect.objectContaining({label:'Distance'}),expect.objectContaining({label:'Moving pace'}),expect.objectContaining({label:'Elevation gain'})]));
+});
+
+it.each([
+  ['run', ['Distance', 'Moving pace', 'Moving time']],
+  ['bike', ['Distance', 'Average speed', 'Moving time']],
+  ['swim', ['Distance', 'Moving pace', 'Elapsed time']],
+])('uses %s highlights consistently in the list', (sport, labels) => {
+  const activity = { ...base, activity_type: sport, moving_time_s: 1400, avg_speed_mps: 8, distance_m: 12567 } as Activity;
+  expect(listMetricHighlights(activity).map(m => m.label)).toEqual(labels);
+  expect([...listMetricHighlights(activity), ...listSecondaryMetrics(activity)]).toHaveLength(metrics(activity).length);
+  expect(listMetricHighlights(activity)[0].value).toBe(sport === 'swim' ? '12,567 m' : '12.6 km');
+});
+
+it('formats compact rows without inventing absent metrics and distinguishes elapsed time', () => {
+  expect(compactActivityMetrics({ ...base, moving_time_s: 1400 })).toMatchObject({
+    distance: '5 km', paceOrSpeed: '5:00 /km', time: { label: 'Moving time', value: '23:20' }, heartRate: '145 bpm', elevation: '—',
+  });
+  expect(compactActivityMetrics({ ...base, activity_type: 'swim', distance_m: 500, avg_pace_s_per_km: 1200, moving_time_s: 1400 }))
+    .toMatchObject({ distance: '500 m', paceOrSpeed: '2:00 /100 m', time: { label: 'Elapsed time', value: '25:00' } });
+  expect(compactActivityMetrics({ ...base, activity_type: 'workout', distance_m: null, duration_s: null, avg_hr: null }))
+    .toMatchObject({ distance: '—', paceOrSpeed: '—', time: undefined, heartRate: '—' });
 });

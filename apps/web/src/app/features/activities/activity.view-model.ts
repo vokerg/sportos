@@ -77,7 +77,7 @@ export function subtypeLabel(subtype: Activity['subtype']): string {
 }
 export const duration = formatDurationClock;
 export function distance(metres: number): string {
-  return `${(metres / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} km`;
+  return `${(metres / 1000).toLocaleString('en-US', { maximumFractionDigits: 1 })} km`;
 }
 export function sportDistance(metres: number, sport: ActivityType): string {
   return sport === 'swim' ? `${metres.toLocaleString('en-US', { maximumFractionDigits: 0 })} m` : distance(metres);
@@ -123,4 +123,33 @@ export function metricGroups(activity: Activity): Array<{ title: MetricGroup; it
   const all = metrics(activity, true);
   const titles: MetricGroup[] = ['Time and distance', 'Pace and terrain', 'Heart rate and energy', 'Other'];
   return titles.map((title) => ({ title, items: all.filter((metric) => metric.group === title) })).filter((group) => group.items.length > 0);
+}
+
+export function listMetricHighlights(activity: Activity): Metric[] {
+  const all = metrics(activity);
+  const paceLabel = activity.source === 'strava' ? 'Moving pace' : 'Average pace';
+  const labels = ['run', 'walk', 'swim'].includes(activity.activity_type) ? ['Distance', paceLabel]
+    : ['bike', 'rowing', 'sup'].includes(activity.activity_type) ? ['Distance', 'Average speed']
+    : ['Average HR', 'Calories'];
+  const timeLabel = activity.activity_type === 'swim' ? (activity.source === 'strava' ? 'Elapsed time' : 'Duration')
+    : all.some(m => m.label === 'Moving time') ? 'Moving time' : activity.source === 'strava' ? 'Elapsed time' : 'Duration';
+  return [...labels, timeLabel].flatMap(label => all.filter(m => m.label === label));
+}
+
+export function listSecondaryMetrics(activity: Activity): Metric[] {
+  const labels = new Set(listMetricHighlights(activity).map(m => m.label));
+  return metrics(activity).filter(m => !labels.has(m.label));
+}
+
+export function compactActivityMetrics(activity: Activity) {
+  const all = metrics(activity);
+  const find = (...labels: string[]) => all.find(m => labels.includes(m.label));
+  return {
+    distance: find('Distance')?.value ?? '—',
+    paceOrSpeed: find('Moving pace', 'Average pace', 'Average speed')?.value ?? '—',
+    time: find(activity.activity_type === 'swim' ? (activity.source === 'strava' ? 'Elapsed time' : 'Duration') : 'Moving time')
+      ?? find('Elapsed time', 'Duration'),
+    heartRate: find('Average HR')?.value ?? '—',
+    elevation: find('Elevation gain')?.value ?? '—',
+  };
 }

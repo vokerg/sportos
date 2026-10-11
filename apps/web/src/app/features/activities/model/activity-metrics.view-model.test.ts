@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActivityMetricComparison } from './activity-metrics.models';
-import { comparisonGroups, effectivelyEqual, formatMetric, supplementalMetricGroups } from './activity-metrics.view-model';
+import { detailMetricGroups, highlightMetrics, comparisonGroups, effectivelyEqual, formatMetric, supplementalMetricGroups } from './activity-metrics.view-model';
 function metric(key = 'distance', unit = 'm', a = 10000, b = 10005): ActivityMetricComparison {
   return { key, unit, label: key, selected: { value: a, source: 'strava', reason: 'canonical_authority' }, candidates: [
     { provider: 'garmin', value: b, selectedWithinProvider: true, sourceKind: 'fit_session', sourceField: 'test', sourceUnit: unit, origin: 'recorded', projectionId: 'version', projectedAt: '2026-01-01' },
@@ -12,7 +12,7 @@ describe('activity metrics display', () => {
   it.each([
     [65.4, 'elapsed_duration','s','run','1:05'], [3661,'moving_duration','s','run','1:01:01'],
     [299.8,'average_pace','s/km','run','5:00 /km'], [1199,'average_pace','s/km','swim','2:00 /100m'],
-    [10,'average_speed','m/s','bike','36.0 km/h'], [10020,'distance','m','run','10.02 km'],
+    [10,'average_speed','m/s','bike','36.0 km/h'], [10020,'distance','m','run','10 km'],
     [1500,'distance','m','swim','1,500 m'], [999,'distance','m','run','999 m'],
     [123.4,'ascent','m','run','123 m'], [152.6,'average_heart_rate','bpm','run','153 bpm'],
     [255.7,'average_power','W','run','256 W'], [1.234,'step_length','m','run','1.23 m'], [25.5,'pool_length','m','swim','25.50 m'],
@@ -101,4 +101,38 @@ describe('activity metrics display', () => {
     expect(labels).toEqual(['Moving time','Stopped time','Steps','Effort points']);
     expect(supplementalMetricGroups({...activity,metricComparisons:[]} as never).flatMap(g => g.items).map(m => m.label)).toContain('Distance');
   });
+});
+
+const canonical = { activity_type: 'run', source: 'strava', distance_m: 12567,
+  duration_s: 3900, moving_time_s: 3600, avg_pace_s_per_km: 287, avg_speed_mps: 3.5,
+  avg_hr: 140, max_hr: 165, elevation_gain_m: 120, calories: 800, steps: 10000, effort_points: 3 };
+
+it.each([
+  ['run', ['distance', 'average_pace', 'moving_duration']],
+  ['bike', ['distance', 'average_speed', 'moving_duration']],
+  ['swim', ['distance', 'average_pace', 'elapsed_duration']],
+])('prioritizes %s without stopped time or invented metrics', (sport, keys) => {
+  const activity = { ...canonical, activity_type: sport } as never;
+  const groups = detailMetricGroups(activity);
+  expect(highlightMetrics(groups, sport).map(m => m.key)).toEqual(keys);
+  expect(groups.flatMap(g => g.items).find(m => m.key === 'stopped_duration')?.values[0].text).toBe('5:00');
+});
+it('keeps provider authority, differences and exact numbers when highlights round distance', () => {
+  const m = metric('distance', 'm', 12567, 12500);
+  const activity = { ...canonical, metricComparisons: [m] } as never;
+  const before = JSON.stringify(activity);
+  const highlights = highlightMetrics(detailMetricGroups(activity), 'run');
+  expect(highlights[0].values.map(v => [v.text, v.value, v.authoritative])).toEqual([
+    ['12.6 km', 12567, true], ['12.5 km', 12500, false],
+  ]);
+  expect(JSON.stringify(activity)).toBe(before);
+});
+it('falls back to elapsed time and omits missing pace without deriving a new value', () => {
+  const activity = { ...canonical, moving_time_s: null, avg_pace_s_per_km: null } as never;
+  expect(highlightMetrics(detailMetricGroups(activity), 'run').map(m => m.key)).toEqual(['distance', 'elapsed_duration']);
+});
+it('preserves read-only Garmin fallback in the highlights', () => {
+  const m = metric(); m.selected = null; m.candidates = [m.candidates[0]];
+  expect(highlightMetrics(detailMetricGroups({ ...canonical, metricComparisons: [m] } as never), 'run')[0].values[0])
+    .toMatchObject({ fallback: true, authoritative: false, sources: ['Garmin'] });
 });

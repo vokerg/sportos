@@ -42,18 +42,24 @@ import {
       }
       <div class="actions"><button type="submit">Apply filters</button><button class="secondary" type="button" (click)="reset()">Reset</button></div>
     </form>
+    <div class="view-toolbar"><div class="view-switch" role="group" aria-label="Activity list view">
+      <button type="button" [class.active]="view() === 'cards'" [attr.aria-pressed]="view() === 'cards'" (click)="setView('cards')">Cards</button>
+      <button type="button" [class.active]="view() === 'compact'" [attr.aria-pressed]="view() === 'compact'" (click)="setView('compact')">Compact</button>
+    </div></div>
     @if (store.state() === 'loading') { <section class="card" role="status">Loading activities…</section> }
     @else if (store.state() === 'error') { <section class="card" role="alert">Could not load activities. <button type="button" (click)="load()">Try again</button></section> }
     @else { @if (store.result(); as data) {
       <section class="summary" aria-label="Filtered activity summary"><strong>{{ data.summary.count }} activities</strong><span>{{ duration(data.summary.durationS) }} total duration</span><span>{{ distance(data.summary.distanceM) }} total distance</span>@if (data.summary.avgDistanceM !== null) { <span>{{ distance(data.summary.avgDistanceM) }} avg distance</span> } @if (data.summary.avgPaceSPerKm !== null) { <span>{{ pace(data.summary.avgPaceSPerKm) }} avg pace</span> }</section>
       @if (data.items.length === 0) { <section class="card">No activities match these filters.</section> }
-      @else { <sportos-activity-list [activities]="data.items" /> }
+      @else { <sportos-activity-list [activities]="data.items" [compact]="view() === 'compact'" /> }
       @if (data.offset > 0 || data.offset + data.items.length < data.summary.count) {
         <nav class="pages" aria-label="Activity pages"><button type="button" [disabled]="data.offset === 0" (click)="page(Math.max(0, data.offset - data.limit))">Previous</button><span>{{ data.offset + 1 }}–{{ data.offset + data.items.length }} of {{ data.summary.count }}</span><button type="button" [disabled]="data.offset + data.items.length >= data.summary.count" (click)="page(data.offset + data.limit)">Next</button></nav>
       }
     } }
   `,
   styles: [`
+    .view-toolbar { display: flex; justify-content: flex-end; margin: 12px 0; }.view-switch { display: flex; gap: 3px; padding: 3px; border: 1px solid #d0d5dd; border-radius: 10px; background: white; }
+    .view-switch button { padding: 6px 12px; border-radius: 7px; background: transparent; color: #475467; font-size: 12px; }.view-switch button.active { background: #eef2ff; color: #3457bd; }
     header { margin: 4px 0 18px; } h1 { margin: 3px 0; } p { color: #667085; margin: 0; }
     .page-kicker { color: #5368ae; font-size: 11px; font-weight: 800; text-transform: uppercase; }
     .filters { display: grid; gap: 14px; margin-bottom: 14px; }
@@ -67,6 +73,8 @@ import {
   `],
 })
 export class ActivitiesPageComponent implements OnInit, OnDestroy {
+  readonly view = signal<'cards' | 'compact'>('cards');
+  private lastQueryKey = '';
   readonly from = signal(''); readonly to = signal(''); readonly quickRange = signal<QuickRange>(DEFAULT_QUICK_RANGE);
   readonly activityType = signal(''); readonly source = signal('strava');
   readonly subtype = signal('');
@@ -82,6 +90,7 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
   constructor(readonly store: ActivitiesStore, private readonly route: ActivatedRoute, private readonly router: Router) {}
   ngOnInit(): void {
     this.routeSubscription = this.route.queryParamMap.subscribe((params) => {
+      this.view.set(params.get('view') === 'compact' ? 'compact' : 'cards');
       const requestedRange = params.get('range');
       if (!params.has('from') && !params.has('to') && !requestedRange) {
         const dates = quickRangeDates(DEFAULT_QUICK_RANGE);
@@ -101,7 +110,8 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
       this.paceUnderSPerKm.set(Number(params.get('paceUnderSPerKm') ?? 0));
       this.minSpeedKmh.set(Number(params.get('minSpeedKmh') ?? 0));
       this.swimPaceUnderSPer100m.set(Number(params.get('swimPaceUnderSPer100m') ?? 0));
-      this.offset = Number(params.get('offset') ?? 0); this.load();
+      this.offset = Number(params.get('offset') ?? 0);
+      if (JSON.stringify(this.query()) !== this.lastQueryKey) this.load();
     });
   }
   ngOnDestroy(): void { this.routeSubscription?.unsubscribe(); this.store.destroy(); }
@@ -131,10 +141,14 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
     this.paceUnderSPerKm.set(0); this.minSpeedKmh.set(0); this.swimPaceUnderSPer100m.set(0);
     this.navigate(0);
   }
+  setView(view: 'cards' | 'compact'): void {
+    this.view.set(view);
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { view: view === 'compact' ? view : null }, queryParamsHandling: 'merge', replaceUrl: true });
+  }
   page(offset: number): void { this.navigate(offset); }
   private navigate(offset: number): void {
     void this.router.navigate(['/activities'], { queryParams: {
-      range: this.quickRange(), from: this.from() || null, to: this.to() || null,
+      view: this.view() === 'compact' ? 'compact' : null, range: this.quickRange(), from: this.from() || null, to: this.to() || null,
       activityType: this.activityType() || null, source: this.source(), offset: offset || null,
       subtype: this.activityType() === 'run' && this.subtype() || null,
       minDistanceM: this.isDistanceSport() && this.minDistanceM() || null,
@@ -143,7 +157,7 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
       swimPaceUnderSPer100m: this.activityType() === 'swim' && this.swimPaceUnderSPer100m() || null,
     } });
   }
-  load(): void {
+  private query(): ActivitiesQuery {
     const query: ActivitiesQuery = { limit: 50, offset: this.offset };
     if (this.from()) query.from = this.from(); if (this.to()) query.to = this.to();
     if (this.activityType()) query.activityType = this.activityType() as ActivityType;
@@ -153,6 +167,10 @@ export class ActivitiesPageComponent implements OnInit, OnDestroy {
     if (this.activityType() === 'run' && this.paceUnderSPerKm()) query.paceUnderSPerKm = this.paceUnderSPerKm();
     if (this.activityType() === 'bike' && this.minSpeedKmh()) query.minAvgSpeedMps = this.minSpeedKmh() / 3.6;
     if (this.activityType() === 'swim' && this.swimPaceUnderSPer100m()) query.swimPaceUnderSPer100m = this.swimPaceUnderSPer100m();
+    return query;
+  }
+  load(): void {
+    const query = this.query(); this.lastQueryKey = JSON.stringify(query);
     this.store.load(query);
   }
 }

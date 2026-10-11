@@ -1,5 +1,4 @@
 import { ActivityMetricProvenanceComponent } from './ui/activity-metric-provenance.component';
-import { supplementalMetricGroups } from './model/activity-metrics.view-model';
 import { ProviderMetricStatusComponent } from './ui/provider-metric-status.component';
 import { ActivityMetricComparisonComponent } from './ui/activity-metric-comparison.component';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
@@ -22,10 +21,7 @@ import { startTime, subtypeLabel, title } from './activity.view-model';
         @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
       </header>
       @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
-      <div class="metric-sections">@for (group of supplementalMetricGroups(item); track group.title) {
-        <section class="card"><h2>{{ group.title }}</h2><dl class="metrics">@for (metric of group.items; track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl></section>
-      }</div>
-      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" />
+      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" />
       @if (item.garminStrength; as strength) {
         <section class="card" aria-label="Garmin strength summary"><h2>Garmin strength sets</h2>
           <dl class="metrics"><div><dt>Working sets</dt><dd>{{ strength.workingSets }}</dd></div>
@@ -121,7 +117,6 @@ import { startTime, subtypeLabel, title } from './activity.view-model';
     .breadcrumb { margin-bottom: 18px; color: #667085; }.breadcrumb a { color: #1d4ed8; }
     header { margin-bottom: 18px; } h1 { margin: 4px 0; } h1 small { font-size: 18px; font-weight: 500; color: #667085; }
     header p { margin: 0; color: #667085; text-transform: capitalize; }.source-name { margin-top: 10px; color: #344054; font-size: 16px; text-transform: none; }.page-kicker { color: #5368ae; font-size: 11px; font-weight: 800; text-transform: uppercase; }
-    .metric-sections { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }.metric-sections h2 { margin-top: 0; font-size: 17px; }
     .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 18px; }
     dt { color: #667085; font-size: 12px; } dd { margin: 3px 0 0; font-weight: 700; overflow-wrap: anywhere; }
     .notes-card { margin-top: 12px; }.notes { white-space: pre-wrap; }.provider-detail { margin-top: 16px; }.provider-detail h2 { margin-top: 0; font-size: 17px; }.provider-detail p { color: #667085; }.provider-json summary { cursor: pointer; font-weight: 700; }.provider-json pre { max-height: 620px; overflow: auto; padding: 16px; border-radius: 8px; background: #101828; color: #f2f4f7; font-size: 12px; line-height: 1.5; white-space: pre; }.provenance { margin-top: 16px; }.provenance summary { cursor: pointer; font-weight: 700; }
@@ -131,7 +126,7 @@ import { startTime, subtypeLabel, title } from './activity.view-model';
   `],
 })
 export class ActivityDetailPageComponent implements OnInit, OnDestroy {
-  readonly supplementalMetricGroups = supplementalMetricGroups; readonly startTime = startTime; readonly subtypeLabel = subtypeLabel; readonly title = title;
+  readonly startTime = startTime; readonly subtypeLabel = subtypeLabel; readonly title = title;
   readonly exerciseSetRows = exerciseSetRows; readonly fitMetrics = fitMetrics; readonly stravaMetrics = stravaMetrics;
   readonly resourceIndex = signal(0);
   private id = ''; private routeSubscription?: Subscription;
