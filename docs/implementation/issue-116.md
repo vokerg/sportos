@@ -60,3 +60,42 @@ precision. No database, backend, scoring, auth or export changes.
   edit, raw resource read or other writes.
 - Root/backend/database/worker suites intentionally skipped for frontend-only work
   per repository validation policy. Draft PR #117; issue remains open until merge.
+
+## Maintainer-requested reconciliation investigation
+
+Inspected before recording findings:
+
+- `packages/domain/src/activity-matching.ts`
+- `packages/db/src/repositories/garmin-activities.repository.ts`
+- `packages/db/package.json`
+- Built matching-policy module (read-only replay)
+- Selected day’s authenticated compact score-breakdown, Garmin coverage and
+  bounded reconciliation-list GETs; no raw resource JSON was needed.
+
+The two reported cycling records have retained Garmin counterparts, each with
+exactly one candidate. Start, elapsed duration and distance corroborate the same
+session. The reported moving durations disagree beyond the policy’s
+`max(5 seconds, 1% of the larger moving duration)` bound. That leaves a weak
+candidate and therefore `ambiguous`, even without competing candidates. This
+status currently combines uncertainty about metrics with multiple-candidate
+ambiguity. It does not mean the Garmin record is absent.
+
+Stored decisions used policy v2. Read-only replay under current v3 reproduces the
+same weak candidates and metric-conflict reasons, so a cached retry under the
+current policy cannot resolve this by itself. Original Garmin resources remain
+retained and unlinked; badges represent links, while overview values remain
+canonical Strava facts. Linked Garmin values can be viewed independently on the
+activity detail page without replacing canonical values.
+
+No matcher, identity, source, score or link was changed. Automatically accepting
+such rides would require an explicit narrow, versioned cycling-policy amendment
+with independent start/elapsed/distance corroboration and unchanged uniqueness,
+collision, ownership and immutable-link safeguards. Raising the general moving
+time tolerance would also weaken matching for unrelated sports and is not an
+investigation fix.
+
+Investigation validation: compact GET evidence and current-policy replay agree.
+No provider network requests or writes occurred. Personal dates, native IDs,
+canonical IDs, source payloads and exact personal measurements are excluded from
+this committed record. This follow-up is documentation-only; no additional
+runtime test matrix was required.
