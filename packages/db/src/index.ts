@@ -42,3 +42,8 @@ export * from './repositories/garmin-activity-resources.repository.js';
 export * from './garmin-day-schema.js';
 export * from './repositories/garmin-day.repository.js';
 export * from './repositories/garmin-strength.repository.js';
+
+export * from './activity-metric-schema.js';
+export * from './repositories/activity-metrics.repository.js';
+export * from './activity-metric-projector.js';
+export * from './activity-metric-backfill.js';

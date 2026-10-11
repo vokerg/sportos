@@ -1,3 +1,4 @@
+import type { ActivityMetricsService } from './activity-metrics.service.js';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ActivitiesRepository, type Database, type Kysely } from '@sportos/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -103,4 +104,16 @@ function createController() {
 it('allows walking history and distance filters without allowing run-specific filters',()=>{
  expect(parseActivitiesQuery({activityType:'walk',minDistanceM:'3000'})).toMatchObject({activityType:'walk',minDistanceM:3000});
  expect(()=>parseActivitiesQuery({activityType:'walk',paceUnderSPerKm:'300'})).toThrow(BadRequestException);
+});
+
+it('retained reprocessing derives the owner, rejects extra fields and hides foreign activities before processing',async()=>{
+  const primary={withAccount:vi.fn(async (_:string,callback:(db:never)=>unknown)=>callback({} as never))};
+  const metrics={project:vi.fn(async()=>[])};const controller=new ActivitiesController(primary as never,{} as never,metrics as unknown as ActivityMetricsService);
+  const get=vi.spyOn(ActivitiesRepository.prototype,'get').mockResolvedValueOnce({id} as never).mockResolvedValue(null);
+  await expect(controller.reprocess(id,{},account)).resolves.toEqual({metricProjection:[]});expect(metrics.project).toHaveBeenCalledWith(accountId,id);
+  await expect(controller.reprocess(id,{ownerId:accountId},account)).rejects.toBeInstanceOf(BadRequestException);
+  await expect(controller.reprocess(id,{refresh:true},account)).rejects.toBeInstanceOf(BadRequestException);
+  await expect(controller.reprocess(id,[],account)).rejects.toBeInstanceOf(BadRequestException);
+  await expect(controller.reprocess(id,{},account)).rejects.toBeInstanceOf(NotFoundException);
+  expect(metrics.project).toHaveBeenCalledTimes(1);get.mockRestore();
 });

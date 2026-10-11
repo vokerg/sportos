@@ -1,3 +1,4 @@
+import { ActivityMetricsService } from './activity-metrics.service.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConflictException } from '@nestjs/common';
 import { GarminActivityResourcesRepository, LEGACY_ACCOUNT_ID } from '@sportos/db';
@@ -6,7 +7,7 @@ import { GarminLocalIngestService } from './garmin-local-ingest.service.js';
 const id = '11111111-1111-4111-8111-111111111111';
 const summary = { start_time: '2026-01-01T10:00:00Z', activity_type: 'run', subtype: 'outdoor', duration_s: 1800, moving_time_s: 1800, distance_m: 5000 };
 function service(enabled = true) {
-  return new ActivityEnrichmentService({} as never, { withAccount: vi.fn(async (_: string, fn: (db: unknown) => unknown) => fn({})) } as never, {} as never, { isDevelopmentMode: () => enabled } as never, { status: vi.fn(async () => ({ state: 'missing' })) } as never);
+  return new ActivityEnrichmentService({} as never, { withAccount: vi.fn(async (_: string, fn: (db: unknown) => unknown) => fn({})) } as never, {} as never, { isDevelopmentMode: () => enabled } as never, { status: vi.fn(async () => ({ state: 'missing' })) } as never, {project:vi.fn(async()=>[])} as unknown as ActivityMetricsService);
 }
 describe('ActivityEnrichmentService', () => {
   afterEach(() => { vi.restoreAllMocks(); delete process.env.SPORTOS_GARMIN_LOCAL_FETCH_ENABLED; });

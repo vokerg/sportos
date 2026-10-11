@@ -1,3 +1,4 @@
+import { ActivityMetricsService } from './activity-metrics.service.js';
 import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { GarminActivitiesRepository, GarminReconciliationConflict, LEGACY_ACCOUNT_ID, type GarminActivitySnapshot } from '@sportos/db';
 import { validateActivityMatchSummary, type ActivityMatchSummary } from '@sportos/db';
@@ -36,7 +37,7 @@ export function parseGarminSnapshot(raw: unknown): GarminActivitySnapshot {
 
 @Controller('garmin/activities')
 export class GarminActivitiesController {
-  constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
+  constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider, private readonly metrics?: ActivityMetricsService) {}
 
   @Post()
   async ingest(@Body() raw: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
@@ -77,6 +78,7 @@ export class GarminActivitiesController {
     } else if (input.activityId !== null) throw new BadRequestException('Activity ID must be null.');
     const result = await this.execute(account, (repo) => repo.review(id, input.decision as 'link' | 'reject' | 'reopen', input.activityId as string | null));
     if (!result) throw this.notFound();
+    if (result.activityId && this.metrics) await this.metrics.project(account?.id ?? LEGACY_ACCOUNT_ID,result.activityId);
     return result;
   }
 

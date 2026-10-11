@@ -1,3 +1,4 @@
+import { ActivityMetricsService } from './activity-metrics.service.js';
 import { normalizeGarminStrength } from '@sportos/domain';
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
@@ -32,6 +33,7 @@ export class GarminLocalIngestService {
     @Inject(DbProvider) private readonly primary: DbProvider,
     @Inject(ActivityDetailDbProvider) private readonly detail: ActivityDetailDbProvider,
     @Inject(UploadStorage) private readonly storage: UploadStorage,
+    private readonly metrics: ActivityMetricsService = new ActivityMetricsService(primary,detail),
   ) {}
 
   async retainBundle(input: LocalGarminBundle, account: AuthenticatedAccount) {
@@ -185,12 +187,14 @@ export class GarminLocalIngestService {
       return normalizeGarminStrength(sets);
     });
     if (!ready) throw new BadRequestException('Retain original and required detail resources before reconciliation.');
-    return this.withAccount(this.primary, owner, async db => {
+    const identity = await this.withAccount(this.primary, owner, async db => {
       // Identity/source publication and compact summary commit atomically after
       // immutable auxiliary resources. Scoring never reads the auxiliary store.
       const identity = await new GarminActivitiesRepository(db).ingest(snapshot, ready);
       return identity;
     });
+    if (identity.activityId) await this.metrics.project(owner,identity.activityId);
+    return identity;
   }
 
   private async withAccount<T>(provider: DbProvider | ActivityDetailDbProvider, owner: string, callback: (db: Kysely<Database>) => Promise<T>): Promise<T> {

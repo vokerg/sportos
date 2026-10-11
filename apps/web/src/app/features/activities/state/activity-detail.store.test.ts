@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActivityDetailStore } from './activity-detail.store';
 const coverage = { strava: { state: 'cached' }, garmin: { state: 'cached', linked: true, fetchEnabled: true } };
 function setup() {
-  const api = { detail: vi.fn(() => of({ id: 'one', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), sourceJson: vi.fn(), garminResource: vi.fn(() => of({ payload: [] })) };
+  const api = { reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), sourceJson: vi.fn(), garminResource: vi.fn(() => of({ payload: [] })) };
   return { api, store: new ActivityDetailStore(api as never) };
 }
 describe('ActivityDetailStore', () => {
@@ -42,3 +42,14 @@ it('refreshes compact strength after explicit Fetch and cancels a stale refresh 
   store.load('two');refresh.next({id:'one',garminStrength:{workingSets:9}} as never);
   expect(store.activity()?.garminStrength).toBeUndefined();expect(refresh.observed).toBe(false);
 });
+
+ it('normalizes retained data only on explicit intent and refreshes the comparison without downloading',()=>{
+   const {api,store}=setup();store.load('one');expect(api.reprocessMetrics).not.toHaveBeenCalled();
+   store.reprocessMetrics();expect(api.reprocessMetrics).toHaveBeenCalledWith('one');expect(api.detail).toHaveBeenCalledTimes(2);
+   expect(api.fetchProviderDetail).not.toHaveBeenCalled();expect(api.fetchGarminDetail).not.toHaveBeenCalled();
+ });
+ it('cancels retained normalization on navigation and prevents repeated clicks',()=>{
+   const {api,store}=setup();const pending=new Subject<never>();api.reprocessMetrics.mockReturnValue(pending as never);
+   store.load('one');store.reprocessMetrics();store.reprocessMetrics();expect(api.reprocessMetrics).toHaveBeenCalledTimes(1);
+   store.load('two');expect(pending.observed).toBe(false);expect(store.metricState()).toBe('idle');
+ });
