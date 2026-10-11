@@ -131,7 +131,7 @@ describe('score breakdown view model', () => {
     expect(ledgerMatchesAppTotal(breakdown)).toBe(true);
     expect(ledgerMatchesAppTotal({ ...breakdown, score: { ...breakdown.score, appTotal: 26 } })).toBe(false);
     expect(calculationLabel(breakdown.ledger[0]!.calculation)).toBe('metric value: 5 · coefficient: 4');
-    expect(activityLabel(activity)).toBe('run · outdoor · 5 km · 20:00');
+    expect(activityLabel(activity)).toBe('run · 5 km · 20:00');
     expect(activityScoreLabel(activity, breakdown)).toBe('In ledger');
     expect(formatActivityRate({ activityType: 'run', avgPaceSPerKm: 305, avgSpeedMps: 3.2 })).toBe('5:05/km');
     expect(formatActivityRate({ activityType: 'bike', avgPaceSPerKm: 160.85, avgSpeedMps: 6.217 })).toBe('22.38 km/h');

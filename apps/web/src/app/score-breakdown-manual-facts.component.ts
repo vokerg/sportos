@@ -28,7 +28,7 @@ import { formatScoreDate } from './score-breakdown.view-model';
           </div>
           <div class="manual-facts-grid">
             <label>{{ useTotalSteps() ? 'All-day steps' : 'Steps (excluding runs)' }} <input autofocus type="number" min="0" step="1" [value]="manualSteps()" (input)="manualSteps.set(numberInputValue($event))" /></label>
-            <label>Run outdoor (km) <input type="number" min="0" step="0.0001" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
+            <label>Run (km) <input type="number" min="0" step="0.0001" [value]="manualRunOutdoorKm()" (input)="manualRunOutdoorKm.set(numberInputValue($event))" /></label>
             <label>Bike outdoor (km) <input type="number" min="0" step="0.0001" [value]="manualBikeOutdoorKm()" (input)="manualBikeOutdoorKm.set(numberInputValue($event))" /></label>
             <label>Swim (m) <input type="number" min="0" step="1" [value]="manualSwimM()" (input)="manualSwimM.set(numberInputValue($event))" /></label>
             <label>Workout points <input type="number" min="0" step="1" [value]="manualWorkoutPoints()" (input)="manualWorkoutPoints.set(numberInputValue($event))" /></label>
@@ -185,7 +185,7 @@ export class ScoreBreakdownManualFactsComponent implements OnChanges, OnDestroy 
     const fields: Array<readonly [label: string, value: number]> = [
       ['Steps', this.manualSteps()],
       ['Run treadmill', this.manualRunIndoorKm()],
-      ['Run outdoor', this.manualRunOutdoorKm()],
+      ['Run', this.manualRunOutdoorKm()],
       ['Run unspecified', this.manualRunUnspecifiedKm()],
       ['Bike indoor', this.manualBikeIndoorKm()],
       ['Bike outdoor', this.manualBikeOutdoorKm()],

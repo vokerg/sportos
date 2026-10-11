@@ -9,21 +9,21 @@ export interface ActivityMatchSummary {
   movingTimeS: number | null;
   distanceM: number | null;
 }
-export interface ActivityMatchCandidate extends ActivityMatchSummary { id: string; }
+export interface ActivityMatchCandidate extends ActivityMatchSummary { id: string; runSubtypeIsDefault?: boolean; }
 export interface ActivityMatchEvidence {
   activityId: string;
   confidence: 'exact' | 'strong' | 'weak';
   reasons: string[];
 }
 export interface ActivityMatchResult {
-  policyVersion: 1 | 2 | 3 | 4;
+  policyVersion: 1 | 2 | 3 | 4 | 5;
   status: 'exact' | 'strong_unique' | 'ambiguous' | 'unmatched';
   activityId: string | null;
   candidates: ActivityMatchEvidence[];
 }
 
 export const GARMIN_MATCH_POLICY = Object.freeze({
-  version: 4, candidateStartS: 120, strongStartS: 15,
+  version: 5, candidateStartS: 120, strongStartS: 15,
   durationFloorS: 5, durationFraction: 0.01,
   distanceFloorM: 200, distanceFraction: 0.05,
   bikeStartS: 2, bikeElapsedS: 2, bikeDistanceFloorM: 25, bikeDistanceFraction: 0.01,
@@ -54,7 +54,9 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
   const evidence: ActivityMatchEvidence[] = [];
   for (const candidate of candidates) {
     validateActivityMatchSummary(candidate);
-    if (summary.activityType !== candidate.activityType || incompatibleSubtype(summary.subtype, candidate.subtype)) continue;
+    const defaultRunSubtype = summary.activityType === 'run' && candidate.activityType === 'run'
+      && candidate.runSubtypeIsDefault === true && candidate.subtype === 'outdoor';
+    if (summary.activityType !== candidate.activityType || (!defaultRunSubtype && incompatibleSubtype(summary.subtype, candidate.subtype))) continue;
     const startS = Math.abs(summary.startTime.getTime() - candidate.startTime.getTime()) / 1000;
     if (startS > GARMIN_MATCH_POLICY.candidateStartS) continue;
     // Missing metrics never count as corroboration. Elapsed compares to elapsed,
@@ -68,6 +70,7 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
     const distance = compare(summary.distanceM, candidate.distanceM, distanceFloor, GARMIN_MATCH_POLICY.distanceFraction);
     const workout = summary.activityType === 'workout';
     const reasons = [`START_DELTA_${Math.round(startS)}S`];
+    if (defaultRunSubtype) reasons.push('STRAVA_DEFAULT_RUN_SUBTYPE');
     if (elapsed === 'close') reasons.push('ELAPSED_COMPATIBLE');
     if (workout) reasons.push('WORKOUT_ACTIVE_TIME_NOT_COMPARABLE');
     else if (moving === 'close') reasons.push('MOVING_COMPATIBLE');
@@ -116,11 +119,22 @@ export function matchGarminActivity(summary: ActivityMatchSummary, candidates: A
       if (moving === 'conflict') reasons.push('BIKE_MOVING_DIFFERENCE_RETAINED');
     }
 
-    const strong = workoutCorroborated || walkCorroborated || bikeCorroborated || (!workout && startS <= GARMIN_MATCH_POLICY.strongStartS
+    // An indoor/default-outdoor disagreement requires tighter independent evidence.
+    // No GPS/distance absence, names or subtype itself can corroborate identity.
+    const defaultRunCorroborated = defaultRunSubtype && startS <= 2
+      && summary.elapsedTimeS !== null && candidate.elapsedTimeS !== null
+      && summary.elapsedTimeS > 0 && candidate.elapsedTimeS > 0
+      && Math.abs(summary.elapsedTimeS - candidate.elapsedTimeS) <= 2
+      && summary.distanceM !== null && candidate.distanceM !== null
+      && summary.distanceM > 0 && candidate.distanceM > 0
+      && compare(summary.distanceM, candidate.distanceM, 25, 0.01) === 'close'
+      && moving !== 'conflict';
+    const subtypeConflict = incompatibleSubtype(summary.subtype, candidate.subtype);
+    const strong = defaultRunCorroborated || (!subtypeConflict && (workoutCorroborated || walkCorroborated || bikeCorroborated || (!workout && startS <= GARMIN_MATCH_POLICY.strongStartS
       && summary.elapsedTimeS !== null && summary.elapsedTimeS > 0 && candidate.elapsedTimeS !== null && candidate.elapsedTimeS > 0
       && elapsed === 'close' && moving !== 'conflict' && distance !== 'conflict'
       && ((distance === 'close' && Math.max(summary.distanceM!, candidate.distanceM!) > 0)
-        || (explicitSubtype && summary.subtype === candidate.subtype && moving === 'close')));
+        || (explicitSubtype && summary.subtype === candidate.subtype && moving === 'close')))));
     evidence.push({ activityId: candidate.id, confidence: exact ? 'exact' : strong ? 'strong' : 'weak', reasons });
   }
   evidence.sort((a, b) => a.activityId.localeCompare(b.activityId));

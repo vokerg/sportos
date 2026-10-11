@@ -62,6 +62,7 @@ export interface ScoreBreakdownActivity {
   activityDate: string;
   startTime: string | null;
   activityType: ActivityType;
+  runClassification?: { subtype: 'outdoor' | 'track' | 'treadmill'; source: 'garmin' } | null;
   subtype: 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown' | null;
   distanceM: number | null;
   durationS: number | null;

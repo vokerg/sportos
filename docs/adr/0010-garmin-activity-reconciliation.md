@@ -235,3 +235,20 @@ retention. See [retained replay operation](../GARMIN_DAY_FETCH.md#retained-recon
 Pending is not always an algorithm defect: absent counterpart exports, incomplete
 metadata, repeated sessions or explicit rejected decisions can legitimately remain
 unlinked. The audit should identify which blocker applies instead of guessing.
+
+
+## Matching policy v5: default Strava run subtype (#120)
+
+Only repository-derived Strava `run/outdoor` candidates carry the internal
+`runSubtypeIsDefault` flag. Explicit Garmin treadmill evidence may overcome that
+default with independently corroborated positive distance within max(25 m, 1%),
+start/elapsed within two seconds and no moving conflict. The ordinary subtype
+exclusion still applies to explicit types and other sources/sports. Default-run
+subtype and metric disagreements remain auditable; weak nearby candidates still
+block uniqueness. V132 accepts versions 1–5 without rewriting historical audit,
+links or scores. Existing links and rejected decisions remain immutable during
+explicit retained replay. See [run presentation and retained replay](../ACTIVITIES.md#garmin-run-labels-and-filters-120).
+
+Current linked Garmin run subtype is also an explicit auxiliary presentation
+classification for default Strava runs. This maintainer-authorized read projection
+changes labels/filters only; the canonical subtype and scoring facts stay intact.

@@ -86,15 +86,17 @@ export class GarminActivitiesRepository {
   }
 
   /** Bounded explicit operator replay. No downloads, new sources or canonical writes. */
-  async reconcileRetained(options: { limit?: number; cursor?: string; dryRun?: boolean } = {}) {
+  async reconcileRetained(options: { limit?: number; cursor?: string; dryRun?: boolean; runsOnly?: boolean } = {}) {
     const limit = options.limit ?? 100;
     if (!Number.isInteger(limit) || limit < 1 || limit > 100
       || (options.dryRun !== undefined && typeof options.dryRun !== 'boolean')
+      || (options.runsOnly !== undefined && typeof options.runsOnly !== 'boolean')
       || (options.cursor !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(options.cursor))) {
       throw new Error('Invalid retained reconciliation pagination.');
     }
     let query = this.db.selectFrom('garmin_activity_identities').select(['id', 'identity_key', 'current_hash', 'activity_type'])
       .where('activity_id', 'is', null).where('status', '!=', 'rejected').orderBy('id').limit(limit + 1);
+    if (options.runsOnly) query = query.where('activity_type', '=', 'run');
     if (options.cursor) query = query.where('id', '>', options.cursor);
     const rows = await query.execute();
     const selected = rows.slice(0, limit);
@@ -189,7 +191,7 @@ export class GarminActivitiesRepository {
       : identity.identity_kind === 'fingerprint_v1' ? 'FALLBACK_IDENTITY_REQUIRES_REVIEW'
       : occupied ? 'CANONICAL_ALREADY_LINKED'
       : result.candidates.length === 0 ? 'NO_COMPATIBLE_CANDIDATE'
-      : result.activityId !== null ? 'POLICY_V4'
+      : result.activityId !== null ? 'POLICY_V5'
       : result.candidates.length > 1 ? 'COMPETING_CANDIDATES'
       : 'SINGLE_CANDIDATE_NOT_CORROBORATED';
     const evidence = { ...result, candidates: result.candidates.map(c => ({ ...c })), reason };
@@ -223,7 +225,7 @@ function identitySummary(s: Identity): ActivityMatchSummary {
   return { activityType: s.activity_type, subtype: s.subtype, startTime: s.start_time, elapsedTimeS: s.elapsed_time_s, movingTimeS: s.moving_time_s, distanceM: s.distance_m };
 }
 function canonicalSummary(a: Activity) {
-  const summary = { id: a.id, activityType: a.activity_type, subtype: a.subtype ?? 'unknown', startTime: a.start_time!,
+  const summary = { runSubtypeIsDefault: a.source === 'strava' && a.activity_type === 'run' && a.subtype === 'outdoor', id: a.id, activityType: a.activity_type, subtype: a.subtype ?? 'unknown', startTime: a.start_time!,
     elapsedTimeS: a.duration_s === null ? null : Number(a.duration_s), movingTimeS: a.moving_time_s === null ? null : Number(a.moving_time_s), distanceM: a.distance_m === null ? null : Number(a.distance_m) };
   try { validateActivityMatchSummary(summary); } catch {
     // Malformed legacy observations remain weak collisions, never disappear

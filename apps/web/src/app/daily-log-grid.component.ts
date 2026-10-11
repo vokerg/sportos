@@ -1,3 +1,4 @@
+import { DailyProviderSourcesComponent } from './features/daily/ui/daily-provider-sources.component';
 import { Component, computed, input, output, signal } from '@angular/core';
 import { AgGridAngular } from 'ag-grid-angular';
 import type { CellStyle, ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
@@ -8,7 +9,6 @@ import {
 } from './daily-breakdown-button.component';
 import {
   DAILY_LOG_PAGE_SIZES,
-  dailyScoreStatusLabel,
   formatDailyCellNumber,
   formatDailyMeters,
   compareDailyNumbers,
@@ -130,7 +130,7 @@ export class DailyLogGridComponent {
       flex: 0,
       valueFormatter: (params) => formatDate(params.value),
     },
-    { field: 'score_status', headerName: 'Authority', valueFormatter: (params) => dailyScoreStatusLabel(params.value) },
+    { colId: 'providerSources', headerName: 'Sources', cellRenderer: DailyProviderSourcesComponent, width: 96, minWidth: 96, maxWidth: 96, flex: 0, sortable: false, filter: false, suppressHeaderMenuButton: true },
     { field: 'steps', headerName: 'Steps', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyCellNumber(params.value), cellStyle: (params) => this.metricCellStyle('steps', params.value, '203, 176, 110') },
     { field: 'run_m', headerName: 'Run', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('run_m', params.value, '116, 168, 132') },
     { field: 'bike_m', headerName: 'Bike', filter: 'agNumberColumnFilter', comparator: compareDailyNumbers, valueFormatter: (params) => formatDailyMeters(params.value), cellStyle: (params) => this.metricCellStyle('bike_m', params.value, '119, 151, 194') },

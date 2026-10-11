@@ -84,6 +84,8 @@ describe('daily log presentation components', () => {
 
     const fields = grid.columnDefs.map((column) => column.field);
     expect(fields).toContain('avg_30d');
+    expect(fields).not.toContain('score_status');
+    expect(grid.columnDefs.find(c => c.colId === 'providerSources')).toMatchObject({ headerName: 'Sources', width: 96 });
     expect(fields).not.toContain('base_points');
     expect(fields).not.toContain('excel_all_points');
     expect(fields).not.toContain('points_delta_vs_excel');

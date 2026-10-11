@@ -21,7 +21,7 @@ import { formatSwimMeters } from './swim-distance';
         <div><span>Run</span><strong>{{ formatDistance(current.facts.runM) }}</strong></div>
         @if (detailed()) {
         <div><span>Run · treadmill</span><strong>{{ formatDistance(current.facts.runIndoorM) }}</strong></div>
-        <div><span>Run · outdoor</span><strong>{{ formatDistance(current.facts.runOutdoorM) }}</strong></div>
+        <div><span>Run</span><strong>{{ formatDistance(current.facts.runOutdoorM) }}</strong></div>
         <div><span>Run · unspecified</span><strong>{{ formatDistance(current.facts.runUnspecifiedM) }}</strong></div>
         }
         <div><span>Bike</span><strong>{{ formatDistance(current.facts.bikeM) }}</strong></div>

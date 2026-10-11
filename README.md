@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V131, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V132, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
 
 ## What SportOS can do
 
@@ -37,8 +37,9 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 
 ### Review, score, and export canonical records
 
+- Classify linked Garmin treadmill/track runs in activity labels and filters, including existing retained links, while keeping ordinary run labels concise.
 - Browse daily summaries and inspect exact score-ledger, immutable rule-version, activity, source-record, and import-batch provenance.
-- Treat imported workbook `All` totals as authoritative until an explicit recalculation or manual edit; each daily row shows whether its current score is imported, calculated, or manual.
+- Treat imported workbook `All` totals as authoritative until an explicit recalculation or manual edit; the complete day retains its imported, calculated, or manual authority status; Daily Log shows compact Strava/Garmin retained-source icons.
 - Create or edit canonical daily facts in the focused form or the Daily Log's Excel-like Quick entry grid. Enter and vertical-arrow commits use the same manual-save/recalculation path, Escape cancels the active cell, and edits retain provenance, replace only prior manual activities, and append immutable score history.
 - Explicitly Fetch/View/Refresh [one Garmin day](docs/GARMIN_DAY_FETCH.md) from the complete daily page, retaining movement, energy, body measurements, supported wellness and matched/staged activities as evidence without recalculation.
 - Recalculate a selected date from canonical source activities, resolving steps and workout points from positive manual overrides, retained Garmin evidence and imported/stored fallbacks and replacing any manual bonus override with rule-derived bonuses; a Strava-only date can still create a daily row without changing scores implicitly during synchronization.

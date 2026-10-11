@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { matchGarminActivity, type ActivityMatchSummary } from './activity-matching.js';
 const run: ActivityMatchSummary = { activityType: 'run', subtype: 'outdoor', startTime: new Date('2026-10-25T02:30:00+02:00'), elapsedTimeS: 1800, movingTimeS: 1750, distanceM: 5000 };
 const candidate = (changes = {}) => ({ ...run, id: 'canonical', ...changes });
-describe('Garmin matching policy v4', () => {
+describe('Garmin matching policy v5', () => {
   it('links an exact observation and tolerates compact Strava distance correction', () => {
     expect(matchGarminActivity(run, [candidate()]).status).toBe('exact');
     expect(matchGarminActivity(run, [candidate({ distanceM: 5200, elapsedTimeS: 1810 })])).toMatchObject({ status: 'strong_unique', activityId: 'canonical' });
@@ -41,14 +41,14 @@ describe('Garmin matching policy v4', () => {
 describe('sport-aware v2 matching criteria',()=>{
   it('accepts rounded gym elapsed time without confusing active lifting time with Strava moving time',()=>{
     const gym={...run,activityType:'workout' as const,subtype:'indoor' as const,elapsedTimeS:1800.8,movingTimeS:900,distanceM:0};
-    expect(matchGarminActivity(gym,[{...gym,id:'gym',elapsedTimeS:1800,movingTimeS:1800}])).toMatchObject({policyVersion:4,status:'strong_unique',activityId:'gym'});
+    expect(matchGarminActivity(gym,[{...gym,id:'gym',elapsedTimeS:1800,movingTimeS:1800}])).toMatchObject({policyVersion:5,status:'strong_unique',activityId:'gym'});
     expect(matchGarminActivity(gym,[{...gym,id:'gym',elapsedTimeS:1804}]).status).toBe('ambiguous');
     expect(matchGarminActivity(gym,[{...gym,id:'gym',startTime:new Date(gym.startTime.getTime()+3000)}]).status).toBe('ambiguous');
     expect(matchGarminActivity(gym,[{...gym,id:'gym',elapsedTimeS:null}]).status).toBe('ambiguous');
   });
   it.each(['walk','run','bike','swim','rowing','sup'] as const)('accepts fractional-to-integer duration precision for %s with independent distance evidence',activityType=>{
     const source={...run,activityType,elapsedTimeS:1800.8};
-    expect(matchGarminActivity(source,[{...source,id:'a',elapsedTimeS:1800}])).toMatchObject({status:'strong_unique',policyVersion:4});
+    expect(matchGarminActivity(source,[{...source,id:'a',elapsedTimeS:1800}])).toMatchObject({status:'strong_unique',policyVersion:5});
     expect(matchGarminActivity(source,[{...source,id:'a',movingTimeS:900}]).status).toBe(['walk', 'bike'].includes(activityType) ? 'strong_unique' : 'ambiguous');
   });
   it('uses a pool-length floor instead of 200m tolerance for short indoor swims',()=>{
@@ -69,7 +69,7 @@ it('uses narrow walking identity evidence while retaining a moving-time conflict
  const walk={...run,activityType:'walk' as const,elapsedTimeS:3000.8,movingTimeS:1800,distanceM:3500};
  const other={...walk,id:'walk',elapsedTimeS:3000,movingTimeS:2900,distanceM:3499};
  const matched=matchGarminActivity(walk,[other]);
- expect(matched).toMatchObject({status:'strong_unique',activityId:'walk',policyVersion:4});
+ expect(matched).toMatchObject({status:'strong_unique',activityId:'walk',policyVersion:5});
  expect(matched.candidates[0]!.reasons).toContain('WALK_MOVING_DIFFERENCE_RETAINED');
  for(const changes of [{startTime:new Date(walk.startTime.getTime()+3000)},{elapsedTimeS:3004},{distanceM:3600},{distanceM:null},{distanceM:0}]){
    expect(matchGarminActivity(walk,[{...other,...changes}]).activityId).toBeNull();
@@ -83,7 +83,7 @@ describe('independently corroborated cycling identity', () => {
   const pair = { ...bike, id: 'ride', elapsedTimeS: 2400, movingTimeS: 1900, distanceM: 12000.1 };
   it('retains moving-time disagreement when start, elapsed and distance identify a unique ride', () => {
     const result = matchGarminActivity(bike, [pair]);
-    expect(result).toMatchObject({ policyVersion: 4, status: 'strong_unique', activityId: 'ride' });
+    expect(result).toMatchObject({ policyVersion: 5, status: 'strong_unique', activityId: 'ride' });
     expect(result.candidates[0]!.reasons).toEqual(expect.arrayContaining([
       'BIKE_START_ELAPSED_DISTANCE_CORROBORATED', 'BIKE_MOVING_DIFFERENCE_RETAINED', 'MOVING_CONFLICT',
     ]));
@@ -111,5 +111,24 @@ describe('independently corroborated cycling identity', () => {
     for (const activityType of ['run', 'swim', 'rowing', 'sup'] as const) {
       expect(matchGarminActivity({...bike, activityType}, [{...pair, activityType}]).activityId).toBeNull();
     }
+  });
+});
+
+
+describe('policy v5 explicit Garmin run versus Strava default', () => {
+  const treadmill = { ...run, subtype: 'treadmill' as const };
+  const defaultRun = { ...candidate(), runSubtypeIsDefault: true };
+  it('requires unique tight time/distance agreement before accepting the default subtype', () => {
+    expect(matchGarminActivity(treadmill, [defaultRun])).toMatchObject({ policyVersion: 5, status: 'strong_unique' });
+    expect(matchGarminActivity(treadmill, [defaultRun, { ...defaultRun, id: 'other' }]).status).toBe('ambiguous');
+    expect(matchGarminActivity(treadmill, [{ ...defaultRun, distanceM: 5200 }]).activityId).toBeNull();
+    expect(matchGarminActivity(treadmill, [{ ...defaultRun, elapsedTimeS: 1803 }]).activityId).toBeNull();
+    expect(matchGarminActivity(treadmill, [{ ...defaultRun, distanceM: null }]).activityId).toBeNull();
+    expect(matchGarminActivity(treadmill, [{ ...defaultRun, movingTimeS: 900 }]).activityId).toBeNull();
+  });
+  it('preserves explicit canonical conflicts and other sports', () => {
+    expect(matchGarminActivity(treadmill, [candidate()]).status).toBe('unmatched');
+    expect(matchGarminActivity(treadmill, [{ ...defaultRun, subtype: 'track' }]).status).toBe('unmatched');
+    expect(matchGarminActivity({ ...treadmill, activityType: 'bike' }, [{ ...defaultRun, activityType: 'bike' }]).status).toBe('unmatched');
   });
 });

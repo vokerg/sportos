@@ -16,11 +16,11 @@ import {
     <header><span class="page-kicker">Training history</span><h1>Activities</h1><p>Canonical activities from your imports and connected sources.</p></header>
     <form class="card filters" (submit)="apply($event)" aria-label="Activity filters">
       <div class="filter-row">
-        <label>Quick range <select [value]="quickRange()" (change)="setQuickRange($any($event.target).value)">@for (option of quickRangeOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
+        <label>Quick range <select [value]="quickRange()" (change)="setQuickRange($any($event.target).value)">@for (option of quickRangeOptions; track option.value) { <option [value]="option.value" [selected]="option.value === quickRange()">{{ option.label }}</option> }</select></label>
         <label>From <input type="date" [value]="from()" (change)="setFrom($any($event.target).value)" /></label>
         <label>To <input type="date" [value]="to()" (change)="setTo($any($event.target).value)" /></label>
-        <label>Activity type <select [value]="activityType()" (change)="setActivityType($any($event.target).value)">@for (option of typeOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
-        <label>Source <select [value]="source()" (change)="source.set($any($event.target).value)">@for (option of sourceOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
+        <label>Activity type <select [value]="activityType()" (change)="setActivityType($any($event.target).value)">@for (option of typeOptions; track option.value) { <option [value]="option.value" [selected]="option.value === activityType()">{{ option.label }}</option> }</select></label>
+        <label>Source <select [value]="source()" (change)="source.set($any($event.target).value)">@for (option of sourceOptions; track option.value) { <option [value]="option.value" [selected]="option.value === source()">{{ option.label }}</option> }</select></label>
       </div>
       @if (isDistanceSport()) {
         <fieldset class="sport-filters"><legend>{{ sportLabel() }} filters</legend>
@@ -29,7 +29,7 @@ import {
             @for (metres of distanceOptions(); track metres) { @if (metres > 0) { <option [value]="metres">At least {{ sportDistance(metres, selectedDistanceSport()) }}</option> } }
           </select></label>
           @if (activityType() === 'run') {
-            <label>Run subtype <select [value]="subtype()" (change)="subtype.set($any($event.target).value)">@for (option of runSubtypeOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
+            <label>Run subtype <select [value]="subtype()" (change)="subtype.set($any($event.target).value)">@for (option of runSubtypeOptions; track option.value) { <option [value]="option.value" [selected]="option.value === subtype()">{{ option.label }}</option> }</select></label>
             <label>Average pace <select [value]="paceUnderSPerKm()" (change)="paceUnderSPerKm.set(+$any($event.target).value)">@for (option of runPaceOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
           } @else if (activityType() === 'bike') {
             <label>Average speed <select [value]="minSpeedKmh()" (change)="minSpeedKmh.set(+$any($event.target).value)">

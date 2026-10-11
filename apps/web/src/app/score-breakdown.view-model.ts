@@ -1,3 +1,4 @@
+import { activitySubtypeLabel } from './shared/util/activity-subtype';
 import type {
   DailyScoreBreakdown,
   JsonValue,
@@ -171,7 +172,7 @@ export function calculationLabel(value: JsonValue): string {
 
 export function activityLabel(activity: ScoreBreakdownActivity | null): string {
   if (!activity) return 'No linked activity';
-  const parts = [humanize(activity.activityType), activity.subtype ? humanize(activity.subtype) : null];
+  const parts = [humanize(activity.activityType), activitySubtypeLabel(activity.activityType, activity.subtype, activity.runClassification)];
   if (activity.distanceM !== null) parts.push(`${formatNumber(activity.distanceM / 1000)} km`);
   if (activity.durationS !== null) parts.push(formatDuration(activity.durationS));
   if (activity.steps !== null) parts.push(`${formatNumber(activity.steps)} steps`);
@@ -180,7 +181,7 @@ export function activityLabel(activity: ScoreBreakdownActivity | null): string {
 }
 
 export function activityName(activity: ScoreBreakdownActivity): string {
-  const parts = [humanize(activity.activityType), activity.subtype ? humanize(activity.subtype) : null];
+  const parts = [humanize(activity.activityType), activitySubtypeLabel(activity.activityType, activity.subtype, activity.runClassification)];
   return parts.filter((part): part is string => Boolean(part)).join(' · ');
 }
 
