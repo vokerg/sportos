@@ -6,15 +6,14 @@ import { comparisonGroups } from '../model/activity-metrics.view-model';
   template: `
     @if (groups().length) {
       <section class="card" aria-label="Activity metrics"><h2>Activity metrics</h2>
-        <p>Sources share a value when differences are within display tolerance. Garmin fallbacks are read-only.</p>
+        <p>Sources share a value when differences are within display tolerance. When values differ, the primary value is bold. Garmin fallbacks are read-only.</p>
         @for (group of groups(); track group.title) {
           <section class="group" [attr.aria-label]="group.title"><h3>{{ group.title }}</h3>
             <dl class="comparison">@for (metric of group.items; track metric.key) {
               <div class="metric"><dt>{{ metric.label }}</dt><dd>
                 @for (value of metric.values; track $index) {
-                  <div class="value" [class.authoritative]="value.authoritative">
+                  <div class="value" [class.authoritative]="metric.values.length > 1 && value.authoritative">
                     <strong>{{ value.text }}</strong><span class="sources">{{ value.sources.join(' · ') }}</span>
-                    @if (value.authoritative) { <span class="authority">Authoritative</span> }
                     @if (value.fallback) { <span class="fallback">Read-only fallback</span> }
                   </div>
                 } @empty { <span class="unavailable">Unavailable</span> }
@@ -31,7 +30,7 @@ import { comparisonGroups } from '../model/activity-metrics.view-model';
     .comparison{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:18px;margin:0}
     .metric{min-width:0;overflow-wrap:anywhere}dt{color:#667085;font-size:12px;margin-bottom:6px}dd{margin:0;display:grid;gap:8px}
     .value{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 8px;font-size:13px}.value strong{font-weight:500}.authoritative strong{font-weight:750}
-    .sources{color:#475467;font-size:12px}.authority,.fallback{font-size:11px;padding:2px 6px;border-radius:4px;background:#eef2ff;color:#344054}
+    .sources{color:#475467;font-size:12px}.fallback{font-size:11px;padding:2px 6px;border-radius:4px;background:#eef2ff;color:#344054}
   `],
 })
 export class ActivityMetricComparisonComponent {

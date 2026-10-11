@@ -33,7 +33,7 @@ web typecheck/build and self-review. No backend/migration/full CI matrix needed.
 
 - Replaced Selected/candidate repetition with one grouped metric row. Equal
   values combine source labels; disagreement preserves Strava-first order and
-  an explicit Authoritative marker. Manual/workbook authority remains visible.
+  bold styling on the primary value only when values disagree. Manual/workbook authority remains visible.
 - Added documented absolute display tolerances, sport-aware units/precision and
   run-only cadence conversion. Explicit Garmin running fields win over Garmin
   generic cadence; already normalized steps/min are never doubled again.
@@ -69,3 +69,7 @@ frontend-only. Commit messages use [skip ci] to avoid the existing heavy
 repository-wide workflow as requested; focused validation is recorded here.
 #114 stays open and its queue box unchecked until merge. PR is ready for review;
 no merge is authorized.
+
+Maintainer follow-up: removed repeated Authoritative badges. Equal/single values
+receive no authority emphasis; disagreement uses bold styling explained once.
+Rendered regression tests verify badge absence and primary-value styling.

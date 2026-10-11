@@ -29,16 +29,18 @@ describe('activity metrics rendered UI', () => {
     const el = render([distance]);
     expect(el.querySelectorAll('.value')).toHaveLength(1);
     expect(el.textContent).toContain('10 km'); expect(el.textContent).toContain('Strava · Garmin');
-    expect(el.textContent).toContain('Time & Distance'); expect(el.textContent).toContain('Authoritative');
+    expect(el.textContent).toContain('Time & Distance'); expect(el.textContent).not.toContain('Authoritative'); expect(el.querySelector('.authoritative')).toBeNull();
     expect(el.textContent).not.toContain('Selected'); expect(el.querySelector('details')).toBeNull();
     expect(el.textContent).not.toContain('test-version');
   });
-  it('renders distinct sources Strava first and marks Garmin authority', () => {
+  it('renders distinct sources Strava first and emphasizes only the primary value', () => {
     const el = render([{...distance,selected:{value:11000,source:'garmin',reason:'provider_priority'},candidates:distance.candidates.map(c => c.provider === 'garmin' ? {...c,value:11000} : c)}]);
     const rows = [...el.querySelectorAll('.value')];
     expect(rows).toHaveLength(2); expect(rows[0].textContent).toContain('Strava');
     expect(rows[0].textContent).not.toContain('Authoritative'); expect(rows[1].textContent).toContain('Garmin');
-    expect(rows[1].textContent).toContain('Authoritative');
+    expect(rows[1].textContent).not.toContain('Authoritative');
+    expect(rows[0].classList.contains('authoritative')).toBe(false);
+    expect(rows[1].classList.contains('authoritative')).toBe(true);
   });
   it('shows Garmin fallback without claiming authority and renders missing observations', () => {
     const el = render([{...distance,selected:null,candidates:[distance.candidates[0]]}, {key:'average_heart_rate',label:'Average heart rate',unit:'bpm',selected:null,candidates:[]}]);

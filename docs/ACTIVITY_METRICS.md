@@ -221,8 +221,10 @@ Rate, Running Dynamics, Power & Training and Other. It shows one value for
 providers within the absolute display tolerances below; every member of a
 combined row must agree. A combined row keeps the exact authoritative value
 when available. Meaningfully different values remain separate with Strava first.
-The Authoritative marker identifies canonical or catalog-selected authority;
-Garmin values filling a display gap are marked Read-only fallback instead.
+When values differ, bold styling identifies the canonical or catalog-selected
+primary value, explained once above the component. No authority badge is repeated
+on individual values. Garmin values filling a display gap are marked Read-only
+fallback instead.
 Manual/workbook authority is preserved even when both providers disagree.
 
 | Metric | Absolute tolerance (normalized units) |
