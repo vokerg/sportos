@@ -165,8 +165,11 @@ visual inspection was performed.
 
 A real operator CLI dry-run passed; an applied 25-activity replay reported all 15
 eligible Strava activities already current and zero new versions/errors/downloads.
-Full retained replay and timestamp verification are being completed before the PR
-results are finalized. PR #113 remains draft/unmerged; issue and queue remain open.
+A full read-only retained replay inspected all 20,301 activities: all 8,235 Strava
+and 18 Garmin projections were already current, with zero new projections, stale
+results or errors. Complete metric-row digests (including head/projection
+timestamps) were unchanged after the applied CLI replay, API GET checks and full
+read-only replay. PR #113 remains draft/unmerged; issue and queue remain open.
 
 Additional inspected files: activity-metric-backfill.ts and its tests;
 activity-metric-projector.ts; pool.ts; activity-detail V001; operator/Flyway scripts;
