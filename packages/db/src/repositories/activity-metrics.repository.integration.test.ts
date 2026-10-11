@@ -135,6 +135,15 @@ integration('retained activity metric projections under non-owner RLS',()=>{
     const next=await scoped(db=>backfillRetainedActivityMetrics(db,fn=>rich(fn),{cursor:apply.nextCursor!,limit:1,dryRun:false}));expect(next.nextCursor!>apply.nextCursor!).toBe(true);
     expect(next.fetched).toBe(false);expect(next.scoreWrites).toBe(false);
   });
+  it('batches metadata while preserving per-activity inspection, ownership and dry-run results',async()=>{
+    const f=await fixture();
+    const references=vi.spyOn(ActivityMetricsRepository.prototype,'references');
+    const batch=await scoped(db=>new RetainedActivityMetricsProjector(db,fn=>rich(fn)).projectBatch([f.activity],true));
+    expect(references).toHaveBeenCalledTimes(1);references.mockRestore();
+    expect(batch.get(f.activity)).toEqual(await project(f.activity,true));
+    expect(await scoped(db=>new RetainedActivityMetricsProjector(db,fn=>rich(fn,foreign)).projectBatch([f.activity],true),foreign)).toEqual(new Map());
+    await expect(scoped(db=>new RetainedActivityMetricsProjector(db,fn=>rich(fn)).projectBatch(Array(101).fill(f.activity),true))).rejects.toThrow('batch exceeds limit');
+  });
   it('never forces a pending Garmin link and allows later retained-only projection after explicit review',async()=>{
     const f=await fixture();const pending=await scoped(db=>new GarminActivitiesRepository(db).ingest({provider:'garmin',providerActivityId:'80002',contentHash:'c'.repeat(64),origin:'connect',sourceUpdatedAt:new Date('2095-02-01'),summary:{activityType:'run',subtype:'outdoor',startTime:new Date('2095-02-01'),elapsedTimeS:3100,movingTimeS:3000,distanceM:10000}}));
     expect(pending.activityId).toBeNull();

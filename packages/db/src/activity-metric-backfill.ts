@@ -17,8 +17,9 @@ export async function backfillRetainedActivityMetrics(primary:Kysely<Database>,d
   const rows=await query.limit(options.limit+1).execute(); const batch=rows.slice(0,options.limit);
   const providers={strava:metricBackfillCounts(),garmin:metricBackfillCounts()};
   let otherActivities=0; const projector=new RetainedActivityMetricsProjector(primary,detail);
+  const projected=await projector.projectBatch(batch.map(a=>a.id),options.dryRun);
   for (const activity of batch) {
-    let results=await projector.project(activity.id,options.dryRun);
+    let results=projected.get(activity.id) ?? [];
     for (let retry=0;retry<(options.retries??1) && results.some(r=>r.category==='errors');retry++) {
       const retried=await projector.project(activity.id,options.dryRun);
       results=results.map(result=>result.category==='errors' ? retried.find(next=>next.provider===result.provider) ?? result : result);

@@ -18,13 +18,27 @@ export class RetainedActivityMetricsProjector {
     const repo=new ActivityMetricsRepository(this.primary);
     const activity=await this.primary.selectFrom('activities').select(['id','activity_type']).where('id','=',activityId).executeTakeFirst();
     if (!activity) return [];
-    const refs=await repo.references([activityId]); const results:MetricProjectionResult[]=[];
+    const refs=await repo.references([activityId]);
+    return this.projectReferences(activity.activity_type,refs,dryRun);
+  }
+  /** Batch compact metadata only; rich inspection and publication stay per source. */
+  async projectBatch(activityIds:readonly string[],dryRun=false):Promise<Map<string,MetricProjectionResult[]>> {
+    if (activityIds.length>100) throw new Error('Metric projection batch exceeds limit.');
+    if (!activityIds.length) return new Map();
+    const activities=await this.primary.selectFrom('activities').select(['id','activity_type']).where('id','in',[...activityIds]).execute();
+    const refs=await new ActivityMetricsRepository(this.primary).references(activities.map(a=>a.id));
+    const results=new Map<string,MetricProjectionResult[]>();
+    for (const activity of activities) results.set(activity.id,await this.projectReferences(activity.activity_type,refs.filter(r=>r.activityId===activity.id),dryRun));
+    return results;
+  }
+  private async projectReferences(sport:string,refs:MetricReference[],dryRun:boolean):Promise<MetricProjectionResult[]> {
+    const repo=new ActivityMetricsRepository(this.primary); const results:MetricProjectionResult[]=[];
     for (const reference of refs) {
       const clock=await sql<{time:string}>`select clock_timestamp()::text as time`.execute(this.primary);
       const inspectedAt=clock.rows[0]!.time;
       let richRetained:boolean|null=null; let phase:'retained_read_failed'|'projection_failed'='retained_read_failed';
       try {
-        const inspection=await this.inspect(reference,activity.activity_type); richRetained=inspection.richRetained;
+        const inspection=await this.inspect(reference,sport); richRetained=inspection.richRetained;
         phase='projection_failed';
         const write:ProjectionWrite={...inspection,reference,inspectedAt};
         const category=dryRun ? await this.preview(write) : await repo.checkpoint(write) ? await repo.publish(write) : 'stale';
