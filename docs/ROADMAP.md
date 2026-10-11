@@ -199,4 +199,4 @@ for scope, migration, focused evidence and outstanding live/visual validation.
 
 ## Per-activity running efforts (#122)
 
-Implemented on the issue branch with primary V133: independent retained Strava-stream/Garmin-FIT analytical windows, source-backed summary estimates, compact owner-scoped versions, explicit retained-only processing/backfill and run detail comparison. Selective rich fetching remains optional; official scoring and Run Lab remain independent. See [operator/pause policy](RUNNING_EFFORTS.md) and implementation/issue-122.md. Merge and production migration/backfill remain pending maintainer approval.
+Implemented on the issue branch with primary V133: independent retained Strava-stream/Garmin-FIT analytical windows, source-backed summary estimates, compact owner-scoped versions, explicit retained-only processing/backfill and run detail comparison. Selective rich fetching remains optional; official scoring and Run Lab remain independent. See [operator/pause policy](RUNNING_EFFORTS.md) and implementation/issue-122.md. Production migration/backfill remain separate operator steps.

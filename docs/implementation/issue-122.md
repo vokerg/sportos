@@ -119,7 +119,7 @@ Passed:
 - Synthetic non-owner operator command dry-run, explicit apply and unchanged replay: dry-run writes zero heads, apply creates one projection, replay creates zero projections, zero provider requests.
 - `git diff --check` and self-review. All test data/databases are disposable loopback instances; no personal source or credential was committed.
 
-Not run: heavy general CI/full repository test matrix (explicit issue scope), browser visual inspection, live provider downloads, live migration or production backfill. Component DOM tests and production template compilation provide focused UI evidence. Primary V133 and an authorized retained-only backfill remain deployment/operator steps. PR stays draft; no merge/issue closure/queue checkbox is authorized.
+Not run: heavy general CI/full repository test matrix (explicit issue scope), browser visual inspection, live provider downloads, live migration or production backfill. Component DOM tests and production template compilation provide focused UI evidence. Primary V133 and an authorized retained-only backfill remain deployment/operator steps. After focused validation, the maintainer explicitly authorized squash-merging PR #123 to main and completing issue/queue bookkeeping. Live migration/backfill remain separate operator steps.
 
 ## Additional implementation inspections
 
