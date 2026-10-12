@@ -89,9 +89,52 @@ ambiguity, helper setup/authentication, rate limits and timeouts are safe and vi
 
 The canonical implementation lives in `packages/db/src/repositories/activities.repository.ts`, `apps/api/src/activities/activities.controller.ts`, and `apps/web/src/app/features/activities/`. Explicit provider detail uses `packages/db/src/repositories/activity-provider-resources.repository.ts`, `apps/api/src/activities/activity-provider-detail.service.ts`, and the Strava adapter in `packages/importers/src/strava-adapter.ts`. Angular separates the API contract/client, formatting and metric selection, list presenter, list page, detail page, a page-scoped list store, and `state/activity-detail.store.ts` for cancellation and independent detail/fetch/resource state. The feature is scoped under `features/` per the frontend architecture; the feature HTTP client injects `core/config/api-base` directly.
 
+## Activity route API (summary only)
+
+`GET /activities/:activityId/map` is authenticated and read-only. Given a
+canonical activity UUID, it reads the most recent available **linked Strava**
+snapshot's `raw_json.map.summary_polyline` in the primary database, with
+the authenticated account's forced-RLS context. The trusted chain is
+`activities` → `provider_activity_links` → Strava
+`provider_connections` → latest linked `source_records`. A workbook-origin
+canonical activity may therefore show a linked Strava route. A source record
+without a valid available link is not evidence for this endpoint. Foreign and
+unknown UUIDs return the same 404.
+
+A valid precision-5 encoded summary returns HTTP 200 with this contract:
+
+```json
+{
+  "status": "available",
+  "source": "strava",
+  "resolution": "summary",
+  "geometry": { "type": "LineString", "coordinates": [[-120.2, 38.5], [-120.95, 40.7]] },
+  "bounds": [-120.95, 38.5, -120.2, 40.7],
+  "pointCount": 2
+}
+```
+
+GeoJSON coordinates use `[longitude, latitude]` and bounds use
+`[west, south, east, north]`. If there is no eligible Strava link, the route
+is `{"status":"unavailable","reason":"no_gps"}`; if the current compact
+summary has no polyline (including when truncated during retention), it is
+`summary_polyline_missing`; malformed, degenerate, out-of-range, or
+pathological inputs yield `invalid_geometry`. These are 200 responses and
+should be shown as unavailable states, **not** as blank maps. Bad UUIDs are
+400; inaccessible/nonexistent activities are 404.
+
+The decoder allows at most 30,000 encoded characters, 5,000 points, and
+200 KB of serialized coordinates; routes require at least two distinct
+points. Summary geometry is approximate, not a high-resolution GPS track.
+The GET does no writes, provider requests, rich-data prefetch, or auxiliary
+database access and exposes no raw source fields, credentials, or owner
+internals. It cannot restore geometry discarded at ingestion. Future route
+projections can expand the same `status/source/resolution/geometry/bounds`
+contract. GPS locations are private data and must stay behind account auth.
+
 ## MVP limits
 
-The list uses bounded offset pagination; concurrent imports may shift rows between pages. Summaries include all filtered activities, including those beyond the current page. The canonical detail view adds separate normalized provider activity-level metrics and read-only selections ([catalog and offline backfill](ACTIVITY_METRICS.md)), while splits, GPS tracks and time series remain retained resources; source-specific Garmin session/lap/sets and selected Strava detail values are displayed separately, while streams and unknown fields remain available through explicit advanced disclosures. There is no map/chart rendering, editing, or sport-specific deep analysis yet. Canonical rows without a name receive a type-based title, with no invented activity name.
+The list uses bounded offset pagination; concurrent imports may shift rows between pages. Summaries include all filtered activities, including those beyond the current page. The canonical detail view adds separate normalized provider activity-level metrics and read-only selections ([catalog and offline backfill](ACTIVITY_METRICS.md)), while splits, GPS tracks and time series remain retained resources; source-specific Garmin session/lap/sets and selected Strava detail values are displayed separately, while streams and unknown fields remain available through explicit advanced disclosures. The route API supplies read-only summary GeoJSON, but there is no map/chart rendering, editing, or sport-specific deep analysis yet. Canonical rows without a name receive a type-based title, with no invented activity name.
 
 `activity_provider_resources` resides in a separate Neon project configured by the explicit `SPORTOS_ACTIVITY_DETAIL_DATABASE_URL`. The API first resolves the canonical/provider reference and credentials in the primary project, then opens the detail project under the same account context. The cache has no cross-project foreign keys; identity and authorization remain authoritative in the primary database, and the detail rows are bounded, derived, owner-scoped, and rebuildable. The runtime and Flyway URLs must not be derived from or reuse the primary project. Run `pnpm db:migrate:activity-detail` with the separate project's schema-owner settings before starting the API.
 

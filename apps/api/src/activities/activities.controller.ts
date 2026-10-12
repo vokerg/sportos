@@ -1,3 +1,4 @@
+import { stravaSummaryRoute, type ActivityRouteResponse } from './activity-route.js';
 import { RunningEffortsService } from './running-efforts.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Post, Query } from '@nestjs/common';
@@ -115,6 +116,17 @@ export class ActivitiesController {
     if (!activity) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
     if (activity.activity_type !== 'run') throw new BadRequestException('Running efforts require a run.');
     return { effortProjection: await this.efforts!.project(owner, activityId) };
+  }
+
+
+  @Get(':activityId/map')
+  async map(@Param('activityId') activityId: string, @CurrentAccount() account?: AuthenticatedAccount): Promise<ActivityRouteResponse> {
+    assertUuid(activityId, 'INVALID_ACTIVITY_ID');
+    const evidence = await this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID, db =>
+      new ActivitiesRepository(db).getStravaRouteEvidence(activityId));
+    if (!evidence) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
+    if (!evidence.linked) return { status: 'unavailable', reason: 'no_gps' };
+    return stravaSummaryRoute(evidence.polyline, evidence.polylineType);
   }
 
   @Get(':activityId/source')
