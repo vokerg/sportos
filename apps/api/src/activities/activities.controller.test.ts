@@ -75,6 +75,31 @@ describe('ActivitiesController', () => {
     expect(providerDetailService.load).toHaveBeenCalledTimes(1);
   });
 
+
+  it('reads route evidence only within the authenticated account and never invokes provider fetch', async () => {
+    const example = '_p~iF~ps|U_ulLnnqC_mqNvxq' + String.fromCharCode(96) + '@';
+    const lookup = vi.spyOn(ActivitiesRepository.prototype, 'getStravaRouteEvidence')
+      .mockResolvedValueOnce({ linked: true, polyline: example, polylineType: 'string' })
+      .mockResolvedValueOnce({ linked: true, polyline: null, polylineType: null })
+      .mockResolvedValueOnce({ linked: false, polyline: null, polylineType: null })
+      .mockResolvedValueOnce({ linked: true, polyline: 'bad?', polylineType: 'string' })
+      .mockResolvedValueOnce(null);
+    const { controller, withAccount, providerDetailService } = createController();
+    expect(await controller.map(id, account)).toMatchObject({
+      status: 'available', source: 'strava', resolution: 'summary',
+      geometry: { type: 'LineString', coordinates: [[-120.2, 38.5], [-120.95, 40.7], [-126.453, 43.252]] },
+    });
+    expect(await controller.map(id, account)).toEqual({ status: 'unavailable', reason: 'summary_polyline_missing' });
+    expect(await controller.map(id, account)).toEqual({ status: 'unavailable', reason: 'no_gps' });
+    expect(await controller.map(id, account)).toEqual({ status: 'unavailable', reason: 'invalid_geometry' });
+    await expect(controller.map(id, account)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(controller.map('not-an-id', account)).rejects.toBeInstanceOf(BadRequestException);
+    expect(lookup).toHaveBeenCalledTimes(5);
+    expect(withAccount).toHaveBeenCalledWith(accountId, expect.any(Function));
+    expect(providerDetailService.load).not.toHaveBeenCalled();
+    expect(providerDetailService.cached).not.toHaveBeenCalled();
+  });
+
   it('reads retained source JSON only through account context and hides missing or foreign records', async () => {
     const source = { sourceRecordId: id, sourceRecordSource: 'strava_api', rawJson: { average_cadence: 88 } };
     const getSourceJson = vi.spyOn(ActivitiesRepository.prototype, 'getSourceJson').mockResolvedValueOnce(source).mockResolvedValue(null);
