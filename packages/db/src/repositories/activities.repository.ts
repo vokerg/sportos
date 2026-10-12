@@ -121,6 +121,38 @@ export class ActivitiesRepository {
     return result.rows[0]?.available === true;
   }
 
+
+  /** Owner-scoped, read-only lookup: never return full Strava raw_json. */
+  async getStravaRouteEvidence(activityId: string): Promise<
+    | { linked: false; polyline: null; polylineType: null }
+    | { linked: true; polyline: string | null; polylineType: string | null }
+    | null
+  > {
+    const activity = await this.db.selectFrom('activities').select('id').where('id', '=', activityId).executeTakeFirst();
+    if (!activity) return null;
+    const snapshot = await this.db
+      .selectFrom('provider_activity_links as link')
+      .innerJoin('provider_connections as connection', join => join
+        .onRef('connection.id', '=', 'link.connection_id')
+        .onRef('connection.owner_id', '=', 'link.owner_id')
+        .on('connection.provider', '=', 'strava'))
+      .innerJoin('source_records as snapshot', join => join
+        .onRef('snapshot.id', '=', 'link.latest_source_record_id')
+        .onRef('snapshot.owner_id', '=', 'link.owner_id')
+        .on('snapshot.source', '=', 'strava_api')
+        .onRef('snapshot.source_record_key', '=', 'link.provider_activity_id'))
+      .select([
+        sql<string | null>`snapshot.raw_json #>> '{map,summary_polyline}'`.as('polyline'),
+        sql<string | null>`jsonb_typeof(snapshot.raw_json #> '{map,summary_polyline}')`.as('polylineType'),
+      ])
+      .where('link.activity_id', '=', activityId)
+      .where('link.availability', '=', 'available')
+      .orderBy('link.updated_at', 'desc')
+      .orderBy('link.id', 'desc')
+      .executeTakeFirst();
+    return snapshot ? { linked: true, ...snapshot } : { linked: false, polyline: null, polylineType: null };
+  }
+
   async getSourceJson(activityId: string) {
     const row = await this.db.selectFrom('activities as activity')
       .innerJoin('source_records as record', 'record.id', 'activity.source_record_id')
