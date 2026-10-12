@@ -31,12 +31,12 @@ export function checkWebSource(file, content) {
     if (owner && importedOwner && owner !== importedOwner) {
       report(node, 'feature-boundary', 'feature code must not deep-import another feature; extract a shared contract');
     }
-    if (file.includes('/state/') && (/(?:^|\/)[^/]+\.component$/.test(target) ||
+    if (file.includes('/state/') && (/(?:^|\/)[^/]+\.component(?:\.ts)?$/.test(target) ||
         /\/(?:ui|pages)\//.test(target))) {
       report(node, 'state-boundary', 'feature state must not depend on components or presentation layers');
     }
     if (file.includes('/data-access/') &&
-        (/(?:^|\/)[^/]+\.component$/.test(target) || /\/(?:ui|pages|state)\//.test(target))) {
+        (/(?:^|\/)[^/]+\.component(?:\.ts)?$/.test(target) || /\/(?:ui|pages|state)\//.test(target))) {
       report(node, 'transport-boundary', 'data-access must not import state or presentation code');
     }
   };
@@ -51,7 +51,9 @@ export function checkWebSource(file, content) {
           ts.isImportDeclaration(node) && node.importClause?.namedBindings &&
           ts.isNamedImports(node.importClause.namedBindings) &&
           node.importClause.namedBindings.elements.some((element) =>
-            (element.propertyName ?? element.name).text === 'HttpClient')) {
+            (element.propertyName ?? element.name).text === 'HttpClient') ||
+          ts.isImportDeclaration(node) && node.importClause?.namedBindings &&
+          ts.isNamespaceImport(node.importClause.namedBindings)) {
         report(node, 'component-http', 'components must use feature data-access rather than HttpClient');
       }
       if (file.includes('/ui/') && specifier === '@angular/common/http') {
