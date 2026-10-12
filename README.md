@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V135, with the dedicated activity-detail database initialized by its own migration set; the authoritative active work queue is maintained in [issue #3](https://github.com/vokerg/sportos/issues/3).
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V135, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
 
 ## What SportOS can do
 
@@ -424,7 +424,7 @@ The completed roadmap is a strong local and account-scoped foundation, not a fin
 - streaming or durable hosted-scale export;
 - hosted model-gateway operations, broader semantic evaluation, and additional analysis tools.
 
-New product or operational work must be added and prioritized explicitly in [issue #3](https://github.com/vokerg/sportos/issues/3).
+Track new product and operational work in individual [GitHub issues](https://github.com/vokerg/sportos/issues), using issue priority labels or explicit maintainer direction when needed. Deferred Garmin archive/incremental/enrichment work (#98–#100) and the remaining hosted worker/storage operations (#95) require an explicit human decision before an agent may begin them.
 
 ## Documentation
 
@@ -442,6 +442,6 @@ New product or operational work must be added and prioritized explicitly in [iss
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing authentication, ownership, imports, providers, jobs, scoring rules, migrations, read models, analysis, or exports. Always use the authoritative queue in [issue #3](https://github.com/vokerg/sportos/issues/3) to select implementation work.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing authentication, ownership, imports, providers, jobs, scoring rules, migrations, read models, analysis, or exports. For a generic next-task request, select an eligible open GitHub issue according to [AGENTS.md](AGENTS.md), checking active PRs and deferred/human-triggered exclusions first.
 
 Per-run [running efforts](docs/RUNNING_EFFORTS.md) compare independently calculated retained Strava/Garmin windows with clearly labeled Strava summary estimates. Processing is explicit and pause-excluded; canonical facts, scores and Run Lab remain independent. Primary V135 is required for bounded distance and pause qualifications.

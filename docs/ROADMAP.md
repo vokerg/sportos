@@ -117,9 +117,9 @@ See [ADR 0007](adr/0007-read-only-ai-analysis.md) and [AI_ANALYSIS.md](AI_ANALYS
 
 Milestone 3 exit is satisfied: generated analysis can explain canonical data without authoritative calculation or write access.
 
-## Near-term queue
+## Current work and issue selection
 
-Issue #3 remains authoritative. The foundational queue is complete through issue #16; routed frontend maintenance and explicitly prioritized product work continue in the active P3 queue. New work must be added and prioritized there rather than inferred.
+The foundational milestones are complete through issue #16. Individual [open GitHub issues](https://github.com/vokerg/sportos/issues) track remaining product, frontend-architecture, and operational work; this roadmap records decisions and evidence, **not an ordered task checklist**. Use [AGENTS.md](../AGENTS.md) to select ready, unclaimed work after checking prerequisites, active PRs, and recent merges. Maintainer-only/on-hold work (including #95 and Garmin #98–#100) is excluded from automatic issue pickup.
 
 Each PR must identify the milestone or operational exit criterion it advances and include repeatable evidence appropriate to the risk.
 
@@ -178,7 +178,7 @@ archive and recurring synchronization remain separate work.
 Merged PR #109 extends explicit recalculation with retained Connect
 steps and compact strength summaries. No Garmin network call occurs during
 scoring. See SCORING_RULES.md and implementation/issue-108.md for policy and
-validation; the queue item remains open until merge.
+validation. Issue #108 and its merged PR are complete.
 
 ## Non-scoring walking history (#110)
 

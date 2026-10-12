@@ -8,24 +8,31 @@ SportOS is an authenticated account-scoped application for importing sports work
 
 Validated capabilities include browser XLSX and manual Garmin CSV upload, external source storage, encrypted provider credentials, Strava connection/backfill/incremental sync, durable import/provider/rule jobs, immutable scoring-rule versions, audited recomputation, daily/performance provenance drill-downs, canonical export, narrow deterministic analysis tools, citation-validated generation with safe fallback, append-only analysis audit metadata, OIDC sign-in, opaque server-side sessions, CSRF protection, account-scoped database constraints, forced row-level security, split worker authorization, authenticated Angular routes, canonical Monthly Stats, and calendar-day rolling metric Dynamics.
 
-The foundational queue in issue #3 is complete through #16. Later product work and the P4 frontend-architecture lane are prioritized there, and those lanes may proceed in parallel when they do not substantially modify the same feature or infrastructure. Do not invent the next item; select only the first unchecked ready item or work explicitly reprioritized by a maintainer.
+Individual GitHub issues are the work backlog; no master issue or roadmap checklist controls agent selection. Product and frontend-architecture work may proceed in parallel when they do not substantially modify the same feature or infrastructure. Follow the issue-selection policy below, including maintainer-only exclusions.
 
 ## Start here
 
 1. Read `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/AUTHENTICATION.md`, `docs/AI_ANALYSIS.md`, and relevant ADRs. For Angular work, also read `docs/FRONTEND_ARCHITECTURE.md`.
-2. Open issue #3, the authoritative work queue.
-3. Check open pull requests and active claim comments.
-4. Select the first ready unchecked issue, if one exists.
-5. Record every file inspected before implementation.
+2. Review the repository's open GitHub issues, their bodies/labels/dependencies, open PRs, and active claim comments. Inspect recent merged PRs and current `main` before treating older requirements as unfinished.
+3. Select a ready, unclaimed issue using the policy below, unless the maintainer requested a specific task.
+4. Record the actual files inspected during investigation before implementation and again in the PR.
 
-## Queue and branch rules
+## GitHub issue selection
 
-- Issue #3 is the sole source of truth for order.
-- Comment `CLAIMED — branch: issue-<number>-<short-slug>` before work.
+- **Explicit maintainer direction wins.** A requested issue/task takes precedence over default ordering, subject to its current requirements and safe dependencies.
+- **Hard exclusion:** never autonomously claim, implement, branch for, or open a PR for an issue marked `HUMAN-TRIGGERED`, `on hold`, `deferred`, or `requires maintainer decision`, whether by label, title, or issue body. This is not merely a lower priority. Only a fresh explicit maintainer authorization naming that specific work can lift the exclusion. In particular, **#95, #98, #99, and #100 are not eligible** for generic "pick next issue" requests; Garmin #98–#100 require a new maintainer scope decision.
+- Consider only **open** issues with satisfied prerequisites, a still-relevant acceptance scope, and no active implementation PR or valid claim already owning the work. Closed, superseded, duplicate, implemented, or blocked issues are ineligible. Verify blockers, recent merges and the state of `main` rather than trusting stale checkboxes, descriptions, or claims. If a claim looks stale, investigate it before taking over.
+- Among eligible issues, rank recognized GitHub priority labels first: `P0`/`priority:P0`/`priority:critical`, `P1`/`priority:P1`/`priority:high`, `P2`/`priority:P2`/`priority:medium`, `P3`/`priority:P3`/`priority:low`, then `P4`/`priority:P4`. If several recognized labels exist, use the highest priority. Issues with **no recognized priority label** follow these groups. Within the same priority, choose the **oldest creation date**, then the **lowest issue number**. No separate master ordering or duplicate roadmap checklist.
+- If intent has been superseded, prerequisites are unmet, or scope is genuinely unclear, record the exact blocker on that issue and select the next eligible one; do not resurrect old requirements by default.
+
+## Claim, branch, PR, and completion rules
+
+- Comment `CLAIMED — branch: issue-<number>-<short-slug>` on the selected issue before work, including the inspected-file list and any relevant mismatches.
 - Always create the branch from current `main`; never commit directly to `main`.
-- Keep one primary issue per PR and open a draft PR early.
+- Keep one primary issue per PR and open a draft PR early; self-review and use focused validation appropriate to the change.
 - Do not merge unless explicitly asked; when asked, squash merge.
 - If blocked, record the exact blocker and leave the branch safe.
+- After an authorized merge, update/close the **individual GitHub issue**, and update relevant code/docs/status as needed. Never update a separate master queue.
 
 ## Non-negotiable invariants
 
@@ -246,7 +253,7 @@ Use pnpm only. Do not commit build output, caches, local environment files, uplo
 
 Before editing, read the issue/dependencies/PRs, inspect the closest code/tests/migrations, identify the invariant and roadmap exit criterion, list all inspected files, and call out documentation mismatches.
 
-A queue item is complete only when acceptance criteria are satisfied; relevant domain, API, UI, migration, database, worker, importer/provider, analysis evaluation, and root validation pass; documentation and privacy/integrity implications are current; the PR is merged; the issue is closed; and issue #3 is updated. Incomplete validation must be stated explicitly.
+An issue is complete only when its acceptance criteria are satisfied; the relevant focused tests and cross-boundary validation appropriate to its risk have passed (or limitations are explicitly reported); documentation and privacy/integrity implications are current; the PR is merged with authorization; and the individual GitHub issue is updated/closed. Do not require unrelated heavy validation for a docs-only or frontend-only change. State incomplete validation explicitly.
 
 ### Garmin activity reconciliation foundation (#97)
 

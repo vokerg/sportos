@@ -94,6 +94,10 @@ Generated or AI-authored text must not be the source of an official score.
 - Treat local-path import endpoints as development-only until uploads and job isolation exist.
 - Update the README when the public endpoint surface changes.
 
+## Selecting work
+
+The backlog consists of individual open GitHub issues, not an ordered master checklist. For autonomous issue pickup, follow `AGENTS.md`: check prerequisites, current `main`, active PRs/claims, and issue priority labels before choosing. Issues marked human-triggered, on hold, deferred, or requiring a maintainer decision are ineligible without an explicit request for that specific work. Claim the chosen issue, branch from `main`, record inspected files, and do not merge without maintainer authorization.
+
 ## Pull requests
 
 Keep a PR centered on one maintenance or product outcome. The description should cover:
@@ -106,15 +110,9 @@ Keep a PR centered on one maintenance or product outcome. The description should
 - known limitations or follow-up work;
 - migration, privacy, or data-integrity risk where applicable.
 
-Before requesting review:
+Before requesting review, run checks scoped to the change and report commands/results in the PR. For frontend-only work, prefer relevant Vitest tests and `pnpm --filter @sportos/web typecheck`; use the web build for template/routing/bundling changes. For documentation-only edits, review the diff and check links/references; no code or database test suite is needed. Use `pnpm typecheck`, `pnpm test`, and `pnpm build` for changes spanning runtime/package boundaries or when focused checks are insufficient.
 
-```bash
-pnpm typecheck
-pnpm test
-pnpm build
-```
-
-For database or importer work, also run the relevant migration and fixture/import checks.
+For database or importer work, also run the relevant migration and fixture/import checks. CI remains authoritative for its configured gates; do not add heavyweight required runs for a focused frontend or documentation PR.
 
 ## Documentation
 

@@ -69,4 +69,4 @@ No broad historical coefficient recomputation is performed. Dates requiring full
 - provider synchronization;
 - read-only AI analysis.
 
-The authoritative implementation order is maintained in GitHub issue #3. The next milestone begins with browser upload and the durable file-storage boundary.
+At the time of this milestone, implementation sequencing was recorded in issue #3; that checklist is now retired and retained only as historical context. Current work is selected from individual open GitHub issues under the policy in [AGENTS.md](../AGENTS.md). The next planned milestone at that point was browser upload and the durable file-storage boundary.
