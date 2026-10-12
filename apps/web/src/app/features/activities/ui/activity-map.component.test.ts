@@ -46,6 +46,7 @@ beforeEach(() => {
 async function render(data: ActivityMapAvailable = route) {
   const fixture = TestBed.createComponent(ActivityMapComponent);
   Object.defineProperty(fixture.componentInstance, 'route', { value: signal(data) });
+  Object.defineProperty(fixture.componentInstance, 'canvas', { value: () => ({ nativeElement: document.createElement('div') }) });
   fixture.detectChanges();
   await fixture.whenStable();
   fixture.detectChanges();
@@ -89,6 +90,7 @@ describe('ActivityMapComponent', () => {
     vi.mocked(loadMapLibre).mockReturnValueOnce(new Promise(r => { resolve = r; }));
     const fixture = TestBed.createComponent(ActivityMapComponent);
     Object.defineProperty(fixture.componentInstance, 'route', { value: signal(route) });
+    Object.defineProperty(fixture.componentInstance, 'canvas', { value: () => ({ nativeElement: document.createElement('div') }) });
     fixture.detectChanges();
     fixture.destroy();
     resolve({ Map: FakeMap, Marker: FakeMarker, NavigationControl: class {} } as never);
