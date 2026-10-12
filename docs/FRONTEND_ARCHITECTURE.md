@@ -4,7 +4,7 @@
 
 This document defines the target architecture for `apps/web`. It is the baseline for new substantial Angular work and for the incremental migration tracked in issues #74-#80.
 
-The current application is intentionally not being reshuffled in one pass. Existing flat files under `apps/web/src/app` remain valid until the queue item that owns their migration changes them. New feature work should follow the target boundaries below rather than adding more root-level feature files or recreating the removed global `ApiService` pattern.
+The current application is intentionally not being reshuffled in one pass. Existing flat files under `apps/web/src/app` remain valid until the issue that owns their migration changes them. New feature work should follow the target boundaries below rather than adding more root-level feature files or recreating the removed global `ApiService` pattern.
 
 ## Goals
 
@@ -300,7 +300,7 @@ The architecture lane must not freeze unrelated product work.
 
 Before editing:
 
-1. check issue #3 and open PRs;
+1. check the selected GitHub issue, its dependencies/claims, current `main`, and open PRs, following `AGENTS.md` selection rules;
 2. identify which feature and infrastructure files the active work owns;
 3. avoid a second PR that substantially rewrites the same page/store/API client;
 4. if product work needs a pattern currently being introduced by an architecture PR, either build on the merged pattern or keep the product change narrow and document the migration point.
