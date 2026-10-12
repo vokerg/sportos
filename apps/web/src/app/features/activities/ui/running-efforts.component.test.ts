@@ -30,12 +30,23 @@ describe('running effort source comparison', () => {
     const el = render().nativeElement as HTMLElement; const cells = el.querySelectorAll('tbody tr:first-child td');
     expect(cells[0].textContent).toContain('24:35'); expect(cells[0].textContent).toContain('Estimated'); expect(cells[0].textContent).toContain('Strava summary · average pace');
     expect(cells[1].textContent).toContain('23:42'); expect(cells[1].textContent).toContain('Calculated'); expect(cells[1].textContent).toContain('Garmin FIT · timer-active time');
-    expect(el.textContent).toContain('21.1 km'); expect(el.textContent).toContain('Recorded distance is too short'); expect(el.textContent).toContain('not certified personal records');
+    expect(el.textContent).not.toContain('21.1 km'); expect(el.textContent).not.toContain('Recorded distance is too short'); expect(el.textContent).toContain('not certified personal records');
+    expect(el.querySelectorAll('tbody tr')).toHaveLength(1);
     expect(el.querySelector('details')?.textContent).toContain('pause coverage: validated'); expect(el.textContent).toContain('Fetch Strava detail');
   });
   it('hides old durations in stale or failed state while preserving independent sources', () => {
     const el = render({ ...data, providers: data.providers.map(p => p.provider === 'strava' ? { ...p, state: 'stale' } : { ...p, state: 'failed' }) }).nativeElement as HTMLElement;
     expect(el.textContent).toContain('Stale'); expect(el.textContent).toContain('Failed'); expect(el.querySelectorAll('td strong')).toHaveLength(0);
+  });
+  it('qualifies calculated results with incomplete continuous stream coverage', () => {
+    const el = render({ ...data, providers: data.providers.map(p => p.provider === 'strava' ? { ...p, algorithmVersion: 2, efforts: p.efforts.map(e => e.targetDistanceM === 5000 ? { ...e, method: 'stream_calculated', status: 'calculated', reason: 'partial_stream_coverage' } : e) } : p) }).nativeElement as HTMLElement;
+    const cell = el.querySelector('tbody td')!;
+    expect(cell.textContent).toContain('Calculated'); expect(cell.textContent).toContain('Fastest window within continuous retained sections; recording gaps are excluded.');
+  });
+  it('shows distance and pause qualifications beside calculated results', () => {
+    const el = render({ ...data, providers: data.providers.map(p => ({ ...p, algorithmVersion: 4, efforts: p.efforts.map(e => e.targetDistanceM === 5000 ? { ...e, method: p.provider === 'strava' ? 'stream_calculated' : 'fit_calculated', status: 'calculated', reason: p.provider === 'strava' ? 'bounded_pause_boundary' : 'distance_tolerance' } : e) })) }).nativeElement as HTMLElement;
+    expect(el.textContent).toContain('at most 10 m per boundary'); expect(el.textContent).toContain('0.1%, capped at 10 m');
+    expect(el.querySelectorAll('td strong')).toHaveLength(2);
   });
   it('displays equal times independently and emits only an explicit retained intent', () => {
     const fixture = render({ ...data, providers: data.providers.map(p => ({ ...p, efforts: p.efforts.map(e => e.targetDistanceM === 5000 ? { ...e, durationS: 1475.4 } : e) })) });
@@ -45,5 +56,16 @@ describe('running effort source comparison', () => {
   it('prevents repeated clicks during calculation and rounds only the display', () => {
     expect(render(data, true).nativeElement.querySelector('button').disabled).toBe(true);
     expect(effortTime(3599.7)).toBe('1:00:00'); expect(effortTime(null)).toBe('—'); expect(data.providers[0].efforts[0].durationS).toBe(1475.4);
+  });
+  it('keeps a distance available from one provider and uses a dash for the other', () => {
+    const el = render({ ...data, providers: data.providers.map(p => p.provider === 'garmin' ? { ...p, efforts: p.efforts.map(e => ({ ...e, status: 'unavailable', durationS: null, reason: 'no_fit_records' })) } : p) }).nativeElement as HTMLElement;
+    expect(el.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(el.querySelector('tbody td:last-child')?.textContent?.trim()).toBe('—');
+    expect(el.textContent).not.toContain('Unavailable');
+  });
+  it('shows an empty state instead of an unavailable-only catalog', () => {
+    const el = render({ ...data, providers: data.providers.map(p => ({ ...p, efforts: p.efforts.map(e => ({ ...e, status: 'unavailable', durationS: null, reason: 'too_short' })) })) }).nativeElement as HTMLElement;
+    expect(el.querySelector('table')).toBeNull(); expect(el.textContent).toContain('No retained efforts cover these distances');
+    expect(el.querySelector('button')?.textContent).toContain('Calculate retained efforts');
   });
 });

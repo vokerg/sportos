@@ -10,6 +10,15 @@ export interface EffortProvider {
   projectedAt: string | null; algorithmVersion: number | null; efforts: RunningEffort[];
 }
 export interface RunningEfforts { targets: number[]; providers: EffortProvider[]; }
+export function availableEffort(provider: EffortProvider, effort: RunningEffort): boolean {
+  return provider.state === 'current' && effort.status !== 'unavailable' && effort.durationS !== null && Number.isFinite(effort.durationS) && effort.durationS > 0;
+}
+export function visibleEffortTargets(data: RunningEfforts): number[] {
+  return data.targets.filter(target => data.providers.some(provider => provider.efforts.some(effort => effort.targetDistanceM === target && availableEffort(provider, effort))));
+}
+export function effortProviderState(provider: EffortProvider): string {
+  return { current: '', unprocessed: 'Not calculated', stale: 'Stale', failed: 'Failed', not_linked: 'Not linked' }[provider.state];
+}
 export function effortMethod(method: RunningEffort['method']) {
   return method === 'summary_estimate' ? 'Strava summary · average pace' : method === 'stream_calculated' ? 'Strava streams · moving time' : 'Garmin FIT · timer-active time';
 }
@@ -31,7 +40,12 @@ const reasons: Record<string, string> = {
   streams_not_retained: 'Rich streams are not retained.', stale_streams: 'Retained streams belong to an older summary.', streams_unavailable: 'Strava streams were unavailable.',
   missing_or_invalid_strava_summary: 'Valid Strava distance and moving time are unavailable.', no_fit_records: 'FIT records are not retained.', incomplete_fit_resources: 'The retained FIT resource bundle is incomplete.',
   insufficient_pause_evidence: 'Timer start/stop coverage is insufficient.', inconsistent_timer_events: 'Timer events are inconsistent.', unknown_timer_event: 'Timer event type is unsupported.',
-  distance_during_pause_or_transition: 'Distance changes during a pause or across an uncertain timer boundary.', unknown_recording_gap: 'An active recording gap exceeds 30 seconds.',
+  distance_during_pause_or_transition: 'Distance crosses an uncertain timer boundary.', unknown_recording_gap: 'No continuous measured window covers this target because recording gaps exceed 30 seconds.',
+  partial_stream_coverage: 'Fastest window within continuous retained sections; recording gaps are excluded.',
+  partial_stream_coverage_with_tolerance: 'Continuous retained coverage only; bounded distance or pause tolerance applied.',
+  distance_tolerance: 'Distance tolerance applied (0.1%, capped at 10 m); duration uses the actual recorded window.',
+  bounded_pause_boundary: 'Sparse stopped markers use a bounded pause convention (at most 10 m per boundary).',
+  distance_and_pause_tolerance: 'Bounded pause convention and distance tolerance applied (0.1%, capped at 10 m).',
   duplicate_or_nonmonotonic_time: 'Timestamps are duplicated or out of order.', distance_reset: 'Cumulative distance resets.', implausible_distance_jump: 'Distance jumps exceed the running speed limit.',
   missing_or_misaligned_streams: 'Time, distance and moving streams are missing or misaligned.', invalid_stream_sample: 'A stream sample is invalid.', misaligned_stream_metadata: 'Stream sampling metadata disagrees.',
   source_or_algorithm_changed: 'The source or calculation version changed; calculate retained efforts again.', retained_read_failed: 'Retained evidence could not be read; retry processing.', projection_failed: 'Results could not be saved; retry processing.',

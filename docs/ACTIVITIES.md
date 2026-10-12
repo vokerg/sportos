@@ -152,17 +152,22 @@ facts, provider selection, matching tolerances, official points or fetch behavio
 The activity list offers **Cards** and **Compact** views. Cards remain the default;
 `view=compact` preserves a single table row per activity across filters, paging,
 reload and browser back navigation. Compact columns show date/start, activity,
-distance, pace/speed, time, average heart rate, ascent, source and providers. Time
+distance, pace/speed, time, average heart rate, ascent, provider icons. The redundant Source column is omitted. Time
 follows the sport summary: moving time where available for runs/rides, elapsed
 for swims; its hover/accessibility label identifies the basis. Missing values
 show a dash. Activity links open the existing detail page. The table scrolls
 horizontally on small screens and retains one row per activity.
 
-List provider badges use short states: **No link**, **Pending**, **Summary only**,
-**Ready**, **Partial**, **Failed**, and **Outdated**. Pending means metrics have
-not been processed; Ready means processing completed. Hover/accessibility text
-keeps saved/missing/unchecked detail separate. Expanded provider diagnostics on
-the single activity page retain counts, dates and processing information.
+Activity cards and the compact table reuse Daily's Strava/Garmin marks. Only
+linked providers get an icon. An outlined icon with **S** means summary only; a
+filled icon with **✓** means retained detail; **?** means detail coverage has not
+been checked; **!** flags stale/failed processing. A compact legend, hover text
+and screen-reader labels explain the markers. Detail retention is independent of
+normalization status and does not certify every optional resource is complete.
+Icons read existing compact API metadata and never query rich resources or fetch.
+The redundant card source text and table Source column are omitted. Expanded
+provider diagnostics on the single activity page retain counts, dates and
+processing information.
 Switching views reuses loaded activity results and does not fetch provider data.
 
 
@@ -213,3 +218,14 @@ Score authority remains available in the day workspace and canonical export.
 ## Running best efforts (#122)
 
 Run detail adds a compact per-distance Strava/Garmin comparison with explicit Estimated, Calculated, Unavailable, Stale and Failed states. **Calculate retained efforts** reads retained evidence only; selective Fetch Strava detail can upgrade estimates. GET never processes streams/FIT or contacts a provider. See [policy, bounds, persistence and backfill](RUNNING_EFFORTS.md).
+
+
+Run comparison metrics display average speed as **Average pace** and maximum
+speed as **Fastest pace**, in min/km. Native pace is preferred per provider, with
+speed converted only to fill missing pace evidence; duplicate average rows are
+merged without modifying authority or raw provenance. Retained Garmin session
+and lap speed fields also use pace for runs when native units are m/s. Cycling
+comparisons retain km/h. Unavailable best-effort targets are hidden when neither
+provider has a current calculated/estimated result; a one-provider result remains
+visible, with a dash for the missing provider. Empty/stale/failed states preserve
+reprocessing and diagnostics without an unavailable-only catalog.

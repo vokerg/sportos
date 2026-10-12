@@ -10,7 +10,7 @@ export interface MetricGroupView { title: typeof METRIC_GROUPS[number]; items: M
 /** Absolute display tolerances in normalized units, never matching/scoring rules. */
 export const METRIC_TOLERANCES: Readonly<Record<string, number>> = {
   distance: 10, elapsed_duration: 1, moving_duration: 1, timer_duration: 1,
-  average_speed: 0.1 / 3.6, maximum_speed: 0.1 / 3.6, average_pace: 1,
+  average_speed: 0.1 / 3.6, maximum_speed: 0.1 / 3.6, average_pace: 1, maximum_pace: 1,
   average_heart_rate: 1, maximum_heart_rate: 1, calories: 1, ascent: 1, descent: 1,
   average_temperature: 0.1, average_cadence: 1, running_cadence: 1, maximum_running_cadence: 1, maximum_cadence: 1,
   step_length: 0.01, vertical_oscillation: 0.1, vertical_ratio: 0.1, ground_contact_time: 1,
@@ -32,7 +32,9 @@ export function formatMetric(value: number, key: string, unit: string, sport: st
     const seconds = Math.round(sport === 'swim' ? value / 10 : value);
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} ${sport === 'swim' ? '/100m' : '/km'}`;
   }
-  if (unit === 'm/s') return `${(value * 3.6).toFixed(1)} km/h`;
+  if (unit === 'm/s') return sport === 'run' && ['average_speed', 'maximum_speed'].includes(key)
+    ? value > 0 ? formatMetric(1000 / value, key, 's/km', sport) : 'Unavailable'
+    : `${(value * 3.6).toFixed(1)} km/h`;
   if (key === 'distance') return sport === 'swim' || value < 1000 ? `${number(value, 0)} m` : `${number(value / 1000, 1)} km`;
   if (key === 'step_length' || key === 'pool_length') return `${value.toFixed(2)} m`;
   if (unit === 'C') return `${number(value, 1)} °C`;
@@ -43,7 +45,29 @@ export function sourceLabel(source: string): string {
   return ({ strava: 'Strava', garmin: 'Garmin', manual: 'Manual', my_sport_xlsx: 'My Sport workbook', run_db_xlsx: 'Run DB workbook', google_sheets: 'Google Sheets', fit: 'FIT' } as Record<string, string>)[source] ?? source;
 }
 function valid(value: number, unit: string): boolean {
-  return Number.isFinite(value) && (value >= 0 || unit === 'C') && (unit !== 'bpm' || value > 0);
+  return Number.isFinite(value) && (value >= 0 || unit === 'C') && (!['bpm', 's/km'].includes(unit) || value > 0);
+}
+/** Unit presentation only. Prefer native pace evidence and fill only providers
+ * without it from speed; retain authority and do not mutate transport data. */
+function runningPace(metrics: readonly ActivityMetricComparison[], sport: string): ActivityMetricComparison[] {
+  if (sport !== 'run') return [...metrics];
+  const convert = (metric: ActivityMetricComparison): ActivityMetricComparison => ({
+    ...metric, key: metric.key === 'average_speed' ? 'average_pace' : 'maximum_pace',
+    label: metric.key === 'average_speed' ? 'Average pace' : 'Fastest pace', unit: 's/km',
+    selected: metric.selected && metric.selected.value > 0 && Number.isFinite(metric.selected.value) ? { ...metric.selected, value: 1000 / metric.selected.value } : null,
+    candidates: metric.candidates.filter(c => c.value > 0 && Number.isFinite(c.value)).map(c => ({ ...c, value: 1000 / c.value })),
+  });
+  const speed = metrics.find(m => m.key === 'average_speed' && m.unit === 'm/s');
+  const native = metrics.find(m => m.key === 'average_pace' && m.unit === 's/km');
+  let average = speed ? convert(speed) : undefined;
+  if (average && native) {
+    const explicit = new Set(native.candidates.filter(c => c.selectedWithinProvider && valid(c.value, native.unit)).map(c => c.provider));
+    average = { ...average, label: native.label,
+      selected: native.selected && valid(native.selected.value, native.unit) ? native.selected : average.selected,
+      candidates: [...native.candidates, ...average.candidates.filter(c => !explicit.has(c.provider))] };
+  }
+  return metrics.flatMap(m => m === speed ? [average!] : m === native && average ? []
+    : m.key === 'maximum_speed' && m.unit === 'm/s' ? [convert(m)] : [m]);
 }
 /** API FIT running subfields are already steps/min. General run cadence rpm is
  * cycles/strides per minute for both providers; convert only this known unit. */
@@ -63,7 +87,7 @@ function runningCadence(metrics: readonly ActivityMetricComparison[], sport: str
   return metrics.flatMap(m => m.key === 'average_cadence' ? [merged] : m.key === 'running_cadence' ? [] : [m]);
 }
 function groupFor(key: string): MetricGroupView['title'] {
-  if (['distance','elapsed_duration','moving_duration','timer_duration','average_speed','maximum_speed','average_pace','ascent','descent','pool_length'].includes(key)) return 'Time & Distance';
+  if (['distance','elapsed_duration','moving_duration','timer_duration','average_speed','maximum_speed','average_pace','maximum_pace','ascent','descent','pool_length'].includes(key)) return 'Time & Distance';
   if (key.includes('heart_rate')) return 'Heart Rate';
   if (['running_cadence','maximum_running_cadence','step_length','vertical_oscillation','vertical_ratio','ground_contact_time','ground_contact_balance','stance_time_ratio'].includes(key)) return 'Running Dynamics';
   if (key.includes('power') || key.startsWith('strength_') || ['calories','total_work','aerobic_training_effect','anaerobic_training_effect','relative_effort','training_stress'].includes(key)) return 'Power & Training';
@@ -96,7 +120,7 @@ function valuesFor(metric: ActivityMetricComparison, sport: string): MetricValue
   return rows.sort((a,b) => rank(a) - rank(b)).map(r => ({ ...r, sources: r.sources.sort((a,b) => a === 'Strava' ? -1 : b === 'Strava' ? 1 : 0), text: formatMetric(r.value, metric.key, metric.unit, sport) }));
 }
 export function comparisonGroups(metrics: readonly ActivityMetricComparison[], sport: string): MetricGroupView[] {
-  const rows = runningCadence(metrics, sport).map(m => ({ key: m.key, label: sport === 'bike' && m.key === 'average_cadence' ? 'Average cycling cadence' : m.label, values: valuesFor(m, sport) }));
+  const rows = runningCadence(runningPace(metrics, sport), sport).map(m => ({ key: m.key, label: sport === 'bike' && m.key === 'average_cadence' ? 'Average cycling cadence' : m.label, values: valuesFor(m, sport) }));
   return METRIC_GROUPS.map(title => ({ title, items: rows.filter(m => groupFor(m.key) === title) })).filter(g => g.items.length > 0);
 }
 
@@ -104,7 +128,7 @@ export function comparisonGroups(metrics: readonly ActivityMetricComparison[], s
  * repeating fields already rendered in the source comparison. Older APIs still
  * use the complete canonical cards when no comparison data is available. */
 export function supplementalMetricGroups(activity: ActivityDetail) {
-  const keys = new Set(activity.metricComparisons?.map(m => m.key) ?? []);
+  const keys = new Set(comparisonGroups(activity.metricComparisons ?? [], activity.activity_type).flatMap(g => g.items.map(m => m.key)));
   const keyByLabel: Record<string, string> = {
     Distance: 'distance', Duration: 'elapsed_duration', 'Elapsed time': 'elapsed_duration',
     'Moving time': 'moving_duration', 'Moving pace': 'average_pace', 'Average pace': 'average_pace',

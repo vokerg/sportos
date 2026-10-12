@@ -9,6 +9,26 @@ function metric(key = 'distance', unit = 'm', a = 10000, b = 10005): ActivityMet
 }
 const values = (m: ActivityMetricComparison, sport = 'run') => comparisonGroups([m], sport)[0].items[0].values;
 describe('activity metrics display', () => {
+  it('presents run average and maximum speeds as independent provider paces, keeping cycling speed', () => {
+    const metrics = [metric('average_speed', 'm/s', 12.8 / 3.6, 12.6 / 3.6), metric('maximum_speed', 'm/s', 16.9 / 3.6, 16.4 / 3.6)];
+    const before = JSON.stringify(metrics), rows = comparisonGroups(metrics, 'run')[0].items;
+    expect(rows.map(r => [r.key, r.label, r.values.map(v => v.text)])).toEqual([
+      ['average_pace', 'Average pace', ['4:41 /km', '4:46 /km']],
+      ['maximum_pace', 'Fastest pace', ['3:33 /km', '3:40 /km']],
+    ]);
+    expect(rows[0].values.map(v => [v.sources, v.authoritative])).toEqual([[['Strava'], true], [['Garmin'], false]]);
+    expect(comparisonGroups(metrics, 'bike')[0].items.map(r => r.values.map(v => v.text))).toEqual([['12.8 km/h', '12.6 km/h'], ['16.9 km/h', '16.4 km/h']]);
+    expect(JSON.stringify(metrics)).toBe(before);
+  });
+  it('merges native running pace and speed conversion once, filling only missing providers', () => {
+    const native = metric('average_pace', 's/km', 280, 281); native.label = 'Moving pace'; native.candidates = [native.candidates[1]];
+    const speed = metric('average_speed', 'm/s', 3.4, 3.5);
+    const rows = comparisonGroups([native, speed], 'run')[0].items;
+    expect(rows).toHaveLength(1); expect(rows[0].label).toBe('Moving pace');
+    expect(rows[0].values.map(v => v.text)).toEqual(['4:40 /km', '4:46 /km']);
+    expect(values(metric('average_speed', 'm/s', 0, 0))).toEqual([]);
+    expect(formatMetric(0, 'maximum_speed', 'm/s', 'run')).toBe('Unavailable');
+  });
   it.each([
     [65.4, 'elapsed_duration','s','run','1:05'], [3661,'moving_duration','s','run','1:01:01'],
     [299.8,'average_pace','s/km','run','5:00 /km'], [1199,'average_pace','s/km','swim','2:00 /100m'],

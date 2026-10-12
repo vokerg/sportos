@@ -77,9 +77,9 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         @if (store.garmin(); as garmin) {
           <p>Retained Garmin data · {{ garmin.retainedAt }} @if (garmin.cacheStatus) { · {{ garmin.cacheStatus === 'hit' ? 'cache hit' : 'fetched from Garmin' }} }</p>
           <h4>Garmin session and running dynamics</h4>
-          <dl class="metrics">@for (metric of fitMetrics(garmin.sessions[0]); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> } @empty { <p>No supported session metrics were provided.</p> }</dl>
+          <dl class="metrics">@for (metric of fitMetrics(garmin.sessions[0], item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> } @empty { <p>No supported session metrics were provided.</p> }</dl>
           <details class="provider-json"><summary>Garmin laps ({{ garmin.laps.length }} shown, up to 100)</summary>
-            @for (lap of garmin.laps; track $index) { <h4>Lap {{ $index + 1 }}</h4><dl class="metrics">@for (metric of fitMetrics(lap); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl> }
+            @for (lap of garmin.laps; track $index) { <h4>Lap {{ $index + 1 }}</h4><dl class="metrics">@for (metric of fitMetrics(lap, item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl> }
           </details>
           <details class="provider-json"><summary>Garmin exercise sets</summary>
             @for (set of exerciseSetRows(garmin.sets); track $index) { <h4>Set {{ $index + 1 }}</h4><dl class="metrics">@for (field of set; track field.label) { <div><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></div> }</dl> } @empty { <p>No exercise sets were provided.</p> }

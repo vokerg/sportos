@@ -383,3 +383,23 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
 - Primary V133 retains compact immutable effort versions/results and scoped current heads; streams/FIT remain in the existing detail database. Preserve expected Strava resource fingerprints before replacement, source rechecks and precise inspection ordering.
 - Navigation never calculates, writes or downloads. Explicit Fetch and retained-only POST/operator processing update only the intended providers. No canonical/scoring/Run Lab mutation or bulk rich fetch.
 - `pnpm activities:efforts -- --owner UUID` previews one bounded retained-only batch; `--apply` commits explicitly. Use separate non-owner app roles. See `docs/RUNNING_EFFORTS.md` for conservative transitions, gaps, coverage, retries and deployment.
+
+### Evidenced-pause effort repair (#124)
+
+- Algorithm v4 excludes fully evidenced stopped distance and duration. Validate
+  raw cumulative distance separately; never credit paused movement to a target.
+- Unknown Strava gaps split continuous sections; never stitch a window across
+  them. Calculated results carry `partial_stream_coverage`; longer targets may
+  remain explicit summary estimates. Garmin mixed timer transitions still fail
+  closed. Primary V134 permits only this specific Strava calculated qualification.
+- Retained reprocessing upgrades old algorithm versions without provider calls
+  or canonical/scoring/performance writes. See `docs/RUNNING_EFFORTS.md`.
+
+- Maintainer-authorized measured target tolerance is 0.1%, capped at 10 m;
+  preserve actual coverage, duration and offsets and label the tolerance.
+  Summary estimates retain strict source-distance eligibility. V135 enforces
+  labeled and bounded measured shortfalls; do not widen it silently.
+- A sparse Strava true → false interval over 30 seconds can be qualified as a
+  bounded pause only with at most 10 m drift and a moving sample resuming within
+  30 seconds. Selected windows crossing it carry the qualification; genuine
+  unknown gaps still split sections. Never use Garmin to fill Strava gaps.

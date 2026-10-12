@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { RUNNING_EFFORT_ALGORITHM_VERSION, RUNNING_EFFORT_LIMITS, RUNNING_EFFORT_TARGETS, estimateStravaEfforts, garminFitEfforts, stravaStreamEfforts, unavailableEfforts, type RunningEffort } from '@sportos/domain';
+import { RUNNING_EFFORT_ALGORITHM_VERSION, RUNNING_EFFORT_LIMITS, RUNNING_EFFORT_TARGETS, estimateStravaEfforts, garminFitEfforts, runningEffortDistanceTolerance, stravaStreamEfforts, unavailableEfforts, type RunningEffort } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Database, Json } from './schema.js';
 import type { DetailExecutor } from './activity-metric-projector.js';
@@ -52,7 +52,12 @@ export class RetainedRunningEffortProjector {
             .where(sql<string>`md5(payload_json::text)`, '=', metadata!.hash).where('availability', '=', 'available').executeTakeFirst());
           if (!retained) throw new Error('Retained streams changed during inspection.');
           const measured = stravaStreamEfforts(retained.streams);
-          if (measured.some(e => e.pauseCoverage === 'validated')) return measured;
+          if (measured.some(e => e.pauseCoverage === 'validated')) {
+            // A target without a continuous measured window remains explicitly
+            // estimated; other targets can use qualified retained coverage.
+            const estimates = estimateStravaEfforts(distance, moving, 'unknown_recording_gap');
+            return measured.map((row, i) => row.status === 'unavailable' && row.reason === 'unknown_recording_gap' ? estimates[i] : row);
+          }
           fallback = measured[0].reason ?? 'invalid_streams';
         }
         return estimateStravaEfforts(distance, moving, fallback);
@@ -70,7 +75,7 @@ export class RetainedRunningEffortProjector {
     return { inputHash: signature([ref, summary.distance, metadata]), calculate: async () => {
       const distance = typeof summary.distance === 'number' && Number.isFinite(summary.distance) && summary.distance >= 0 ? summary.distance : null;
       // Compact preflight avoids large record reads for known short runs.
-      if (distance !== null && distance < RUNNING_EFFORT_TARGETS[0]) return unavailableEfforts('fit_calculated', 'too_short', distance);
+      if (distance !== null && distance < RUNNING_EFFORT_TARGETS[0] - runningEffortDistanceTolerance(RUNNING_EFFORT_TARGETS[0])) return unavailableEfforts('fit_calculated', 'too_short', distance);
       const recordChunks = metadata.chunks.filter(r => r.resource_type === 'records');
       if (!recordChunks.length) return unavailableEfforts('fit_calculated', 'no_fit_records', distance);
       if (!completeResources(metadata.expected, metadata.chunks)) return unavailableEfforts('fit_calculated', 'incomplete_fit_resources', distance);

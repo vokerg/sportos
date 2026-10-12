@@ -17,12 +17,16 @@ export function providerListState(status: ProviderMetricStatus): string {
     raw_retained_unprocessed: 'Pending', processed: 'Ready', partial: status.compactOnly ? 'Summary only' : 'Partial',
     failed: 'Failed', stale: 'Outdated' })[status.state];
 }
+export function providerCoverageKind(status: ProviderMetricStatus): 'detail' | 'summary' | 'unknown' {
+  return status.rawRetained === true ? 'detail' : status.rawRetained === false ? 'summary' : 'unknown';
+}
+export function providerNeedsAttention(status: ProviderMetricStatus): boolean { return status.state === 'stale' || status.state === 'failed'; }
 export function providerListDescription(status: ProviderMetricStatus): string {
   if (!status.linked) return 'Not linked';
   const metrics = ({ not_linked: 'Not linked', linked_unprocessed: 'Metrics pending', linked_no_rich_data: 'Summary only',
     raw_retained_unprocessed: 'Metrics pending', processed: 'Metrics ready', partial: 'Some metrics missing',
     failed: 'Metric processing failed', stale: 'Metrics need updating' })[status.state];
-  const details = status.rawRetained === true ? 'Detail saved' : status.rawRetained === false ? 'No saved detail' : 'Detail not checked';
+  const details = status.rawRetained === true ? 'Detail retained' : status.rawRetained === false ? 'Summary only; no retained detail' : 'Detail not checked';
   return `Linked. ${metrics}. ${details}`;
 }
 export function metricValue(value:number,unit:string):string {
