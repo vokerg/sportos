@@ -142,7 +142,7 @@ export class ActivitiesRepository {
         .on('snapshot.source', '=', 'strava_api')
         .on('snapshot.status', '=', 'normalized')
         .on('snapshot.normalized_entity_type', '=', 'activity')
-        .onRef('snapshot.normalized_entity_id', '=', 'link.activity_id')
+        .on('snapshot.normalized_entity_id', '=', sql<string>`link.activity_id::text`)
         .onRef('snapshot.source_record_key', '=', 'link.provider_activity_id'))
       .select([
         sql<string | null>`snapshot.raw_json #>> '{map,summary_polyline}'`.as('polyline'),
