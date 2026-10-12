@@ -7,6 +7,7 @@
     "start": "ng serve --host 0.0.0.0 --port 4210",
     "build": "ng build",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "lint:architecture": "node ../../scripts/check-web-boundaries.mjs",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
