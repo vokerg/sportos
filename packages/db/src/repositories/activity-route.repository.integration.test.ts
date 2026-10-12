@@ -57,6 +57,9 @@ databaseDescribe('activity route provenance and owner isolation', () => {
         source: 'manual', activity_type: 'walk', activity_date: '2095-05-02',
         source_record_id: source.id,
       }).returning('id').executeTakeFirstOrThrow()).id;
+      await scoped.updateTable('source_records')
+        .set({ normalized_entity_type: 'activity', normalized_entity_id: activity })
+        .where('id', '=', source.id).execute();
       const link = (await scoped.insertInto('provider_activity_links').values({
         connection_id: connectionId, provider_activity_id: source.source_record_key!,
         activity_id: activity, latest_source_record_id: source.id,
@@ -74,6 +77,23 @@ databaseDescribe('activity route provenance and owner isolation', () => {
     expect(await read(ownerA, fixture.unlinked)).toEqual({ linked: false, polyline: null, polylineType: null });
     expect(await read(ownerB, fixture.activity)).toBeNull();
     expect(await read(ownerA, randomUUID())).toBeNull();
+
+    // Even a linked source with matching native ID is untrusted if its
+    // normalization no longer refers to this canonical activity.
+    await withAccountContext(db, ownerA, scoped =>
+      scoped.updateTable('source_records').set({ normalized_entity_id: fixture.unlinked })
+        .where('id', '=', fixture.sourceId).execute());
+    expect(await read(ownerA, fixture.activity)).toEqual({ linked: false, polyline: null, polylineType: null });
+
+    await withAccountContext(db, ownerA, scoped =>
+      scoped.updateTable('source_records').set({ normalized_entity_id: fixture.activity, status: 'raw' })
+        .where('id', '=', fixture.sourceId).execute());
+    expect(await read(ownerA, fixture.activity)).toEqual({ linked: false, polyline: null, polylineType: null });
+
+    await withAccountContext(db, ownerA, scoped =>
+      scoped.updateTable('source_records').set({ status: 'normalized' })
+        .where('id', '=', fixture.sourceId).execute());
+    expect(await read(ownerA, fixture.activity)).toMatchObject({ linked: true, polylineType: 'string' });
 
     await withAccountContext(db, ownerA, scoped =>
       scoped.updateTable('source_records').set({ raw_json: { map: { summary_polyline: ['wrong type'] } } })
