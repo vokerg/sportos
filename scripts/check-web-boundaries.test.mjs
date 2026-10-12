@@ -34,6 +34,8 @@ test('rejects component and presentation imports into feature state', () => {
     "import { DailyPage } from '../pages/daily-page.component';"), ['state-boundary']);
   assert.deepEqual(rules('features/daily/state/daily.store.ts',
     "import { DailyCard } from '../ui/daily-card';"), ['state-boundary']);
+  assert.deepEqual(rules('features/daily/state/daily.store.ts',
+    "import { DailyCard } from '../daily-card.component.ts';"), ['state-boundary']);
 });
 
 test('rejects state and presentation imports into data-access', () => {
@@ -41,11 +43,17 @@ test('rejects state and presentation imports into data-access', () => {
     "import { DailyStore } from '../state/daily.store';"), ['transport-boundary']);
   assert.deepEqual(rules('features/daily/data-access/daily-api.ts',
     "export * from '../ui/daily-card.component';"), ['transport-boundary']);
+  assert.deepEqual(rules('features/daily/data-access/daily-api.ts',
+    "import { Card } from '../card.component.ts';"), ['transport-boundary']);
 });
 
 test('prevents HttpClient injection imports in components and HTTP in UI', () => {
   assert.deepEqual(rules('features/daily/pages/daily-page.component.ts',
     "import { HttpClient as Client, HttpErrorResponse } from '@angular/common/http';"), ['component-http']);
+  assert.deepEqual(rules('features/daily/pages/daily-page.component.ts',
+    "import * as http from '@angular/common/http';"), ['component-http']);
+  assert.deepEqual(rules('features/daily/model/daily.models.ts',
+    "import * as core from '@angular/core';"), []);
   assert.deepEqual(rules('features/daily/ui/daily-card.component.ts',
     "import { HttpErrorResponse } from '@angular/common/http';"), ['ui-http']);
   assert.deepEqual(rules('features/daily/data-access/daily-api.service.ts',
