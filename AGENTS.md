@@ -383,3 +383,14 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
 - Primary V133 retains compact immutable effort versions/results and scoped current heads; streams/FIT remain in the existing detail database. Preserve expected Strava resource fingerprints before replacement, source rechecks and precise inspection ordering.
 - Navigation never calculates, writes or downloads. Explicit Fetch and retained-only POST/operator processing update only the intended providers. No canonical/scoring/Run Lab mutation or bulk rich fetch.
 - `pnpm activities:efforts -- --owner UUID` previews one bounded retained-only batch; `--apply` commits explicitly. Use separate non-owner app roles. See `docs/RUNNING_EFFORTS.md` for conservative transitions, gaps, coverage, retries and deployment.
+
+### Evidenced-pause effort repair (#124)
+
+- Algorithm v3 excludes fully evidenced stopped distance and duration. Validate
+  raw cumulative distance separately; never credit paused movement to a target.
+- Unknown Strava gaps split continuous sections; never stitch a window across
+  them. Calculated results carry `partial_stream_coverage`; longer targets may
+  remain explicit summary estimates. Garmin mixed timer transitions still fail
+  closed. Primary V134 permits only this specific Strava calculated qualification.
+- Retained reprocessing upgrades old algorithm versions without provider calls
+  or canonical/scoring/performance writes. See `docs/RUNNING_EFFORTS.md`.

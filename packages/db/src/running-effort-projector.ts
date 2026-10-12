@@ -52,7 +52,12 @@ export class RetainedRunningEffortProjector {
             .where(sql<string>`md5(payload_json::text)`, '=', metadata!.hash).where('availability', '=', 'available').executeTakeFirst());
           if (!retained) throw new Error('Retained streams changed during inspection.');
           const measured = stravaStreamEfforts(retained.streams);
-          if (measured.some(e => e.pauseCoverage === 'validated')) return measured;
+          if (measured.some(e => e.pauseCoverage === 'validated')) {
+            // A target without a continuous measured window remains explicitly
+            // estimated; other targets can use qualified retained coverage.
+            const estimates = estimateStravaEfforts(distance, moving, 'unknown_recording_gap');
+            return measured.map((row, i) => row.status === 'unavailable' && row.reason === 'unknown_recording_gap' ? estimates[i] : row);
+          }
           fallback = measured[0].reason ?? 'invalid_streams';
         }
         return estimateStravaEfforts(distance, moving, fallback);

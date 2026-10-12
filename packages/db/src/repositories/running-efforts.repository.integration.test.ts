@@ -49,14 +49,22 @@ integration('running efforts retained-only non-owner primary/detail integration'
   async function strava(f: Fixture, payload = stream(), version = f.hash) {
     await rich(db => new ActivityProviderResourcesRepository(db).replace({ activityId: f.activity, provider: 'strava', providerActivityId: f.native, connectionId: f.connection, providerVersion: version }, [{ resourceType: 'streams', availability: 'available', httpStatus: 200, payload }]));
   }
-  async function garmin(f: Fixture, distance = 10000, seconds = 3000, pauseEvents = true) {
+  async function garmin(f: Fixture, distance = 10000, seconds = 3000, pauseEvents = true, stoppedDrift = 0) {
     const native = String(Math.floor(Math.random() * 1e12)), hash = createHash('sha256').update(native).digest('hex');
     const identity = await scoped(db => new GarminActivitiesRepository(db).ingest({ provider: 'garmin', providerActivityId: native, contentHash: hash, origin: 'connect', sourceUpdatedAt: f.start,
       summary: { activityType: 'run', subtype: 'outdoor', startTime: f.start, elapsedTimeS: f.moving, movingTimeS: f.moving, distanceM: distance } }));
     expect(identity.activityId).toBe(f.activity);
     const ts = (s: number) => new Date(f.start.getTime() + s * 1000).toISOString();
     const message = (name: string, fields: Record<string, unknown>) => ({ message: name, fields: Object.entries(fields).map(([name, value]) => ({ name, units: name === 'distance' ? 'm' : name === 'timestamp' ? 's' : null, value: value as Json, definition: 0, developerIndex: null, rawValue: value as Json })) });
-    const records: Json[] = [message('session', {}), ...(pauseEvents ? [message('event', { timestamp: ts(0), event: 'timer', event_type: 'start' }), message('event', { timestamp: ts(seconds), event: 'timer', event_type: 'stop_all' })] : []), ...Array.from({ length: Math.floor(distance / 10) + 1 }, (_, i) => message('record', { timestamp: ts(i * seconds / (distance / 10)), distance: i * 10 }))];
+    const stop = seconds / 2;
+    const records: Json[] = [message('session', {}), ...(pauseEvents ? [message('event', { timestamp: ts(0), event: 'timer', event_type: 'start' }),
+      ...(stoppedDrift ? [message('event', { timestamp: ts(stop), event: 'timer', event_type: 'stop' }), message('event', { timestamp: ts(stop + 60), event: 'timer', event_type: 'start' })] : []),
+      message('event', { timestamp: ts(seconds + (stoppedDrift ? 60 : 0)), event: 'timer', event_type: 'stop_all' })] : []),
+      ...Array.from({ length: Math.floor(distance / 10) + 1 }, (_, i) => {
+        const t = i * seconds / (distance / 10), after = stoppedDrift && t > stop;
+        return [message('record', { timestamp: ts(t + (after ? 60 : 0)), distance: i * 10 + (after ? stoppedDrift : 0) }),
+          ...(stoppedDrift && t === stop ? [message('record', { timestamp: ts(stop + 60), distance: i * 10 + stoppedDrift })] : [])];
+      }).flat()];
     await rich(async db => {
       const repo = new GarminActivityResourcesRepository(db), ref = { identityKey: `native:${native}`, sourceHash: hash };
       await repo.retain(ref, { resourceType: 'detail', chunkIndex: 0, payload: {} }); await repo.retain(ref, { resourceType: 'sets', chunkIndex: 0, payload: {} });
@@ -117,6 +125,27 @@ integration('running efforts retained-only non-owner primary/detail integration'
     expect((await read(f.activity)).providers[0]).toMatchObject({ state: 'stale', efforts: [expect.objectContaining({ durationS: null }), ...Array(5).fill(expect.anything())] });
     await project(f.activity); expect((await read(f.activity)).providers[0].efforts[0]).toMatchObject({ status: 'estimated', durationS: 5000 * 2900 / 9000 });
   });
+  it('projects retained paused-distance streams and FIT as calculated without network or official writes', async () => {
+    const f = await fixture();
+    const d = Array.from({ length: 1001 }, (_, i) => i * 10);
+    await strava(f, {
+      time: { data: [...d.slice(0, 501).map(v => v * .3), 1560, ...d.slice(501).map(v => v * .3 + 60)] },
+      distance: { data: [...d.slice(0, 501), 5000.7, ...d.slice(501).map(v => v + .7)] },
+      moving: { data: [...d.slice(0, 500).map(() => true), false, false, ...d.slice(501).map(() => true)] },
+    });
+    await garmin(f, 10000, 3000, true, 1.05);
+    const before = await facts(), network = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network forbidden'));
+    expect((await project(f.activity)).map(r => r.category)).toEqual(['newly_projected', 'newly_projected']);
+    const response = await read(f.activity);
+    for (const provider of response.providers) {
+      expect(provider).toMatchObject({ state: 'current', algorithmVersion: 3 });
+      expect(provider.efforts[1]).toMatchObject({ status: 'calculated', durationS: 3000, coverageDistanceM: 10000, endOffsetS: 3060 });
+    }
+    expect(response.providers.map(p => p.efforts[1].sourceDistanceM)).toEqual([10000.7, 10001.05]);
+    expect((await project(f.activity)).every(r => r.category === 'already_current')).toBe(true);
+    expect(await read(f.activity)).toEqual(response); expect(await facts()).toEqual(before);
+    expect(network).not.toHaveBeenCalled(); network.mockRestore();
+  });
   it('requires FIT pause evidence and skips rich reads for unchanged or short Garmin inputs', async () => {
     const f = await fixture(5000, 1500); await garmin(f, 5000, 1500, false); await project(f.activity);
     expect((await read(f.activity)).providers[1].efforts[0]).toMatchObject({ status: 'unavailable', reason: 'insufficient_pause_evidence' });
@@ -126,6 +155,21 @@ integration('running efforts retained-only non-owner primary/detail integration'
     const short = await fixture(4000, 1200); await garmin(short, 4000, 1200);
     detailCalls.mockClear(); await scoped(db => new RetainedRunningEffortProjector(db, detailCalls).project(short.activity, false, 'garmin'));
     expect(detailCalls).toHaveBeenCalledTimes(1); expect((await read(short.activity)).providers[1].efforts[0].reason).toBe('too_short');
+  });
+  it('keeps measured continuous targets distinct from summary estimates across stream gaps', async () => {
+    const f = await fixture(), d = Array.from({ length: 1001 }, (_, i) => i * 10);
+    const moving = d.map(() => true); moving[501] = false;
+    await strava(f, { time: { data: d.map(v => v * .28 + (v > 5000 ? 600 : 0)) }, distance: { data: d }, moving: { data: moving } });
+    await project(f.activity);
+    const provider = (await read(f.activity)).providers[0];
+    expect(provider.efforts[0]).toMatchObject({ status: 'calculated', method: 'stream_calculated', reason: 'partial_stream_coverage', coverageDistanceM: 5000 });
+    expect(provider.efforts[0].durationS).toBeCloseTo(1400);
+    expect(provider.efforts[1]).toMatchObject({ status: 'estimated', method: 'summary_estimate', reason: 'unknown_recording_gap', durationS: 3000, startOffsetS: null });
+    await expect(scoped(async db => new RunningEffortsRepository(db).publish({
+      reference: (await new ActivityMetricsRepository(db).references([f.activity]))[0], inputHash: 'b'.repeat(64), inspectedAt: await effortInspectionTime(db),
+      efforts: provider.efforts.map(e => e.status === 'calculated' ? { ...e, reason: 'unknown_recording_gap' } : e),
+    }))).rejects.toThrow('running_effort_values_quality_check');
+    expect((await read(f.activity)).providers[0]).toEqual(provider);
   });
   it('keeps historical success on partial read failure but hides its duration; retry recovers idempotently', async () => {
     const f = await fixture(); await strava(f); await project(f.activity);
@@ -190,7 +234,7 @@ integration('running efforts retained-only non-owner primary/detail integration'
     const f=await fixture();const g=await garmin(f);await project(f.activity);
     await scoped(async db=>{
       const ref=(await new ActivityMetricsRepository(db).references([f.activity])).find(r=>r.provider==='garmin')!;
-      const projection=await db.insertInto('running_effort_projections').values({activity_id:f.activity,provider:'garmin',source_ref:ref.sourceRef,source_version:ref.sourceVersion,input_hash:'f'.repeat(64),resource_hash:null,algorithm_version:2}).returning('id').executeTakeFirstOrThrow();
+      const projection=await db.insertInto('running_effort_projections').values({activity_id:f.activity,provider:'garmin',source_ref:ref.sourceRef,source_version:ref.sourceVersion,input_hash:'f'.repeat(64),resource_hash:null,algorithm_version:1}).returning('id').executeTakeFirstOrThrow();
       await db.updateTable('running_effort_heads').set({projection_id:projection.id}).where('activity_id','=',f.activity).where('provider','=','garmin').execute();
     });
     expect((await read(f.activity))!.providers[1].state).toBe('stale');await project(f.activity,false,'garmin');

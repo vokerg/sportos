@@ -37,6 +37,11 @@ describe('running effort source comparison', () => {
     const el = render({ ...data, providers: data.providers.map(p => p.provider === 'strava' ? { ...p, state: 'stale' } : { ...p, state: 'failed' }) }).nativeElement as HTMLElement;
     expect(el.textContent).toContain('Stale'); expect(el.textContent).toContain('Failed'); expect(el.querySelectorAll('td strong')).toHaveLength(0);
   });
+  it('qualifies calculated results with incomplete continuous stream coverage', () => {
+    const el = render({ ...data, providers: data.providers.map(p => p.provider === 'strava' ? { ...p, algorithmVersion: 2, efforts: p.efforts.map(e => e.targetDistanceM === 5000 ? { ...e, method: 'stream_calculated', status: 'calculated', reason: 'partial_stream_coverage' } : e) } : p) }).nativeElement as HTMLElement;
+    const cell = el.querySelector('tbody td')!;
+    expect(cell.textContent).toContain('Calculated'); expect(cell.textContent).toContain('Fastest window within continuous retained sections; recording gaps are excluded.');
+  });
   it('displays equal times independently and emits only an explicit retained intent', () => {
     const fixture = render({ ...data, providers: data.providers.map(p => ({ ...p, efforts: p.efforts.map(e => e.targetDistanceM === 5000 ? { ...e, durationS: 1475.4 } : e) })) });
     expect(fixture.nativeElement.querySelectorAll('td strong')).toHaveLength(2);

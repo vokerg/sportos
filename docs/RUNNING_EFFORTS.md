@@ -1,6 +1,7 @@
 # Per-activity running efforts (#122)
 
-Apply primary Flyway **V133** before deployment. The existing separate detail
+Apply primary Flyway **V134** before deploying algorithm v3; V133 introduced
+the projections and V134 permits the explicit continuous-section qualification. The existing separate detail
 schema through V003 is reused unchanged. `/activity/:id` shows independent Strava
 and Garmin results for 5, 10, 15, 20, 21.0975 (displayed 21.1) and 25 km. The central
 catalog is `packages/domain/src/running-efforts.ts`; extending it requires a
@@ -27,7 +28,8 @@ its own distance/time evidence; disagreements remain visible.
   active. Slow running and active zero-distance intervals count. This convention
   prevents a transition sample from removing traveled running time; boundary pause
   uncertainty may conservatively add up to one sample interval. Fully stopped
-  intervals contribute zero duration and must have zero distance change.
+  intervals contribute zero duration and zero running distance, even when the
+  native cumulative distance advances during the stop.
 - **Calculated · Garmin FIT · timer-active time** reads decoded native FIT
   `record` timestamp/distance and `event` timer fields in the extractor's retained
   fields-array format. It requires alternating start/stop evidence bounding the
@@ -48,27 +50,43 @@ A target must fit inside validated recorded coverage; there is no distance
 extrapolation. Garmin compact distance below 5 km skips large FIT reads and returns
 Too short. This deliberately conservative preflight may omit a FIT-only target if
 that version's summary itself reports less than the target. Strava stream coverage
-uses native stream distance, not Garmin or corrected canonical distance.
+uses native stream distance minus fully stopped distance, not Garmin or corrected
+canonical distance. Garmin coverage likewise excludes fully timer-stopped
+distance. Recorded source distance remains unchanged in provenance. No tolerance
+or inferred GPS correction is applied; all distance in an evidenced pause is
+excluded, including walking while stopped.
 
 ## Deterministic limits and unavailable data
 
-Version 1 accepts at most 200,000 samples, 10,000 timer events, 1,000,000 metres,
+Version 3 accepts at most 200,000 samples, 10,000 timer events, 1,000,000 metres,
 and a 604,800-second activity timeline. Timestamps must strictly increase and
 cumulative distance cannot decrease. Duplicate/missing timestamps, nonfinite or
 negative values, distance resets, misaligned stream arrays/metadata and running
 jumps above 12 m/s invalidate measured computation. An active recording interval
-longer than **30 seconds** is an unknown gap. A fully evidenced pause with unchanged
-distance can be longer. Garmin traveled intervals spanning a timer transition
-fail closed because distance at the transition is unknown; no distance/time is
+longer than **30 seconds** is an unknown gap. A fully evidenced pause can be
+longer; its duration and distance are excluded. Garmin traveled intervals
+spanning a timer transition fail closed because distance at the transition is unknown; no distance/time is
 invented to split such an interval. Missing/wrong FIT units and duplicate native
 fields fail closed; developer fields do not override native fields.
 
-Version 1 rejects the whole measured timeline on invalid evidence rather than
-stitching valid fragments across gaps. Strava falls back to an explicitly
+Version 3 splits Strava streams at unknown active intervals longer than 30 seconds.
+Measured windows must lie wholly within a continuous section; no window joins
+sections across a gap. Calculated results say they cover only retained continuous
+sections, and coverage reports the longest such section. Offsets still refer to
+the first activity sample. Targets without a continuous measured window fall back
+to labeled Strava summary estimates, or Unavailable when the summary is too short.
+Other invalid evidence still rejects the whole measured timeline. Garmin retains
+its fail-closed policy for unknown active gaps and mixed timer transitions.
+Strava falls back to an explicitly
 **estimated** current-source result with the failure reason. Garmin returns
 **Unavailable** with its reason; it never substitutes elapsed time or another
-provider's distance. This conservative qualification is intentional. Missing rich
-history is expected; full archive #98 and recurring #99 are not prerequisites.
+provider's distance. Fully stopped distance is valid pause evidence, not an
+invalid transition.
+Version 1 instead rejected any stopped distance increase; #124 corrects that
+overly strict behavior. Existing version-1 results become Stale on deployment
+until explicitly reprocessed with Calculate retained efforts. Historical
+projections remain immutable, and reprocessing makes no provider requests.
+Missing rich history is expected; full archive #98 and recurring #99 are not prerequisites.
 
 Source contracts were checked against the [Strava stream reference](https://developers.strava.com/docs/reference/#api-Streams-getActivityStreams),
 [Garmin activity encoding guidance](https://developer.garmin.com/fit/articles/cookbook/encoding_activity_files.html)

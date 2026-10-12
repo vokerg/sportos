@@ -62,7 +62,6 @@ describe('independent pause-excluded running efforts', () => {
       [streams([0, 1], [10, 9]), 'distance_reset'],
       [streams([0, 1], [0, 100]), 'implausible_distance_jump'],
       [streams([0, 31], [0, 100]), 'unknown_recording_gap'],
-      [streams([0, 10], [0, 1], [false, false]), 'distance_during_pause_or_transition'],
     ];
     for (const [payload, reason] of cases) expect(stravaStreamEfforts(payload)[0]).toMatchObject({ status: 'unavailable', reason });
     const metadata = run(5); Object.assign(metadata.moving, { resolution: 'low' });
@@ -74,6 +73,47 @@ describe('independent pause-excluded running efforts', () => {
     expect(rows[0]).toMatchObject({ status: 'calculated', durationS: 1400, pausePolicy: 'timer_events', pauseCoverage: 'validated' });
     expect(rows[1].durationS).toBeCloseTo(2800);
     expect(rows[0].durationS).not.toBe(stravaStreamEfforts(run(10, 300))[0].durationS);
+  });
+  it('qualifies continuous Strava sections without stitching across an unknown pause boundary', () => {
+    const first = run(5, 300), second = run(5, 280);
+    const time = [...first.time.data, ...second.time.data.map(t => t + 2000)];
+    const distance = [...first.distance.data, ...second.distance.data.map(d => d + 5005)];
+    const moving = time.map(() => true); moving[first.time.data.length] = false;
+    const rows = stravaStreamEfforts(streams(time, distance, moving));
+    expect(rows[0]).toMatchObject({ status: 'calculated', reason: 'partial_stream_coverage', durationS: 1400, sourceDistanceM: 10005, coverageDistanceM: 5000, startOffsetS: 2000, endOffsetS: 3400 });
+    expect(rows[1]).toMatchObject({ status: 'unavailable', reason: 'unknown_recording_gap', durationS: null });
+    // Even an implausibly fast final section cannot be accepted after a gap.
+    distance[distance.length - 1] += 100;
+    expect(stravaStreamEfforts(streams(time, distance, moving))[0].reason).toBe('implausible_distance_jump');
+  });
+  it('excludes stopped distance for both providers without shortening active running time', () => {
+    const source = run(10); const at = 250;
+    for (const drift of [0.7, 100]) {
+      const time = [...source.time.data.slice(0, at + 1), 780, 900, ...source.time.data.slice(at + 1).map(t => t + 150)];
+      const distance = [...source.distance.data.slice(0, at + 1), 2500, 2500 + drift, ...source.distance.data.slice(at + 1).map(d => d + drift)];
+      const moving = [...source.moving.data.slice(0, at + 1), false, false, ...source.moving.data.slice(at + 1)];
+      const strava = stravaStreamEfforts(streams(time, distance, moving));
+      expect(strava[1]).toMatchObject({ status: 'calculated', durationS: 3030, coverageDistanceM: 10000, sourceDistanceM: 10000 + drift, endOffsetS: 3150 });
+      const garmin = garminFitEfforts(fit(time, distance, [[0, 'start'], [780, 'stop'], [900, 'start'], [3150, 'stop_all']]));
+      expect(garmin[1]).toMatchObject({ status: 'calculated', durationS: 3030, coverageDistanceM: 10000, sourceDistanceM: 10000 + drift, endOffsetS: 3150 });
+      // The earliest fastest 5 km is wholly after the pause; offsets stay elapsed.
+      for (const rows of [strava, garmin]) expect(rows[0]).toMatchObject({ durationS: 1500, startOffsetS: 900, endOffsetS: 2400 });
+    }
+  });
+  it('does not qualify a target using paused distance or conceal a raw distance reset', () => {
+    const source = run(5); const at = 250;
+    const time = [...source.time.data.slice(0, at + 1), 750, 1350, ...source.time.data.slice(at + 1).map(t => t + 600)];
+    // Stop begins at the first record and raw distance advances during the pause.
+    time[at + 1] = 753;
+    const distance = [...source.distance.data.slice(0, at + 1), 2500, 2501, ...source.distance.data.slice(at + 1)];
+    const moving = [...source.moving.data.slice(0, at + 1), false, false, ...source.moving.data.slice(at + 1)];
+    const messages = () => fit(time, distance, [[0, 'start'], [753, 'stop'], [1350, 'start'], [2100, 'stop_all']]);
+    for (const rows of [stravaStreamEfforts(streams(time, distance, moving)), garminFitEfforts(messages())]) {
+      expect(rows[0]).toMatchObject({ status: 'unavailable', reason: 'too_short', sourceDistanceM: 5000, coverageDistanceM: 4999, pauseCoverage: 'validated' });
+    }
+    distance[at + 2] = 2499;
+    for (const rows of [stravaStreamEfforts(streams(time, distance, moving)), garminFitEfforts(messages())]) expect(rows[0].reason).toBe('distance_reset');
+    expect(stravaStreamEfforts(streams([0, 600], [0, 100], [false, false]))[0]).toMatchObject({ reason: 'too_short', coverageDistanceM: 0 });
   });
   it('excludes Garmin timer stops/resumes including stop-disable event types', () => {
     const source = run(5); const at = 250;

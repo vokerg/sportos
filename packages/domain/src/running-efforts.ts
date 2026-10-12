@@ -1,5 +1,5 @@
 /** Independent analytical running windows. No canonical/scoring dependency. */
-export const RUNNING_EFFORT_ALGORITHM_VERSION = 1;
+export const RUNNING_EFFORT_ALGORITHM_VERSION = 3;
 export const RUNNING_EFFORT_TARGETS = [5000, 10000, 15000, 20000, 21097.5, 25000] as const;
 export const RUNNING_EFFORT_LIMITS = { samples: 200000, events: 10000, gapS: 30, speedMps: 12, distanceM: 1000000, durationS: 604800 } as const;
 export type EffortMethod = 'summary_estimate' | 'stream_calculated' | 'fit_calculated';
@@ -36,22 +36,45 @@ export function stravaStreamEfforts(payload: unknown): RunningEffort[] {
       const values = descriptors.map(s => s[key]);
       if (values.some(v => v !== undefined) && !values.every(v => v === values[0])) fail('misaligned_stream_metadata');
     }
-    const points: Point[] = []; let active = 0;
+    let points: Point[] = []; const sections: Point[][] = []; let active = 0, stoppedDistance = 0;
     for (let i = 0; i < time.length; i++) {
       const t = time[i], d = distance[i], m = moving[i];
       if (!nonnegative(t, RUNNING_EFFORT_LIMITS.durationS) || !nonnegative(d, RUNNING_EFFORT_LIMITS.distanceM) || typeof m !== 'boolean') fail('invalid_stream_sample');
       if (i) {
-        const previous = points[i - 1]; const dt = t - previous.t, dd = d - previous.d;
+        const previous = points.at(-1)!; const dt = t - previous.t, dd = d - distance[i - 1];
         progression(dt, dd);
         // Conservative boundary rule: an interval is stopped only if both
         // bounding flags say stopped. Slow active intervals are never removed.
         const isActive = m || moving[i - 1] === true;
-        interval(dt, dd, isActive ? dt : 0);
+        if (isActive && dt > RUNNING_EFFORT_LIMITS.gapS) {
+          // Unknown time/distance cannot join two measured windows. Retain only
+          // independently continuous coverage on either side of the gap.
+          sections.push(points); points = [{ t, d, active: 0 }];
+          active = 0; stoppedDistance = 0; continue;
+        }
+        // Stopped movement/drift contributes neither running distance nor time.
+        // Validate raw progression above, independently of this active distance.
+        interval(dt, isActive ? dd : 0, isActive ? dt : 0);
         active += isActive ? dt : 0;
+        if (!isActive) stoppedDistance += dd;
       }
-      points.push({ t, d, active });
+      points.push({ t, d: d - stoppedDistance, active });
     }
-    return windows(points, 'stream_calculated');
+    if (!sections.length) return windows(points, 'stream_calculated', distance.at(-1));
+    sections.push(points);
+    const selected: (RunningEffort | undefined)[] = []; let coverage = 0;
+    for (const section of sections) {
+      const rows = windows(section, 'stream_calculated', distance.at(-1), time[0]);
+      coverage = Math.max(coverage, rows[0].coverageDistanceM!);
+      rows.forEach((candidate, i) => {
+        const best = selected[i];
+        if (candidate.status === 'calculated' && (!best || candidate.durationS! < best.durationS! - 1e-9)) selected[i] = candidate;
+      });
+    }
+    return unavailableEfforts('stream_calculated', 'unknown_recording_gap', distance.at(-1)).map((row, i) => {
+      const best = selected[i];
+      return best ? { ...best, coverageDistanceM: coverage, reason: 'partial_stream_coverage' } : { ...row, coverageDistanceM: coverage, pauseCoverage: 'validated' };
+    });
   } catch (error) { return unavailableEfforts('stream_calculated', reason(error)); }
 }
 /** Current extractor's decoded fields array, including native units and ISO UTC. */
@@ -86,7 +109,7 @@ export function garminFitEfforts(messages: readonly unknown[]): RunningEffort[] 
     }
     if (records.at(-1)!.t - records[0].t > RUNNING_EFFORT_LIMITS.durationS) fail('activity_duration_limit');
     if (events[0].t > records[0].t || events.at(-1)!.t < records.at(-1)!.t) fail('insufficient_pause_evidence');
-    const points: Point[] = []; let active = 0, spanIndex = 0;
+    const points: Point[] = []; let active = 0, spanIndex = 0, stoppedDistance = 0;
     for (let i = 0; i < records.length; i++) {
       const current = records[i];
       if (i) {
@@ -97,17 +120,18 @@ export function garminFitEfforts(messages: readonly unknown[]): RunningEffort[] 
         for (let j = spanIndex; j < spans.length && spans[j].start < current.t; j++) activeS += Math.max(0, Math.min(current.t, spans[j].end) - Math.max(prev.t, spans[j].start));
         // A traveled interval straddling a timer transition lacks a known
         // distance at that transition. Do not allocate it invented active time.
-        if (dd > 0 && Math.abs(activeS - dt) > 1e-6) fail('distance_during_pause_or_transition');
-        interval(dt, dd, activeS); active += activeS;
+        if (dd > 0 && activeS > 0 && Math.abs(activeS - dt) > 1e-6) fail('distance_during_pause_or_transition');
+        interval(dt, activeS > 0 ? dd : 0, activeS); active += activeS;
+        if (activeS === 0) stoppedDistance += dd;
       }
-      points.push({ ...current, active });
+      points.push({ t: current.t, d: current.d - stoppedDistance, active });
     }
-    return windows(points, 'fit_calculated');
+    return windows(points, 'fit_calculated', records.at(-1)!.d);
   } catch (error) { return unavailableEfforts('fit_calculated', reason(error)); }
 }
-function windows(points: Point[], method: EffortMethod): RunningEffort[] {
+function windows(points: Point[], method: EffortMethod, sourceDistance: number, firstTime = points[0].t): RunningEffort[] {
   const first = points[0], last = points.at(-1)!; const coverage = last.d - first.d;
-  return unavailableEfforts(method, 'too_short', last.d).map(row => {
+  return unavailableEfforts(method, 'too_short', sourceDistance).map(row => {
     row.coverageDistanceM = coverage; row.pauseCoverage = 'validated';
     if (coverage < row.targetDistanceM) return row;
     let best: { duration: number; start: number; end: number } | null = null;
@@ -124,7 +148,7 @@ function windows(points: Point[], method: EffortMethod): RunningEffort[] {
     if (!best) return { ...row, reason: 'invalid_window' };
     const selected = best as { duration: number; start: number; end: number };
     return { ...row, status: 'calculated', reason: null, durationS: selected.duration,
-      startOffsetS: selected.start - first.t, endOffsetS: selected.end - first.t };
+      startOffsetS: selected.start - firstTime, endOffsetS: selected.end - firstTime };
   });
 }
 function boundary(points: Point[], d: number, start: boolean): Point {
