@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, input, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, computed, input, signal, viewChild } from '@angular/core';
 import type { ActivityMapAvailable } from '../activities-api.service';
 import { loadMapLibre, type MapInstance, type Coordinates } from './maplibre-loader';
 
@@ -59,7 +59,7 @@ export class ActivityMapComponent implements AfterViewInit, OnDestroy {
   readonly loading = signal(true);
   readonly failure = signal(false);
   readonly tilesFailed = signal(false);
-  @ViewChild('mapCanvas', { static: true }) private canvas!: ElementRef<HTMLDivElement>;
+  private readonly canvas = viewChild.required<ElementRef<HTMLDivElement>>('mapCanvas');
   private map?: MapInstance;
   private generation = 0;
   private destroyed = false;
@@ -84,7 +84,7 @@ export class ActivityMapComponent implements AfterViewInit, OnDestroy {
       const start = route.geometry.coordinates[0] as Coordinates;
       const end = route.geometry.coordinates[route.geometry.coordinates.length - 1] as Coordinates;
       const map = new lib.Map({
-        container: this.canvas.nativeElement,
+        container: this.canvas().nativeElement,
         style: RASTER_STYLE,
         center: start,
         zoom: 11,
