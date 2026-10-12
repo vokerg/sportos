@@ -307,6 +307,43 @@ Before editing:
 
 Architecture work that touches `main.ts`, `app.config.ts`, shared routes, central API configuration, or generic job infrastructure has a larger collision radius than a feature-local change. Prefer one active owner for those files at a time.
 
+## Fast architecture guardrails (#80)
+
+Run `pnpm check:web-architecture` from the repository root, or `pnpm --filter @sportos/web lint:architecture` for the source-only rule scan. The root command invokes the TypeScript-aware checker in `scripts/check-web-boundaries.mjs` and its synthetic Node regression tests in `scripts/check-web-boundaries.test.mjs`. It reads the local Angular TypeScript source tree and does not require a database, browser, code generation, external services, or a new ESLint toolchain. CI executes it as a fast step within the existing job; no separate or heavier pipeline is introduced.
+
+The checker currently enforces:
+
+- `core/` and `shared/` source must not import anything from `features/`;
+- feature slices must not directly import a different feature's internal source (including literal dynamic imports);
+- files in feature `state/` must not import components, `ui/`, or `pages/`;
+- files in feature `data-access/` must not import `state/`, `ui/`, or `pages/`;
+- `*.component.ts` files must not directly import `HttpClient`; feature `ui/` must not import `@angular/common/http` at all.
+
+Static module imports, re-exports and literal dynamic imports are checked using TypeScript's parser. Diagnostics include a file, line and rule. Legacy top-level app files remain in their existing locations; the feature-layer rules apply to paths **inside** `features/`, and should not be bypassed by adding new flat files. This is a bounded architectural guardrail, not an all-purpose linter: it does not yet enforce selectors, unused declarations, dependency injection through arbitrary aliases, or semantic intent of timers. Angular/TypeScript compilation catches additional typing and template errors. Avoid direct durable-job timers in UI; use `core/jobs/durable-job-poller.ts` from the owning feature store. Raw `HttpErrorResponse` normalization belongs in feature data access, rather than rendering components.
+
+If a new cross-feature concept is genuinely shared, extract its smallest stable model or utility into `shared/` instead of disabling a check or importing another slice's private state. Keep root compatibility shims only for existing migration paths; do not introduce new ones as an escape hatch. When extending a boundary rule, add positive and negative synthetic fixtures beside the checker. Use this documented boundary pattern for any new feature, provider client, state facade, or presentation component.
+
+## Frontend test pyramid
+
+Choose the lowest-cost level that covers the change:
+
+1. **Pure model/presenter tests:** Vitest tests beside model and view-model helpers; prove data transformation and edge conditions without Angular rendering.
+2. **Store/state workflow tests:** Vitest with stub transport, fake jobs, navigation replacement and cancellation cases; prove idempotence and stale-result protection.
+3. **Focused component tests:** Vitest with lightweight Angular TestBed/mocks for inputs, outputs, loading and user interaction; avoid external API calls.
+4. **Small router/integration tests:** Angular Router/TestBed only for route boundaries, lazy composition, DI and navigation lifecycle that unit tests cannot prove.
+
+For an Angular-only PR, from the root run:
+
+```bash
+pnpm check:web-architecture
+pnpm --filter @sportos/web test -- src/app/features/<feature>/<relevant>.test.ts
+pnpm --filter @sportos/web typecheck
+# Only when templates, routes, bootstrap or bundling changed:
+pnpm --filter @sportos/web build
+```
+
+The test file path is relative to `apps/web` and is a placeholder; replace it with the actual changed test file(s). Database migrations, importer suites, worker suites and a full repository test matrix are **not required** for a frontend-only change unless it crosses those boundaries. Repository-wide CI still runs its previously configured gates, but local agent validation should stay focused.
+
 ## Validation policy
 
 Use the smallest evidence that matches the frontend change.
