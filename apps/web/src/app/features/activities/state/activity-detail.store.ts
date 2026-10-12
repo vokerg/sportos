@@ -1,11 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { ActivitiesApiService, type ActivityDetail, type ActivityProviderDetailResponse, type EnrichmentStatus, type GarminDetail } from '../activities-api.service';
+import { ActivitiesApiService, type ActivityDetail, type ActivityMapAvailable, type ActivityMapResponse, type ActivityProviderDetailResponse, type EnrichmentStatus, type GarminDetail } from '../activities-api.service';
 type LoadState = 'idle' | 'loading' | 'loaded' | 'missing' | 'error';
 
 @Injectable()
 export class ActivityDetailStore implements OnDestroy {
+  readonly mapState = signal<'idle' | 'loading' | 'available' | 'unavailable' | 'error'>('idle');
+  readonly mapData = signal<ActivityMapAvailable | null>(null);
+  readonly mapReason = signal<string | null>(null);
   readonly effortState=signal<LoadState>('idle'); readonly effortError=signal('');
   readonly metricState=signal<LoadState>('idle'); readonly metricError=signal('');
   readonly state = signal<LoadState>('loading'); readonly activity = signal<ActivityDetail | null>(null);
@@ -21,11 +24,30 @@ export class ActivityDetailStore implements OnDestroy {
   ngOnDestroy() { this.cancel(); }
   private cancel() { this.generation++; for (const request of this.requests.values()) request.unsubscribe(); this.requests.clear(); }
   load(id: string) {
-    this.cancel(); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.coverage.set(null); this.coverageError.set(false);
+    this.cancel(); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false);
     this.sourceState.set('idle'); this.sourceJson.set(null); this.providerState.set('idle'); this.providerDetail.set(null); this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerError.set('');
     this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
     const generation = this.generation;
-    this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); this.state.set('loaded'); this.refreshCoverage(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
+    this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); this.state.set('loaded'); this.refreshCoverage(); this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
+  }
+  loadMap() {
+    if (!this.activity()) return;
+    this.requests.get('map')?.unsubscribe();
+    this.mapState.set('loading'); this.mapData.set(null); this.mapReason.set(null);
+    const generation = this.generation;
+    this.requests.set('map', this.api.map(this.id).subscribe({
+      next: (response: ActivityMapResponse) => {
+        if (generation !== this.generation) return;
+        if (response.status === 'available') {
+          this.mapData.set(response);
+          this.mapState.set('available');
+        } else {
+          this.mapReason.set(response.reason);
+          this.mapState.set('unavailable');
+        }
+      },
+      error: () => { if (generation === this.generation) this.mapState.set('error'); },
+    }));
   }
   refreshCoverage() {
     this.requests.get('coverage')?.unsubscribe(); const generation = this.generation;
