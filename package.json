@@ -10,6 +10,7 @@
     "build:web:hosted": "pnpm --filter @sportos/web exec ng build --configuration hosted",
     "start:hosted": "node scripts/start-hosted.mjs",
     "test:hosted": "node --test scripts/start-hosted.test.mjs",
+    "check:web-architecture": "node scripts/check-web-boundaries.mjs && node --test scripts/check-web-boundaries.test.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:api": "pnpm --filter @sportos/api start:dev",
     "dev:web": "pnpm --filter @sportos/web start",
