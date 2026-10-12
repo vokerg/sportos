@@ -33,17 +33,17 @@ export function routeQuality(route: Pick<ActivityMapAvailable, 'source' | 'resol
 @Component({
   selector: 'sportos-activity-map',
   standalone: true,
-  template: [
-    '<section class="card activity-route" aria-label="Activity GPS route">',
-    '  <div class="heading"><h2>Route</h2><span class="quality">{{ quality() }}</span></div>',
-    '  <p class="description">{{ route().pointCount }} GPS points · Interactive map with pan and zoom. Map tiles © OpenStreetMap contributors.</p>',
-    '  <div #mapCanvas class="map" role="region" tabindex="0" [attr.aria-label]="quality()"></div>',
-    '  @if (loading()) { <p role="status">Preparing map…</p> }',
-    '  @if (failure()) { <p role="alert">Could not display the map. The route data is still available. <button type="button" (click)="retry()">Retry map</button></p> }',
-    '  @if (tilesFailed()) { <p role="status">Map tiles may be unavailable. Your recorded route remains unchanged.</p> }',
-    '  <p class="text-route">GPS route from {{ quality() }}, {{ route().pointCount }} points. Start and end markers are shown when they differ. Route geometry is based on retained provider GPS evidence.</p>',
-    '</section>',
-  ].join(''),
+  template: `
+    <section class="card activity-route" aria-label="Activity GPS route">
+      <div class="heading"><h2>Route</h2><span class="quality">{{ quality() }}</span></div>
+      <p class="description">{{ route().pointCount }} GPS points · Interactive map with pan and zoom. Map tiles © OpenStreetMap contributors.</p>
+      <div #mapCanvas class="map" role="region" tabindex="0" [attr.aria-label]="quality()"></div>
+      @if (loading()) { <p role="status">Preparing map…</p> }
+      @if (failure()) { <p role="alert">Could not display the map. The route data is still available. <button type="button" (click)="retry()">Retry map</button></p> }
+      @if (tilesFailed()) { <p role="status">Map tiles may be unavailable. Your recorded route remains unchanged.</p> }
+      <p class="text-route">GPS route from {{ quality() }}, {{ route().pointCount }} points. Start and end markers are shown when they differ. Route geometry is based on retained provider GPS evidence.</p>
+    </section>
+  `,
   styles: [`
     :host{display:block;margin:16px 0}.activity-route{overflow:hidden}.heading{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:6px}
     h2{font-size:17px;margin:0}.quality{font-size:12px;border-radius:16px;background:#eef2ff;color:#344054;padding:5px 10px;font-weight:650}
