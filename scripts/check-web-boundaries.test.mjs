@@ -16,7 +16,7 @@ test('allows feature-local state, models, data access and shared infrastructure'
 });
 
 test('rejects core and shared dependencies on features', () => {
-  assert.deepEqual(rules('core/auth/session.ts', "import '../features/daily/model/daily.models';"),
+  assert.deepEqual(rules('core/auth/session.ts', "import '../../features/daily/model/daily.models';"),
     ['infrastructure-boundary']);
   assert.deepEqual(rules('shared/util/format.ts', "export * from '../../features/daily/model/daily.models';"),
     ['infrastructure-boundary']);
