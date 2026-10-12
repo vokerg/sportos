@@ -2,6 +2,7 @@
 import '@angular/compiler';
 import 'zone.js';
 import 'zone.js/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from '@angular/platform-browser-dynamic/testing';
 import { beforeAll, beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
@@ -44,7 +45,7 @@ beforeEach(() => {
 });
 async function render(data: ActivityMapAvailable = route) {
   const fixture = TestBed.createComponent(ActivityMapComponent);
-  fixture.componentRef.setInput('route', data);
+  Object.defineProperty(fixture.componentInstance, 'route', { value: signal(data) });
   fixture.detectChanges();
   await fixture.whenStable();
   fixture.detectChanges();
@@ -87,7 +88,7 @@ describe('ActivityMapComponent', () => {
     let resolve!: (value: never) => void;
     vi.mocked(loadMapLibre).mockReturnValueOnce(new Promise(r => { resolve = r; }));
     const fixture = TestBed.createComponent(ActivityMapComponent);
-    fixture.componentRef.setInput('route', route);
+    Object.defineProperty(fixture.componentInstance, 'route', { value: signal(route) });
     fixture.detectChanges();
     fixture.destroy();
     resolve({ Map: FakeMap, Marker: FakeMarker, NavigationControl: class {} } as never);
