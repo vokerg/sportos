@@ -37,7 +37,7 @@ export function routeQuality(route: Pick<ActivityMapAvailable, 'source' | 'resol
     '<section class="card activity-route" aria-label="Activity GPS route">',
     '  <div class="heading"><h2>Route</h2><span class="quality">{{ quality() }}</span></div>',
     '  <p class="description">{{ route().pointCount }} GPS points · Interactive map with pan and zoom. Map tiles © OpenStreetMap contributors.</p>',
-    '  <div #mapCanvas class="map" role="region" tabindex="0" [attr.aria-label]="quality() + ' interactive GPS route'"></div>',
+    '  <div #mapCanvas class="map" role="region" tabindex="0" [attr.aria-label]="quality()"></div>',
     '  @if (loading()) { <p role="status">Preparing map…</p> }',
     '  @if (failure()) { <p role="alert">Could not display the map. The route data is still available. <button type="button" (click)="retry()">Retry map</button></p> }',
     '  @if (tilesFailed()) { <p role="status">Map tiles may be unavailable. Your recorded route remains unchanged.</p> }',
