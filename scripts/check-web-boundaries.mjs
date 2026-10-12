@@ -49,11 +49,10 @@ export function checkWebSource(file, content) {
 
       if (componentPath.test(file) && specifier === '@angular/common/http' &&
           ts.isImportDeclaration(node) && node.importClause?.namedBindings &&
-          ts.isNamedImports(node.importClause.namedBindings) &&
-          node.importClause.namedBindings.elements.some((element) =>
-            (element.propertyName ?? element.name).text === 'HttpClient') ||
-          ts.isImportDeclaration(node) && node.importClause?.namedBindings &&
-          ts.isNamespaceImport(node.importClause.namedBindings)) {
+          (ts.isNamespaceImport(node.importClause.namedBindings) ||
+            (ts.isNamedImports(node.importClause.namedBindings) &&
+              node.importClause.namedBindings.elements.some((element) =>
+                (element.propertyName ?? element.name).text === 'HttpClient')))) {
         report(node, 'component-http', 'components must use feature data-access rather than HttpClient');
       }
       if (file.includes('/ui/') && specifier === '@angular/common/http') {
