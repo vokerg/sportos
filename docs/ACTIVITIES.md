@@ -132,9 +132,43 @@ internals. It cannot restore geometry discarded at ingestion. Future route
 projections can expand the same `status/source/resolution/geometry/bounds`
 contract. GPS locations are private data and must stay behind account auth.
 
+## Activity detail map (#127)
+
+The activity page requests `GET /activities/:activityId/map` after its
+canonical detail succeeds. Its read-only route request is independently
+cancelled on navigation, and supports an explicit retry on server/network error.
+An `available` response renders a responsive MapLibre GL map with a route
+line, fitted bounds (48px padding, max zoom 15), basic zoom/pan controls,
+and green start / red finish markers (one marker if start equals finish).
+The source/resolution label comes from the map API and can represent future
+Strava stream/detail and Garmin FIT projections without changing navigation.
+
+Indoor/manual activities, missing Strava GPS summary, invalid geometry, and
+missing links show an explanation instead of an empty map. Slow responses,
+404/error and new activity navigation cannot leave a stale track visible.
+Opening the activity triggers no Strava/Garmin rich downloads, scoring writes,
+or route projection writes. The feature reads the same owner-scoped endpoint
+as #126.
+
+**Map assets / third parties:** MapLibre GL JS **5.12.0** JS and CSS are
+loaded lazily from the version-pinned jsDelivr CDN only when GPS is available,
+with no additional pnpm dependencies or lockfile changes. Route base tiles
+are OpenStreetMap public raster tiles with MapLibre attribution. Browser
+tile requests reveal viewed areas and IP metadata to the tile provider;
+CDN requests also disclose basic browser network metadata. The application
+does not upload a provider route JSON or source evidence to either service.
+The public OSM tile server is best-effort and intended only for light usage;
+heavy/production use should configure a properly licensed hosted basemap.
+Failures to load JS or initialize the map expose a retry; tile failures
+produce a warning without dropping retained route evidence. CSP deployments
+must permit these pinned CDN assets, raster tile origin, and MapLibre's
+`blob:` worker source, or replace the bundle with self-hosted assets.
+See the [MapLibre browser quickstart](https://maplibre.org/maplibre-gl-js/docs/)
+and [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
+
 ## MVP limits
 
-The list uses bounded offset pagination; concurrent imports may shift rows between pages. Summaries include all filtered activities, including those beyond the current page. The canonical detail view adds separate normalized provider activity-level metrics and read-only selections ([catalog and offline backfill](ACTIVITY_METRICS.md)), while splits, GPS tracks and time series remain retained resources; source-specific Garmin session/lap/sets and selected Strava detail values are displayed separately, while streams and unknown fields remain available through explicit advanced disclosures. The route API supplies read-only summary GeoJSON, but there is no map/chart rendering, editing, or sport-specific deep analysis yet. Canonical rows without a name receive a type-based title, with no invented activity name.
+The list uses bounded offset pagination; concurrent imports may shift rows between pages. Summaries include all filtered activities, including those beyond the current page. The canonical detail view adds separate normalized provider activity-level metrics and read-only selections ([catalog and offline backfill](ACTIVITY_METRICS.md)), while splits, GPS tracks and time series remain retained resources; source-specific Garmin session/lap/sets and selected Strava detail values are displayed separately, while streams and unknown fields remain available through explicit advanced disclosures. The route API supplies read-only GeoJSON, now displayed through the activity detail's MapLibre map. Route editing, pace/HR overlays, and sport-specific deep analysis are not implemented. Canonical rows without a name receive a type-based title, with no invented activity name.
 
 `activity_provider_resources` resides in a separate Neon project configured by the explicit `SPORTOS_ACTIVITY_DETAIL_DATABASE_URL`. The API first resolves the canonical/provider reference and credentials in the primary project, then opens the detail project under the same account context. The cache has no cross-project foreign keys; identity and authorization remain authoritative in the primary database, and the detail rows are bounded, derived, owner-scoped, and rebuildable. The runtime and Flyway URLs must not be derived from or reuse the primary project. Run `pnpm db:migrate:activity-detail` with the separate project's schema-owner settings before starting the API.
 

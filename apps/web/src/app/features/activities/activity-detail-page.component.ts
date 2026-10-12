@@ -24,7 +24,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
       </header>
       @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
       @if (store.mapState() === 'loading') { <section class="card map-status" role="status">Loading activity route…</section> }
-      @else if (store.mapState() === 'available' && store.mapData(); as route) {
+      @else if (store.mapData(); as route) {
         <sportos-activity-map [route]="route" />
       }
       @else if (store.mapState() === 'unavailable') {
