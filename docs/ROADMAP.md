@@ -178,7 +178,7 @@ archive and recurring synchronization remain separate work.
 Merged PR #109 extends explicit recalculation with retained Connect
 steps and compact strength summaries. No Garmin network call occurs during
 scoring. See SCORING_RULES.md and implementation/issue-108.md for policy and
-validation; the queue item remains open until merge.
+validation. Issue #108 and its merged PR are complete.
 
 ## Non-scoring walking history (#110)
 
