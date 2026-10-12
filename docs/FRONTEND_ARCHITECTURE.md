@@ -351,7 +351,7 @@ Use the smallest evidence that matches the frontend change.
 For a focused feature change:
 
 ```bash
-pnpm --filter @sportos/web test -- <relevant-test-file>
+pnpm --filter @sportos/web exec vitest run src/app/features/daily/state/daily-log.store.test.ts
 pnpm --filter @sportos/web typecheck
 ```
 
