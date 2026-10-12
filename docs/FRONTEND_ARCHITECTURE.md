@@ -336,13 +336,13 @@ For an Angular-only PR, from the root run:
 
 ```bash
 pnpm check:web-architecture
-pnpm --filter @sportos/web test -- src/app/features/<feature>/<relevant>.test.ts
+pnpm --filter @sportos/web exec vitest run src/app/features/daily/state/daily-log.store.test.ts
 pnpm --filter @sportos/web typecheck
 # Only when templates, routes, bootstrap or bundling changed:
 pnpm --filter @sportos/web build
 ```
 
-The test file path is relative to `apps/web` and is a placeholder; replace it with the actual changed test file(s). Database migrations, importer suites, worker suites and a full repository test matrix are **not required** for a frontend-only change unless it crosses those boundaries. Repository-wide CI still runs its previously configured gates, but local agent validation should stay focused.
+The Vitest command uses an existing Daily store test as an example; replace the path (relative to `apps/web`) with the changed test file(s). Database migrations, importer suites, worker suites and a full repository test matrix are **not required** for a frontend-only change unless it crosses those boundaries. Repository-wide CI still runs its previously configured gates, but local agent validation should stay focused.
 
 ## Validation policy
 
