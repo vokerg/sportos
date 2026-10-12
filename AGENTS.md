@@ -386,7 +386,7 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
 
 ### Evidenced-pause effort repair (#124)
 
-- Algorithm v3 excludes fully evidenced stopped distance and duration. Validate
+- Algorithm v4 excludes fully evidenced stopped distance and duration. Validate
   raw cumulative distance separately; never credit paused movement to a target.
 - Unknown Strava gaps split continuous sections; never stitch a window across
   them. Calculated results carry `partial_stream_coverage`; longer targets may
@@ -394,3 +394,12 @@ A queue item is complete only when acceptance criteria are satisfied; relevant d
   closed. Primary V134 permits only this specific Strava calculated qualification.
 - Retained reprocessing upgrades old algorithm versions without provider calls
   or canonical/scoring/performance writes. See `docs/RUNNING_EFFORTS.md`.
+
+- Maintainer-authorized measured target tolerance is 0.1%, capped at 10 m;
+  preserve actual coverage, duration and offsets and label the tolerance.
+  Summary estimates retain strict source-distance eligibility. V135 enforces
+  labeled and bounded measured shortfalls; do not widen it silently.
+- A sparse Strava true → false interval over 30 seconds can be qualified as a
+  bounded pause only with at most 10 m drift and a moving sample resuming within
+  30 seconds. Selected windows crossing it carry the qualification; genuine
+  unknown gaps still split sections. Never use Garmin to fill Strava gaps.

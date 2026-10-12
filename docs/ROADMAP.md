@@ -14,7 +14,7 @@ A feature is not delivered solely because a component or table exists.
 
 | Area | Current state | Main remaining gap |
 |---|---|---|
-| Repository and fresh schema | Defined through V134; dedicated activity-detail V003 | routine maintenance and hosted backup/recovery |
+| Repository and fresh schema | Defined through V135; dedicated activity-detail V003 | routine maintenance and hosted backup/recovery |
 | Raw provenance and imports | Validated and account scoped | hosted object lifecycle and deletion |
 | Browser upload/storage | Validated and account scoped for XLSX and manual Garmin CSV staging | hosted storage backup and erasure |
 | Durable jobs | Import, provider-sync, and rule-change lifecycles validated | wake-up acceleration and hosted observability |
@@ -201,6 +201,10 @@ for scope, migration, focused evidence and outstanding live/visual validation.
 
 Implemented on the issue branch with primary V133: independent retained Strava-stream/Garmin-FIT analytical windows, source-backed summary estimates, compact owner-scoped versions, explicit retained-only processing/backfill and run detail comparison. Selective rich fetching remains optional; official scoring and Run Lab remain independent. See [operator/pause policy](RUNNING_EFFORTS.md) and implementation/issue-122.md. Production migration/backfill remain separate operator steps.
 
-Retained pause-handling repair (#124) adds algorithm v3 and V134: stopped
+Retained pause-handling repair (#124) adds algorithm v4 and V134/V135: stopped
 distance is excluded, valid continuous Strava sections remain calculable, and
 unknown gaps qualify coverage without stitched windows. See implementation/issue-124.md.
+
+Maintainer-authorized small distance tolerance (0.1%, capped at 10 m) and bounded
+Strava stopped-marker handling are included in #124. Both provider half-marathon
+results are calculated on the inspected run with explicit qualifications.

@@ -42,6 +42,11 @@ describe('running effort source comparison', () => {
     const cell = el.querySelector('tbody td')!;
     expect(cell.textContent).toContain('Calculated'); expect(cell.textContent).toContain('Fastest window within continuous retained sections; recording gaps are excluded.');
   });
+  it('shows distance and pause qualifications beside calculated results', () => {
+    const el = render({ ...data, providers: data.providers.map(p => ({ ...p, algorithmVersion: 4, efforts: p.efforts.map(e => e.targetDistanceM === 5000 ? { ...e, method: p.provider === 'strava' ? 'stream_calculated' : 'fit_calculated', status: 'calculated', reason: p.provider === 'strava' ? 'bounded_pause_boundary' : 'distance_tolerance' } : e) })) }).nativeElement as HTMLElement;
+    expect(el.textContent).toContain('at most 10 m per boundary'); expect(el.textContent).toContain('0.1%, capped at 10 m');
+    expect(el.querySelectorAll('td strong')).toHaveLength(2);
+  });
   it('displays equal times independently and emits only an explicit retained intent', () => {
     const fixture = render({ ...data, providers: data.providers.map(p => ({ ...p, efforts: p.efforts.map(e => e.targetDistanceM === 5000 ? { ...e, durationS: 1475.4 } : e) })) });
     expect(fixture.nativeElement.querySelectorAll('td strong')).toHaveLength(2);

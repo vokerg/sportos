@@ -77,10 +77,10 @@ describe('independent pause-excluded running efforts', () => {
   it('qualifies continuous Strava sections without stitching across an unknown pause boundary', () => {
     const first = run(5, 300), second = run(5, 280);
     const time = [...first.time.data, ...second.time.data.map(t => t + 2000)];
-    const distance = [...first.distance.data, ...second.distance.data.map(d => d + 5005)];
+    const distance = [...first.distance.data, ...second.distance.data.map(d => d + 5020)];
     const moving = time.map(() => true); moving[first.time.data.length] = false;
     const rows = stravaStreamEfforts(streams(time, distance, moving));
-    expect(rows[0]).toMatchObject({ status: 'calculated', reason: 'partial_stream_coverage', durationS: 1400, sourceDistanceM: 10005, coverageDistanceM: 5000, startOffsetS: 2000, endOffsetS: 3400 });
+    expect(rows[0]).toMatchObject({ status: 'calculated', reason: 'partial_stream_coverage', durationS: 1400, sourceDistanceM: 10020, coverageDistanceM: 5000, startOffsetS: 2000, endOffsetS: 3400 });
     expect(rows[1]).toMatchObject({ status: 'unavailable', reason: 'unknown_recording_gap', durationS: null });
     // Even an implausibly fast final section cannot be accepted after a gap.
     distance[distance.length - 1] += 100;
@@ -100,16 +100,64 @@ describe('independent pause-excluded running efforts', () => {
       for (const rows of [strava, garmin]) expect(rows[0]).toMatchObject({ durationS: 1500, startOffsetS: 900, endOffsetS: 2400 });
     }
   });
-  it('does not qualify a target using paused distance or conceal a raw distance reset', () => {
+  it('calculates across bounded sparse Strava stop markers without counting stopped drift or time', () => {
+    const source = run(25, 300), at = 1000;
+    const time = source.time.data.map((t, i) => t + (i > at ? 240 : 0));
+    time.splice(at + 1, 0, 3240);
+    const distance = source.distance.data.map((d, i) => d + (i > at ? 6 : 0)); distance.splice(at + 1, 0, 10006);
+    const moving = time.map(() => true); moving[at + 1] = false;
+    const rows = stravaStreamEfforts(streams(time, distance, moving));
+    expect(rows[0]).toMatchObject({ status: 'calculated', reason: null, durationS: 1500 });
+    expect(rows[4]).toMatchObject({ status: 'calculated', reason: 'bounded_pause_boundary', coverageDistanceM: 25000, sourceDistanceM: 25006 });
+    expect(rows[4].durationS).toBeCloseTo(6329.25);
+    expect(rows[5]).toMatchObject({ durationS: 7500, endOffsetS: 7740 });
+    const near = [...distance]; near[near.length - 1] -= 4;
+    expect(stravaStreamEfforts(streams(time, near, moving))[5]).toMatchObject({ status: 'calculated', reason: 'distance_and_pause_tolerance', coverageDistanceM: 24996, sourceDistanceM: 25002, durationS: 7500, endOffsetS: 7740 });
+    for (const variant of ['active', 'unbracketed', 'too_far'] as const) {
+      const flags = [...moving], distances = [...distance];
+      if (variant === 'active') flags[at + 1] = true;
+      if (variant === 'unbracketed') flags[at + 2] = false;
+      if (variant === 'too_far') for (let i = at + 1; i < distances.length; i++) distances[i] += 10;
+      expect(stravaStreamEfforts(streams(time, distances, flags))[4]).toMatchObject({ status: 'unavailable', reason: 'unknown_recording_gap' });
+    }
+  });
+  it('retains actual selected-section coverage when a near-target window wins across genuine gaps', () => {
+    const first = run(5, 280), second = run(5, 300);
+    first.distance.data[first.distance.data.length - 1] = 4996;
+    const time = [...first.time.data, ...second.time.data.map(t => t + 2000)];
+    const distance = [...first.distance.data, ...second.distance.data.map(d => d + 5020)];
+    const moving = time.map(() => true);
+    expect(stravaStreamEfforts(streams(time, distance, moving))[0]).toMatchObject({ status: 'calculated', reason: 'partial_stream_coverage_with_tolerance', durationS: 1400, coverageDistanceM: 4996, sourceDistanceM: 10020, startOffsetS: 0, endOffsetS: 1400 });
+  });
+  it('accepts only bounded measured distance shortfalls without inventing terminal samples or time', () => {
+    for (const target of RUNNING_EFFORT_TARGETS) {
+      const tolerance = Math.min(10, target * .001);
+      for (const shortfall of [0, tolerance, tolerance + .01]) {
+        const actual = target - shortfall, count = Math.ceil(actual / 10);
+        const d = Array.from({ length: count + 1 }, (_, i) => i * actual / count), t = d.map(v => v * .3);
+        const index = RUNNING_EFFORT_TARGETS.indexOf(target);
+        for (const rows of [stravaStreamEfforts(streams(t, d)), garminFitEfforts(fit(t, d))]) {
+          const row = rows[index];
+          expect(row.sourceDistanceM).toBeCloseTo(actual); expect(row.coverageDistanceM).toBeCloseTo(actual);
+          if (shortfall > tolerance) expect(row).toMatchObject({ status: 'unavailable', reason: 'too_short' });
+          else {
+            expect(row).toMatchObject({ status: 'calculated', reason: shortfall ? 'distance_tolerance' : null, startOffsetS: 0 });
+            expect(row.durationS).toBeCloseTo(actual * .3, 3); expect(row.endOffsetS).toBeCloseTo(actual * .3, 3);
+          }
+        }
+      }
+    }
+  });
+  it('does not qualify beyond the distance tolerance using paused distance or conceal a raw reset', () => {
     const source = run(5); const at = 250;
     const time = [...source.time.data.slice(0, at + 1), 750, 1350, ...source.time.data.slice(at + 1).map(t => t + 600)];
     // Stop begins at the first record and raw distance advances during the pause.
     time[at + 1] = 753;
-    const distance = [...source.distance.data.slice(0, at + 1), 2500, 2501, ...source.distance.data.slice(at + 1)];
+    const distance = [...source.distance.data.slice(0, at + 1), 2500, 2510, ...source.distance.data.slice(at + 1)];
     const moving = [...source.moving.data.slice(0, at + 1), false, false, ...source.moving.data.slice(at + 1)];
     const messages = () => fit(time, distance, [[0, 'start'], [753, 'stop'], [1350, 'start'], [2100, 'stop_all']]);
     for (const rows of [stravaStreamEfforts(streams(time, distance, moving)), garminFitEfforts(messages())]) {
-      expect(rows[0]).toMatchObject({ status: 'unavailable', reason: 'too_short', sourceDistanceM: 5000, coverageDistanceM: 4999, pauseCoverage: 'validated' });
+      expect(rows[0]).toMatchObject({ status: 'unavailable', reason: 'too_short', sourceDistanceM: 5000, coverageDistanceM: 4990, pauseCoverage: 'validated' });
     }
     distance[at + 2] = 2499;
     for (const rows of [stravaStreamEfforts(streams(time, distance, moving)), garminFitEfforts(messages())]) expect(rows[0].reason).toBe('distance_reset');

@@ -56,14 +56,14 @@ integration('running efforts retained-only non-owner primary/detail integration'
     expect(identity.activityId).toBe(f.activity);
     const ts = (s: number) => new Date(f.start.getTime() + s * 1000).toISOString();
     const message = (name: string, fields: Record<string, unknown>) => ({ message: name, fields: Object.entries(fields).map(([name, value]) => ({ name, units: name === 'distance' ? 'm' : name === 'timestamp' ? 's' : null, value: value as Json, definition: 0, developerIndex: null, rawValue: value as Json })) });
-    const stop = seconds / 2;
+    const stop = seconds / 2, recordIntervals = Math.ceil(distance / 10);
     const records: Json[] = [message('session', {}), ...(pauseEvents ? [message('event', { timestamp: ts(0), event: 'timer', event_type: 'start' }),
       ...(stoppedDrift ? [message('event', { timestamp: ts(stop), event: 'timer', event_type: 'stop' }), message('event', { timestamp: ts(stop + 60), event: 'timer', event_type: 'start' })] : []),
       message('event', { timestamp: ts(seconds + (stoppedDrift ? 60 : 0)), event: 'timer', event_type: 'stop_all' })] : []),
-      ...Array.from({ length: Math.floor(distance / 10) + 1 }, (_, i) => {
-        const t = i * seconds / (distance / 10), after = stoppedDrift && t > stop;
-        return [message('record', { timestamp: ts(t + (after ? 60 : 0)), distance: i * 10 + (after ? stoppedDrift : 0) }),
-          ...(stoppedDrift && t === stop ? [message('record', { timestamp: ts(stop + 60), distance: i * 10 + stoppedDrift })] : [])];
+      ...Array.from({ length: recordIntervals + 1 }, (_, i) => {
+        const t = i * seconds / recordIntervals, after = stoppedDrift && t > stop;
+        return [message('record', { timestamp: ts(t + (after ? 60 : 0)), distance: i * distance / recordIntervals + (after ? stoppedDrift : 0) }),
+          ...(stoppedDrift && t === stop ? [message('record', { timestamp: ts(stop + 60), distance: i * distance / recordIntervals + stoppedDrift })] : [])];
       }).flat()];
     await rich(async db => {
       const repo = new GarminActivityResourcesRepository(db), ref = { identityKey: `native:${native}`, sourceHash: hash };
@@ -138,7 +138,7 @@ integration('running efforts retained-only non-owner primary/detail integration'
     expect((await project(f.activity)).map(r => r.category)).toEqual(['newly_projected', 'newly_projected']);
     const response = await read(f.activity);
     for (const provider of response.providers) {
-      expect(provider).toMatchObject({ state: 'current', algorithmVersion: 3 });
+      expect(provider).toMatchObject({ state: 'current', algorithmVersion: 4 });
       expect(provider.efforts[1]).toMatchObject({ status: 'calculated', durationS: 3000, coverageDistanceM: 10000, endOffsetS: 3060 });
     }
     expect(response.providers.map(p => p.efforts[1].sourceDistanceM)).toEqual([10000.7, 10001.05]);
@@ -156,10 +156,33 @@ integration('running efforts retained-only non-owner primary/detail integration'
     detailCalls.mockClear(); await scoped(db => new RetainedRunningEffortProjector(db, detailCalls).project(short.activity, false, 'garmin'));
     expect(detailCalls).toHaveBeenCalledTimes(1); expect((await read(short.activity)).providers[1].efforts[0].reason).toBe('too_short');
   });
+  it('persists bounded pause windows and near-target Garmin coverage without extending source facts', async () => {
+    const f = await fixture(10000, 3000), d = Array.from({ length: 1001 }, (_, i) => i * 10);
+    const time = d.map(v => v * .3 + (v > 5000 ? 240 : 0)); time.splice(501, 0, 1740);
+    const distance = d.map(v => v + (v > 5000 ? 6 : 0)); distance.splice(501, 0, 5006);
+    const moving = time.map(() => true); moving[501] = false;
+    await strava(f, { time: { data: time }, distance: { data: distance }, moving: { data: moving } });
+    await garmin(f, 9996, 3000);
+    const before = await facts(); await project(f.activity);
+    const response = await read(f.activity);
+    expect(response.providers[0].efforts[1]).toMatchObject({ status: 'calculated', reason: 'bounded_pause_boundary', durationS: 3000, sourceDistanceM: 10006, coverageDistanceM: 10000, endOffsetS: 3240 });
+    expect(response.providers[1].efforts[1]).toMatchObject({ status: 'calculated', reason: 'distance_tolerance', durationS: 3000, sourceDistanceM: 9996, coverageDistanceM: 9996, endOffsetS: 3000 });
+    await expect(scoped(async db => new RunningEffortsRepository(db).publish({
+      reference: (await new ActivityMetricsRepository(db).references([f.activity])).find(r => r.provider === 'garmin')!, inputHash: 'b'.repeat(64), inspectedAt: await effortInspectionTime(db),
+      efforts: response.providers[1].efforts.map(e => e.targetDistanceM === 10000 ? { ...e, coverageDistanceM: 9989 } : e),
+    }))).rejects.toThrow('running_effort_values_coverage_check');
+    await expect(scoped(async db => new RunningEffortsRepository(db).publish({
+      reference: (await new ActivityMetricsRepository(db).references([f.activity])).find(r => r.provider === 'garmin')!, inputHash: 'c'.repeat(64), inspectedAt: await effortInspectionTime(db),
+      efforts: response.providers[1].efforts.map(e => e.targetDistanceM === 10000 ? { ...e, reason: null } : e),
+    }))).rejects.toThrow('running_effort_values_coverage_check');
+    expect(await facts()).toEqual(before); expect((await project(f.activity)).every(r => r.category === 'already_current')).toBe(true);
+    const short = await fixture(5000, 1500); await garmin(short, 4996, 1500); await project(short.activity);
+    expect((await read(short.activity)).providers[1].efforts[0]).toMatchObject({ status: 'calculated', reason: 'distance_tolerance', sourceDistanceM: 4996, coverageDistanceM: 4996 });
+  });
   it('keeps measured continuous targets distinct from summary estimates across stream gaps', async () => {
     const f = await fixture(), d = Array.from({ length: 1001 }, (_, i) => i * 10);
     const moving = d.map(() => true); moving[501] = false;
-    await strava(f, { time: { data: d.map(v => v * .28 + (v > 5000 ? 600 : 0)) }, distance: { data: d }, moving: { data: moving } });
+    await strava(f, { time: { data: d.map(v => v * .28 + (v > 5000 ? 600 : 0)) }, distance: { data: d.map(v => v > 5000 ? v + 10 : v) }, moving: { data: moving } });
     await project(f.activity);
     const provider = (await read(f.activity)).providers[0];
     expect(provider.efforts[0]).toMatchObject({ status: 'calculated', method: 'stream_calculated', reason: 'partial_stream_coverage', coverageDistanceM: 5000 });

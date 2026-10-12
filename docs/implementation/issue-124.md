@@ -55,3 +55,53 @@ No provider downloads, bulk backfill or private fixtures. Full general CI and
 browser visual inspection were not run. No template/routes/providers changed;
 focused component validation and web/root typecheck cover the presentation change.
 The PR remains unmerged pending maintainer merge instruction.
+
+
+## Maintainer-directed distance and sparse-pause tolerance follow-up
+
+The maintainer requested a slight, explicitly bounded distance allowance and
+repair of the remaining Strava summary fallbacks. Current code/projections,
+V133/V134 constraints, migration inventory, retained native distance/timer fields,
+Strava moving stream contract, adapter stream retention, domain/DB/UI tests and
+these operation docs were inspected before extending the repair. Strava's
+[official moving-stream contract](https://developers.strava.com/docs/reference/#api-models-MovingStream)
+defines sampled booleans without an exact interval-allocation rule. The bounded
+sparse-stop convention below is deliberate application policy, not documented
+provider timer certainty.
+
+Algorithm v4 accepts measured shortfalls within 0.1% capped at 10 m, using actual
+window time and offsets rather than invented terminal samples. Native source and
+active coverage remain unchanged. Near-target Garmin summaries no longer skip FIT
+reads prematurely. Summary-only estimates remain strictly source bounded.
+
+Sparse Strava intervals over 30 seconds that end at a stopped marker, with at
+most 10 m distance change and a moving resume sample within 30 seconds, are
+excluded as bounded pauses. Selected windows crossing them carry an explicit
+qualification. Other long active/mixed gaps still split sections, and Garmin
+mixed timer intervals remain fail-closed. Actual selected-section coverage is
+preserved even when a tolerated near-target section wins. V135 admits only these
+known qualification reasons and enforces the labeled distance allowance in SQL,
+including denial of unlabeled shortfalls and out-of-bound coverage. Existing
+ownership, grants and immutable history remain intact; no schema types changed.
+
+Follow-up validation completed:
+- 16 domain tests, including every target at/just beyond tolerance, no invented
+  duration/endpoints, combined distance/pause qualification, selected short-section
+  coverage, and rejection of unbracketed/large-motion/fully active gaps.
+- 15 non-owner primary/detail integration tests, including bounded SQL checks,
+  unlabeled shortfall denial, near-5 km Garmin preflight and independent sources.
+- 6 component and 4 API boundary tests; root typecheck passed.
+- Fresh migration through V135 and populated V134 -> V135 upgrade passed; the
+  synthetic upgrade baseline verified unchanged canonical/scoring/performance
+  rows and no implicit projections. Final schema uses explicit non-null reason
+  checks so PostgreSQL nullable CHECK semantics cannot admit unlabeled shortfalls.
+- Applied V135 to the configured local app, then retained-only reprocessed just
+  the selected run. Both providers now calculate 5/10/15/20/half-marathon targets,
+  with explicit distance or bounded-pause qualifications where used. The 25 km
+  target is still unavailable. Current source/active distances are retained.
+  Before/after official rows are identical; repeated processing is already_current
+  and preserves the complete read model.
+
+No provider requests, bulk history apply, private fixtures or canonical/official
+writes. Heavy general CI and browser visual inspection remain unrun. PR #125 is
+updated with the complete repair and remains unmerged.
