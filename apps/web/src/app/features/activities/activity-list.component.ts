@@ -7,10 +7,11 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
 @Component({
   selector: 'sportos-activity-list', standalone: true, imports: [RouterLink, ProviderMetricStatusComponent],
   template: `
+    @if (activities().length) { <p class="provider-key" aria-label="Provider icon key">Provider icons: <b>S</b> summary · <b>✓</b> detail · <b>?</b> not checked · <b>!</b> needs attention</p> }
     @if (compact()) {
       <div class="table-scroll" tabindex="0" role="region" aria-label="Compact activity list">
         <table><caption class="visually-hidden">Activities — one row per activity</caption>
-          <thead><tr><th scope="col">Date</th><th scope="col">Activity</th><th scope="col">Distance</th><th scope="col">Pace / speed</th><th scope="col">Time</th><th scope="col">Avg HR</th><th scope="col">Ascent</th><th scope="col">Source</th><th scope="col">Providers</th></tr></thead>
+          <thead><tr><th scope="col">Date</th><th scope="col">Activity</th><th scope="col">Distance</th><th scope="col">Pace / speed</th><th scope="col">Time</th><th scope="col">Avg HR</th><th scope="col">Ascent</th><th scope="col">Providers</th></tr></thead>
           <tbody>@for (activity of activities(); track activity.id) {
             @let values = compactActivityMetrics(activity);
             <tr [attr.data-sport]="activity.activity_type">
@@ -19,7 +20,6 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
               <td class="number">{{ values.distance }}</td><td class="number">{{ values.paceOrSpeed }}</td>
               <td class="number" [title]="values.time?.label ?? 'Time unavailable'" [attr.aria-label]="values.time ? values.time.label + ': ' + values.time.value : 'Time unavailable'">{{ values.time?.value ?? '—' }}</td>
               <td class="number">{{ values.heartRate }}</td><td class="number">{{ values.elevation }}</td>
-              <td class="source">{{ activity.source.replaceAll('_', ' ') }}</td>
               <td><sportos-provider-metric-status [statuses]="activity.providerMetrics ?? []" /></td>
             </tr>
           }</tbody>
@@ -30,7 +30,6 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
       @for (activity of activities(); track activity.id) {
         <a class="card activity" [attr.data-sport]="activity.activity_type" [routerLink]="['/activity', activity.id]">
           <div class="heading"><strong>{{ title(activity) }} @if (displayedSubtype(activity)) { <small [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</small> }</strong><span>{{ activity.activity_date }} @if (startTime(activity.start_time)) { · {{ startTime(activity.start_time) }} }</span></div>
-          <div class="source">{{ activity.source.replaceAll('_', ' ') }}</div>
           @if (activity.source === 'strava' && activity.notes) { <div class="description">{{ activity.notes }}</div> }
           <sportos-provider-metric-status [statuses]="activity.providerMetrics ?? []" />
           <div class="metrics highlights">@for (metric of listMetricHighlights(activity); track metric.label) { <span><b>{{ metric.value }}</b><small>{{ metric.label }}</small></span> }</div>
@@ -59,7 +58,7 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
     .activity:hover { border-color: #91a9e6; background: #f8faff; }
     .heading { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .heading strong { font-size: 18px; }.heading small { font-size: 13px; color: #667085; font-weight: 500; }
-    .heading span,.source { color: #667085; font-size: 13px; }.source { text-transform: capitalize; }
+    .heading span { color: #667085; font-size: 13px; }.provider-key{margin:0 0 10px;color:#667085;font-size:11px}.provider-key b{color:#475467}
     .description { color: #344054; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .metrics { display: flex; flex-wrap: wrap; gap: 10px 24px; }
     .highlights { padding: 12px 0 4px; gap: 12px 32px; }.highlights b { font-size: 24px; color: var(--accent); font-variant-numeric: tabular-nums; }.secondary b { font-size: 13px; font-weight: 500; }.secondary:empty { display: none; }

@@ -132,6 +132,12 @@ or algorithm versions hide old results as Stale. The browser receives safe metho
 quality, coverage, algorithm version, offsets and timestamps, never hashes, owner
 IDs, paths, locations, raw resources or credentials.
 
+The effort table and per-target diagnostics show current calculated/estimated
+results only. Distances unavailable from both providers are omitted; distances
+with one provider result retain a dash for the other. Empty/stale/failed evidence
+keeps an explicit state and the retained-processing action. The complete target
+catalog and unavailable reasons remain in the API/persistence read model.
+
 Navigation reads only compact primary projections. It does not calculate, read
 streams/FIT, download, or write. New/pre-migration history is Unprocessed until a
 retained calculation or backfill. Missing migration leaves the section unavailable

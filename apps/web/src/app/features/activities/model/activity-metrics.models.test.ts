@@ -23,7 +23,7 @@ it.each([
 });
 it('keeps unchecked and missing detail distinct on hover', () => {
   expect(providerListDescription({ ...status, rawRetained: null })).toContain('Detail not checked');
-  expect(providerListDescription({ ...status, rawRetained: false })).toContain('No saved detail');
-  expect(providerListDescription(status)).toContain('Detail saved');
+  expect(providerListDescription({ ...status, rawRetained: false })).toContain('Summary only');
+  expect(providerListDescription(status)).toContain('Detail retained');
   expect(providerListState({ ...status, state: 'partial', compactOnly: true })).toBe('Summary only');
 });

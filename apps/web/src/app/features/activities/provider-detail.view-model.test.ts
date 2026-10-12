@@ -11,4 +11,10 @@ describe('provider-specific retained metric views', () => {
   it('only displays finite source-specific Strava numbers', () => {
     expect(stravaMetrics({average_watts:180,max_watts:null,suffer_score:'unknown',notes:'private'})).toEqual([{label:'average watts',value:'180'}]);
   });
+  it('shows native FIT run speeds as pace while keeping other sports and unknown units unchanged', () => {
+    const message = { message: 'session', fields: [{ name: 'avg_speed', value: 12.8 / 3.6, units: 'm/s' }, { name: 'max_speed', value: 16.9 / 3.6, units: 'm/s' }] };
+    expect(fitMetrics(message, 'run')).toEqual([{ label: 'Average pace', value: '4:41 /km' }, { label: 'Fastest pace', value: '3:33 /km' }]);
+    expect(fitMetrics(message, 'bike')[0].label).toBe('avg speed');
+    expect(fitMetrics({ message: 'session', fields: [{ name: 'avg_speed', value: 12.8, units: 'km/h' }] }, 'run')[0].value).toBe('12.8 km/h');
+  });
 });

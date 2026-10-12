@@ -105,3 +105,45 @@ Follow-up validation completed:
 No provider requests, bulk history apply, private fixtures or canonical/official
 writes. Heavy general CI and browser visual inspection remain unrun. PR #125 is
 updated with the complete repair and remains unmerged.
+
+## Maintainer-directed presentation follow-up
+
+Before presentation changes, inspected the active issue #3/#124 and PR #125;
+`docs/FRONTEND_ARCHITECTURE.md`; Activities running-effort component/model/tests,
+activity metric models/view model/comparison component/tests, detail page,
+provider-detail view model/tests, activity list/page and provider-status component;
+Daily provider source icons/tests; primary activity metric status/projection code
+solely to verify the existing compact coverage contract. No auxiliary query or
+provider fetch is needed for icon rendering.
+
+Requested behavior: omit unavailable effort distances, use average/fastest pace
+for run speed metrics while preserving cycling speed, share Daily's provider
+icons in the activity list, distinguish retained detail/summary/unknown and
+attention states, and remove redundant list Source text/column. This is display
+only; preserve metric authority, independent provider values and raw provenance.
+
+
+Presentation outcome: unavailable-only distances are omitted from the table and
+per-target diagnostics, while one-source results/empty/stale/failed states remain
+usable. Run speed values are displayed as average/fastest min/km pace, merging
+native pace once per provider; cycling stays speed. Garmin retained session/lap
+run speed fields use pace when their native unit is m/s. Shared provider SVG marks
+now serve both Daily and Activities, with S/✓/?/! coverage/attention markers,
+accessible labels and a one-line legend. Linked presence and retained detail are
+read from existing primary metadata; normalization success is never treated as
+proof of rich retention. Source column/card text are removed; filters and detail
+provenance remain intact.
+
+Further inspected `model/activity-metrics.models.test.ts`, `docs/ACTIVITIES.md`
+and `packages/db/src/activity-metric-projector.ts` to verify compatibility and
+retention semantics. The first shared icon used field decorators that the current
+Vitest JIT transform does not support; component input metadata now supplies the
+same typed plain inputs and passes both JIT tests and Angular AOT build.
+
+Presentation validation completed: 82 focused frontend tests passed across
+activity metric models/view models, provider metric comparison/status, retained
+provider formatting, running-effort presentation and Daily provider icons. Web
+typecheck and production build passed. No backend, database or
+provider behavior changed; no extra migration or database suites are required.
+Browser visual verification was attempted but no browser was available through
+the configured computer-use tool; DOM component assertions and AOT build passed.

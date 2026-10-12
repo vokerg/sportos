@@ -10,6 +10,15 @@ export interface EffortProvider {
   projectedAt: string | null; algorithmVersion: number | null; efforts: RunningEffort[];
 }
 export interface RunningEfforts { targets: number[]; providers: EffortProvider[]; }
+export function availableEffort(provider: EffortProvider, effort: RunningEffort): boolean {
+  return provider.state === 'current' && effort.status !== 'unavailable' && effort.durationS !== null && Number.isFinite(effort.durationS) && effort.durationS > 0;
+}
+export function visibleEffortTargets(data: RunningEfforts): number[] {
+  return data.targets.filter(target => data.providers.some(provider => provider.efforts.some(effort => effort.targetDistanceM === target && availableEffort(provider, effort))));
+}
+export function effortProviderState(provider: EffortProvider): string {
+  return { current: '', unprocessed: 'Not calculated', stale: 'Stale', failed: 'Failed', not_linked: 'Not linked' }[provider.state];
+}
 export function effortMethod(method: RunningEffort['method']) {
   return method === 'summary_estimate' ? 'Strava summary · average pace' : method === 'stream_calculated' ? 'Strava streams · moving time' : 'Garmin FIT · timer-active time';
 }

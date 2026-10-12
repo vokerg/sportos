@@ -30,7 +30,8 @@ describe('running effort source comparison', () => {
     const el = render().nativeElement as HTMLElement; const cells = el.querySelectorAll('tbody tr:first-child td');
     expect(cells[0].textContent).toContain('24:35'); expect(cells[0].textContent).toContain('Estimated'); expect(cells[0].textContent).toContain('Strava summary · average pace');
     expect(cells[1].textContent).toContain('23:42'); expect(cells[1].textContent).toContain('Calculated'); expect(cells[1].textContent).toContain('Garmin FIT · timer-active time');
-    expect(el.textContent).toContain('21.1 km'); expect(el.textContent).toContain('Recorded distance is too short'); expect(el.textContent).toContain('not certified personal records');
+    expect(el.textContent).not.toContain('21.1 km'); expect(el.textContent).not.toContain('Recorded distance is too short'); expect(el.textContent).toContain('not certified personal records');
+    expect(el.querySelectorAll('tbody tr')).toHaveLength(1);
     expect(el.querySelector('details')?.textContent).toContain('pause coverage: validated'); expect(el.textContent).toContain('Fetch Strava detail');
   });
   it('hides old durations in stale or failed state while preserving independent sources', () => {
@@ -55,5 +56,16 @@ describe('running effort source comparison', () => {
   it('prevents repeated clicks during calculation and rounds only the display', () => {
     expect(render(data, true).nativeElement.querySelector('button').disabled).toBe(true);
     expect(effortTime(3599.7)).toBe('1:00:00'); expect(effortTime(null)).toBe('—'); expect(data.providers[0].efforts[0].durationS).toBe(1475.4);
+  });
+  it('keeps a distance available from one provider and uses a dash for the other', () => {
+    const el = render({ ...data, providers: data.providers.map(p => p.provider === 'garmin' ? { ...p, efforts: p.efforts.map(e => ({ ...e, status: 'unavailable', durationS: null, reason: 'no_fit_records' })) } : p) }).nativeElement as HTMLElement;
+    expect(el.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(el.querySelector('tbody td:last-child')?.textContent?.trim()).toBe('—');
+    expect(el.textContent).not.toContain('Unavailable');
+  });
+  it('shows an empty state instead of an unavailable-only catalog', () => {
+    const el = render({ ...data, providers: data.providers.map(p => ({ ...p, efforts: p.efforts.map(e => ({ ...e, status: 'unavailable', durationS: null, reason: 'too_short' })) })) }).nativeElement as HTMLElement;
+    expect(el.querySelector('table')).toBeNull(); expect(el.textContent).toContain('No retained efforts cover these distances');
+    expect(el.querySelector('button')?.textContent).toContain('Calculate retained efforts');
   });
 });
