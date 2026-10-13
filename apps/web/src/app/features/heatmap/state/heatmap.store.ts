@@ -1,4 +1,4 @@
-import { Injectable, OnDestroy, signal } from '@angular/core';
+import { Inject, Injectable, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { HeatmapApiService } from '../data-access/heatmap-api.service';
 import { buildHeatmapDataset, type HeatmapDataset } from '../model/heatmap-geometry';
@@ -22,7 +22,7 @@ export class HeatmapStore implements OnDestroy {
   private sequence = 0;
   private lastFilters: HeatmapFilters = {};
 
-  constructor(private readonly api: HeatmapApiService) {}
+  constructor(@Inject(HeatmapApiService) private readonly api: HeatmapApiService) {}
 
   load(filters: HeatmapFilters): void {
     this.cancel();

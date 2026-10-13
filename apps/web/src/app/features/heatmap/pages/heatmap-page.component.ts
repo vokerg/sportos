@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, effect, signal, viewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, effect, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { HEATMAP_SPORTS, type HeatmapFilters, type HeatmapSport } from '../model/heatmap.models';
 import { HeatmapStore } from '../state/heatmap.store';
@@ -98,6 +98,7 @@ import type { HeatmapDataset } from '../model/heatmap-geometry';
   `],
 })
 export class HeatmapPageComponent implements OnInit, AfterViewInit, OnDestroy {
+  readonly store = inject(HeatmapStore);
   readonly sports = HEATMAP_SPORTS;
   readonly range = signal<QuickRange>('all');
   readonly from = signal('');
@@ -114,7 +115,7 @@ export class HeatmapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private mapGeneration = 0;
   private fitBounds: [[number, number], [number, number]] | null = null;
 
-  constructor(readonly store: HeatmapStore) {
+  constructor() {
     effect(() => {
       const ready = this.viewReady();
       const state = this.store.state();
