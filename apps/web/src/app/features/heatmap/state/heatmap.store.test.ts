@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { of, Subject, throwError } from 'rxjs';
 import { HeatmapStore } from './heatmap.store';
-import type { HeatmapApiService } from '../data-access/heatmap-api.service';
+import { HeatmapApiService } from '../data-access/heatmap-api.service';
 import type { HeatmapPage, HeatmapRoute } from '../model/heatmap.models';
 
 const track = (id: string): HeatmapRoute => ({
