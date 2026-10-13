@@ -177,8 +177,14 @@ all intermediary locations have the same provider privacy treatment.
 Deployment requires applying auxiliary V004 first: `pnpm db:migrate:activity-detail`
 with the separate project's schema-owner settings; no backfill or production
 migration is initiated automatically. Reprocess one activity explicitly after
-migration. A failed/missing auxiliary database can prevent improved route reads;
-restore the auxiliary connection/migration before using high-resolution routes.
+migration. A missing V004 or failed auxiliary projection lookup gracefully falls back
+to the retained Strava compact summary (when available), rather than breaking
+the previous summary-map GET. Successful explicit provider Fetch/Refresh remains
+authoritative even if optional projection fails; callers may retry the retained
+reprocess endpoint after restoring the auxiliary migration. A same-version
+Strava resource refresh invalidates an older projection through small retained
+metadata (availability, source version and fetch timestamp), without loading
+streams on normal GET.
 
 ## Activity detail map (#127)
 
