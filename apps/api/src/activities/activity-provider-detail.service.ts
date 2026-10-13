@@ -1,4 +1,5 @@
 import { RunningEffortsService } from './running-efforts.service.js';
+import { ActivityRouteProjectionService } from './activity-route-projection.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import {
@@ -40,6 +41,7 @@ export class ActivityProviderDetailService {
     private readonly activityDetailDbProvider: ActivityDetailDbProvider,
     private readonly metrics: ActivityMetricsService = new ActivityMetricsService(dbProvider, activityDetailDbProvider),
     private readonly efforts: RunningEffortsService = new RunningEffortsService(dbProvider, activityDetailDbProvider),
+    private readonly routes?: ActivityRouteProjectionService,
   ) {}
 
   async status(accountId: string, activityId: string) {
@@ -66,6 +68,7 @@ export class ActivityProviderDetailService {
     const cached = await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).list(reference));
     if (!refresh && isCompleteAndCurrent(cached, reference.providerVersion)) {
+      await this.routes?.project(accountId, activityId);
       return {...response(reference, cached, 'hit'), effortProjection: await this.efforts.project(accountId,activityId,'strava'), metricProjection: await this.metrics.project(accountId,activityId)};
     }
 
@@ -107,8 +110,10 @@ export class ActivityProviderDetailService {
       payload: asJson(resource.payload),
     }));
     await this.efforts.invalidate(accountId,activityId,writes.find(r=>r.resourceType==='streams')?.payload);
+    await this.routes?.invalidateStrava(accountId, activityId);
     await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).replace(reference, writes));
+    await this.routes?.project(accountId, activityId);
     const stored = await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).list(reference));
     return {...response(reference, stored, 'miss'), effortProjection: await this.efforts.project(accountId,activityId,'strava'), metricProjection: await this.metrics.project(accountId,activityId)};
