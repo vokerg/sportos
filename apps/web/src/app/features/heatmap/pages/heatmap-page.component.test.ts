@@ -48,11 +48,18 @@ beforeEach(() => {
     provideRouter([]), {provide:HeatmapApiService,useValue:api},
   ]});
 });
+async function settle(fixture: ReturnType<typeof TestBed.createComponent<HeatmapPageComponent>>) {
+  // A viewReady signal set in ngAfterViewInit schedules the component effect
+  // for the next change-detection pass. Let its asynchronous MapLibre load settle.
+  for (let pass = 0; pass < 3; pass++) {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+  }
+}
 async function render() {
   const fixture = TestBed.createComponent(HeatmapPageComponent);
-  fixture.detectChanges();
-  await fixture.whenStable();
-  fixture.detectChanges();
+  await settle(fixture);
   return fixture;
 }
 describe('HeatmapPageComponent', () => {
@@ -73,12 +80,12 @@ describe('HeatmapPageComponent', () => {
     const fixture = await render();
     maps[0]!.emit('load'); fixture.detectChanges();
     fixture.componentInstance.setSport('bike');
-    await fixture.whenStable(); fixture.detectChanges();
+    await settle(fixture);
     expect(api.list).toHaveBeenLastCalledWith({activityType:'bike'},undefined);
     expect(maps[0]!.remove).toHaveBeenCalledTimes(1);
     expect(maps).toHaveLength(2);
     fixture.componentInstance.setRange('1m');
-    await fixture.whenStable(); fixture.detectChanges();
+    await settle(fixture);
     expect(api.list).toHaveBeenLastCalledWith(expect.objectContaining({activityType:'bike',from:expect.any(String),to:expect.any(String)}),undefined);
     fixture.destroy();
     expect(maps.at(-1)!.remove).toHaveBeenCalled();

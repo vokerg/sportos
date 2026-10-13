@@ -1,3 +1,4 @@
+import '@angular/compiler';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { of, Subject, throwError } from 'rxjs';
