@@ -24,11 +24,13 @@ import {
         <span class="status-badge" [attr.data-status]="current.scoreStatus">{{ scoreStatusLabel(current.scoreStatus) }}</span>
         
         @if (detailed()) { <span class="total-note">{{ scoreAuthorityNote(current.scoreStatus) }}</span> }
+        @if (showActions()) {
         <button type="button" class="secondary-button recalculation-action" (click)="recalculate.emit()" [disabled]="recalculating()">
           {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
         </button>
         @if (recalculationError()) {
           <span class="recalculation-error" role="alert">{{ recalculationError() }}</span>
+        }
         }
       </div>
       <div class="metric-grid">
@@ -147,6 +149,7 @@ import {
   `],
 })
 export class ScoreBreakdownSummaryComponent {
+  readonly showActions = input(true);
   readonly breakdown = input.required<DailyScoreBreakdown>();
   readonly detailed = input(false);
   readonly recalculating = input(false);

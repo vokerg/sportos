@@ -1,11 +1,16 @@
-import { Component, OnChanges, SimpleChanges, inject, input, output, effect } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { Component, OnChanges, SimpleChanges, inject, input, output, effect, TemplateRef, viewChild } from '@angular/core';
+import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { GarminDayStore } from '../state/garmin-day.store';
 import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvidence, type GarminDayCategoryEvidence } from '../model/garmin-day.models';
 @Component({
-  selector: 'sportos-garmin-day-card', standalone: true, imports: [DatePipe, DecimalPipe, RouterLink], providers: [GarminDayStore],
+  selector: 'sportos-garmin-day-card', standalone: true, imports: [DatePipe, DecimalPipe, RouterLink, NgTemplateOutlet], providers: [GarminDayStore],
   template: `
+    <ng-template #primaryAction>
+      <button type="button" (click)="store.fetch()" [disabled]="store.loading() || !store.data()?.fetchEnabled || store.fetching()">
+        {{ store.fetching() ? 'Fetching Garmin day…' : store.data()?.state === 'partial' ? 'Retry missing Garmin data' : 'Fetch Garmin day' }}
+      </button>
+    </ng-template>
     <section class="garmin-day" aria-label="Garmin day evidence" [attr.aria-busy]="store.loading() || store.fetching()">
       <h2>Garmin Connect</h2>
       <p class="muted">Day metrics · Fetch and Refresh leave your score unchanged.</p>
@@ -15,7 +20,7 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
           
           @if (store.fetching()) { · Fetching from Garmin… }</p>
         <div class="actions">
-          <button type="button" (click)="store.fetch()" [disabled]="!day.fetchEnabled || store.fetching()">{{ day.state === 'partial' ? 'Retry missing Garmin data' : 'Fetch Garmin day' }}</button>
+          @if (showPrimaryAction()) { <ng-container [ngTemplateOutlet]="primaryAction" /> }
           <button type="button" (click)="store.view()" [disabled]="day.state === 'missing'">{{ store.expanded() ? 'Hide metrics' : 'Show metrics' }}</button>
           <button type="button" (click)="store.fetch(true)" [disabled]="!day.fetchEnabled || day.state === 'missing' || store.fetching()">Refresh from Garmin</button>
         </div>
@@ -89,6 +94,8 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
   `],
 })
 export class GarminDayCardComponent implements OnChanges {
+  readonly primaryAction = viewChild<TemplateRef<unknown>>('primaryAction');
+  readonly showPrimaryAction = input(true);
   readonly inspection = input(false);
   readonly linkedActivities = output<string[]>();
   constructor() {

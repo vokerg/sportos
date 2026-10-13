@@ -1,4 +1,5 @@
 import { GarminDayCardComponent } from './features/daily/ui/garmin-day-card.component';
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -18,27 +19,30 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
 @Component({
   selector: 'sportos-daily-detail-page',
   standalone: true,
-  imports: [RouterLink, ScoreBreakdownPanelComponent, GarminDayCardComponent],
+  imports: [NgTemplateOutlet, RouterLink, ScoreBreakdownPanelComponent, GarminDayCardComponent],
   template: `
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a routerLink="/daily">Daily Log</a><span aria-hidden="true">›</span><span>{{ date() || 'Daily score' }}</span>
     </nav>
-    <section class="day-refresh" aria-label="Strava day refresh">
-      <div>
-        <strong>Strava activities for this day</strong>
-        <span>{{ stravaRefreshHelp() }}</span>
+    <section class="main-actions" aria-label="Day actions">
+      <h2>Day actions</h2>
+      <div class="action-buttons">
+        <button type="button" (click)="recalculate()" [disabled]="state() !== 'loaded' || recalculating() || savingManual() || refreshingFromStrava()">
+          {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
+        </button>
+        <button type="button" (click)="refreshFromStrava()" [disabled]="!canRefreshFromStrava()" [title]="stravaRefreshHelp()">{{ stravaRefreshButtonLabel() }}</button>
+        <ng-container [ngTemplateOutlet]="garmin.primaryAction() ?? null" />
+        <button type="button" (click)="requestManualEdit()" [disabled]="state() !== 'loaded' || recalculating() || savingManual() || refreshingFromStrava()">Enter facts manually</button>
       </div>
-      <button
-        type="button"
-        (click)="refreshFromStrava()"
-        [disabled]="!canRefreshFromStrava()">
-        {{ stravaRefreshButtonLabel() }}
-      </button>
-      @if (stravaRefreshError()) {
-        <p class="refresh-error" role="alert">{{ stravaRefreshError() }}</p>
-      }
+      <p class="action-help">Strava refresh fetches activities and recalculates this day. Garmin fetch saves evidence; use Recalculate to update the score.</p>
+      @if (refreshingFromStrava() || stravaRefreshStatus() || !canRefreshFromStrava()) { <p class="action-help" role="status">{{ stravaRefreshHelp() }}</p> }
+      @if (garmin.store.fetching()) { <p class="action-help" role="status">Fetching from Garmin…</p> }
+      @if (recalculationError()) { <p class="refresh-error" role="alert">{{ recalculationError() }}</p> }
+      @if (stravaRefreshError()) { <p class="refresh-error" role="alert">{{ stravaRefreshError() }}</p> }
+      @if (garmin.store.error()) { <p class="refresh-error" role="alert">{{ garmin.store.error() }}</p> }
     </section>
     <sportos-score-breakdown-panel #panel
+      [showSummaryActions]="false"
       [garminActivityIds]="garminActivityIds()"
       [state]="state()"
       [date]="date()"
@@ -54,24 +58,17 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
       (recalculate)="recalculate()"
       (saveManualFacts)="saveManualFacts($event)"
       (closed)="close()">
-      @if (date(); as selectedDate) {
-        <sportos-garmin-day-card [date]="selectedDate" [inspection]="panel.activeTab() === 'sources'" (linkedActivities)="garminActivityIds.set($event)" />
-      }
+      <sportos-garmin-day-card #garmin [date]="date() ?? ''" [showPrimaryAction]="false" [inspection]="panel.activeTab() === 'sources'" (linkedActivities)="garminActivityIds.set($event)" />
     </sportos-score-breakdown-panel>
   `,
   styles: [`
+    .main-actions { margin-bottom: 12px; padding: 16px; border: 1px solid #dbe4f5; border-radius: 12px; background: #f8faff; }
+    .main-actions h2 { margin: 0 0 12px; color: #172b4d; font-size: 16px; }
+    .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+    .action-help { margin: 10px 0 0; color: #667085; font-size: 12px; }
     .breadcrumb { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #667085; font-size: 12px; }
     .breadcrumb a { color: #1d4ed8; font-weight: 700; text-decoration: none; }
-    .day-refresh { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 16px; margin: 0 0 12px; padding: 14px 16px; border: 1px solid #dbe4f5; border-radius: 12px; background: #f8faff; }
-    .day-refresh div { display: grid; gap: 3px; }
-    .day-refresh strong { color: #172b4d; font-size: 14px; }
-    .day-refresh span { color: #667085; font-size: 12px; }
-    .day-refresh button { white-space: nowrap; }
-    .refresh-error { grid-column: 1 / -1; margin: 3px 0 0; color: #b54747; font-size: 12px; }
-    @media (max-width: 640px) {
-      .day-refresh { grid-template-columns: 1fr; }
-      .day-refresh button { justify-self: start; }
-    }
+    .refresh-error { margin: 8px 0 0; color: #b54747; font-size: 12px; }
   `],
 })
 export class DailyDetailPageComponent implements OnInit, OnDestroy {
@@ -220,6 +217,10 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
       next: (result) => this.evidence.set(result),
       error: () => this.evidence.set(null),
     });
+  }
+
+  requestManualEdit(): void {
+    this.manualEditRequestId.update((value) => value + 1);
   }
 
   recalculate(): void {
