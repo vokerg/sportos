@@ -434,7 +434,7 @@ without continuous evidence remain labeled summary estimates.
 
 The personal heatmap route API (`GET /heatmap/routes`) is a session-authenticated,
 read-only primary-database endpoint. It performs a bounded keyset page over
-canonical `activities` joined to the newest trusted normalized Strava
+canonical `activities` with an indexed lateral lookup of the newest trusted normalized Strava
 `provider_activity_links` / `source_records` snapshots, under account
 context and forced RLS. The same trust selector powers the existing
 single-activity summary fallback. Invalid, missing or over-budget geometry
