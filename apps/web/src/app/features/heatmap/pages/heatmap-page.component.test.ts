@@ -59,6 +59,11 @@ async function settle(fixture: ReturnType<typeof TestBed.createComponent<Heatmap
 }
 async function render() {
   const fixture = TestBed.createComponent(HeatmapPageComponent);
+  // Align with activity-map.component.test.ts: Angular's JIT TestBed does not
+  // reliably resolve signal viewChild queries before this mocked MapLibre path.
+  Object.defineProperty(fixture.componentInstance, 'canvas', {
+    value: () => ({nativeElement: document.createElement('div')}),
+  });
   await settle(fixture);
   return fixture;
 }
@@ -104,7 +109,7 @@ describe('HeatmapPageComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Nothing partial is displayed');
     fixture.componentInstance.store.retry();
-    await fixture.whenStable(); fixture.detectChanges();
+    await settle(fixture);
     expect(maps).toHaveLength(1);
     fixture.destroy();
   });
