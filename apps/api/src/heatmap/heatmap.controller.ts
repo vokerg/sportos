@@ -6,6 +6,7 @@ import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
 import { readHeatmapProjectionUpgrades } from './heatmap-projections.js';
 import type { ActivityRouteResponse } from '../activities/activity-route.js';
 import { assertUuid, parseBoundedInteger, parseDateRange } from '../query-validation.js';
+import { encodeRoutePolyline } from '../activities/activity-route-projection.js';
 import { stravaSummaryRoute } from '../activities/activity-route.js';
 
 const MAX_PAGE_POINTS = 15_000;
@@ -37,13 +38,14 @@ function decodeCursor(raw: string): NonNullable<HeatmapRoutesQuery['cursor']> {
   return { date: date!, id: id! };
 }
 
-export function parseHeatmapQuery(raw: Record<string, unknown>): HeatmapRoutesQuery {
-  const keys = ['from', 'to', 'activityType', 'limit', 'cursor'];
+export function parseHeatmapQuery(raw: Record<string, unknown>): HeatmapRoutesQuery & { encoding?: 'polyline5' } {
+  const keys = ['from', 'to', 'activityType', 'limit', 'cursor', 'encoding'];
   if (Object.keys(raw).some(key => !keys.includes(key))
     || Object.values(raw).some(value => typeof value !== 'string')) {
     invalidQuery('Unsupported heatmap filter.');
   }
   const query = raw as Record<string, string | undefined>;
+  if (query.encoding !== undefined && query.encoding !== 'polyline5') invalidQuery('Unknown route encoding.');
   const range = parseDateRange(query.from, query.to);
   if (query.activityType !== undefined && !ACTIVITY_TYPES.includes(query.activityType as typeof ACTIVITY_TYPES[number])) {
     invalidQuery('Unknown canonical activity type.');
@@ -51,7 +53,8 @@ export function parseHeatmapQuery(raw: Record<string, unknown>): HeatmapRoutesQu
   return {
     ...range,
     activityType: query.activityType as HeatmapRoutesQuery['activityType'],
-    limit: parseBoundedInteger(query.limit, { name: 'limit', defaultValue: 25, min: 1, max: 50 }),
+    limit: parseBoundedInteger(query.limit, { name: 'limit', defaultValue: 25, min: 1, max: query.encoding === 'polyline5' ? 200 : 50 }),
+    ...(query.encoding === 'polyline5' ? { encoding: 'polyline5' as const } : {}),
     cursor: query.cursor === undefined ? undefined : decodeCursor(query.cursor),
   };
 }
@@ -61,20 +64,26 @@ export function parseHeatmapQuery(raw: Record<string, unknown>): HeatmapRoutesQu
  * geometry. Invalid/missing/budgeted routes still advance the cursor.
  */
 export function assembleHeatmapRoutes(candidates: HeatmapRouteCandidate[], hasMore: boolean, limit: number,
-  upgrades: ReadonlyMap<string, ActivityRouteResponse> = new Map()) {
+  upgrades: ReadonlyMap<string, ActivityRouteResponse> = new Map(), encoding?: 'polyline5') {
   const items: Array<{
     activityId: string;
     date: string;
     sport: HeatmapRouteCandidate['sport'];
     source: 'strava' | 'garmin';
     resolution: 'summary' | 'streams' | 'detail' | 'fit';
-    geometry: { type: 'LineString'; coordinates: [number, number][] } | { type: 'MultiLineString'; coordinates: [number, number][][] };
+    geometry: { type: 'LineString'; coordinates: [number, number][] } | { type: 'MultiLineString'; coordinates: [number, number][][] } | { type: 'LineString' | 'MultiLineString'; polylines: string[] };
   }> = [];
   let missingGps = 0;
   let invalidGeometry = 0;
   let budgetExceeded = 0;
   let points = 0;
   let geometryChars = 0;
+  const pointBudget = encoding ? 1_000_000 : MAX_PAGE_POINTS;
+  const charBudget = encoding ? 1_600_000 : MAX_PAGE_GEOMETRY_CHARS;
+  const geometryFor = (route: Extract<ActivityRouteResponse, { status: 'available' }>) => encoding
+    ? { type: route.geometry.type, polylines: (route.geometry.type === 'LineString'
+      ? [route.geometry.coordinates] : route.geometry.coordinates).map(encodeRoutePolyline) }
+    : route.geometry;
   const quality = { summary: 0, streams: 0, detail: 0, fit: 0 };
   for (const candidate of candidates) {
     const summary = candidate.stravaLinked === false
@@ -87,15 +96,17 @@ export function assembleHeatmapRoutes(candidates: HeatmapRouteCandidate[], hasMo
       else invalidGeometry++;
       continue;
     }
-    let chars = JSON.stringify(route.geometry).length;
+    let geometry = geometryFor(route);
+    let chars = JSON.stringify(geometry).length;
     // Keep approximate GPS coverage when a large rich route does not fit
     // the remaining page budget, without weakening Strava visibility checks.
     if (upgrade && summary.status === 'available' &&
-        (points + route.pointCount > MAX_PAGE_POINTS || geometryChars + chars > MAX_PAGE_GEOMETRY_CHARS)) {
+        (points + route.pointCount > pointBudget || geometryChars + chars > charBudget)) {
       route = summary;
-      chars = JSON.stringify(route.geometry).length;
+      geometry = geometryFor(route);
+      chars = JSON.stringify(geometry).length;
     }
-    if (points + route.pointCount > MAX_PAGE_POINTS || geometryChars + chars > MAX_PAGE_GEOMETRY_CHARS) {
+    if (points + route.pointCount > pointBudget || geometryChars + chars > charBudget) {
       budgetExceeded++;
       continue;
     }
@@ -104,7 +115,7 @@ export function assembleHeatmapRoutes(candidates: HeatmapRouteCandidate[], hasMo
     quality[route.resolution]++;
     items.push({
       activityId: candidate.activityId, date: candidate.date, sport: candidate.sport,
-      source: route.source, resolution: route.resolution, geometry: route.geometry,
+      source: route.source, resolution: route.resolution, geometry,
     });
   }
   const last = candidates[candidates.length - 1];
@@ -133,7 +144,7 @@ export class HeatmapController {
   @Get('routes')
   @Header('Cache-Control', 'private, no-store')
   async routes(@Query() raw: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) {
-    const query = parseHeatmapQuery(raw);
+    const { encoding, ...query } = parseHeatmapQuery(raw);
     const owner = account?.id ?? LEGACY_ACCOUNT_ID;
     const result = await this.dbProvider.withAccount(owner,
       db => new HeatmapRoutesRepository(db).list(query));
@@ -142,6 +153,6 @@ export class HeatmapController {
     const upgrades = this.detail
       ? await readHeatmapProjectionUpgrades(owner, result.candidates, this.detail).catch(() => new Map())
       : new Map();
-    return assembleHeatmapRoutes(result.candidates, result.hasMore, query.limit, upgrades);
+    return assembleHeatmapRoutes(result.candidates, result.hasMore, query.limit, upgrades, encoding);
   }
 }

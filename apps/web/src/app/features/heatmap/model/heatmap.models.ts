@@ -23,8 +23,11 @@ export const EMPTY_COVERAGE: HeatmapCoverage = {
   eligibleScanned: 0, usable: 0, missingGps: 0, invalidGeometry: 0, budgetExceeded: 0,
   quality: { summary: 0, streams: 0, detail: 0, fit: 0 },
 };
-export const HEATMAP_PAGE_SIZE = 50;
-export const MAX_HEATMAP_PAGES = 120;
-export const MAX_HEATMAP_ROUTES = 2500;
-export const MAX_RAW_ROUTE_POINTS = 160_000;
-export const MAX_DENSITY_SAMPLES = 180_000;
+export const HEATMAP_PAGE_SIZE = 200;
+export const MAX_HEATMAP_PAGES = 100;
+export const MAX_HEATMAP_ROUTES = 15_000;
+export const MAX_RAW_ROUTE_POINTS = 3_000_000;
+export const MAX_DENSITY_SAMPLES = 3_000_000;
+
+export const MAX_RENDERED_ROUTE_POINTS = 400_000;
+export const MAX_DENSITY_CELLS = 180_000;

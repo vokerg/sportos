@@ -112,9 +112,15 @@ describe('batch retained heatmap geometry',()=>{
     const result=await readHeatmapProjectionUpgrades(owner,[strava],fakeDetail());
     expect(result.size).toBe(0);
   });
+  it('checks all 200 primary candidates in one bounded projection batch', async () => {
+    const mocks = mockData([], [], []);
+    const candidates = Array.from({length:200}, (_,i) => ({...strava,activityId:String(i)}));
+    expect((await readHeatmapProjectionUpgrades(owner,candidates,fakeDetail())).size).toBe(0);
+    expect(mocks.getMany).toHaveBeenCalledWith(candidates.map(c => c.activityId));
+  });
   it('enforces the bounded page size before any auxiliary read',async()=>{
     const detail=fakeDetail();
-    await expect(readHeatmapProjectionUpgrades(owner,Array.from({length:51},()=>strava),detail)).rejects.toThrow('page exceeds');
+    await expect(readHeatmapProjectionUpgrades(owner,Array.from({length:201},()=>strava),detail)).rejects.toThrow('page exceeds');
     expect(detail.withAccount).not.toHaveBeenCalled();
   });
 });

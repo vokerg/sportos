@@ -1,5 +1,5 @@
 import {
-  MAX_DENSITY_SAMPLES, MAX_RAW_ROUTE_POINTS, MAX_HEATMAP_ROUTES,
+  MAX_DENSITY_SAMPLES, MAX_RAW_ROUTE_POINTS, MAX_HEATMAP_ROUTES, MAX_RENDERED_ROUTE_POINTS, MAX_DENSITY_CELLS,
   type Coordinate, type HeatmapRoute, type RouteGeometry,
 } from './heatmap.models';
 
@@ -51,56 +51,138 @@ export function densifyCoordinates(
 
 export interface GeojsonFeature {
   type: 'Feature';
-  properties: { kind: 'route' | 'density'; activityId: string; source: string; resolution: string; weight?: number };
+  properties: { kind: 'route' | 'density'; activityId: string; source: string; resolution: string; weight?: number; level?: number };
   geometry: RouteGeometry | { type: 'Point'; coordinates: Coordinate };
 }
 export interface HeatmapDataset {
   geojson: { type: 'FeatureCollection'; features: GeojsonFeature[] };
   bounds: [number, number, number, number] | null;
-  routes: number; rawPoints: number; samples: number;
+  routes: number; rawPoints: number; renderedPoints: number; samples: number; densityCells: number;
+}
+
+/** Iterative Douglas–Peucker in local metres, preserving endpoints and turns.
+ * Display-only simplification; never modifies retained evidence. */
+export function simplifyCoordinates(points: Coordinate[], toleranceMeters = 10): Coordinate[] {
+  if (points.length < 3) return points;
+  const cosine = Math.max(0.000001, Math.cos(points[0]![1] * RADIANS));
+  const metres = EARTH_RADIUS_M * RADIANS;
+  const kept = new Uint8Array(points.length);
+  kept[0] = 1; kept[points.length - 1] = 1;
+  const stack: [number, number][] = [[0, points.length - 1]];
+  while (stack.length) {
+    const [start, end] = stack.pop()!;
+    const a = points[start]!, b = points[end]!;
+    const dx = (b[0] - a[0]) * cosine * metres, dy = (b[1] - a[1]) * metres;
+    const length = dx * dx + dy * dy;
+    let farthest = -1, maximum = toleranceMeters * toleranceMeters;
+    for (let i = start + 1; i < end; i++) {
+      const p = points[i]!;
+      const x = (p[0] - a[0]) * cosine * metres, y = (p[1] - a[1]) * metres;
+      const t = length ? Math.max(0, Math.min(1, (x * dx + y * dy) / length)) : 0;
+      const distance = (x - t * dx) ** 2 + (y - t * dy) ** 2;
+      if (distance > maximum) { maximum = distance; farthest = i; }
+    }
+    if (farthest >= 0) {
+      kept[farthest] = 1;
+      stack.push([start, farthest], [farthest, end]);
+    }
+  }
+  return points.filter((_, i) => kept[i]);
+}
+
+/** Pages are consumed and released immediately. Shared weighted cells replace
+ * millions of duplicate Point features. Three resolutions switch with zoom. */
+export class HeatmapDatasetBuilder {
+  private readonly lines: GeojsonFeature[] = [];
+  private readonly cells = new Map<string, { point: Coordinate; weight: number; level: number }>();
+  private rawPoints = 0;
+  private renderedPoints = 0;
+  private samples = 0;
+  private west = 180;
+  private east = -180;
+  private south = 90;
+  private north = -90;
+
+  add(routes: HeatmapRoute[]): void {
+    if (this.lines.length + routes.length > MAX_HEATMAP_ROUTES) throw new RangeError('Too many routes for the browser heatmap. Narrow the filters.');
+    for (const route of routes) {
+      if (!route?.geometry || (route.geometry.type !== 'LineString' && route.geometry.type !== 'MultiLineString')) throw new RangeError('Invalid route geometry.');
+      const parts = route.geometry.type === 'LineString' ? [route.geometry.coordinates] : route.geometry.coordinates;
+      if (!Array.isArray(parts) || !parts.length || parts.length > 50 || parts.some(part => !Array.isArray(part) || part.length < 2 || part.length > 5_000) || parts.reduce((count, part) => count + part.length, 0) > 5_000) throw new RangeError('Invalid route geometry.');
+      const display: Coordinate[][] = [];
+      for (const part of parts) {
+        if (!part.every(validCoordinate)) throw new RangeError('Invalid GPS coordinate.');
+        this.rawPoints += part.length;
+        if (this.rawPoints > MAX_RAW_ROUTE_POINTS) throw new RangeError('Too many GPS points for the browser heatmap. Narrow the filters.');
+        for (const [lng, lat] of part) {
+          this.west = Math.min(this.west, lng); this.east = Math.max(this.east, lng);
+          this.south = Math.min(this.south, lat); this.north = Math.max(this.north, lat);
+        }
+        const simplified = simplifyCoordinates(part);
+        this.renderedPoints += simplified.length;
+        if (this.renderedPoints > MAX_RENDERED_ROUTE_POINTS) throw new RangeError('Too many displayed route points. Narrow the filters.');
+        display.push(simplified);
+        // Uniform distance sampling prevents dense rich streams from appearing
+        // brighter than the same path represented by a sparse summary.
+        this.sample(part[0]!);
+        let remaining = SAMPLE_SPACING_M;
+        for (let i = 1; i < part.length; i++) {
+          const a = part[i - 1]!, b = part[i]!;
+          const distance = distanceMeters(a, b);
+          if (!distance) continue;
+          let travelled = remaining;
+          while (travelled <= distance) {
+            const t = travelled / distance;
+            this.sample([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+            travelled += SAMPLE_SPACING_M;
+          }
+          remaining = travelled - distance;
+        }
+      }
+      this.lines.push({ type: 'Feature',
+        properties: { kind: 'route', activityId: route.activityId, source: route.source, resolution: route.resolution },
+        geometry: route.geometry.type === 'LineString'
+          ? { type: 'LineString', coordinates: display[0]! }
+          : { type: 'MultiLineString', coordinates: display },
+      });
+    }
+  }
+
+  private sample(point: Coordinate): void {
+    if (++this.samples > MAX_DENSITY_SAMPLES) throw new RangeError('Heatmap density sampling budget exceeded. Narrow the filters.');
+    for (const [level, size] of [1280, 320, 80].entries()) {
+      const latStep = size / (EARTH_RADIUS_M * RADIANS);
+      const y = Math.floor(point[1] / latStep);
+      const lat = Math.max(-90, Math.min(90, (y + 0.5) * latStep));
+      const lngStep = latStep / Math.max(0.000001, Math.cos(lat * RADIANS));
+      const x = Math.floor(point[0] / lngStep);
+      const key = `${level}:${x}:${y}`;
+      const previous = this.cells.get(key);
+      if (previous) previous.weight++;
+      else {
+        if (this.cells.size >= MAX_DENSITY_CELLS) throw new RangeError('Heatmap density cell budget exceeded. Narrow the filters.');
+        // Display density only; these centres are never route vertices.
+        this.cells.set(key, { point: [Math.max(-180, Math.min(180, (x + 0.5) * lngStep)), lat], weight: 1, level });
+      }
+    }
+  }
+
+  finish(): HeatmapDataset {
+    const features = [...this.lines];
+    for (const cell of this.cells.values()) features.push({ type: 'Feature',
+      properties: { kind: 'density', activityId: '', source: 'aggregate', resolution: 'density', weight: cell.weight, level: cell.level },
+      geometry: { type: 'Point', coordinates: cell.point },
+    });
+    return { geojson: { type: 'FeatureCollection', features },
+      bounds: this.lines.length ? [this.west, this.south, this.east, this.north] : null,
+      routes: this.lines.length, rawPoints: this.rawPoints, renderedPoints: this.renderedPoints,
+      samples: this.samples, densityCells: this.cells.size,
+    };
+  }
 }
 
 export function buildHeatmapDataset(routes: HeatmapRoute[]): HeatmapDataset {
-  if (routes.length > MAX_HEATMAP_ROUTES) throw new RangeError('Too many routes for the browser heatmap. Narrow the filters.');
-  const features: GeojsonFeature[] = [];
-  let rawPoints = 0, samples = 0;
-  let west = 180, east = -180, south = 90, north = -90;
-  for (const route of routes) {
-    if (!route?.geometry || (route.geometry.type !== 'LineString' && route.geometry.type !== 'MultiLineString')) {
-      throw new RangeError('Invalid route geometry returned by the heatmap API.');
-    }
-    const parts = route.geometry.type === 'LineString' ? [route.geometry.coordinates] : route.geometry.coordinates;
-    if (!Array.isArray(parts) || !parts.length || parts.some(part => !Array.isArray(part) || part.length < 2)) {
-      throw new RangeError('Invalid route geometry returned by the heatmap API.');
-    }
-    const density: GeojsonFeature[] = [];
-    for (const part of parts) {
-      if (!part.every(validCoordinate)) throw new RangeError('Invalid route geometry returned by the heatmap API.');
-      rawPoints += part.length;
-      if (rawPoints > MAX_RAW_ROUTE_POINTS) throw new RangeError('Too many GPS points for the browser heatmap. Narrow the filters.');
-      for (const [lng, lat] of part) {
-        west = Math.min(west, lng); east = Math.max(east, lng);
-        south = Math.min(south, lat); north = Math.max(north, lat);
-      }
-      // Do not interpolate across disjoint GPS recordings.
-      const points = densifyCoordinates(part, SAMPLE_SPACING_M, MAX_DENSITY_SAMPLES - samples);
-      samples += points.length;
-      for (const point of points) density.push({
-        type: 'Feature',
-        properties: { kind: 'density', activityId: route.activityId, source: route.source, resolution: route.resolution, weight: 1 },
-        geometry: { type: 'Point', coordinates: point },
-      });
-    }
-    features.push({
-      type: 'Feature',
-      properties: { kind: 'route', activityId: route.activityId, source: route.source, resolution: route.resolution },
-      geometry: route.geometry,
-    });
-    for (const point of density) features.push(point);
-  }
-  return {
-    geojson: { type: 'FeatureCollection', features },
-    bounds: routes.length ? [west, south, east, north] : null,
-    routes: routes.length, rawPoints, samples,
-  };
+  const builder = new HeatmapDatasetBuilder();
+  builder.add(routes);
+  return builder.finish();
 }

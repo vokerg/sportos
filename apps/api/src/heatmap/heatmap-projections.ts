@@ -9,7 +9,7 @@ import { stravaSummaryRoute, type ActivityRouteResponse } from '../activities/ac
 export async function readHeatmapProjectionUpgrades(owner: string, candidates: HeatmapRouteCandidate[],
   detail: ActivityDetailDbProvider): Promise<Map<string, ActivityRouteResponse>> {
   if (!candidates.length) return new Map();
-  if (candidates.length > 50) throw new Error('Heatmap projection page exceeds limit');
+  if (candidates.length > 200) throw new Error('Heatmap projection page exceeds limit');
   return detail.withAccount(owner, async db => {
     const projections = new ActivityRouteProjectionsRepository(db);
     const rows = await projections.getMany(candidates.map(c => c.activityId));

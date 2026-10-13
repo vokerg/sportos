@@ -76,7 +76,7 @@ import type { HeatmapDataset } from '../model/heatmap-geometry';
         <div class="legend" aria-label="Route density legend"><span>Less travelled</span>
           <div class="gradient" aria-hidden="true"></div><span>Repeated routes</span>
         </div>
-        <p>At regional zoom repeated paths form brighter corridors; zoom in for approximate routes. Interpolation adjusts density, not GPS accuracy. © OpenStreetMap contributors.</p>
+        <p>At regional zoom repeated paths form brighter corridors; zoom in for approximate routes. Density combines repeated routes at each zoom. Lines use a 10 m display simplification tolerance; source GPS accuracy is unchanged. © OpenStreetMap contributors.</p>
       </footer>
     </section>
   `,
