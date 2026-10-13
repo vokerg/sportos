@@ -75,6 +75,22 @@ describe('ActivityMapComponent', () => {
     expect(routeQuality(loop)).toBe('Garmin · FIT route');
     fixture.destroy();
   });
+  it('renders discontinuous MultiLineString tracks without connecting gaps and labels stream provenance', async () => {
+    const segmented: ActivityMapAvailable = {
+      status:'available',source:'strava',resolution:'streams',
+      geometry:{type:'MultiLineString',coordinates:[[[12,55],[12.01,55.01]],[[12.1,55.1],[12.11,55.11]]]},
+      bounds:[12,55,12.11,55.11],pointCount:4,
+    };
+    const fixture=await render(segmented);
+    maps[0].emit('load');
+    expect(maps[0].addSource).toHaveBeenCalledWith('activity-route',
+      expect.objectContaining({data:expect.objectContaining({geometry:segmented.geometry})}));
+    expect(markers).toHaveLength(2);
+    expect(markers[0].setLngLat).toHaveBeenCalledWith([12,55]);
+    expect(markers[1].setLngLat).toHaveBeenCalledWith([12.11,55.11]);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Strava · GPS streams');
+    fixture.destroy();
+  });
   it('reports CDN load errors and retries without re-fetching provider data', async () => {
     vi.mocked(loadMapLibre).mockRejectedValueOnce(new Error('offline'));
     const fixture = await render();
