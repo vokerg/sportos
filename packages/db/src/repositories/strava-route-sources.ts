@@ -2,8 +2,9 @@ import { sql, type Kysely } from 'kysely';
 import type { Database } from '../schema.js';
 
 /**
- * Only latest normalized Strava snapshots attached through an available native
- * provider link are trusted. This is shared by single-activity and bulk maps.
+ * Only normalized Strava snapshots attached through an available native
+ * provider link are trusted; callers select the latest trustworthy link.
+ * This predicate is shared by single-activity and bulk maps.
  * Reading at most 30,001 characters prevents oversized retained payloads from
  * crossing the repository boundary; the route decoder rejects >30,000.
  */
@@ -27,6 +28,5 @@ export function trustedStravaRouteSources(db: Kysely<Database>) {
       'link.owner_id as ownerId',
       sql<string | null>`left(snapshot.raw_json #>> '{map,summary_polyline}', 30001)`.as('polyline'),
       sql<string | null>`jsonb_typeof(snapshot.raw_json #> '{map,summary_polyline}')`.as('polylineType'),
-    ])
-;
+    ]);
 }
