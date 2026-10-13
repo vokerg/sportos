@@ -66,6 +66,10 @@ describe('HeatmapPageComponent', () => {
   it('uses all time/all sports, private GeoJSON density layers, fitBounds and cleanup', async () => {
     const fixture = await render();
     expect(api.list).toHaveBeenCalledWith({}, undefined);
+    expect(fixture.componentInstance.store.state()).toBe('ready');
+    expect(fixture.componentInstance.store.dataset()?.routes).toBe(1);
+    expect(vi.mocked(loadMapLibre)).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance.mapError()).toBe(false);
     expect(maps).toHaveLength(1);
     maps[0]!.emit('load'); fixture.detectChanges();
     expect(maps[0]!.addSource).toHaveBeenCalledWith('sportos-heatmap', expect.objectContaining({type:'geojson'}));
