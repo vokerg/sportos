@@ -112,8 +112,7 @@ import { WebAuthService } from './web-auth.service';
     @media (max-width: 760px) {
       .app-header { grid-template-columns: 1fr; gap: 8px; padding: 10px 12px; }
       nav { justify-content: flex-start; }
-      .page-shell.full-page { padding: 0; }
-    .page-shell { padding: 14px 12px 32px; }
+      .page-shell { padding: 14px 12px 32px; }
     }
   `],
 })
