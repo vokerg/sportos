@@ -10,8 +10,10 @@ export interface HeatmapRoute {
   activityId: string; date: string; sport: HeatmapSport;
   source: 'strava' | 'garmin'; resolution: string; geometry: RouteGeometry;
 }
+export interface HeatmapQuality { summary: number; streams: number; detail: number; fit: number }
 export interface HeatmapCoverage {
   eligibleScanned: number; usable: number; missingGps: number; invalidGeometry: number; budgetExceeded: number;
+  quality: HeatmapQuality;
 }
 export interface HeatmapPage {
   items: HeatmapRoute[]; limit: number; hasMore: boolean; nextCursor: string | null;
@@ -19,6 +21,7 @@ export interface HeatmapPage {
 }
 export const EMPTY_COVERAGE: HeatmapCoverage = {
   eligibleScanned: 0, usable: 0, missingGps: 0, invalidGeometry: 0, budgetExceeded: 0,
+  quality: { summary: 0, streams: 0, detail: 0, fit: 0 },
 };
 export const HEATMAP_PAGE_SIZE = 50;
 export const MAX_HEATMAP_PAGES = 120;

@@ -16,7 +16,7 @@ import type { HeatmapDataset } from '../model/heatmap-geometry';
     <section class="heatmap-page">
       <header>
         <div><span class="page-kicker">Training geography</span><h1>My heatmap</h1>
-          <p>Private routes from retained activity GPS. Summary geometry is approximate, not a street-level trace.</p>
+          <p>Private routes from retained activity GPS. Summary routes are approximate; explicitly retained high-resolution GPS is shown when safely available.</p>
         </div>
         <a routerLink="/activities">Activities ↗</a>
       </header>
@@ -47,7 +47,12 @@ import type { HeatmapDataset } from '../model/heatmap-geometry';
           @if (store.coverage().missingGps) { {{ store.coverage().missingGps }} without GPS. }
           @if (store.coverage().invalidGeometry) { {{ store.coverage().invalidGeometry }} invalid. }
           @if (store.coverage().budgetExceeded) { {{ store.coverage().budgetExceeded }} omitted by API page budgets. }
-          <span>All requested pages loaded · Strava summary / approximate geometry</span>
+          <span>All pages loaded ·
+            {{ store.coverage().quality.summary }} Strava summary (approximate) ·
+            {{ store.coverage().quality.streams }} Strava streams ·
+            {{ store.coverage().quality.detail }} Strava detail ·
+            {{ store.coverage().quality.fit }} Garmin FIT (retained)
+          </span>
         }
       </div>
       @if (store.state() === 'error') {
