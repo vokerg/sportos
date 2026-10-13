@@ -89,3 +89,13 @@ Increasing the compact candidate page required increasing every auxiliary batch
 bound to 200 and the metadata-only row cap to 400 (streams + detail per route).
 Integration covers a full 200-route/400-resource page and its foreign-owner
 negative, preventing silent rich-to-summary fallback from a leftover smaller cap.
+
+## Reproduce
+
+With the local API running in its existing `dev-single-user` mode on port 3010,
+run `pnpm heatmap:benchmark`. The read-only operator script consumes exactly the
+compact feed and pure browser dataset builder, checks duplicate routes/private
+cache policy/pagination, and prints only aggregate counts, bytes, timings and Node
+heap. It never accepts an owner, downloads provider data, writes cache/facts,
+persists route geometry or prints coordinates/identifiers. Normal authenticated
+API enforcement still applies; this script does not bootstrap a hosted session.
