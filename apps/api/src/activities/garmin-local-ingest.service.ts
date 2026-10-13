@@ -1,4 +1,5 @@
 import { RunningEffortsService } from './running-efforts.service.js';
+import { ActivityRouteProjectionService } from './activity-route-projection.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
 import { normalizeGarminStrength } from '@sportos/domain';
 import { homedir } from 'node:os';
@@ -36,6 +37,7 @@ export class GarminLocalIngestService {
     @Inject(UploadStorage) private readonly storage: UploadStorage,
     private readonly metrics: ActivityMetricsService = new ActivityMetricsService(primary,detail),
     private readonly efforts: RunningEffortsService = new RunningEffortsService(primary,detail),
+    private readonly routes?: ActivityRouteProjectionService,
   ) {}
 
   async retainBundle(input: LocalGarminBundle, account: AuthenticatedAccount) {
@@ -196,7 +198,7 @@ export class GarminLocalIngestService {
       const identity = await new GarminActivitiesRepository(db).ingest(snapshot, ready);
       return identity;
     });
-    if (identity.activityId) { await this.efforts.project(owner,identity.activityId,'garmin'); await this.metrics.project(owner,identity.activityId); }
+    if (identity.activityId) { await this.routes?.project(owner,identity.activityId); await this.efforts.project(owner,identity.activityId,'garmin'); await this.metrics.project(owner,identity.activityId); }
     return identity;
   }
 
