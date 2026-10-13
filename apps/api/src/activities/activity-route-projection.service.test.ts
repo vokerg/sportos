@@ -25,11 +25,17 @@ describe('retained route orchestration',()=>{
    provider:'strava',resolution:'streams',source_ref:'123',source_version:'a'.repeat(64),
    algorithm_version:1,resource_hash:'b'.repeat(64),polylines:[polyline],
    bounds:[12,55,12.01,55.01],point_count:2,state:'current',
+   source_fetched_at:new Date('2026-10-01T12:00:00Z'),
   } as never);
+  const metadata=vi.spyOn(ActivityProviderResourcesRepository.prototype,'metadata').mockResolvedValue([
+   {resourceType:'streams',availability:'available',providerVersion:strava.providerVersion,
+    fetchedAt:new Date('2026-10-01T12:00:00Z')},
+  ]);
   const rich=vi.spyOn(ActivityProviderResourcesRepository.prototype,'list');
   expect(await instance.read(owner,id)).toMatchObject({status:'available',source:'strava',resolution:'streams'});
   expect(scoped.withAccount).toHaveBeenCalledWith(owner,expect.any(Function));
   expect(rich).not.toHaveBeenCalled();
+  expect(metadata).toHaveBeenCalledWith(strava);
  });
  it('falls back to the compact route when projection no longer matches the provider version',async()=>{
   const {instance,references}=service();
@@ -40,6 +46,27 @@ describe('retained route orchestration',()=>{
    bounds:[12,55,12.01,55.01],point_count:2,state:'current',
   } as never);
   expect(await instance.read(owner,id)).toMatchObject({status:'available',source:'strava',resolution:'summary'});
+ });
+ it('falls back to summary if auxiliary database is unavailable or V004 is not deployed',async()=>{
+  const {instance,references}=service();
+  references.mockResolvedValue({summary:validSummary,strava,stravaLinked:true,garmin:undefined});
+  vi.spyOn(ActivityRouteProjectionsRepository.prototype,'get').mockRejectedValue(new Error('relation does not exist'));
+  await expect(instance.read(owner,id)).resolves.toMatchObject({status:'available',resolution:'summary'});
+ });
+ it('refuses a stale same-version route after rich-resource refresh',async()=>{
+  const {instance,references}=service();
+  references.mockResolvedValue({summary:validSummary,strava,stravaLinked:true,garmin:undefined});
+  vi.spyOn(ActivityRouteProjectionsRepository.prototype,'get').mockResolvedValue({
+   provider:'strava',resolution:'streams',source_ref:'123',source_version:'a'.repeat(64),
+   algorithm_version:1,resource_hash:'b'.repeat(64),polylines:[polyline],
+   bounds:[12,55,12.01,55.01],point_count:2,state:'current',
+   source_fetched_at:new Date('2026-10-01T12:00:00Z'),
+  } as never);
+  vi.spyOn(ActivityProviderResourcesRepository.prototype,'metadata').mockResolvedValue([{
+   resourceType:'streams',availability:'available',providerVersion:strava.providerVersion,
+   fetchedAt:new Date('2026-10-01T12:01:00Z'),
+  }]);
+  await expect(instance.read(owner,id)).resolves.toMatchObject({status:'available',resolution:'summary'});
  });
  it('never publishes Garmin FIT when an available Strava link has missing compact geometry',async()=>{
   const {instance,references}=service();
