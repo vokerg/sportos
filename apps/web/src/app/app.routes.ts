@@ -37,6 +37,12 @@ export const APP_ROUTES: Routes = [
     title: 'Activities · SportOS',
   },
   {
+    path: 'activity/:id/map',
+    loadComponent: () => import('./features/activities/pages/activity-map-page.component').then((module) => module.ActivityMapPageComponent),
+    title: 'Activity map · SportOS',
+    data: { fullPage: true },
+  },
+  {
     path: 'activity/:id',
     loadComponent: () => import('./features/activities/activity-detail-page.component').then((module) => module.ActivityDetailPageComponent),
     title: 'Activity · SportOS',

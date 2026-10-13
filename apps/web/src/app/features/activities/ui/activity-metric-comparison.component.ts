@@ -10,22 +10,26 @@ import { comparisonGroups, detailMetricGroups, highlightMetrics } from '../model
       @for (value of metric.values; track $index) {
         <div class="value" [class.authoritative]="metric.values.length > 1 && value.authoritative"
           [class.alternative]="metric.values.length > 1 && !value.authoritative && !value.fallback">
-          <strong>{{ value.text }}</strong><span class="sources">{{ value.sources.join(' · ') }}</span>
+          <strong>{{ value.text }}</strong>
+          @if (!(metric.values.length === 1 && value.sources.includes('Strava') && value.sources.includes('Garmin'))) {
+            <span class="sources">{{ value.sources.join(' · ') }}</span>
+          }
           @if (value.fallback) { <span class="fallback">Read-only fallback</span> }
         </div>
       } @empty { <span class="unavailable">Unavailable</span> }
     </ng-template>
-    @if (highlights().length) {
+    @if (presentation() !== 'details' && (highlights().length || presentation() === 'summary')) {
       <section class="highlights" [attr.data-sport]="sport()" aria-label="Activity highlights">
-        <div class="summary-heading"><h2>{{ summaryTitle() }}</h2><span>At a glance</span></div>
+        <ng-content select="header" />
+        @if (presentation() !== 'summary') { <div class="summary-heading"><h2>{{ summaryTitle() }}</h2><span>At a glance</span></div> }
         <dl class="highlight-grid">@for (metric of highlights(); track metric.key) {
           <div class="highlight"><dt>{{ metric.label }}</dt><dd><ng-container [ngTemplateOutlet]="values" [ngTemplateOutletContext]="{ $implicit: metric }" /></dd></div>
         }</dl>
       </section>
     }
-    @if (groups().length) {
+    @if (presentation() !== 'summary' && groups().length) {
       <section class="card" aria-label="Activity metrics"><h2>{{ activity() ? 'More activity metrics' : 'Activity metrics' }}</h2>
-        <p>Sources share a value when differences are within display tolerance. When values differ, the primary value is bold. Garmin fallbacks are read-only.</p>
+        <p>Matching Strava and Garmin values appear once without provider labels (within display tolerance). When values differ, the primary value is bold. Garmin fallbacks are read-only.</p>
         @for (group of groups(); track group.title) {
           <section class="group" [attr.aria-label]="group.title"><h3>{{ group.title }}</h3>
             <dl class="comparison">@for (metric of group.items; track metric.key) {
@@ -61,6 +65,7 @@ import { comparisonGroups, detailMetricGroups, highlightMetrics } from '../model
 export class ActivityMetricComparisonComponent {
   readonly metrics = input<ActivityMetricComparison[]>([]);
   readonly sport = input('');
+  readonly presentation = input<'all' | 'summary' | 'details'>('all');
   readonly activity = input<ActivityDetail | null>(null);
   private readonly allGroups = computed(() => {
     const activity = this.activity();

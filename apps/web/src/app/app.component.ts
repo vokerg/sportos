@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { WebAuthService } from './web-auth.service';
 
@@ -44,6 +44,7 @@ import { WebAuthService } from './web-auth.service';
         </section>
       </main>
     } @else {
+      @if (!fullPage()) {
       <header class="app-header">
         <a class="brand" routerLink="/overview" aria-label="SportOS overview">
           <span class="brand-mark" aria-hidden="true">S</span>
@@ -67,8 +68,9 @@ import { WebAuthService } from './web-auth.service';
           <button type="button" class="secondary" (click)="auth.signOut()">Sign out</button>
         </div>
       </header>
-      <main class="page-shell" id="main-content">
-        <router-outlet />
+      }
+      <main class="page-shell" [class.full-page]="fullPage()" id="main-content">
+        <router-outlet #outlet="outlet" (activate)="fullPage.set(outlet.activatedRouteData['fullPage'] === true)" (deactivate)="fullPage.set(false)" />
       </main>
     }
   `,
@@ -100,6 +102,7 @@ import { WebAuthService } from './web-auth.service';
     nav a.active { background: #e9efff; color: #244fc5; box-shadow: inset 0 0 0 1px #a8baf0; }
     .account-actions { display: flex; align-items: center; gap: 10px; }
     .account-name { max-width: 170px; overflow: hidden; color: #667085; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .page-shell.full-page { padding: 0; }
     .page-shell { padding: 24px clamp(20px, 4vw, 72px) 48px; }
     @media (max-width: 1180px) {
       .app-header { grid-template-columns: auto minmax(0, 1fr); }
@@ -114,6 +117,7 @@ import { WebAuthService } from './web-auth.service';
   `],
 })
 export class AppComponent implements OnInit {
+  readonly fullPage = signal(false);
   constructor(readonly auth: WebAuthService) {}
 
   ngOnInit(): void {

@@ -2,6 +2,7 @@
 import '@angular/compiler';
 import 'zone.js';
 import 'zone.js/testing';
+import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from '@angular/platform-browser-dynamic/testing';
@@ -113,4 +114,17 @@ describe('ActivityMapComponent', () => {
     await Promise.resolve();
     expect(maps).toHaveLength(0);
   });
+});
+
+it('offers a dedicated map route and omits the expand link in expanded mode', async () => {
+  TestBed.configureTestingModule({ providers: [provideRouter([])] });
+  const fixture = await render();
+  Object.defineProperty(fixture.componentInstance, 'activityId', { value: signal('activity-one') });
+  const expanded = signal(false);
+  Object.defineProperty(fixture.componentInstance, 'expanded', { value: expanded });
+  fixture.detectChanges();
+  expect(fixture.nativeElement.querySelector('.expand-link')?.getAttribute('href')).toBe('/activity/activity-one/map');
+  expanded.set(true); fixture.detectChanges();
+  expect(fixture.nativeElement.classList.contains('expanded')).toBe(true);
+  expect(fixture.nativeElement.querySelector('.expand-link')).toBeNull();
 });

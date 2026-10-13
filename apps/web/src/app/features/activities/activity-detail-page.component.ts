@@ -19,13 +19,15 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
     @else if (state() === 'error') { <section class="card" role="alert">Could not load this activity. <button type="button" (click)="load()">Try again</button></section> }
     @else if (state() === 'missing') { <section class="card">Activity not found.</section> }
     @else { @if (activity(); as item) {
-      <header><span class="page-kicker">Canonical activity</span><h1>{{ title(item) }} @if (displayedSubtype(item)) { <small [attr.title]="item.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(item) }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
+      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="summary">
+      <header><h1>{{ title(item) }} @if (displayedSubtype(item)) { <small [attr.title]="item.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(item) }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
         @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
       </header>
+      </sportos-activity-metric-comparison>
       @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
       @if (store.mapState() === 'loading') { <section class="card map-status" role="status">Loading activity route…</section> }
       @else if (store.mapState() === 'available' && store.mapData()) {
-        <sportos-activity-map [route]="store.mapData()!" />
+        <sportos-activity-map [route]="store.mapData()!" [activityId]="item.id" />
       }
       @else if (store.mapState() === 'unavailable') {
         <section class="card map-status" aria-label="Activity route unavailable">
@@ -33,7 +35,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         </section>
       }
       @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
-      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" />
+      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
       @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
       @if (item.garminStrength; as strength) {
         <section class="card" aria-label="Garmin strength summary"><h2>Garmin strength sets</h2>
