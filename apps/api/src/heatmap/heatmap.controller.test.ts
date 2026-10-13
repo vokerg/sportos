@@ -81,6 +81,29 @@ describe('heatmap routes API', () => {
     expect(preserved.coverage).toMatchObject({budgetExceeded:0,quality:{summary:1,streams:0}});
   });
 
+  it('uses trusted Strava summaries on auxiliary outage and does not substitute Garmin-only GPS', async () => {
+    const list = vi.spyOn(HeatmapRoutesRepository.prototype, 'list').mockResolvedValue({
+      candidates: [
+        { ...candidate(first, '2026-01-03'), stravaLinked: true },
+        { ...candidate(second, '2026-01-02', null, null),
+          stravaLinked: false, garminIdentityKey: 'native:123', garminCurrentHash: 'c'.repeat(64) },
+      ],
+      hasMore: false,
+    });
+    const withAccount = vi.fn(async <T>(_account: string, run: (db: Kysely<Database>) => Promise<T>) =>
+      run({} as Kysely<Database>));
+    const detail = { withAccount: vi.fn().mockRejectedValue(new Error('auxiliary unavailable')) };
+    const controller = new HeatmapController({ withAccount } as unknown as DbProvider, detail as never);
+    const result = await controller.routes({}, { id: owner } as never);
+    expect(list).toHaveBeenCalledOnce();
+    expect(withAccount).toHaveBeenCalledWith(owner, expect.any(Function));
+    expect(detail.withAccount).toHaveBeenCalledOnce();
+    expect(result.items).toMatchObject([{ activityId: first, source: 'strava', resolution: 'summary' }]);
+    expect(result.coverage).toMatchObject({
+      eligibleScanned: 2, usable: 1, missingGps: 1, quality: { summary: 1, streams: 0, detail: 0, fit: 0 },
+    });
+  });
+
   it('performs exactly one owner-scoped repository page and never downloads provider detail', async () => {
     const list = vi.spyOn(HeatmapRoutesRepository.prototype, 'list').mockResolvedValue({
       candidates: [candidate(first, '2026-01-03'), candidate(second, '2026-01-02', null, null)],
