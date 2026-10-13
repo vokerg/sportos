@@ -57,7 +57,7 @@ export class HeatmapRoutesRepository {
       hasMore: rows.length > input.limit,
       candidates: rows.slice(0, input.limit).map(row => ({
         ...row,
-        date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date,
+        date: (row.date as unknown) instanceof Date ? (row.date as unknown as Date).toISOString().slice(0, 10) : row.date,
       })),
     };
   }
