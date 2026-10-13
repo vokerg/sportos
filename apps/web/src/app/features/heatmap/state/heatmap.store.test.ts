@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
 import { of, Subject, throwError } from 'rxjs';
 import { HeatmapStore } from './heatmap.store';
 import type { HeatmapApiService } from '../data-access/heatmap-api.service';
@@ -16,7 +17,10 @@ let fetch!: ReturnType<typeof vi.fn>;
 let store!: HeatmapStore;
 beforeEach(() => {
   fetch = vi.fn();
-  store = new HeatmapStore({list: fetch} as unknown as HeatmapApiService);
+  const injector = Injector.create({providers: [
+    {provide: HeatmapApiService, useValue: {list: fetch}},
+  ]});
+  store = runInInjectionContext(injector, () => new HeatmapStore());
 });
 describe('HeatmapStore', () => {
   it('loads every page before exposing geometry and starts with unbounded all-time filters', () => {
