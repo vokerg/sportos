@@ -448,3 +448,42 @@ appear once without redundant provider labels, both in the summary and secondary
 metrics. Different values and single-source values keep their labels. Canonical
 priority, fallback notices and advanced provenance remain available; no metric
 normalization, official facts or scoring behavior changes.
+
+## Personal heatmap UI (#138)
+
+The authenticated **Heatmap** navigation tab opens lazy route `/heatmap`. Its
+feature-sliced implementation is under `apps/web/src/app/features/heatmap/`
+(page, account-session HTTP data access, cancellable paginated store, pure GPS
+sampling/GeoJSON, and MapLibre style). It uses the existing `GET /heatmap/routes`
+from #137, defaulting to **all time and all eligible canonical sports**; users
+can restrict the sport and date range without downloading from providers.
+
+- The page reads every page (50 candidates/request, stable cursors); page counts
+  and missing/invalid/budget-skipped route coverage are accumulated and shown.
+  A failed or cancelled page cannot expose a partial map. The browser caps
+  retained geometry at 2,500 routes / 160,000 original GPS points / 180,000
+  density samples / 120 pages. If exceeded, it refuses the dataset and prompts
+  narrower filters, rather than suggesting that a partial view is complete.
+- The style adapts `vokerg/heatmap/apps/web/src/app/map-style.ts`'s
+  **heatmap-halo**, **heatmap-core**, **route-glow**, and **route-core** MapLibre
+  layers to private in-memory GeoJSON. Low zoom conveys repeated corridors;
+  higher zoom resolves individual tracks. Geometry sampling adapts
+  `vokerg/heatmap/apps/api/src/db/file-store.ts`'s
+  `densifyCoordinates()` with an explicit bounded output. Each LineString or
+  MultiLineString *part* is sampled separately, without interpolating across
+  recording gaps. Sparse Strava summaries remain **approximate**; interpolation
+  never reconstructs streets or the original high-resolution GPS.
+- The page uses the same lazy, version-pinned MapLibre bundle and OSM raster
+  tile/attribution convention as activity maps, now via
+  `apps/web/src/app/shared/util/maplibre-loader.ts`. GPS GeoJSON is given to
+  MapLibre as an in-memory source only, not sent to OSM or public tile servers,
+  persisted in browser storage, or cached as a public response. Viewing it
+  makes no Garmin/Strava requests. The rendered bounds derive from valid GPS,
+  with an empty/error state rather than a fabricated geographic center.
+- This is a browser GeoJSON renderer, **not** the separate Heatmap Fastify app,
+  GPX importer, local JSON storage, PostGIS/MVT tile server, or separate auth.
+  #139 can optionally use existing retained high-resolution projections;
+  vector tiles / large-archive optimization remain explicitly deferred to #140.
+
+Relevant tests: `heatmap-geometry.test.ts`, `heatmap-style.test.ts`,
+`heatmap.store.test.ts`, and `heatmap-page.component.test.ts`.

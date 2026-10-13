@@ -388,3 +388,14 @@ When adding or changing Angular code:
 - avoid new global service/model dumping grounds;
 - run targeted frontend tests and typecheck first;
 - update this document when a reusable frontend pattern changes.
+
+## Authenticated heatmap slice (#138)
+
+`features/heatmap/` uses a lazy page, `data-access/heatmap-api.service.ts`
+for the authenticated owner-scoped bulk feed, `state/heatmap.store.ts`
+for pagination and cancellation, `model/` for bounded pure GPS transformations,
+and `ui/heatmap-style.ts` for MapLibre layer declarations. The lazy MapLibre
+loader lives in `shared/util/maplibre-loader.ts` for both heatmap and activity
+maps; the old Activities loader path is a compatibility re-export. Heatmap
+must not import another feature's UI implementation or create a global HTTP
+client. Browser memory caps and no partial map on feed failure are deliberate.
