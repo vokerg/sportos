@@ -198,7 +198,7 @@ export class GarminLocalIngestService {
       const identity = await new GarminActivitiesRepository(db).ingest(snapshot, ready);
       return identity;
     });
-    if (identity.activityId) { await this.routes?.project(owner,identity.activityId); await this.efforts.project(owner,identity.activityId,'garmin'); await this.metrics.project(owner,identity.activityId); }
+    if (identity.activityId) { if (this.routes) await this.routes.project(owner,identity.activityId).catch(() => undefined); await this.efforts.project(owner,identity.activityId,'garmin'); await this.metrics.project(owner,identity.activityId); }
     return identity;
   }
 
