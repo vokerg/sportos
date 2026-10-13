@@ -26,38 +26,72 @@ export interface MapLibreNamespace {
   NavigationControl: new (options: object) => unknown;
 }
 let pending: Promise<MapLibreNamespace> | undefined;
+let stylesheetLoaded = false;
 
 export function loadMapLibre(): Promise<MapLibreNamespace> {
   if (typeof document === 'undefined' || typeof window === 'undefined') {
     return Promise.reject(new Error('MapLibre requires a browser'));
   }
   const global = window as Window & { maplibregl?: MapLibreNamespace };
-  if (global.maplibregl) return Promise.resolve(global.maplibregl);
   if (pending) return pending;
+  if (global.maplibregl && stylesheetLoaded) return Promise.resolve(global.maplibregl);
 
   pending = new Promise<MapLibreNamespace>((resolve, reject) => {
-    if (!document.getElementById(STYLE_ID)) {
-      const link = document.createElement('link');
+    let cssReady = stylesheetLoaded;
+    let jsReady = Boolean(global.maplibregl);
+    let settled = false;
+    let script: HTMLScriptElement | undefined;
+    let link: HTMLLinkElement | undefined;
+
+    const complete = () => {
+      if (settled || !cssReady || !jsReady) return;
+      settled = true;
+      resolve(global.maplibregl!);
+    };
+    const fail = (reason: string) => {
+      if (settled) return;
+      settled = true;
+      pending = undefined;
+      script?.remove();
+      if (link && !stylesheetLoaded) link.remove();
+      reject(new Error(reason));
+    };
+
+    if (!cssReady) {
+      // A previous unsuccessful attempt must not poison retries.
+      document.getElementById(STYLE_ID)?.remove();
+      link = document.createElement('link');
       link.id = STYLE_ID;
       link.rel = 'stylesheet';
       link.href = BASE + 'maplibre-gl.css';
       link.referrerPolicy = 'no-referrer';
+      link.onload = () => {
+        if (settled) return;
+        cssReady = true;
+        stylesheetLoaded = true;
+        complete();
+      };
+      link.onerror = () => fail('MapLibre stylesheet could not be loaded');
       document.head.appendChild(link);
     }
-    const script = document.createElement('script');
-    script.src = BASE + 'maplibre-gl.js';
-    script.async = true;
-    script.referrerPolicy = 'no-referrer';
-    script.onload = () => {
-      if (global.maplibregl) resolve(global.maplibregl);
-      else { pending = undefined; script.remove(); reject(new Error('MapLibre did not initialize')); }
-    };
-    script.onerror = () => {
-      pending = undefined;
-      script.remove();
-      reject(new Error('MapLibre script could not be loaded'));
-    };
-    document.head.appendChild(script);
+    if (!jsReady) {
+      script = document.createElement('script');
+      script.src = BASE + 'maplibre-gl.js';
+      script.async = true;
+      script.referrerPolicy = 'no-referrer';
+      script.onload = () => {
+        if (settled) return;
+        if (!global.maplibregl) {
+          fail('MapLibre did not initialize');
+          return;
+        }
+        jsReady = true;
+        complete();
+      };
+      script.onerror = () => fail('MapLibre script could not be loaded');
+      document.head.appendChild(script);
+    }
+    complete();
   });
   return pending;
 }

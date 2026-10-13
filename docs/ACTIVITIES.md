@@ -159,7 +159,7 @@ CDN requests also disclose basic browser network metadata. The application
 does not upload a provider route JSON or source evidence to either service.
 The public OSM tile server is best-effort and intended only for light usage;
 heavy/production use should configure a properly licensed hosted basemap.
-Failures to load JS or initialize the map expose a retry; tile failures
+Failures to load JS or CSS expose a retry and discard failed assets; the map initializes only after both load. Tile failures
 produce a warning without dropping retained route evidence. CSP deployments
 must permit these pinned CDN assets, raster tile origin, and MapLibre's
 `blob:` worker source, or replace the bundle with self-hosted assets.
