@@ -63,9 +63,24 @@ function trim(fixes:Fix[],summary:ActivityRouteResponse):Fix[]|null {
  if(summary.status!=='available'||summary.geometry.type!=='LineString')return null;
  const line=summary.geometry.coordinates;
  const first=line[0]!,last=line[line.length-1]!;
- const start=fixes.findIndex(f=>f.point!==null&&distance(f.point,first)<=120);
- let end=-1;
- for(let i=fixes.length-1;i>start;i--)if(fixes[i]!.point!==null&&distance(fixes[i]!.point!,last)<=120){end=i;break;}
+ // Choose the nearest matching fixes, not the farthest in the 120 m
+ // tolerance window: the latter could reveal redacted extra prefix/suffix.
+ let start=-1,bestStart=120;
+ for(let i=0;i<fixes.length;i++){
+  const point=fixes[i]!.point;
+  if(point){
+   const meters=distance(point,first);
+   if(meters<bestStart){bestStart=meters;start=i;}
+  }
+ }
+ let end=-1,bestEnd=120;
+ for(let i=start+1;i<fixes.length;i++){
+  const point=fixes[i]!.point;
+  if(point){
+   const meters=distance(point,last);
+   if(meters<bestEnd){bestEnd=meters;end=i;}
+  }
+ }
  return start<0||end<=start?null:fixes.slice(start,end+1);
 }
 function build(provider:ProjectedRoute['provider'],resolution:ProjectedRoute['resolution'],fixes:Fix[],source:unknown):ProjectedRoute|null {
