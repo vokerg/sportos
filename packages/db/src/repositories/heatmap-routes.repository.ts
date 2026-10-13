@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Activity, Database } from '../schema.js';
 import { trustedStravaRouteSources } from './strava-route-sources.js';
 
@@ -23,11 +23,20 @@ export class HeatmapRoutesRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
   async list(input: HeatmapRoutesQuery): Promise<{ candidates: HeatmapRouteCandidate[]; hasMore: boolean }> {
-    const trusted = trustedStravaRouteSources(this.db).as('route');
+    // LATERAL resolves at most one trusted source for each candidate using the
+    // existing (owner_id, activity_id) link index. A global DISTINCT ON would
+    // decode/sort the entire archive before pagination on every request.
     let query = this.db.selectFrom('activities as activity')
-      .innerJoin(trusted, join => join
-        .onRef('route.activityId', '=', 'activity.id')
-        .onRef('route.ownerId', '=', 'activity.owner_id'))
+      .innerJoinLateral(
+        () => trustedStravaRouteSources(this.db)
+          .where('link.activity_id', '=', sql<string>`activity.id`)
+          .where('link.owner_id', '=', sql<string>`activity.owner_id`)
+          .orderBy('link.updated_at', 'desc')
+          .orderBy('link.id', 'desc')
+          .limit(1)
+          .as('route'),
+        join => join.onTrue(),
+      )
       .select([
         'activity.id as activityId',
         'activity.activity_date as date',
