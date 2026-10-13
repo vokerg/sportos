@@ -15,13 +15,13 @@ export async function readHeatmapProjectionUpgrades(owner: string, candidates: H
     const rows = await projections.getMany(candidates.map(c => c.activityId));
     const byId = new Map(candidates.map(c => [c.activityId, c]));
     // Only metadata for eligible, current Strava refs; no rich provider fetch.
-    const stravaIds = rows.filter(row => row.provider === 'strava' && byId.get(row.activity_id)?.stravaLinked)
-      .map(row => row.activity_id);
-    const garminKeys = rows.filter(row => row.provider === 'garmin' && byId.get(row.activity_id)?.stravaLinked === false)
-      .map(row => row.source_ref);
+    const stravaRefs = rows.filter(row => row.provider === 'strava' && byId.get(row.activity_id)?.stravaLinked)
+      .map(row => ({ activityId: row.activity_id, providerActivityId: row.source_ref }));
+    const garminRefs = rows.filter(row => row.provider === 'garmin' && byId.get(row.activity_id)?.stravaLinked === false)
+      .map(row => ({ identityKey: row.source_ref, sourceHash: row.source_version }));
     const [resources, manifests] = await Promise.all([
-      new ActivityProviderResourcesRepository(db).metadataMany(stravaIds),
-      projections.availableGarminFits(garminKeys),
+      new ActivityProviderResourcesRepository(db).metadataMany(stravaRefs),
+      projections.availableGarminFits(garminRefs),
     ]);
     const retainedFits = new Set(manifests.map(row => JSON.stringify([row.identityKey, row.sourceHash])));
     const upgrades = new Map<string, ActivityRouteResponse>();

@@ -17,13 +17,15 @@ export class ActivityRouteProjectionsRepository {
    .where('activity_id','in',activityIds).execute();
  }
  /** Check existence of the retained FIT manifest, not its raw payload. */
- async availableGarminFits(keys:string[]) {
-  if(!keys.length)return [];
-  if(keys.length>50)throw new Error('Garmin route batch exceeds page limit');
+ async availableGarminFits(refs:{identityKey:string;sourceHash:string}[]) {
+  if(!refs.length)return [];
+  if(refs.length>50)throw new Error('Garmin route batch exceeds page limit');
   return this.db.selectFrom('garmin_activity_resources')
    .select(['identity_key as identityKey','source_hash as sourceHash'])
-   .where('identity_key','in',keys).where('resource_type','=','fit_manifest')
-   .distinct().limit(50).execute();
+   .where(eb=>eb.or(refs.map(ref=>eb.and([
+    eb('identity_key','=',ref.identityKey),eb('source_hash','=',ref.sourceHash),
+   ]))))
+   .where('resource_type','=','fit_manifest').distinct().limit(50).execute();
  }
  async get(activityId:string) {
   return this.db.selectFrom('activity_route_projections').selectAll()

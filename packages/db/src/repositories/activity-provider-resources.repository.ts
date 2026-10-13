@@ -74,14 +74,18 @@ export class ActivityProviderResourcesRepository {
   }
 
   /** Metadata-only batch check; no large streams, FIT or JSON payload reads. */
-  async metadataMany(activityIds: string[]) {
-    if (!activityIds.length) return [];
-    if (activityIds.length > 50) throw new Error('Strava metadata batch exceeds page limit');
+  async metadataMany(refs: {activityId: string; providerActivityId: string}[]) {
+    if (!refs.length) return [];
+    if (refs.length > 50) throw new Error('Strava metadata batch exceeds page limit');
     return this.db.selectFrom('activity_provider_resources')
       .select(['activity_id as activityId', 'provider_activity_id as providerActivityId',
         'resource_type as resourceType', 'provider_version as providerVersion',
         'fetched_at as fetchedAt', 'availability'])
-      .where('activity_id','in',activityIds).where('provider','=','strava')
+      .where(eb => eb.or(refs.map(ref => eb.and([
+        eb('activity_id','=',ref.activityId),
+        eb('provider_activity_id','=',ref.providerActivityId),
+      ]))))
+      .where('provider','=','strava')
       .where('resource_type','in',['streams','detail']).limit(100).execute();
   }
 
