@@ -73,6 +73,12 @@ describe('heatmap routes API', () => {
       false, 2, new Map([[second, rich]]));
     expect(mixed.items[1]).toMatchObject({source:'strava',resolution:'streams',geometry:{type:'MultiLineString'}});
     expect(mixed.coverage.quality).toEqual({summary:1,streams:1,detail:0,fit:0});
+    const oversizedRich = { ...rich, pointCount: 15_001 };
+    const preserved = assembleHeatmapRoutes([candidate(first,'2026-01-05')],false,1,
+      new Map([[first, oversizedRich]]));
+    expect(preserved.items).toHaveLength(1);
+    expect(preserved.items[0]?.resolution).toBe('summary');
+    expect(preserved.coverage).toMatchObject({budgetExceeded:0,quality:{summary:1,streams:0}});
   });
 
   it('performs exactly one owner-scoped repository page and never downloads provider detail', async () => {

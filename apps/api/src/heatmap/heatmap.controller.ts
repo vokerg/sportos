@@ -77,15 +77,24 @@ export function assembleHeatmapRoutes(candidates: HeatmapRouteCandidate[], hasMo
   let geometryChars = 0;
   const quality = { summary: 0, streams: 0, detail: 0, fit: 0 };
   for (const candidate of candidates) {
-    const route = upgrades.get(candidate.activityId) ?? (candidate.stravaLinked === false
+    const summary = candidate.stravaLinked === false
       ? { status: 'unavailable' as const, reason: 'no_gps' as const }
-      : stravaSummaryRoute(candidate.polyline, candidate.polylineType));
+      : stravaSummaryRoute(candidate.polyline, candidate.polylineType);
+    const upgrade = upgrades.get(candidate.activityId);
+    let route = upgrade ?? summary;
     if (route.status === 'unavailable') {
       if (route.reason === 'summary_polyline_missing' || route.reason === 'no_gps') missingGps++;
       else invalidGeometry++;
       continue;
     }
-    const chars = JSON.stringify(route.geometry).length;
+    let chars = JSON.stringify(route.geometry).length;
+    // Keep approximate GPS coverage when a large rich route does not fit
+    // the remaining page budget, without weakening Strava visibility checks.
+    if (upgrade && summary.status === 'available' &&
+        (points + route.pointCount > MAX_PAGE_POINTS || geometryChars + chars > MAX_PAGE_GEOMETRY_CHARS)) {
+      route = summary;
+      chars = JSON.stringify(route.geometry).length;
+    }
     if (points + route.pointCount > MAX_PAGE_POINTS || geometryChars + chars > MAX_PAGE_GEOMETRY_CHARS) {
       budgetExceeded++;
       continue;

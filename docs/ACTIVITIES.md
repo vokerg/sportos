@@ -204,7 +204,9 @@ coverage from this endpoint alone. Page size and payload are bounded to
 geometry characters; each summary retains the stricter per-route decoder
 limits (30,000 encoded characters, 5,000 points, 200 KB coordinate JSON).
 Already-retained high-resolution routes are constrained to 3,000 points and
-50 disjoint segments each. `quality` contains per-page counts of delivered
+50 disjoint segments each. If a rich Strava route exceeds the remaining page
+geometry budget, a valid smaller Strava summary is used instead when it fits.
+`quality` contains per-page counts of delivered
 summary, streams, detail and FIT routes; only delivered (not omitted) routes
 are counted. Rich geometry uses `LineString` or `MultiLineString` without
 interpolating across gaps.
