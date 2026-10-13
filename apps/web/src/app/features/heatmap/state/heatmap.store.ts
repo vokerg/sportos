@@ -3,7 +3,7 @@ import { Subscription } from 'rxjs';
 import { HeatmapApiService } from '../data-access/heatmap-api.service';
 import { buildHeatmapDataset, type HeatmapDataset } from '../model/heatmap-geometry';
 import {
-  EMPTY_COVERAGE, MAX_HEATMAP_PAGES, MAX_HEATMAP_ROUTES, MAX_RAW_ROUTE_POINTS,
+  EMPTY_COVERAGE, HEATMAP_PAGE_SIZE, MAX_HEATMAP_PAGES, MAX_HEATMAP_ROUTES, MAX_RAW_ROUTE_POINTS,
   type HeatmapCoverage, type HeatmapFilters, type HeatmapPage, type HeatmapRoute,
 } from '../model/heatmap.models';
 
@@ -34,7 +34,7 @@ export class HeatmapStore implements OnDestroy {
     this.dataset.set(null);
     this.coverage.set(EMPTY());
     this.pagesLoaded.set(0);
-    this.nextPage(sequence, [], 0, undefined, new Set<string>(), EMPTY(), 0);
+    this.nextPage(sequence, [], 0, undefined, new Set<string>(), new Set<string>(), EMPTY(), 0);
   }
 
   retry(): void { this.load(this.lastFilters); }
@@ -57,7 +57,7 @@ export class HeatmapStore implements OnDestroy {
 
   private nextPage(
     sequence: number, routes: HeatmapRoute[], rawPoints: number, cursor: string | undefined,
-    usedCursors: Set<string>, coverage: HeatmapCoverage, pageCount: number,
+    usedCursors: Set<string>, seenActivities: Set<string>, coverage: HeatmapCoverage, pageCount: number,
   ): void {
     if (sequence !== this.sequence) return;
     if (pageCount >= MAX_HEATMAP_PAGES) return this.fail('The heatmap exceeds the browser page limit. Narrow your filters.');
@@ -66,11 +66,20 @@ export class HeatmapStore implements OnDestroy {
         if (sequence !== this.sequence) return;
         try {
           if (!page || !Array.isArray(page.items) || !page.coverage ||
-              typeof page.hasMore !== 'boolean' || page.items.length > 50 ||
+              typeof page.hasMore !== 'boolean' || page.items.length > HEATMAP_PAGE_SIZE ||
               !Number.isSafeInteger(page.coverage.eligibleScanned) ||
-              page.coverage.eligibleScanned < page.items.length ||
-              !Object.values(page.coverage).every(v => Number.isSafeInteger(v) && v >= 0)) {
+              !Object.values(page.coverage).every(v => Number.isSafeInteger(v) && v >= 0) ||
+              page.coverage.usable !== page.items.length ||
+              page.coverage.eligibleScanned !== page.coverage.usable +
+                page.coverage.missingGps + page.coverage.invalidGeometry + page.coverage.budgetExceeded) {
             throw new Error('Invalid heatmap page.');
+          }
+          // A changing source or malformed response must not double-count a route.
+          // Each canonical activity may be rendered once across the cursor walk.
+          for (const item of page.items) {
+            if (!item || typeof item.activityId !== 'string' || !item.activityId ||
+                seenActivities.has(item.activityId)) throw new Error('Duplicate heatmap route.');
+            seenActivities.add(item.activityId);
           }
           const nextCoverage: HeatmapCoverage = {
             eligibleScanned: coverage.eligibleScanned + page.coverage.eligibleScanned,
@@ -95,7 +104,7 @@ export class HeatmapStore implements OnDestroy {
               throw new Error('The heatmap API returned an invalid pagination cursor.');
             }
             usedCursors.add(next);
-            this.nextPage(sequence, all, rawPoints + pointCount, next, usedCursors, nextCoverage, pageCount + 1);
+            this.nextPage(sequence, all, rawPoints + pointCount, next, usedCursors, seenActivities, nextCoverage, pageCount + 1);
           } else {
             if (page.nextCursor !== null) throw new Error('Unexpected heatmap cursor on final page.');
             // Validate all geometries and sample budgets before allowing any map to render.
