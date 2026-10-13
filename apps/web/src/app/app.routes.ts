@@ -37,6 +37,11 @@ export const APP_ROUTES: Routes = [
     title: 'Activities · SportOS',
   },
   {
+    path: 'heatmap',
+    loadComponent: () => import('./features/heatmap/pages/heatmap-page.component').then((module) => module.HeatmapPageComponent),
+    title: 'My heatmap · SportOS',
+  },
+  {
     path: 'activity/:id/map',
     loadComponent: () => import('./features/activities/pages/activity-map-page.component').then((module) => module.ActivityMapPageComponent),
     title: 'Activity map · SportOS',
