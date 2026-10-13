@@ -429,3 +429,15 @@ qualifications. Sparse Strava stopped markers bracketed by moving samples, with
 at most 10 m drift and a resume within 30 seconds, can preserve continuous
 analytical coverage; selected windows crossing these markers remain qualified. Longer targets
 without continuous evidence remain labeled summary estimates.
+
+## Private heatmap route aggregation
+
+The personal heatmap route API (`GET /heatmap/routes`) is a session-authenticated,
+read-only primary-database endpoint. It performs a bounded keyset page over
+canonical `activities` with an indexed lateral lookup of the newest trusted normalized Strava
+`provider_activity_links` / `source_records` snapshots, under account
+context and forced RLS. The same trust selector powers the existing
+single-activity summary fallback. Invalid, missing or over-budget geometry
+is not exposed; per-page coverage is explicit. No auxiliary-database read,
+provider token, upstream request, tile server, new persistence, or public GPS
+cache is involved. See [Heatmap route feed](ACTIVITIES.md#heatmap-route-feed-137).

@@ -133,6 +133,78 @@ internals. It reads one compact owner-scoped projection row in the existing
 It cannot restore geometry discarded at ingestion. GPS locations are private
 and stay behind account authentication.
 
+## Heatmap route feed (#137)
+
+`GET /heatmap/routes` is an authenticated, read-only bulk route endpoint for
+the upcoming personal heatmap UI. It uses **only primary-database retained Strava
+summary polylines**, without contacting Strava/Garmin, reading optional auxiliary
+route projections, or downloading rich detail. Routes are never publicly cached
+(`Cache-Control: private, no-store`); GPS remains private and account-scoped.
+
+Optional query parameters: inclusive `from` and `to` (real `YYYY-MM-DD`
+dates), canonical `activityType` (the same enumerated values as `GET /activities`),
+`limit` (1–50, default 25) and an opaque `cursor` returned by the previous page.
+Unknown/duplicate-style array parameters, bad cursors and malformed filters
+return 400. There is **no default date cutoff**; paginate to cover all time.
+Ordering is deterministic by `activity_date DESC, id DESC`, with an exclusive
+cursor on the last **examined eligible** canonical activity. Clients must
+retain their original filters while advancing the cursor and stop when
+`hasMore: false` (not when an `items` page happens to be empty).
+
+A candidate qualifies only if it has an **available linked Strava connection**
+and the link's **latest source record** is normalized, Strava-native and refers
+to that exact canonical activity and provider-native ID. Workbook-origin
+canonical activities with such links qualify. Stale, raw, deleted, unlinked or
+foreign snapshots do not. Multiple valid links to the same canonical activity
+yield only one candidate (newest link update, then link ID). This exact trust
+query is shared with the single-activity Strava summary fallback.
+
+Example response (illustrative coordinates):
+
+```json
+{
+  "items": [
+    {
+      "activityId": "11111111-1111-4111-8111-111111111111",
+      "date": "2026-05-01",
+      "sport": "run",
+      "source": "strava",
+      "resolution": "summary",
+      "geometry": { "type": "LineString", "coordinates": [[-120.2, 38.5], [-120.95, 40.7]] }
+    }
+  ],
+  "limit": 25,
+  "nextCursor": null,
+  "hasMore": false,
+  "partial": false,
+  "coverage": {
+    "eligibleScanned": 1,
+    "usable": 1,
+    "missingGps": 0,
+    "invalidGeometry": 0,
+    "budgetExceeded": 0
+  }
+}
+```
+
+`coverage` is **page-scoped**, not an assertion of all-time coverage:
+`eligibleScanned` counts trusted linked candidates examined on this page;
+`usable` counts returned routes. Missing/invalid/degenerate geometry is
+skipped and counted, and a geometry-budget exclusion is separately counted.
+`partial` is true if more pages exist **or** any scanned candidate was omitted.
+Missing/unlinked Strava coverage cannot be inferred as full archive GPS
+coverage from this endpoint alone. Page size and payload are bounded to
+50 candidates, 15,000 total decoded points, and 400,000 serialized GeoJSON
+geometry characters; each summary retains the stricter per-route decoder
+limits (30,000 encoded characters, 5,000 points, 200 KB coordinate JSON).
+No truncated geometry is ever returned. An omitted route advances the cursor
+to avoid infinite retries; use smaller pages if a budget omission is reported.
+Pagination is stable for an unchanged dataset; a concurrent Strava
+reconciliation or activity-date correction may change subsequent pages.
+No account IDs, raw source JSON, hashes, token/envelope data or auxiliary
+storage identifiers appear in responses. All reads run inside
+`DbProvider.withAccount` and PostgreSQL forced RLS.
+
 ## Higher-resolution route projections (#128)
 
 The **existing** MapLibre view automatically switches from Strava summary to a

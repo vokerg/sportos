@@ -1,3 +1,4 @@
+import { trustedStravaRouteSources } from './strava-route-sources.js';
 import { RunningEffortsRepository } from './running-efforts.repository.js';
 import { runClassification, displaySubtype } from './run-classification.js';
 import { ActivityMetricsRepository } from './activity-metrics.repository.js';
@@ -130,30 +131,14 @@ export class ActivitiesRepository {
   > {
     const activity = await this.db.selectFrom('activities').select('id').where('id', '=', activityId).executeTakeFirst();
     if (!activity) return null;
-    const snapshot = await this.db
-      .selectFrom('provider_activity_links as link')
-      .innerJoin('provider_connections as connection', join => join
-        .onRef('connection.id', '=', 'link.connection_id')
-        .onRef('connection.owner_id', '=', 'link.owner_id')
-        .on('connection.provider', '=', 'strava'))
-      .innerJoin('source_records as snapshot', join => join
-        .onRef('snapshot.id', '=', 'link.latest_source_record_id')
-        .onRef('snapshot.owner_id', '=', 'link.owner_id')
-        .on('snapshot.source', '=', 'strava_api')
-        .on('snapshot.status', '=', 'normalized')
-        .on('snapshot.normalized_entity_type', '=', 'activity')
-        .on('snapshot.normalized_entity_id', '=', sql<string>`link.activity_id::text`)
-        .onRef('snapshot.source_record_key', '=', 'link.provider_activity_id'))
-      .select([
-        sql<string | null>`snapshot.raw_json #>> '{map,summary_polyline}'`.as('polyline'),
-        sql<string | null>`jsonb_typeof(snapshot.raw_json #> '{map,summary_polyline}')`.as('polylineType'),
-      ])
+    const snapshot = await trustedStravaRouteSources(this.db)
       .where('link.activity_id', '=', activityId)
-      .where('link.availability', '=', 'available')
       .orderBy('link.updated_at', 'desc')
       .orderBy('link.id', 'desc')
       .executeTakeFirst();
-    return snapshot ? { linked: true, ...snapshot } : { linked: false, polyline: null, polylineType: null };
+    return snapshot
+      ? { linked: true, polyline: snapshot.polyline, polylineType: snapshot.polylineType }
+      : { linked: false, polyline: null, polylineType: null };
   }
 
   async getSourceJson(activityId: string) {
