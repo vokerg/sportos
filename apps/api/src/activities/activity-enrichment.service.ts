@@ -82,7 +82,7 @@ export class ActivityEnrichmentService {
       const activity = canonical as typeof canonical & Record<string, unknown>;
       const retention = new GarminLocalIngestService(this.primary, this.detail, this.storage, undefined, undefined, this.routes);
       if (!refresh && garmin && await retention.cachedBundle(garmin.identity_key, garmin.current_hash, account)) {
-        await this.routes?.project(account.id,activityId);
+        if (this.routes) await this.routes.project(account.id,activityId).catch(() => undefined);
         return { ...(await this.read(account.id, activityId)), cacheStatus: 'hit', effortProjection: await this.efforts.project(account.id,activityId,'garmin'), metricProjection: await this.metrics.project(account.id,activityId) };
       }
       if (!this.localEnabled(account.id)) throw new ServiceUnavailableException({ code: 'GARMIN_LOCAL_FETCH_DISABLED', message: 'Garmin downloads require the enabled local desktop helper. Retained data can still be viewed.' });
