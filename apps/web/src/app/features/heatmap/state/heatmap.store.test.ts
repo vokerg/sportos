@@ -72,6 +72,29 @@ describe('HeatmapStore', () => {
     expect(store.dataset()?.routes).toBe(0);
     expect(store.coverage().eligibleScanned).toBe(4);
   });
+  it('fails closed for inconsistent coverage counts, including a misleading final-page total', () => {
+    const inconsistent = page([track('a')]);
+    inconsistent.coverage.usable = 2;
+    fetch.mockReturnValueOnce(of(inconsistent));
+    store.load({});
+    expect(store.state()).toBe('error');
+    expect(store.dataset()).toBeNull();
+    expect(store.error()).toContain('could not be completed');
+
+    const unaccounted = page([track('a')]);
+    unaccounted.coverage.eligibleScanned = 2;
+    fetch.mockReturnValueOnce(of(unaccounted));
+    store.load({});
+    expect(store.state()).toBe('error');
+    expect(store.dataset()).toBeNull();
+  });
+  it('rejects repeated activities across cursor pages rather than artificially brightening routes', () => {
+    fetch.mockReturnValueOnce(of(page([track('same')], true, 'cursor-2')))
+      .mockReturnValueOnce(of(page([track('same')])));
+    store.load({});
+    expect(store.state()).toBe('error');
+    expect(store.dataset()).toBeNull();
+  });
   it('rejects cursor loops, invalid pagination, and impossible browser budgets', () => {
     fetch.mockReturnValueOnce(of(page([track('a')],true,'loop')))
       .mockReturnValueOnce(of(page([track('b')],true,'loop')));
