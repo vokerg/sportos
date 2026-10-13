@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { HEATMAP_SPORTS, type HeatmapFilters, type HeatmapSport } from '../model/heatmap.models';
 import { HeatmapStore } from '../state/heatmap.store';
 import { HEATMAP_SOURCE_ID, heatmapLayers, heatmapRasterStyle } from '../ui/heatmap-style';
-import { loadMapLibre, type MapInstance } from '../../activities/ui/maplibre-loader';
+import { loadMapLibre, type MapInstance } from '../../../shared/util/maplibre-loader';
 import { isCalendarDate, quickRangeDates, type QuickRange } from '../../../shared/util/analytics-query-state';
 import type { HeatmapDataset } from '../model/heatmap-geometry';
 
@@ -159,7 +159,7 @@ export class HeatmapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private reload(): void {
     const from = this.from(), to = this.to();
     if ((from && !isCalendarDate(from)) || (to && !isCalendarDate(to)) || (from && to && from > to)) {
-      this.store.cancel();
+      this.store.clear();
       this.removeMap();
       this.filterError.set('Choose valid dates, with From no later than To.');
       return;

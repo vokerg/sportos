@@ -96,7 +96,7 @@ export function buildHeatmapDataset(routes: HeatmapRoute[]): HeatmapDataset {
       properties: { kind: 'route', activityId: route.activityId, source: route.source, resolution: route.resolution },
       geometry: route.geometry,
     });
-    features.push(...density);
+    for (const point of density) features.push(point);
   }
   return {
     geojson: { type: 'FeatureCollection', features },

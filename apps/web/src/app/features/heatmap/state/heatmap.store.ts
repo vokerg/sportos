@@ -39,6 +39,15 @@ export class HeatmapStore implements OnDestroy {
 
   retry(): void { this.load(this.lastFilters); }
 
+  clear(): void {
+    this.cancel();
+    this.dataset.set(null);
+    this.coverage.set(EMPTY());
+    this.state.set('idle');
+    this.error.set(null);
+    this.pagesLoaded.set(0);
+  }
+
   cancel(): void {
     this.sequence++;
     this.requests.unsubscribe();
