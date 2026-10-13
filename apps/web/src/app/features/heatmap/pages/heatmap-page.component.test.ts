@@ -30,7 +30,8 @@ class FakeMap {
 const maps: FakeMap[] = [];
 const result = (count = 1): HeatmapPage => ({
   limit:50, hasMore:false, nextCursor:null, partial: false,
-  coverage:{eligibleScanned:count,usable:count,missingGps:0,invalidGeometry:0,budgetExceeded:0},
+  coverage:{eligibleScanned:count,usable:count,missingGps:0,invalidGeometry:0,budgetExceeded:0,
+    quality:{summary:count,streams:0,detail:0,fit:0}},
   items: Array.from({length:count}, (_,i) => ({
     activityId:'activity-'+i, date:'2026-05-01', sport:'run' as const,
     source:'strava' as const, resolution:'summary',
@@ -81,7 +82,7 @@ describe('HeatmapPageComponent', () => {
     expect(maps[0]!.addSource).toHaveBeenCalledWith('sportos-heatmap', expect.objectContaining({type:'geojson'}));
     expect(maps[0]!.addLayer).toHaveBeenCalledTimes(4);
     expect(maps[0]!.fitBounds).toHaveBeenCalledWith([[12,55],[12.0002,55]], expect.objectContaining({maxZoom:14}));
-    expect(fixture.nativeElement.textContent).toContain('Strava summary / approximate geometry');
+    expect(fixture.nativeElement.textContent).toContain('Strava summary (approximate)');
     expect(fixture.nativeElement.querySelector('select').value).toBe('all');
     fixture.destroy();
     expect(maps[0]!.remove).toHaveBeenCalledTimes(1);
@@ -130,7 +131,8 @@ describe('HeatmapPageComponent', () => {
     expect(maps[0]!.remove).toHaveBeenCalledTimes(1);
   });
   it('does not create maps for no-GPS archives and cancels pending requests on teardown', async () => {
-    api.list.mockReturnValueOnce(of({ ...result(0), coverage:{eligibleScanned:2,usable:0,missingGps:2,invalidGeometry:0,budgetExceeded:0} }));
+    api.list.mockReturnValueOnce(of({ ...result(0), coverage:{eligibleScanned:2,usable:0,missingGps:2,invalidGeometry:0,budgetExceeded:0,
+      quality:{summary:0,streams:0,detail:0,fit:0}} }));
     const empty = await render();
     expect(empty.nativeElement.textContent).toContain('No usable GPS routes');
     expect(maps).toHaveLength(0);

@@ -8,7 +8,7 @@ import {
 } from '../model/heatmap.models';
 
 export type HeatmapLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
-const EMPTY = (): HeatmapCoverage => ({ ...EMPTY_COVERAGE });
+const EMPTY = (): HeatmapCoverage => ({ ...EMPTY_COVERAGE, quality: { ...EMPTY_COVERAGE.quality } });
 
 @Injectable()
 export class HeatmapStore implements OnDestroy {
@@ -68,7 +68,12 @@ export class HeatmapStore implements OnDestroy {
           if (!page || !Array.isArray(page.items) || !page.coverage ||
               typeof page.hasMore !== 'boolean' || page.items.length > HEATMAP_PAGE_SIZE ||
               !Number.isSafeInteger(page.coverage.eligibleScanned) ||
-              !Object.values(page.coverage).every(v => Number.isSafeInteger(v) && v >= 0) ||
+              ![page.coverage.usable, page.coverage.missingGps, page.coverage.invalidGeometry,
+                page.coverage.budgetExceeded].every(v => Number.isSafeInteger(v) && v >= 0) ||
+              !page.coverage.quality || !['summary','streams','detail','fit'].every(key =>
+                Number.isSafeInteger(page.coverage.quality[key as keyof typeof page.coverage.quality]) &&
+                page.coverage.quality[key as keyof typeof page.coverage.quality] >= 0) ||
+              Object.values(page.coverage.quality).reduce((sum, value) => sum + value, 0) !== page.coverage.usable ||
               page.coverage.usable !== page.items.length ||
               page.coverage.eligibleScanned !== page.coverage.usable +
                 page.coverage.missingGps + page.coverage.invalidGeometry + page.coverage.budgetExceeded) {
@@ -87,6 +92,12 @@ export class HeatmapStore implements OnDestroy {
             missingGps: coverage.missingGps + page.coverage.missingGps,
             invalidGeometry: coverage.invalidGeometry + page.coverage.invalidGeometry,
             budgetExceeded: coverage.budgetExceeded + page.coverage.budgetExceeded,
+            quality: {
+              summary: coverage.quality.summary + page.coverage.quality.summary,
+              streams: coverage.quality.streams + page.coverage.quality.streams,
+              detail: coverage.quality.detail + page.coverage.quality.detail,
+              fit: coverage.quality.fit + page.coverage.quality.fit,
+            },
           };
           const pointCount = page.items.reduce((sum, item) => sum +
             (item.geometry?.type === 'LineString' ? item.geometry.coordinates.length :

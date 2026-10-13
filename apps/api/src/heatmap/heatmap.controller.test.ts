@@ -48,6 +48,7 @@ describe('heatmap routes API', () => {
     }]);
     expect(result.coverage).toEqual({
       eligibleScanned: 3, usable: 1, missingGps: 1, invalidGeometry: 1, budgetExceeded: 0,
+      quality: { summary: 1, streams: 0, detail: 0, fit: 0 },
     });
     expect(result.nextCursor).toBe(encodeHeatmapCursor('2026-01-02', first));
     expect(result.hasMore).toBe(true);
@@ -61,6 +62,46 @@ describe('heatmap routes API', () => {
     expect(large.nextCursor).toBeNull();
     expect(large.partial).toBe(true);
     expect(assembleHeatmapRoutes([candidate(first, '2026-01-01')], false, 1).partial).toBe(false);
+    const rich = { status: 'available' as const, source: 'strava' as const,
+      resolution: 'streams' as const, pointCount: 4, bounds: [12,55,13,56] as [number,number,number,number],
+      geometry: { type: 'MultiLineString' as const, coordinates: [
+        [[12,55],[12.001,55]] as [number,number][],
+        [[13,56],[13.001,56]] as [number,number][],
+      ] },
+    };
+    const mixed = assembleHeatmapRoutes([candidate(first,'2026-01-05'), candidate(second,'2026-01-04')],
+      false, 2, new Map([[second, rich]]));
+    expect(mixed.items[1]).toMatchObject({source:'strava',resolution:'streams',geometry:{type:'MultiLineString'}});
+    expect(mixed.coverage.quality).toEqual({summary:1,streams:1,detail:0,fit:0});
+    const oversizedRich = { ...rich, pointCount: 15_001 };
+    const preserved = assembleHeatmapRoutes([candidate(first,'2026-01-05')],false,1,
+      new Map([[first, oversizedRich]]));
+    expect(preserved.items).toHaveLength(1);
+    expect(preserved.items[0]?.resolution).toBe('summary');
+    expect(preserved.coverage).toMatchObject({budgetExceeded:0,quality:{summary:1,streams:0}});
+  });
+
+  it('uses trusted Strava summaries on auxiliary outage and does not substitute Garmin-only GPS', async () => {
+    const list = vi.spyOn(HeatmapRoutesRepository.prototype, 'list').mockResolvedValue({
+      candidates: [
+        { ...candidate(first, '2026-01-03'), stravaLinked: true },
+        { ...candidate(second, '2026-01-02', null, null),
+          stravaLinked: false, garminIdentityKey: 'native:123', garminCurrentHash: 'c'.repeat(64) },
+      ],
+      hasMore: false,
+    });
+    const withAccount = vi.fn(async <T>(_account: string, run: (db: Kysely<Database>) => Promise<T>) =>
+      run({} as Kysely<Database>));
+    const detail = { withAccount: vi.fn().mockRejectedValue(new Error('auxiliary unavailable')) };
+    const controller = new HeatmapController({ withAccount } as unknown as DbProvider, detail as never);
+    const result = await controller.routes({}, { id: owner } as never);
+    expect(list).toHaveBeenCalledOnce();
+    expect(withAccount).toHaveBeenCalledWith(owner, expect.any(Function));
+    expect(detail.withAccount).toHaveBeenCalledOnce();
+    expect(result.items).toMatchObject([{ activityId: first, source: 'strava', resolution: 'summary' }]);
+    expect(result.coverage).toMatchObject({
+      eligibleScanned: 2, usable: 1, missingGps: 1, quality: { summary: 1, streams: 0, detail: 0, fit: 0 },
+    });
   });
 
   it('performs exactly one owner-scoped repository page and never downloads provider detail', async () => {

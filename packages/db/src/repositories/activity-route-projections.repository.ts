@@ -9,6 +9,24 @@ export type RouteProjectionWrite = Pick<ActivityRouteProjectionsTable,
 /** Always invoked through activity-detail withAccountContext, after primary link check. */
 export class ActivityRouteProjectionsRepository {
  constructor(private readonly db: Kysely<Database>) {}
+ /** Fetch only a bounded page of owner-scoped compact route rows. */
+ async getMany(activityIds:string[]) {
+  if(!activityIds.length)return [];
+  if(activityIds.length>50)throw new Error('Route projection batch exceeds page limit');
+  return this.db.selectFrom('activity_route_projections').selectAll()
+   .where('activity_id','in',activityIds).execute();
+ }
+ /** Check existence of the retained FIT manifest, not its raw payload. */
+ async availableGarminFits(refs:{identityKey:string;sourceHash:string}[]) {
+  if(!refs.length)return [];
+  if(refs.length>50)throw new Error('Garmin route batch exceeds page limit');
+  return this.db.selectFrom('garmin_activity_resources')
+   .select(['identity_key as identityKey','source_hash as sourceHash'])
+   .where(eb=>eb.or(refs.map(ref=>eb.and([
+    eb('identity_key','=',ref.identityKey),eb('source_hash','=',ref.sourceHash),
+   ]))))
+   .where('resource_type','=','fit_manifest').distinct().limit(50).execute();
+ }
  async get(activityId:string) {
   return this.db.selectFrom('activity_route_projections').selectAll()
    .where('activity_id','=',activityId).executeTakeFirst();

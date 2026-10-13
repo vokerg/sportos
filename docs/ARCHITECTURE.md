@@ -433,11 +433,17 @@ without continuous evidence remain labeled summary estimates.
 ## Private heatmap route aggregation
 
 The personal heatmap route API (`GET /heatmap/routes`) is a session-authenticated,
-read-only primary-database endpoint. It performs a bounded keyset page over
+read-only primary-database feed with optional auxiliary detail reads. It performs a bounded keyset page over
 canonical `activities` with an indexed lateral lookup of the newest trusted normalized Strava
 `provider_activity_links` / `source_records` snapshots, under account
 context and forced RLS. The same trust selector powers the existing
-single-activity summary fallback. Invalid, missing or over-budget geometry
-is not exposed; per-page coverage is explicit. No auxiliary-database read,
-provider token, upstream request, tile server, new persistence, or public GPS
-cache is involved. See [Heatmap route feed](ACTIVITIES.md#heatmap-route-feed-137).
+single-activity summary fallback. Primary provider links independently gate
+Garmin-only identities: an available Strava identity always blocks FIT fallback.
+For each bounded page, up to 50 compact route projections and relevant retained
+resource metadata are batch-read under a separate auxiliary owner context and
+validated against primary source identity/version, algorithm, state, timestamp,
+Strava summary visibility and retained FIT manifest. MultiLineStrings retain
+recording gaps. Invalid, missing or over-budget geometry is omitted with
+page and quality coverage; auxiliary failure falls back to primary Strava
+summaries. No rich payload access, provider token, upstream request, new
+persistence, tile server or public GPS cache is involved. See [Heatmap route feed](ACTIVITIES.md#heatmap-route-feed-137).

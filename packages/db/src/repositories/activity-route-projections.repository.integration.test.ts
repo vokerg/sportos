@@ -23,6 +23,9 @@ const url=process.env.SPORTOS_ACTIVITY_DETAIL_TEST_DATABASE_URL;
   expect(stored).toMatchObject({provider:'garmin',resolution:'fit',source_version:base.source_version,point_count:2});
   expect(await write(owner)).toBeTruthy();
   expect(await withAccountContext(db,foreign,ctx=>new ActivityRouteProjectionsRepository(ctx).get(activityId))).toBeUndefined();
+  expect(await withAccountContext(db,foreign,ctx=>new ActivityRouteProjectionsRepository(ctx).getMany([activityId]))).toEqual([]);
+  expect(await withAccountContext(db,owner,ctx=>new ActivityRouteProjectionsRepository(ctx).getMany([activityId])))
+   .toHaveLength(1);
   await withAccountContext(db,foreign,ctx=>new ActivityRouteProjectionsRepository(ctx).invalidate(activityId));
   expect(await withAccountContext(db,owner,ctx=>new ActivityRouteProjectionsRepository(ctx).get(activityId)))
    .toMatchObject({state:'current'});

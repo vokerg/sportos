@@ -2,7 +2,9 @@ import { BadRequestException, Controller, Get, Header, Inject, Query } from '@ne
 import { ACTIVITY_TYPES, HeatmapRoutesRepository, LEGACY_ACCOUNT_ID, type HeatmapRouteCandidate, type HeatmapRoutesQuery } from '@sportos/db';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
-import { DbProvider } from '../db.provider.js';
+import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
+import { readHeatmapProjectionUpgrades } from './heatmap-projections.js';
+import type { ActivityRouteResponse } from '../activities/activity-route.js';
 import { assertUuid, parseBoundedInteger, parseDateRange } from '../query-validation.js';
 import { stravaSummaryRoute } from '../activities/activity-route.js';
 
@@ -58,39 +60,51 @@ export function parseHeatmapQuery(raw: Record<string, unknown>): HeatmapRoutesQu
  * A page is defined over trusted linked canonical candidates, not returned
  * geometry. Invalid/missing/budgeted routes still advance the cursor.
  */
-export function assembleHeatmapRoutes(candidates: HeatmapRouteCandidate[], hasMore: boolean, limit: number) {
+export function assembleHeatmapRoutes(candidates: HeatmapRouteCandidate[], hasMore: boolean, limit: number,
+  upgrades: ReadonlyMap<string, ActivityRouteResponse> = new Map()) {
   const items: Array<{
     activityId: string;
     date: string;
     sport: HeatmapRouteCandidate['sport'];
-    source: 'strava';
-    resolution: 'summary';
-    geometry: { type: 'LineString'; coordinates: [number, number][] };
+    source: 'strava' | 'garmin';
+    resolution: 'summary' | 'streams' | 'detail' | 'fit';
+    geometry: { type: 'LineString'; coordinates: [number, number][] } | { type: 'MultiLineString'; coordinates: [number, number][][] };
   }> = [];
   let missingGps = 0;
   let invalidGeometry = 0;
   let budgetExceeded = 0;
   let points = 0;
   let geometryChars = 0;
+  const quality = { summary: 0, streams: 0, detail: 0, fit: 0 };
   for (const candidate of candidates) {
-    const route = stravaSummaryRoute(candidate.polyline, candidate.polylineType);
+    const summary = candidate.stravaLinked === false
+      ? { status: 'unavailable' as const, reason: 'no_gps' as const }
+      : stravaSummaryRoute(candidate.polyline, candidate.polylineType);
+    const upgrade = upgrades.get(candidate.activityId);
+    let route = upgrade ?? summary;
     if (route.status === 'unavailable') {
-      if (route.reason === 'summary_polyline_missing') missingGps++;
+      if (route.reason === 'summary_polyline_missing' || route.reason === 'no_gps') missingGps++;
       else invalidGeometry++;
       continue;
     }
-    // The summary decoder always yields LineString and source=strava.
-    if (route.geometry.type !== 'LineString') continue;
-    const chars = JSON.stringify(route.geometry).length;
+    let chars = JSON.stringify(route.geometry).length;
+    // Keep approximate GPS coverage when a large rich route does not fit
+    // the remaining page budget, without weakening Strava visibility checks.
+    if (upgrade && summary.status === 'available' &&
+        (points + route.pointCount > MAX_PAGE_POINTS || geometryChars + chars > MAX_PAGE_GEOMETRY_CHARS)) {
+      route = summary;
+      chars = JSON.stringify(route.geometry).length;
+    }
     if (points + route.pointCount > MAX_PAGE_POINTS || geometryChars + chars > MAX_PAGE_GEOMETRY_CHARS) {
       budgetExceeded++;
       continue;
     }
     points += route.pointCount;
     geometryChars += chars;
+    quality[route.resolution]++;
     items.push({
       activityId: candidate.activityId, date: candidate.date, sport: candidate.sport,
-      source: 'strava', resolution: 'summary', geometry: route.geometry,
+      source: route.source, resolution: route.resolution, geometry: route.geometry,
     });
   }
   const last = candidates[candidates.length - 1];
@@ -106,20 +120,28 @@ export function assembleHeatmapRoutes(candidates: HeatmapRouteCandidate[], hasMo
       missingGps,
       invalidGeometry,
       budgetExceeded,
+      quality,
     },
   };
 }
 
 @Controller('heatmap')
 export class HeatmapController {
-  constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
+  constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider,
+    @Inject(ActivityDetailDbProvider) private readonly detail?: ActivityDetailDbProvider) {}
 
   @Get('routes')
   @Header('Cache-Control', 'private, no-store')
   async routes(@Query() raw: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) {
     const query = parseHeatmapQuery(raw);
-    const result = await this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID,
+    const owner = account?.id ?? LEGACY_ACCOUNT_ID;
+    const result = await this.dbProvider.withAccount(owner,
       db => new HeatmapRoutesRepository(db).list(query));
-    return assembleHeatmapRoutes(result.candidates, result.hasMore, query.limit);
+    // Optional auxiliary DB: a stale/outage/missing migration degrades to
+    // trusted summary routes without affecting pagination or ownership.
+    const upgrades = this.detail
+      ? await readHeatmapProjectionUpgrades(owner, result.candidates, this.detail).catch(() => new Map())
+      : new Map();
+    return assembleHeatmapRoutes(result.candidates, result.hasMore, query.limit, upgrades);
   }
 }

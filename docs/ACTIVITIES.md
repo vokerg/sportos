@@ -136,9 +136,13 @@ and stay behind account authentication.
 ## Heatmap route feed (#137)
 
 `GET /heatmap/routes` is an authenticated, read-only bulk route endpoint for
-the upcoming personal heatmap UI. It uses **only primary-database retained Strava
-summary polylines**, without contacting Strava/Garmin, reading optional auxiliary
-route projections, or downloading rich detail. Routes are never publicly cached
+the personal heatmap UI. The primary database supplies owner-scoped trusted
+Strava summaries and (only when no available Strava link exists) current linked
+Garmin identities. The existing auxiliary activity-detail database optionally
+supplies already-retained, compact high-resolution route projections in **batch**.
+No provider network requests, rich-resource payload reads or on-demand rebuilds
+occur during heatmap GET. Missing/down auxiliary storage degrades to available
+Strava summary geometry. Routes are never publicly cached
 (`Cache-Control: private, no-store`); GPS remains private and account-scoped.
 
 Optional query parameters: inclusive `from` and `to` (real `YYYY-MM-DD`
@@ -151,13 +155,14 @@ cursor on the last **examined eligible** canonical activity. Clients must
 retain their original filters while advancing the cursor and stop when
 `hasMore: false` (not when an `items` page happens to be empty).
 
-A candidate qualifies only if it has an **available linked Strava connection**
-and the link's **latest source record** is normalized, Strava-native and refers
-to that exact canonical activity and provider-native ID. Workbook-origin
-canonical activities with such links qualify. Stale, raw, deleted, unlinked or
-foreign snapshots do not. Multiple valid links to the same canonical activity
-yield only one candidate (newest link update, then link ID). This exact trust
-query is shared with the single-activity Strava summary fallback.
+A Strava candidate qualifies only if it has an **available linked Strava connection**
+and a normalized, Strava-native latest linked source record matching the canonical
+activity and native ID. Workbook-origin activities with such links qualify. A
+Garmin-only candidate qualifies when a canonical activity has a linked Garmin
+identity and **no available linked Strava identity**. An available Strava link,
+even if its summary is missing, malformed or untrusted, **blocks Garmin FIT
+substitution**. Multiple links never duplicate a canonical route. The trusted
+Strava summary selector is shared with the single-activity fallback.
 
 Example response (illustrative coordinates):
 
@@ -182,13 +187,14 @@ Example response (illustrative coordinates):
     "usable": 1,
     "missingGps": 0,
     "invalidGeometry": 0,
-    "budgetExceeded": 0
+    "budgetExceeded": 0,
+    "quality": { "summary": 1, "streams": 0, "detail": 0, "fit": 0 }
   }
 }
 ```
 
 `coverage` is **page-scoped**, not an assertion of all-time coverage:
-`eligibleScanned` counts trusted linked candidates examined on this page;
+`eligibleScanned` counts linked Strava/eligible Garmin canonical candidates examined on this page;
 `usable` counts returned routes. Missing/invalid/degenerate geometry is
 skipped and counted, and a geometry-budget exclusion is separately counted.
 `partial` is true if more pages exist **or** any scanned candidate was omitted.
@@ -197,13 +203,29 @@ coverage from this endpoint alone. Page size and payload are bounded to
 50 candidates, 15,000 total decoded points, and 400,000 serialized GeoJSON
 geometry characters; each summary retains the stricter per-route decoder
 limits (30,000 encoded characters, 5,000 points, 200 KB coordinate JSON).
+Already-retained high-resolution routes are constrained to 3,000 points and
+50 disjoint segments each. If a rich Strava route exceeds the remaining page
+geometry budget, a valid smaller Strava summary is used instead when it fits.
+`quality` contains per-page counts of delivered
+summary, streams, detail and FIT routes; only delivered (not omitted) routes
+are counted. Rich geometry uses `LineString` or `MultiLineString` without
+interpolating across gaps.
 No truncated geometry is ever returned. An omitted route advances the cursor
 to avoid infinite retries; use smaller pages if a budget omission is reported.
 Pagination is stable for an unchanged dataset; a concurrent Strava
 reconciliation or activity-date correction may change subsequent pages.
 No account IDs, raw source JSON, hashes, token/envelope data or auxiliary
-storage identifiers appear in responses. All reads run inside
-`DbProvider.withAccount` and PostgreSQL forced RLS.
+storage identifiers appear in responses. Primary activity, source identity and
+current version are read with `DbProvider.withAccount` and forced RLS. One
+auxiliary owner-scoped batch reads at most 50 compact projections plus bounded,
+metadata-only current Strava resource timestamps/versions or Garmin FIT
+manifest presence, never N activity-map calls. The projection source reference,
+resource hash format, algorithm version, state and source version must match
+primary identity/currentness; Strava additionally requires a valid
+privacy-visible summary and exact latest normalized source identity. A refreshed
+same-version Strava bundle invalidates old projection evidence by timestamp.
+Corrupt/stale/foreign rows are ignored. Auxiliary failures are safe summary
+fallbacks; Garmin-only rows with no usable projection remain missing-GPS.
 
 ## Higher-resolution route projections (#128)
 
@@ -459,7 +481,8 @@ from #137, defaulting to **all time and all eligible canonical sports**; users
 can restrict the sport and date range without downloading from providers.
 
 - The page reads every page (50 candidates/request, stable cursors); page counts
-  and missing/invalid/budget-skipped route coverage are accumulated and shown.
+  and missing/invalid/budget-skipped route coverage plus summary/streams/detail/FIT
+  quality counts are accumulated and shown.
   A failed or cancelled page cannot expose a partial map. The browser caps
   retained geometry at 2,500 routes / 160,000 original GPS points / 180,000
   density samples / 120 pages. If exceeded, it refuses the dataset and prompts
@@ -482,7 +505,7 @@ can restrict the sport and date range without downloading from providers.
   with an empty/error state rather than a fabricated geographic center.
 - This is a browser GeoJSON renderer, **not** the separate Heatmap Fastify app,
   GPX importer, local JSON storage, PostGIS/MVT tile server, or separate auth.
-  #139 can optionally use existing retained high-resolution projections;
+  #139 reuses current retained high-resolution projections when present;
   vector tiles / large-archive optimization remain explicitly deferred to #140.
 
 Relevant tests: `heatmap-geometry.test.ts`, `heatmap-style.test.ts`,

@@ -26,6 +26,8 @@ export function trustedStravaRouteSources(db: Kysely<Database>) {
     .select([
       'link.activity_id as activityId',
       'link.owner_id as ownerId',
+      'link.provider_activity_id as providerActivityId',
+      'snapshot.row_hash as providerVersion',
       sql<string | null>`left(snapshot.raw_json #>> '{map,summary_polyline}', 30001)`.as('polyline'),
       sql<string | null>`jsonb_typeof(snapshot.raw_json #> '{map,summary_polyline}')`.as('polylineType'),
     ]);

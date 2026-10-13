@@ -12,7 +12,8 @@ const track = (id: string): HeatmapRoute => ({
 });
 const page = (items: HeatmapRoute[], hasMore = false, nextCursor: string|null = null, missing = 0): HeatmapPage => ({
   items, hasMore, nextCursor, limit:50, partial:hasMore || missing>0,
-  coverage: {eligibleScanned:items.length+missing,usable:items.length,missingGps:missing,invalidGeometry:0,budgetExceeded:0},
+  coverage: {eligibleScanned:items.length+missing,usable:items.length,missingGps:missing,invalidGeometry:0,budgetExceeded:0,
+    quality:{summary:items.length,streams:0,detail:0,fit:0}},
 });
 let fetch!: ReturnType<typeof vi.fn>;
 let store!: HeatmapStore;
@@ -37,7 +38,8 @@ describe('HeatmapStore', () => {
     second.complete();
     expect(store.state()).toBe('ready');
     expect(store.dataset()?.routes).toBe(2);
-    expect(store.coverage()).toEqual({eligibleScanned:3,usable:2,missingGps:1,invalidGeometry:0,budgetExceeded:0});
+    expect(store.coverage()).toEqual({eligibleScanned:3,usable:2,missingGps:1,invalidGeometry:0,budgetExceeded:0,
+      quality:{summary:2,streams:0,detail:0,fit:0}});
     expect(store.pagesLoaded()).toBe(2);
   });
   it('unsubscribes stale pages when filters change and ignores a late response', () => {
@@ -87,6 +89,31 @@ describe('HeatmapStore', () => {
     store.load({});
     expect(store.state()).toBe('error');
     expect(store.dataset()).toBeNull();
+  });
+  it('accumulates actual resolution quality from mixed Strava/Garmin route pages', () => {
+    const streams = { ...track('a'), resolution: 'streams',
+      geometry: { type:'MultiLineString' as const, coordinates: [
+        [[12,55],[12.01,55]] as [number,number][],
+        [[13,56],[13.01,56]] as [number,number][],
+      ] },
+    };
+    const fit = { ...track('b'), source:'garmin' as const, resolution:'fit' };
+    fetch.mockReturnValueOnce(of({ ...page([streams],true,'next'),
+      coverage:{...page([streams]).coverage, quality:{summary:0,streams:1,detail:0,fit:0}},
+    })).mockReturnValueOnce(of({ ...page([fit]),
+      coverage:{...page([fit]).coverage, quality:{summary:0,streams:0,detail:0,fit:1}},
+    }));
+    store.load({});
+    expect(store.state()).toBe('ready');
+    expect(store.coverage().quality).toEqual({summary:0,streams:1,detail:0,fit:1});
+    expect(store.dataset()?.geojson.features.some(feature => feature.geometry.type === 'MultiLineString')).toBe(true);
+  });
+  it('rejects malformed quality totals from the API', () => {
+    const corrupt = page([track('a')]);
+    corrupt.coverage.quality.summary = 0;
+    fetch.mockReturnValue(of(corrupt));
+    store.load({});
+    expect(store.state()).toBe('error');
   });
   it('rejects repeated activities across cursor pages rather than artificially brightening routes', () => {
     fetch.mockReturnValueOnce(of(page([track('same')], true, 'cursor-2')))

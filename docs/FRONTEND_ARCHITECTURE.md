@@ -399,3 +399,6 @@ loader lives in `shared/util/maplibre-loader.ts` for both heatmap and activity
 maps; the old Activities loader path is a compatibility re-export. Heatmap
 must not import another feature's UI implementation or create a global HTTP
 client. Browser memory caps and no partial map on feed failure are deliberate.
+The API may return mixed Strava summary/streams/detail or Garmin FIT geometry;
+the store validates per-page resolution-quality totals, accumulates those counts
+over all pages, and renders each MultiLineString part without artificial joins.
