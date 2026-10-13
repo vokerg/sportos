@@ -5,11 +5,12 @@ import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { DbProvider, ActivityDetailDbProvider } from '../db.provider.js';
 import { UploadStorage } from '../storage/upload-storage.js';
 import { GarminLocalIngestService } from './garmin-local-ingest.service.js';
+import { ActivityRouteProjectionService } from './activity-route-projection.service.js';
 
 @Controller('garmin/local')
 export class GarminLocalIngestController {
   private readonly retention: GarminLocalIngestService;
-  constructor(primary: DbProvider, detail: ActivityDetailDbProvider, storage: UploadStorage) { this.retention = new GarminLocalIngestService(primary, detail, storage); }
+  constructor(primary: DbProvider, detail: ActivityDetailDbProvider, storage: UploadStorage, routes?: ActivityRouteProjectionService) { this.retention = new GarminLocalIngestService(primary, detail, storage, undefined, undefined, routes); }
   @Get('cache/:providerActivityId')
   cache(@Param('providerActivityId') id: string, @Query() query: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) { return this.retention.cache(id, query, account); }
   @Post('resource')
