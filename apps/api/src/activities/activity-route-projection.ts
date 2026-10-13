@@ -60,7 +60,7 @@ export function decodeRichPolyline(value:unknown):Point[]|null {
 /** Refuse any rich Strava GPS unless the compact route is valid. Clip the
  * richer prefix/suffix to the privacy-trimmed summary endpoints. */
 function trim(fixes:Fix[],summary:ActivityRouteResponse):Fix[]|null {
- if(summary.status!=='available')return null;
+ if(summary.status!=='available'||summary.geometry.type!=='LineString')return null;
  const line=summary.geometry.coordinates;
  const first=line[0]!,last=line[line.length-1]!;
  const start=fixes.findIndex(f=>f.point!==null&&distance(f.point,first)<=120);
