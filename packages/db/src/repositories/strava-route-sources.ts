@@ -28,8 +28,5 @@ export function trustedStravaRouteSources(db: Kysely<Database>) {
       sql<string | null>`left(snapshot.raw_json #>> '{map,summary_polyline}', 30001)`.as('polyline'),
       sql<string | null>`jsonb_typeof(snapshot.raw_json #> '{map,summary_polyline}')`.as('polylineType'),
     ])
-    .distinctOn('link.activity_id')
-    .orderBy('link.activity_id')
-    .orderBy('link.updated_at', 'desc')
-    .orderBy('link.id', 'desc');
+;
 }
