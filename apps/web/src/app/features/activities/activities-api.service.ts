@@ -56,7 +56,7 @@ export interface ActivityMapAvailable {
   status: 'available';
   source: 'strava' | 'garmin';
   resolution: string;
-  geometry: { type: 'LineString'; coordinates: [number, number][] };
+  geometry: { type: 'LineString'; coordinates: [number, number][] } | { type: 'MultiLineString'; coordinates: [number, number][][] };
   bounds: [number, number, number, number];
   pointCount: number;
 }
@@ -121,6 +121,8 @@ export class ActivitiesApiService {
   map(id: string) {
     return this.http.get<ActivityMapResponse>(`${this.apiBase}/activities/${encodeURIComponent(id)}/map`);
   }
+
+  reprocessMap(id:string) { return this.http.post(`${this.apiBase}/activities/${encodeURIComponent(id)}/map/reprocess`,{}); }
 
   providerDetail(id: string) {
     return this.http.get<ActivityProviderDetailResponse>(`${this.apiBase}/activities/${encodeURIComponent(id)}/provider-detail`);
