@@ -36,7 +36,27 @@ export class ActivityRouteProjectionService {
   const ref=await this.references(owner,id);
   const summary=ref.summary!.linked?stravaSummaryRoute(ref.summary!.polyline,ref.summary!.polylineType)
     :{status:'unavailable' as const,reason:'no_gps' as const};
-  const cached=await this.detail.withAccount(owner,db=>new ActivityRouteProjectionsRepository(db).get(id));
+  // The compact auxiliary projection is an optional upgrade. Missing V004,
+  // transient detail DB errors or corrupt cached rows must never take down the
+  // established primary-DB Strava summary map.
+  const cached=await this.detail.withAccount(owner,async db=>{
+   const row=await new ActivityRouteProjectionsRepository(db).get(id);
+   if(!row||row.state!=='current')return null;
+   if(row.provider==='strava'){
+    // Rich payloads may have been explicitly refreshed without changing the
+    // compact provider version. Metadata-only validation avoids serving the
+    // old geometry if pre-replace invalidation failed or raced a refresh.
+    const resources=await new ActivityProviderResourcesRepository(db).metadata({
+     activityId:id,provider:'strava',providerActivityId:row.source_ref,
+     connectionId:'',providerVersion:row.source_version,
+    });
+    const evidence=resources.find(r=>r.resourceType===row.resolution);
+    if(!evidence||evidence.availability!=='available'
+      ||evidence.providerVersion!==row.source_version
+      ||evidence.fetchedAt.getTime()!==row.source_fetched_at.getTime())return null;
+   }
+   return row;
+  }).catch(()=>null);
   if(cached?.state==='current'&&cached.algorithm_version===ROUTE_ALGORITHM_VERSION){
    const valid=cached.provider==='strava'
     ? ref.summary!.linked&&ref.strava?.providerActivityId===cached.source_ref&&ref.strava.providerVersion===cached.source_version
