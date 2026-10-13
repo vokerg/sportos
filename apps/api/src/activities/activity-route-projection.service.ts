@@ -9,6 +9,7 @@ type RouteRefs = {
  summary: Awaited<ReturnType<ActivitiesRepository['getStravaRouteEvidence']>>;
  strava: Awaited<ReturnType<ActivityProviderResourcesRepository['getProviderReference']>>;
  garmin: {identity_key:string;current_hash:string}|undefined;
+ stravaLinked: boolean;
 };
 /** No provider/credential imports; all reprocessing uses retained resources. */
 @Injectable()
@@ -18,10 +19,17 @@ export class ActivityRouteProjectionService {
   return this.primary.withAccount(owner,async db=>{
    const summary=await new ActivitiesRepository(db).getStravaRouteEvidence(id);
    if(!summary)throw new NotFoundException({code:'ACTIVITY_NOT_FOUND',message:'Activity was not found.'});
+   // A linked Strava identity can exist without a trustworthy summary; do not
+   // reveal a less-redacted Garmin FIT route in that situation.
+   const stravaLink=await db.selectFrom('provider_activity_links as link')
+    .innerJoin('provider_connections as connection',j=>j.onRef('connection.owner_id','=','link.owner_id')
+     .onRef('connection.id','=','link.connection_id').on('connection.provider','=','strava'))
+    .select('link.id').where('link.activity_id','=',id).where('link.availability','=','available').executeTakeFirst();
+   const stravaLinked=Boolean(stravaLink);
    const strava=summary.linked?await new ActivityProviderResourcesRepository(db).getProviderReference(id):null;
    const garmin=await db.selectFrom('garmin_activity_identities')
     .select(['identity_key','current_hash']).where('activity_id','=',id).executeTakeFirst();
-   return {summary,strava,garmin};
+   return {summary,strava,garmin,stravaLinked};
   });
  }
  async read(owner:string,id:string):Promise<ActivityRouteResponse> {
@@ -33,7 +41,7 @@ export class ActivityRouteProjectionService {
    const valid=cached.provider==='strava'
     ? ref.summary!.linked&&ref.strava?.providerActivityId===cached.source_ref&&ref.strava.providerVersion===cached.source_version
       &&summary.status==='available'
-    : !ref.summary!.linked&&ref.garmin?.identity_key===cached.source_ref&&ref.garmin.current_hash===cached.source_version;
+    : !ref.stravaLinked&&ref.garmin?.identity_key===cached.source_ref&&ref.garmin.current_hash===cached.source_version;
    if(valid) {
     const route=decodeStoredRoute(cached);
     if(route)return route;
@@ -49,7 +57,8 @@ export class ActivityRouteProjectionService {
  async project(owner:string,id:string):Promise<{status:'projected'|'already_current'|'unavailable'|'stale';source?:string}>{
   const refs=await this.references(owner,id);
   let route:ProjectedRoute|null=null, sourceRef='',sourceVersion='',fetchedAt=new Date();
-  if(refs.summary!.linked){
+  if(refs.stravaLinked){
+   if(!refs.summary!.linked)return {status:'unavailable'};
    const ref=refs.strava;
    if(!ref)return {status:'unavailable'};
    const summary=stravaSummaryRoute(refs.summary!.polyline,refs.summary!.polylineType);
@@ -90,7 +99,7 @@ export class ActivityRouteProjectionService {
   const latest=await this.references(owner,id);
   if(route.provider==='strava' ? !latest.summary?.linked||!latest.strava||latest.strava.providerVersion!==sourceVersion
      ||latest.strava.providerActivityId!==sourceRef
-   : latest.summary?.linked||latest.garmin?.identity_key!==sourceRef||latest.garmin?.current_hash!==sourceVersion)
+   : latest.stravaLinked||latest.garmin?.identity_key!==sourceRef||latest.garmin?.current_hash!==sourceVersion)
     return {status:'stale'};
   const row=await this.detail.withAccount(owner,db=>new ActivityRouteProjectionsRepository(db).get(id));
   if(row?.state==='current'&&row.source_version===sourceVersion&&row.resource_hash===route.resourceHash
