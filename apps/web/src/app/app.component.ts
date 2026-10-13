@@ -54,6 +54,7 @@ import { WebAuthService } from './web-auth.service';
           <a routerLink="/overview" routerLinkActive="active" ariaCurrentWhenActive="page">Overview</a>
           <a routerLink="/daily" routerLinkActive="active" ariaCurrentWhenActive="page">Daily Log</a>
           <a routerLink="/activities" routerLinkActive="active" ariaCurrentWhenActive="page">Activities</a>
+          <a routerLink="/heatmap" routerLinkActive="active" ariaCurrentWhenActive="page">Heatmap</a>
           <a routerLink="/dynamics" routerLinkActive="active" ariaCurrentWhenActive="page">Dynamics</a>
           <a routerLink="/monthly-stats" routerLinkActive="active" ariaCurrentWhenActive="page">Monthly Stats</a>
           <a routerLink="/run-lab" routerLinkActive="active" ariaCurrentWhenActive="page">Run Lab</a>
