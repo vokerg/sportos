@@ -131,7 +131,8 @@ export function projectGarminRoute(messages:unknown):ProjectedRoute|null{
  for(const m of messages){
   const message=obj(m);
   if(message?.message!=='record'||!Array.isArray(message.fields))continue;
-  const field=(name:string)=>message.fields.find(x=>obj(x)?.name===name);
+  const fields=message.fields;
+  const field=(name:string)=>fields.find((x:unknown)=>obj(x)?.name===name);
   const rawTime=obj(field('timestamp'))?.value;
   const time=typeof rawTime==='string'?Date.parse(rawTime)/1000:undefined;
   fixes.push({point:coord(fitNumber(field('position_lat')),fitNumber(field('position_long'))),
@@ -147,7 +148,7 @@ export function decodeStoredRoute(row:{provider:'strava'|'garmin';resolution:'st
  const segments:Point[][]=[];
  for(const encoded of row.polylines){
   const decoded=stravaSummaryRoute(encoded,typeof encoded==='string'?'string':'object');
-  if(decoded.status!=='available')return null;
+  if(decoded.status!=='available'||decoded.geometry.type!=='LineString')return null;
   segments.push(decoded.geometry.coordinates);
  }
  const points=segments.flat();
