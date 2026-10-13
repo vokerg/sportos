@@ -48,6 +48,8 @@ export * from './repositories/activity-metrics.repository.js';
 export * from './activity-metric-projector.js';
 export * from './activity-metric-backfill.js';
 
+export * from './activity-route-projection-schema.js';
+export * from './repositories/activity-route-projections.repository.js';
 export * from './running-effort-schema.js';
 export * from './repositories/running-efforts.repository.js';
 

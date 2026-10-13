@@ -1,4 +1,5 @@
 import type { RunningEffortProjectionsTable, RunningEffortValuesTable, RunningEffortHeadsTable } from './running-effort-schema.js';
+import type { ActivityRouteProjectionsTable } from './activity-route-projection-schema.js';
 import type { ActivityMetricProjectionsTable, ActivityProviderMetricValuesTable, ActivityMetricHeadsTable } from './activity-metric-schema.js';
 import type { GarminDayVersionsTable, GarminDayHeadsTable, GarminDayResourcesTable } from './garmin-day-schema.js';
 import type { GarminStrengthSummariesTable, GarminActivityIdentitiesTable, GarminActivityVersionsTable, GarminReconciliationAuditTable, GarminActivityResourcesTable } from './garmin-activity-schema.js';
@@ -415,6 +416,7 @@ export interface ProviderWebhookEventsTable {
 }
 
 export interface Database {
+  activity_route_projections: ActivityRouteProjectionsTable;
   running_effort_projections: RunningEffortProjectionsTable;
   running_effort_values: RunningEffortValuesTable;
   running_effort_heads: RunningEffortHeadsTable;

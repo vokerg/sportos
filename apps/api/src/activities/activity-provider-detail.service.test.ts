@@ -52,6 +52,34 @@ describe('ActivityProviderDetailService', () => {
     expect(RunningEffortsService.prototype.project).toHaveBeenCalledWith(accountId,activityId,'strava');
   });
 
+  it('does not let route projection failures break a valid Strava cache hit', async () => {
+    vi.spyOn(ActivityProviderResourcesRepository.prototype,'getProviderReference').mockResolvedValue(reference);
+    vi.spyOn(ActivityProviderResourcesRepository.prototype,'list').mockResolvedValue(cached);
+    const routes={project:vi.fn().mockRejectedValue(new Error('V004 missing')),
+      invalidateStrava:vi.fn()};
+    const service=new ActivityProviderDetailService(dbProvider(),activityDetailDbProvider(),
+      undefined,undefined,routes as never);
+    await expect(service.load(accountId,activityId)).resolves.toMatchObject({cacheStatus:'hit'});
+    expect(routes.project).toHaveBeenCalledWith(accountId,activityId);
+  });
+
+  it('keeps explicitly refreshed Strava resources when route invalidate/reproject fails', async () => {
+    vi.spyOn(ActivityProviderResourcesRepository.prototype,'getProviderReference').mockResolvedValue(reference);
+    vi.spyOn(ActivityProviderResourcesRepository.prototype,'list')
+      .mockResolvedValueOnce([]).mockResolvedValueOnce(cached);
+    const replace=vi.spyOn(ActivityProviderResourcesRepository.prototype,'replace').mockResolvedValue();
+    mockAuthorization();
+    vi.spyOn(StravaAdapter.prototype,'fetchActivityDetailBundle').mockResolvedValue(bundle());
+    const routes={project:vi.fn().mockRejectedValue(new Error('projection unavailable')),
+      invalidateStrava:vi.fn().mockRejectedValue(new Error('V004 missing'))};
+    const service=new ActivityProviderDetailService(dbProvider(),activityDetailDbProvider(),
+      undefined,undefined,routes as never);
+    await expect(service.load(accountId,activityId,true)).resolves.toMatchObject({cacheStatus:'miss'});
+    expect(replace).toHaveBeenCalledWith(reference,expect.any(Array));
+    expect(routes.invalidateStrava).toHaveBeenCalledWith(accountId,activityId);
+    expect(routes.project).toHaveBeenCalledWith(accountId,activityId);
+  });
+
   it('cached reads never fetch or refresh credentials when current resources are missing', async () => {
     vi.spyOn(ActivityProviderResourcesRepository.prototype, 'getProviderReference').mockResolvedValue(reference);
     vi.spyOn(ActivityProviderResourcesRepository.prototype, 'list').mockResolvedValue([]);

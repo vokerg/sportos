@@ -81,8 +81,10 @@ export class ActivityMapComponent implements AfterViewInit, OnDestroy {
       const lib = await loadMapLibre();
       if (this.destroyed || generation !== this.generation) return;
       const route = this.route();
-      const start = route.geometry.coordinates[0] as Coordinates;
-      const end = route.geometry.coordinates[route.geometry.coordinates.length - 1] as Coordinates;
+      const parts = route.geometry.type === 'LineString' ? [route.geometry.coordinates] : route.geometry.coordinates;
+      const start = parts[0]![0]! as Coordinates;
+      const last = parts[parts.length - 1]!;
+      const end = last[last.length - 1]! as Coordinates;
       const map = new lib.Map({
         container: this.canvas().nativeElement,
         style: RASTER_STYLE,

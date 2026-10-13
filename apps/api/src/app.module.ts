@@ -34,6 +34,7 @@ import { DynamicsController } from './dynamics/dynamics.controller.js';
 import { DynamicsService } from './dynamics/dynamics.service.js';
 import { ActivitiesController } from './activities/activities.controller.js';
 import { ActivityProviderDetailService } from './activities/activity-provider-detail.service.js';
+import { ActivityRouteProjectionService } from './activities/activity-route-projection.service.js';
 
 @Module({
   controllers: [
@@ -68,6 +69,7 @@ import { ActivityProviderDetailService } from './activities/activity-provider-de
     AnalysisService,
     DynamicsService,
     ActivityProviderDetailService,
+    ActivityRouteProjectionService,
     ActivityMetricsService,
     ActivityEnrichmentService,
     { provide: AnalysisTextGenerator, useFactory: createAnalysisTextGenerator },

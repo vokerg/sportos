@@ -57,13 +57,13 @@ export class ActivityDetailStore implements OnDestroy {
     if (this.providerState() === 'loading' || !this.activity()?.providerDetail) return;
     this.providerState.set('loading'); this.providerError.set(''); const generation = this.generation;
     const request = fetch ? this.api.fetchProviderDetail(this.id, refresh) : this.api.providerDetail(this.id);
-    this.requests.set('strava', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.providerDetail.set(detail); this.providerJson.set(JSON.stringify(detail.resources, null, 2)); this.providerFetchedAt.set(new Date(detail.fetchedAt).toLocaleString()); this.providerCacheStatus.set(detail.cacheStatus); this.providerState.set('loaded'); this.refreshCoverage(); if(fetch) this.refreshActivity(); }, error: error => { if (generation === this.generation) { this.providerState.set(missing(error)); this.providerError.set(message(error, 'Could not load Strava detail. You can retry or reconnect Strava.')); if(fetch) this.refreshActivity(); } } }));
+    this.requests.set('strava', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.providerDetail.set(detail); this.providerJson.set(JSON.stringify(detail.resources, null, 2)); this.providerFetchedAt.set(new Date(detail.fetchedAt).toLocaleString()); this.providerCacheStatus.set(detail.cacheStatus); this.providerState.set('loaded'); this.refreshCoverage(); if(fetch) { this.refreshActivity(); this.loadMap(); } }, error: error => { if (generation === this.generation) { this.providerState.set(missing(error)); this.providerError.set(message(error, 'Could not load Strava detail. You can retry or reconnect Strava.')); if(fetch) this.refreshActivity(); } } }));
   }
   garminDetail(fetch = false, refresh = false) {
     if (this.garminState() === 'loading') return;
     this.garminState.set('loading'); this.garminError.set(''); const generation = this.generation;
     const request = fetch ? this.api.fetchGarminDetail(this.id, refresh) : this.api.garminDetail(this.id);
-    this.requests.set('garmin', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.garmin.set(detail); this.garminState.set('loaded'); this.refreshCoverage(); if (fetch) this.refreshActivity(); }, error: error => { if (generation === this.generation) { this.garminState.set(missing(error)); this.garminError.set(message(error, 'Could not load Garmin detail. Retry after checking your local login.')); if(fetch) this.refreshActivity(); } } }));
+    this.requests.set('garmin', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.garmin.set(detail); this.garminState.set('loaded'); this.refreshCoverage(); if (fetch) { this.refreshActivity(); this.loadMap(); } }, error: error => { if (generation === this.generation) { this.garminState.set(missing(error)); this.garminError.set(message(error, 'Could not load Garmin detail. Retry after checking your local login.')); if(fetch) this.refreshActivity(); } } }));
   }
   reprocessEfforts() {
     if(this.effortState()==='loading' || this.activity()?.activity_type!=='run') return;
