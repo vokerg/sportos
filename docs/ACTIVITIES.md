@@ -360,3 +360,19 @@ comparisons retain km/h. Unavailable best-effort targets are hidden when neither
 provider has a current calculated/estimated result; a one-provider result remains
 visible, with a dash for the missing provider. Empty/stale/failed states preserve
 reprocessing and diagnostics without an unavailable-only catalog.
+
+## Expanded activity map and compact summary (#135)
+
+Activity detail combines its heading and key metrics above the embedded GPS map;
+secondary metrics remain below it. **Open full-page map** opens
+`/activity/:id/map`, which fills the viewport with the same retained route,
+provider/resolution label, pan/zoom controls and map attribution. **Back to
+activity** returns to the detail page. Direct links use the authenticated shell
+and existing owner-scoped canonical/map GETs, with loading, missing, unavailable
+and retry states. This view does not fetch provider resources or check detail coverage.
+
+Metric values shared by Strava and Garmin within the existing display tolerances
+appear once without redundant provider labels, both in the summary and secondary
+metrics. Different values and single-source values keep their labels. Canonical
+priority, fallback notices and advanced provenance remain available; no metric
+normalization, official facts or scoring behavior changes.

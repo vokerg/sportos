@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, computed, input, signal, viewChild } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type { ActivityMapAvailable } from '../activities-api.service';
 import { loadMapLibre, type MapInstance, type Coordinates } from './maplibre-loader';
 
@@ -33,9 +34,13 @@ export function routeQuality(route: Pick<ActivityMapAvailable, 'source' | 'resol
 @Component({
   selector: 'sportos-activity-map',
   standalone: true,
+  imports: [RouterLink],
+  host: { '[class.expanded]': 'expanded()' },
   template: `
     <section class="card activity-route" aria-label="Activity GPS route">
-      <div class="heading"><h2>Route</h2><span class="quality">{{ quality() }}</span></div>
+      <div class="heading"><h2>Route</h2><span class="quality">{{ quality() }}</span>
+        @if (activityId() && !expanded()) { <a class="expand-link" [routerLink]="['/activity', activityId(), 'map']">Open full-page map ↗</a> }
+      </div>
       <p class="description">{{ route().pointCount }} GPS points · Interactive map with pan and zoom. Map tiles © OpenStreetMap contributors.</p>
       <div #mapCanvas class="map" role="region" tabindex="0" [attr.aria-label]="quality()"></div>
       @if (loading()) { <p role="status">Preparing map…</p> }
@@ -50,11 +55,18 @@ export function routeQuality(route: Pick<ActivityMapAvailable, 'source' | 'resol
     .description,.text-route{font-size:13px;color:#667085}.description{margin:4px 0 12px}
     .map{width:100%;height:clamp(260px,40vw,440px);border-radius:12px;background:#eef2f5;overflow:hidden}
     .map:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}.text-route{margin:10px 0 0}
+    .expand-link{margin-left:auto;font-size:13px;font-weight:700;color:#1d4ed8}
+    :host.expanded{height:100%;min-height:0;margin:0;display:flex;flex-direction:column}
+    :host.expanded .activity-route{flex:1;min-height:0;display:flex;flex-direction:column;border:0;border-radius:0;padding:12px 16px}
+    :host.expanded .map{flex:1;min-height:0;height:auto;border-radius:0}
+    :host.expanded .text-route{display:none}
     button{margin-left:6px}@media(max-width:700px){.map{height:300px}}
   `],
 })
 export class ActivityMapComponent implements AfterViewInit, OnDestroy {
   readonly route = input.required<ActivityMapAvailable>();
+  readonly activityId = input<string | null>(null);
+  readonly expanded = input(false);
   readonly quality = computed(() => routeQuality(this.route()));
   readonly loading = signal(true);
   readonly failure = signal(false);

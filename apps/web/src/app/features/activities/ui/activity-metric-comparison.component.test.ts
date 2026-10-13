@@ -28,7 +28,7 @@ describe('activity metrics rendered UI', () => {
   it('renders equal sources once, grouped, without Selected or provenance disclosures', () => {
     const el = render([distance]);
     expect(el.querySelectorAll('.value')).toHaveLength(1);
-    expect(el.textContent).toContain('10 km'); expect(el.textContent).toContain('Strava · Garmin');
+    expect(el.textContent).toContain('10 km'); expect(el.querySelector('.sources')).toBeNull();
     expect(el.textContent).toContain('Time & Distance'); expect(el.textContent).not.toContain('Authoritative'); expect(el.querySelector('.authoritative')).toBeNull();
     expect(el.textContent).not.toContain('Selected'); expect(el.querySelector('details')).toBeNull();
     expect(el.textContent).not.toContain('test-version');
@@ -88,8 +88,34 @@ it('leads with run highlights and retains stopped time in secondary metrics', ()
   expect(el.querySelector('section')?.getAttribute('aria-label')).toBe('Activity highlights');
   const summary = el.querySelector('.highlights')!;
   expect([...summary.querySelectorAll('dt')].map(dt => dt.textContent)).toEqual(['Distance', 'Moving pace', 'Moving time']);
-  expect(summary.textContent).toContain('Strava · Garmin');
+  expect(summary.querySelector('.highlight')?.querySelector('.sources')).toBeNull();
   expect(summary.textContent).not.toContain('Stopped time');
   expect(el.querySelector('[aria-label="Activity metrics"]')?.textContent).toContain('Stopped time');
   expect(el.querySelectorAll('dt')).toHaveLength(6);
+});
+
+it('keeps single-provider labels visible', () => {
+  const el = render([{ ...distance, candidates: [distance.candidates[1]] }]);
+  expect(el.querySelector('.sources')?.textContent).toBe('Strava');
+});
+
+it('splits summary and secondary metrics without duplicating highlights', () => {
+  const fixture = TestBed.createComponent(ActivityMetricComparisonComponent);
+  Object.defineProperty(fixture.componentInstance, 'metrics', { value: signal([distance]) });
+  Object.defineProperty(fixture.componentInstance, 'sport', { value: signal('run') });
+  Object.defineProperty(fixture.componentInstance, 'activity', { value: signal({
+    activity_type: 'run', source: 'strava', distance_m: 10000, duration_s: 3900, moving_time_s: 3600,
+    avg_pace_s_per_km: 360, avg_speed_mps: null, avg_hr: 140, max_hr: null, elevation_gain_m: null,
+    calories: null, steps: null, effort_points: null,
+  }) });
+  const presentation = signal('summary');
+  Object.defineProperty(fixture.componentInstance, 'presentation', { value: presentation });
+  fixture.detectChanges();
+  expect(fixture.nativeElement.querySelector('.highlights')).not.toBeNull();
+  expect(fixture.nativeElement.querySelector('.summary-heading')).toBeNull();
+  expect(fixture.nativeElement.querySelector('[aria-label="Activity metrics"]')).toBeNull();
+  presentation.set('details'); fixture.detectChanges();
+  expect(fixture.nativeElement.querySelector('.highlights')).toBeNull();
+  expect(fixture.nativeElement.textContent).toContain('Stopped time');
+  expect([...fixture.nativeElement.querySelectorAll('dt')].map((el: HTMLElement) => el.textContent)).not.toContain('Distance');
 });

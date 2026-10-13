@@ -23,12 +23,12 @@ export class ActivityDetailStore implements OnDestroy {
   constructor(private readonly api: ActivitiesApiService) {}
   ngOnDestroy() { this.cancel(); }
   private cancel() { this.generation++; for (const request of this.requests.values()) request.unsubscribe(); this.requests.clear(); }
-  load(id: string) {
+  load(id: string, options: { coverage?: boolean } = {}) {
     this.cancel(); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false);
     this.sourceState.set('idle'); this.sourceJson.set(null); this.providerState.set('idle'); this.providerDetail.set(null); this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerError.set('');
     this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
     const generation = this.generation;
-    this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); this.state.set('loaded'); this.refreshCoverage(); this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
+    this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); this.state.set('loaded'); if (options.coverage !== false) this.refreshCoverage(); this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
   }
   loadMap() {
     if (!this.activity()) return;
