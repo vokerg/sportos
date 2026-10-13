@@ -1,4 +1,5 @@
 import { RunningEffortsService } from './running-efforts.service.js';
+import { ActivityRouteProjectionService } from './activity-route-projection.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
 import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ActivitiesRepository, GarminActivityResourcesRepository, LEGACY_ACCOUNT_ID } from '@sportos/db';
@@ -21,7 +22,8 @@ export class ActivityEnrichmentService {
     private readonly storage: UploadStorage, private readonly auth: AuthService,
     private readonly strava: ActivityProviderDetailService,
     private readonly metrics: ActivityMetricsService = new ActivityMetricsService(primary, detail),
-    private readonly efforts: RunningEffortsService = new RunningEffortsService(primary,detail)) {}
+    private readonly efforts: RunningEffortsService = new RunningEffortsService(primary,detail),
+    private readonly routes?: ActivityRouteProjectionService) {}
 
   localEnabled(accountId: string) {
     return this.auth.isDevelopmentMode() && accountId === LEGACY_ACCOUNT_ID && process.env.SPORTOS_GARMIN_LOCAL_FETCH_ENABLED === 'true';
@@ -78,8 +80,9 @@ export class ActivityEnrichmentService {
     try {
       const { activity: canonical, garmin } = await this.reference(account.id, activityId);
       const activity = canonical as typeof canonical & Record<string, unknown>;
-      const retention = new GarminLocalIngestService(this.primary, this.detail, this.storage);
+      const retention = new GarminLocalIngestService(this.primary, this.detail, this.storage, undefined, undefined, this.routes);
       if (!refresh && garmin && await retention.cachedBundle(garmin.identity_key, garmin.current_hash, account)) {
+        await this.routes?.project(account.id,activityId);
         return { ...(await this.read(account.id, activityId)), cacheStatus: 'hit', effortProjection: await this.efforts.project(account.id,activityId,'garmin'), metricProjection: await this.metrics.project(account.id,activityId) };
       }
       if (!this.localEnabled(account.id)) throw new ServiceUnavailableException({ code: 'GARMIN_LOCAL_FETCH_DISABLED', message: 'Garmin downloads require the enabled local desktop helper. Retained data can still be viewed.' });
