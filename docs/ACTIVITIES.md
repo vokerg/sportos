@@ -89,7 +89,7 @@ ambiguity, helper setup/authentication, rate limits and timeouts are safe and vi
 
 The canonical implementation lives in `packages/db/src/repositories/activities.repository.ts`, `apps/api/src/activities/activities.controller.ts`, and `apps/web/src/app/features/activities/`. Explicit provider detail uses `packages/db/src/repositories/activity-provider-resources.repository.ts`, `apps/api/src/activities/activity-provider-detail.service.ts`, and the Strava adapter in `packages/importers/src/strava-adapter.ts`. Angular separates the API contract/client, formatting and metric selection, list presenter, list page, detail page, a page-scoped list store, and `state/activity-detail.store.ts` for cancellation and independent detail/fetch/resource state. The feature is scoped under `features/` per the frontend architecture; the feature HTTP client injects `core/config/api-base` directly.
 
-## Activity route API (summary only)
+## Activity route API (summary fallback and retained projections)
 
 `GET /activities/:activityId/map` is authenticated and read-only. Given a
 canonical activity UUID, it reads the most recent available **linked Strava**
@@ -126,11 +126,59 @@ should be shown as unavailable states, **not** as blank maps. Bad UUIDs are
 The decoder allows at most 30,000 encoded characters, 5,000 points, and
 200 KB of serialized coordinates; routes require at least two distinct
 points. Summary geometry is approximate, not a high-resolution GPS track.
-The GET does no writes, provider requests, rich-data prefetch, or auxiliary
-database access and exposes no raw source fields, credentials, or owner
-internals. It cannot restore geometry discarded at ingestion. Future route
-projections can expand the same `status/source/resolution/geometry/bounds`
-contract. GPS locations are private data and must stay behind account auth.
+The GET does no writes, provider requests, full rich-data materialization or
+provider traffic and exposes no raw source fields, credentials, hashes or owner
+internals. It reads one compact owner-scoped projection row in the existing
+**auxiliary activity-detail database** only after primary canonical/link lookup.
+It cannot restore geometry discarded at ingestion. GPS locations are private
+and stay behind account authentication.
+
+## Higher-resolution route projections (#128)
+
+The **existing** MapLibre view automatically switches from Strava summary to a
+current, compact retained route. `resolution` is `streams` (Strava `latlng`
+stream), `detail` (Strava detailed `map.polyline`), `fit` (linked Garmin FIT),
+or `summary` (compact Strava). It accepts `LineString` or `MultiLineString`
+GeoJSON and bounds `[west,south,east,north]`, with honest provider labeling.
+Disjoint route sections are separate lines; no artificial bridge is drawn
+across missing points, implausible jumps or long recording gaps.
+
+`POST /activities/:activityId/map/reprocess` accepts exactly an empty body and
+rebuilds from **already retained** detail on the authenticated account. It
+returns `routeProjection.status` as `projected`, `already_current`, `stale`, or
+`unavailable`. It never contacts Strava/Garmin or downloads original FIT. Normal
+GET/navigation never triggers reprocessing, jobs or any data writes. Existing
+explicit Strava and Garmin Fetch/Refresh can update the projection, and the
+browser refreshes the map after successful Fetch; opening View data does not.
+No automatic historical backfill or provider prefetch is performed.
+
+The projected geometry is stored in auxiliary Flyway **V004** under forced RLS
+with a non-owner `sportos_app` role, immutable owner IDs, and no cross-database
+foreign keys. `owner_id`, canonical UUID, provider, resolution, source reference,
+source version, resource hash, algorithm version, status, bounds, point count,
+and update/fetch times are kept, plus at most 3,000 compressed points encoded
+as a bounded array of precision-5 polylines. No raw FIT, stream JSON, or map
+raster tiles are duplicated. Primary source links/current version remain
+responsible for identity and ownership; reads decline stale provider versions
+and fall back to valid Strava summary. Failed/partial projection attempts never
+replace canonical facts or scores. Manual retained reprocess is idempotent.
+
+**Privacy rule:** richer Strava evidence may be used only if the compact
+summary route is valid, and richer endpoints are clipped to summary-visible
+start/end vicinity. Garmin FIT must **never** be substituted for any activity
+with an available Strava provider link, even when its compact route is absent
+or invalid; this deliberately favors no map over potentially bypassing Strava
+redaction. Garmin FIT is eligible only for linked Garmin activities with **no**
+available Strava link. No reconstruction from start/finish totals or workout
+metadata is allowed. For maximum privacy, summary visibility decisions should
+remain authoritative: clipping endpoints is conservative but cannot prove that
+all intermediary locations have the same provider privacy treatment.
+
+Deployment requires applying auxiliary V004 first: `pnpm db:migrate:activity-detail`
+with the separate project's schema-owner settings; no backfill or production
+migration is initiated automatically. Reprocess one activity explicitly after
+migration. A failed/missing auxiliary database can prevent improved route reads;
+restore the auxiliary connection/migration before using high-resolution routes.
 
 ## Activity detail map (#127)
 
