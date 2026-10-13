@@ -8,6 +8,7 @@ const url = process.env.SPORTOS_OWNER_TEST_DATABASE_URL;
 const databaseDescribe = url ? describe : describe.skip;
 type TestDb = ReturnType<typeof createDb>;
 const polyline = '_p~iF~ps|U_ulLnnqC_mqNvxq' + String.fromCharCode(96) + '@';
+const newerPolyline = '??A?';
 
 databaseDescribe('owner-scoped heatmap route feed', () => {
   let db: TestDb;
@@ -44,7 +45,7 @@ databaseDescribe('owner-scoped heatmap route feed', () => {
 
     // The same canonical activity with a second valid Strava identity still
     // occupies one slot; the most recently updated available link wins.
-    await seedLink(db, a, workbook, 'different-source', polyline);
+    await seedLink(db, a, workbook, 'different-source', newerPolyline);
 
     const list = (owner: string, filters: Parameters<HeatmapRoutesRepository['list']>[0]) =>
       withAccountContext(db, owner, scoped => new HeatmapRoutesRepository(scoped).list(filters));
@@ -53,7 +54,7 @@ databaseDescribe('owner-scoped heatmap route feed', () => {
     expect(first.hasMore).toBe(true);
     expect(first.candidates.map(row => row.activityId)).toEqual([workbook, missing]);
     expect(first.candidates[0]).toMatchObject({
-      date: '2095-05-05', sport: 'run', polyline, polylineType: 'string',
+      date: '2095-05-05', sport: 'run', polyline: newerPolyline, polylineType: 'string',
     });
     expect(first.candidates[1]).toMatchObject({ polyline: null, polylineType: null });
 
@@ -70,6 +71,20 @@ databaseDescribe('owner-scoped heatmap route feed', () => {
     expect((await list(ownerB, { limit: 50, cursor: { date: '2095-05-05', id: workbook } })).candidates).toEqual([]);
     expect([unlinked, stale, deleted].some(id => first.candidates.concat(second.candidates)
       .some(row => row.activityId === id))).toBe(false);
+
+    // Identical calendar days must not duplicate or skip routes across cursor pages.
+    const sameDayA = await seed(db, a, '2095-06-01', 'run');
+    const sameDayB = await seed(db, a, '2095-06-01', 'walk');
+    const sorted = [sameDayA, sameDayB].sort((a, b) => b.localeCompare(a));
+    const sameDayFirst = await list(ownerA, { limit: 1, from: '2095-06-01', to: '2095-06-01' });
+    expect(sameDayFirst.hasMore).toBe(true);
+    expect(sameDayFirst.candidates.map(row => row.activityId)).toEqual([sorted[0]]);
+    const sameDaySecond = await list(ownerA, {
+      limit: 1, from: '2095-06-01', to: '2095-06-01', cursor: { date: '2095-06-01', id: sorted[0]! },
+    });
+    expect(sameDaySecond.hasMore).toBe(false);
+    expect(sameDaySecond.candidates.map(row => row.activityId)).toEqual([sorted[1]]);
+
   });
 });
 
@@ -140,6 +155,7 @@ async function seedLink(db: TestDb, fixture: Fixture, activity: string, key: str
       connection_id: fixture.connection, provider_activity_id: native, activity_id: activity,
       latest_source_record_id: record, identity_fingerprint: 'b'.repeat(64),
       fingerprint_version: 1, availability: 'available', provider_updated_at: null,
+      updated_at: new Date('2098-01-01T00:00:00Z'),
     }).execute();
   });
 }
