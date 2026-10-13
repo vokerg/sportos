@@ -1,4 +1,5 @@
 import { stravaSummaryRoute, type ActivityRouteResponse } from './activity-route.js';
+import { ActivityRouteProjectionService } from './activity-route-projection.service.js';
 import { RunningEffortsService } from './running-efforts.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Post, Query } from '@nestjs/common';
@@ -67,6 +68,7 @@ export class ActivitiesController {
     private readonly providerDetailService: ActivityProviderDetailService,
     private readonly metrics?: ActivityMetricsService,
     private readonly efforts?: RunningEffortsService,
+    private readonly routes?: ActivityRouteProjectionService,
   ) {}
 
   @Get()
@@ -122,11 +124,19 @@ export class ActivitiesController {
   @Get(':activityId/map')
   async map(@Param('activityId') activityId: string, @CurrentAccount() account?: AuthenticatedAccount): Promise<ActivityRouteResponse> {
     assertUuid(activityId, 'INVALID_ACTIVITY_ID');
+    if (this.routes) return this.routes.read(account?.id ?? LEGACY_ACCOUNT_ID,activityId);
     const evidence = await this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID, db =>
       new ActivitiesRepository(db).getStravaRouteEvidence(activityId));
     if (!evidence) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
     if (!evidence.linked) return { status: 'unavailable', reason: 'no_gps' };
     return stravaSummaryRoute(evidence.polyline, evidence.polylineType);
+  }
+
+  @Post(':activityId/map/reprocess')
+  async reprocessMap(@Param('activityId') activityId:string,@Body() body:unknown,@CurrentAccount() account?:AuthenticatedAccount){
+    assertUuid(activityId,'INVALID_ACTIVITY_ID');
+    if(body!==undefined&&body!==null&&(typeof body!=='object'||Array.isArray(body)||Object.keys(body).length)) throw new BadRequestException('Retained route reprocessing accepts no fields.');
+    return {routeProjection:await this.routes!.project(account?.id??LEGACY_ACCOUNT_ID,activityId)};
   }
 
   @Get(':activityId/source')
