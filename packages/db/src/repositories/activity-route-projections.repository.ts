@@ -1,4 +1,4 @@
-import { sql, type Kysely, type RawBuilder } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Database, Json } from '../schema.js';
 import type { ActivityRouteProjectionsTable } from '../activity-route-projection-schema.js';
 export type RouteProjectionWrite = Pick<ActivityRouteProjectionsTable,
@@ -25,8 +25,7 @@ export class ActivityRouteProjectionsRepository {
     || JSON.stringify(write.polylines).length > 59000 || write.bounds.length!==4
     || write.bounds.some(x=>!Number.isFinite(x)) || !Number.isFinite(write.source_fetched_at.getTime()))
     throw new Error('Invalid bounded route projection');
-  const jsonb=(value:unknown): RawBuilder<Json> =>
-    sql.raw("'" + JSON.stringify(value).replace(/'/g,"''") + "'::jsonb") as RawBuilder<Json>;
+  const jsonb=(value:unknown) => sql<Json>`${JSON.stringify(value)}::jsonb`;
   const values={...write,polylines:jsonb(write.polylines),bounds:jsonb(write.bounds),
     state:'current' as const,updated_at:new Date()};
   return this.db.insertInto('activity_route_projections').values(values)
