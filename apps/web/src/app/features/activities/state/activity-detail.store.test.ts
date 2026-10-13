@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActivityDetailStore } from './activity-detail.store';
 const coverage = { strava: { state: 'cached' }, garmin: { state: 'cached', linked: true, fetchEnabled: true } };
 function setup() {
-  const api = { reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), sourceJson: vi.fn(), garminResource: vi.fn(() => of({ payload: [] })) };
+  const api = { map: vi.fn(() => of({status: 'unavailable', reason: 'no_gps'})), reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), sourceJson: vi.fn(), garminResource: vi.fn(() => of({ payload: [] })) };
   return { api, store: new ActivityDetailStore(api as never) };
 }
 describe('ActivityDetailStore', () => {
@@ -66,4 +66,55 @@ it('refreshes stale effort status after a failed explicit fetch but not a retain
  const {api,store}=setup();api.fetchProviderDetail.mockReturnValue(throwError(()=>new HttpErrorResponse({status:503})));
  store.load('one');store.strava(true);expect(api.detail).toHaveBeenCalledTimes(2);
  api.providerDetail.mockReturnValue(throwError(()=>new HttpErrorResponse({status:404})));store.strava();expect(api.detail).toHaveBeenCalledTimes(2);
+});
+
+describe('activity map state', () => {
+  it('reads a map only after canonical detail and never downloads rich resources', () => {
+    const { api, store } = setup();
+    store.load('first');
+    expect(api.map).toHaveBeenCalledWith('first');
+    expect(store.mapState()).toBe('unavailable');
+    expect(store.mapReason()).toBe('no_gps');
+    expect(api.providerDetail).not.toHaveBeenCalled();
+    expect(api.fetchProviderDetail).not.toHaveBeenCalled();
+    expect(api.fetchGarminDetail).not.toHaveBeenCalled();
+    store.ngOnDestroy();
+  });
+  it('renders available route data and resets it on navigation to an indoor activity', () => {
+    const { api, store } = setup();
+    api.map.mockReturnValueOnce(of({ status: 'available', source: 'strava', resolution: 'summary',
+      geometry: {type:'LineString', coordinates:[[12,55],[12.1,55.2]]}, bounds:[12,55,12.1,55.2], pointCount:2 }) as never);
+    store.load('outdoor');
+    expect(store.mapState()).toBe('available');
+    expect(store.mapData()?.geometry.coordinates[0]).toEqual([12,55]);
+    store.load('indoor');
+    expect(store.mapState()).toBe('unavailable');
+    expect(store.mapData()).toBeNull();
+    store.ngOnDestroy();
+  });
+  it('cancels stale map requests when switching IDs or destroying the page', () => {
+    const { api, store } = setup();
+    const pending = new Subject<never>();
+    api.map.mockReturnValueOnce(pending as never);
+    store.load('old');
+    expect(pending.observed).toBe(true);
+    store.load('new');
+    expect(pending.observed).toBe(false);
+    pending.next({ status: 'available' } as never);
+    expect(store.mapState()).toBe('unavailable');
+    api.map.mockReturnValueOnce(pending as never);
+    store.loadMap(); expect(pending.observed).toBe(true);
+    store.ngOnDestroy(); expect(pending.observed).toBe(false);
+  });
+  it('shows route errors and retries without refreshing the activity or providers', () => {
+    const { api, store } = setup();
+    api.map.mockReturnValueOnce(throwError(() => new HttpErrorResponse({status:503})));
+    store.load('first');
+    expect(store.mapState()).toBe('error');
+    store.loadMap();
+    expect(store.mapState()).toBe('unavailable');
+    expect(api.detail).toHaveBeenCalledTimes(1);
+    expect(api.map).toHaveBeenCalledTimes(2);
+    store.ngOnDestroy();
+  });
 });

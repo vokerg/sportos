@@ -52,6 +52,20 @@ export interface ActivityProviderDetailResponse {
   cacheStatus: 'hit' | 'miss';
   resources: Record<string, ActivityProviderDetailResource>;
 }
+export interface ActivityMapAvailable {
+  status: 'available';
+  source: 'strava' | 'garmin';
+  resolution: string;
+  geometry: { type: 'LineString'; coordinates: [number, number][] };
+  bounds: [number, number, number, number];
+  pointCount: number;
+}
+export interface ActivityMapUnavailable {
+  status: 'unavailable';
+  reason: 'no_gps' | 'summary_polyline_missing' | 'invalid_geometry' | string;
+}
+export type ActivityMapResponse = ActivityMapAvailable | ActivityMapUnavailable;
+
 export interface ActivitySourceJson {
   sourceRecordId: string;
   sourceRecordSource: string;
@@ -102,6 +116,10 @@ export class ActivitiesApiService {
 
   detail(id: string) {
     return this.http.get<ActivityDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}`);
+  }
+
+  map(id: string) {
+    return this.http.get<ActivityMapResponse>(`${this.apiBase}/activities/${encodeURIComponent(id)}/map`);
   }
 
   providerDetail(id: string) {

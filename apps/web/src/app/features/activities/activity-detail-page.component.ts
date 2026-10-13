@@ -1,3 +1,4 @@
+import { ActivityMapComponent } from './ui/activity-map.component';
 import { RunningEffortsComponent } from './ui/running-efforts.component';
 import { ActivityMetricProvenanceComponent } from './ui/activity-metric-provenance.component';
 import { ProviderMetricStatusComponent } from './ui/provider-metric-status.component';
@@ -11,7 +12,7 @@ import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.vi
 import { startTime, title, displayedSubtype } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
   template: `
     <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
     @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
@@ -22,6 +23,16 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
       </header>
       @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
+      @if (store.mapState() === 'loading') { <section class="card map-status" role="status">Loading activity route…</section> }
+      @else if (store.mapState() === 'available' && store.mapData()) {
+        <sportos-activity-map [route]="store.mapData()!" />
+      }
+      @else if (store.mapState() === 'unavailable') {
+        <section class="card map-status" aria-label="Activity route unavailable">
+          <p>{{ store.mapReason() === 'invalid_geometry' ? 'The retained GPS route is invalid.' : store.mapReason() === 'summary_polyline_missing' ? 'No Strava summary GPS route was retained for this activity.' : 'No GPS route is available for this activity.' }}</p>
+        </section>
+      }
+      @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
       <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" />
       @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
       @if (item.garminStrength; as strength) {
@@ -115,6 +126,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
     } }
   `,
   styles: [`
+    .map-status{margin:16px 0;padding:12px 18px;color:#667085}.map-status p{margin:0}.map-status button{margin-left:8px}
     .provider-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }.provider-heading h3 { margin: 0 4px 0 0; }.badge { font-size: 12px; border-radius: 16px; padding: 4px 9px; background: #eef2ff; color: #344054; }.provider-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; } button:disabled { opacity: .55; cursor: default; } select { max-width: 100%; margin: 8px; }.metrics dt { text-transform: capitalize; }
     .breadcrumb { margin-bottom: 18px; color: #667085; }.breadcrumb a { color: #1d4ed8; }
     header { margin-bottom: 18px; } h1 { margin: 4px 0; } h1 small { font-size: 18px; font-weight: 500; color: #667085; }
