@@ -200,7 +200,8 @@ export class HeatmapPageComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!bounds) throw new Error('No route bounds.');
       this.fitBounds = [[bounds[0], bounds[1]], [bounds[2], bounds[3]]];
       const map = new lib.Map({
-        container: this.canvas().nativeElement, style: heatmapRasterStyle(), center: [0, 0],
+        container: this.canvas().nativeElement, style: heatmapRasterStyle(),
+        center: [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2],
         zoom: 2, maxZoom: 18, attributionControl: { compact: false },
       });
       this.map = map;
