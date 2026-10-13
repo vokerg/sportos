@@ -133,6 +133,8 @@ export class ActivitiesRepository {
     if (!activity) return null;
     const snapshot = await trustedStravaRouteSources(this.db)
       .where('link.activity_id', '=', activityId)
+      .orderBy('link.updated_at', 'desc')
+      .orderBy('link.id', 'desc')
       .executeTakeFirst();
     return snapshot
       ? { linked: true, polyline: snapshot.polyline, polylineType: snapshot.polylineType }
