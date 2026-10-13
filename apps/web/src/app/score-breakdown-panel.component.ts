@@ -90,11 +90,11 @@ import { formatScoreDate } from './score-breakdown.view-model';
         </div>
       } @else {
         @if (activeTab() === 'overview') {
-          <sportos-score-breakdown-summary [breakdown]="current" [recalculating]="recalculating()" [recalculationError]="recalculationError()" (recalculate)="recalculate.emit()" />
+          <sportos-score-breakdown-summary [breakdown]="current" [showActions]="showSummaryActions()" [recalculating]="recalculating()" [recalculationError]="recalculationError()" (recalculate)="recalculate.emit()" />
           <sportos-score-breakdown-facts [breakdown]="current" (edit)="requestManualEdit()" />
           <sportos-score-breakdown-activities [breakdown]="current" [garminActivityIds]="garminActivityIds()" />
         } @else if (activeTab() === 'score') {
-          <sportos-score-breakdown-summary [breakdown]="current" [detailed]="true" [recalculating]="recalculating()" [recalculationError]="recalculationError()" (recalculate)="recalculate.emit()" />
+          <sportos-score-breakdown-summary [breakdown]="current" [detailed]="true" [showActions]="showSummaryActions()" [recalculating]="recalculating()" [recalculationError]="recalculationError()" (recalculate)="recalculate.emit()" />
           <sportos-score-breakdown-facts [breakdown]="current" [detailed]="true" (edit)="requestManualEdit()" />
           <sportos-score-breakdown-ledger [breakdown]="current" />
         } @else {
@@ -177,6 +177,7 @@ import { formatScoreDate } from './score-breakdown.view-model';
   `],
 })
 export class ScoreBreakdownPanelComponent {
+  readonly showSummaryActions = input(true);
   readonly activeTab = signal<'overview' | 'score' | 'sources'>('overview');
   readonly tabs = [{id: 'overview', label: 'Overview'}, {id: 'score', label: 'Score'}, {id: 'sources', label: 'Sources'}] as const;
   readonly garminActivityIds = input<string[]>([]);

@@ -1,5 +1,9 @@
 # Explicit Garmin day evidence
 
+The main day actions sit above the day overview on `/daily/:date`: recalculation,
+manual entry, Strava refresh, and Garmin Fetch/Refresh. They remain visible across
+the Overview, Score, and Sources tabs.
+
 On `/daily/:date`, **Fetch Garmin day** retains evidence for one completed
 Garmin calendar date. It never recalculates, replaces manual/workbook authority,
 changes Strava canonical activity metrics, or writes official scores, ledger

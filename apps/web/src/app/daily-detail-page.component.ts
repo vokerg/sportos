@@ -23,6 +23,13 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a routerLink="/daily">Daily Log</a><span aria-hidden="true">›</span><span>{{ date() || 'Daily score' }}</span>
     </nav>
+    <section class="main-actions" aria-label="Day actions">
+      <button type="button" (click)="recalculate()" [disabled]="state() !== 'loaded' || recalculating() || savingManual() || refreshingFromStrava()">
+        {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
+      </button>
+      <button type="button" (click)="requestManualEdit()" [disabled]="state() !== 'loaded' || recalculating() || savingManual() || refreshingFromStrava()">Enter facts manually</button>
+      @if (recalculationError()) { <p class="refresh-error" role="alert">{{ recalculationError() }}</p> }
+    </section>
     <section class="day-refresh" aria-label="Strava day refresh">
       <div>
         <strong>Strava activities for this day</strong>
@@ -38,7 +45,11 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
         <p class="refresh-error" role="alert">{{ stravaRefreshError() }}</p>
       }
     </section>
+    @if (date(); as selectedDate) {
+      <sportos-garmin-day-card [date]="selectedDate" [inspection]="panel.activeTab() === 'sources'" (linkedActivities)="garminActivityIds.set($event)" />
+    }
     <sportos-score-breakdown-panel #panel
+      [showSummaryActions]="false"
       [garminActivityIds]="garminActivityIds()"
       [state]="state()"
       [date]="date()"
@@ -53,13 +64,11 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
       (retry)="load()"
       (recalculate)="recalculate()"
       (saveManualFacts)="saveManualFacts($event)"
-      (closed)="close()">
-      @if (date(); as selectedDate) {
-        <sportos-garmin-day-card [date]="selectedDate" [inspection]="panel.activeTab() === 'sources'" (linkedActivities)="garminActivityIds.set($event)" />
-      }
-    </sportos-score-breakdown-panel>
+      (closed)="close()" />
   `,
   styles: [`
+    .main-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .main-actions .refresh-error { flex-basis: 100%; }
     .breadcrumb { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #667085; font-size: 12px; }
     .breadcrumb a { color: #1d4ed8; font-weight: 700; text-decoration: none; }
     .day-refresh { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 16px; margin: 0 0 12px; padding: 14px 16px; border: 1px solid #dbe4f5; border-radius: 12px; background: #f8faff; }
@@ -220,6 +229,10 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
       next: (result) => this.evidence.set(result),
       error: () => this.evidence.set(null),
     });
+  }
+
+  requestManualEdit(): void {
+    this.manualEditRequestId.update((value) => value + 1);
   }
 
   recalculate(): void {
