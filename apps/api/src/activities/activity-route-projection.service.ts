@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ActivityProviderResourcesRepository, ActivityRouteProjectionsRepository,
- ActivitiesRepository, GarminActivityResourcesRepository, type Json } from '@sportos/db';
+ ActivitiesRepository, GarminActivityResourcesRepository, sql, type Json } from '@sportos/db';
 import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
 import { stravaSummaryRoute, type ActivityRouteResponse } from './activity-route.js';
 import { decodeStoredRoute, projectGarminRoute, projectStravaRoute,
@@ -83,9 +83,24 @@ export class ActivityRouteProjectionService {
     if(!records.length||records.length>100||records.some((r,i)=>r.chunkIndex!==i))return null;
     const result:Json[]=[];
     for(const record of records){
-     const resource=await repo.read(reference,'records',record.chunkIndex);
-     if(!resource||!Array.isArray(resource.payload)||result.length+resource.payload.length>150000)return null;
-     result.push(...resource.payload);
+     // Read only GPS coordinates and timestamps; never materialize entire FIT telemetry chunks.
+     const remaining=150001-result.length;
+     const extracted=await sql<{message:Json}>`
+       select jsonb_build_object('message',value->'message','fields',
+         (select coalesce(jsonb_agg(field),'[]'::jsonb)
+          from jsonb_array_elements(case when jsonb_typeof(value->'fields')='array'
+            then value->'fields' else '[]'::jsonb end) as field
+          where field->>'name' in ('position_lat','position_long','timestamp'))) as message
+       from garmin_activity_resources r
+       cross join lateral jsonb_array_elements(case when jsonb_typeof(r.payload_json)='array'
+          then r.payload_json else '[]'::jsonb end) with ordinality as m(value,position)
+       where r.identity_key=${reference.identityKey} and r.source_hash=${reference.sourceHash}
+         and r.resource_type='records' and r.chunk_index=${record.chunkIndex}
+         and value->>'message'='record'
+       order by position limit ${remaining}
+     `.execute(db);
+     if(result.length+extracted.rows.length>150000)return null;
+     result.push(...extracted.rows.map(row=>row.message));
     }
     return result;
    });
