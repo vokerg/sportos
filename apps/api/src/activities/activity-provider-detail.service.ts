@@ -68,7 +68,8 @@ export class ActivityProviderDetailService {
     const cached = await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).list(reference));
     if (!refresh && isCompleteAndCurrent(cached, reference.providerVersion)) {
-      await this.routes?.project(accountId, activityId);
+      // Optional derived geometry must not block a successful cached provider read.
+      if (this.routes) await this.routes.project(accountId, activityId).catch(() => undefined);
       return {...response(reference, cached, 'hit'), effortProjection: await this.efforts.project(accountId,activityId,'strava'), metricProjection: await this.metrics.project(accountId,activityId)};
     }
 
@@ -110,10 +111,12 @@ export class ActivityProviderDetailService {
       payload: asJson(resource.payload),
     }));
     await this.efforts.invalidate(accountId,activityId,writes.find(r=>r.resourceType==='streams')?.payload);
-    await this.routes?.invalidateStrava(accountId, activityId);
+    // If V004 is not migrated yet, the metadata-checked route GET still rejects
+    // any old projection after resource replacement. Provider fetch stays usable.
+    if (this.routes) await this.routes.invalidateStrava(accountId, activityId).catch(() => undefined);
     await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).replace(reference, writes));
-    await this.routes?.project(accountId, activityId);
+    if (this.routes) await this.routes.project(accountId, activityId).catch(() => undefined);
     const stored = await this.activityDetailDbProvider.withAccount(accountId, (db) =>
       new ActivityProviderResourcesRepository(db).list(reference));
     return {...response(reference, stored, 'miss'), effortProjection: await this.efforts.project(accountId,activityId,'strava'), metricProjection: await this.metrics.project(accountId,activityId)};
