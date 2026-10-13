@@ -76,6 +76,7 @@ describe('HeatmapPageComponent', () => {
     expect(vi.mocked(loadMapLibre)).toHaveBeenCalledTimes(1);
     expect(fixture.componentInstance.mapError()).toBe(false);
     expect(maps).toHaveLength(1);
+    expect((maps[0]!.options as { center: [number, number] }).center).toEqual([12.0001, 55]);
     maps[0]!.emit('load'); fixture.detectChanges();
     expect(maps[0]!.addSource).toHaveBeenCalledWith('sportos-heatmap', expect.objectContaining({type:'geojson'}));
     expect(maps[0]!.addLayer).toHaveBeenCalledTimes(4);
@@ -112,6 +113,21 @@ describe('HeatmapPageComponent', () => {
     await settle(fixture);
     expect(maps).toHaveLength(1);
     fixture.destroy();
+  });
+  it('offers retry when MapLibre cannot load without requesting routes again', async () => {
+    vi.mocked(loadMapLibre).mockRejectedValueOnce(new Error('map CDN unavailable'));
+    const fixture = await render();
+    expect(fixture.componentInstance.mapError()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('The map could not be displayed');
+    expect(maps).toHaveLength(0);
+    const retry = [...fixture.nativeElement.querySelectorAll('button')] as HTMLButtonElement[];
+    retry.find(button => button.textContent?.includes('Retry map'))?.click();
+    await settle(fixture);
+    expect(loadMapLibre).toHaveBeenCalledTimes(2);
+    expect(maps).toHaveLength(1);
+    expect(api.list).toHaveBeenCalledTimes(1);
+    fixture.destroy();
+    expect(maps[0]!.remove).toHaveBeenCalledTimes(1);
   });
   it('does not create maps for no-GPS archives and cancels pending requests on teardown', async () => {
     api.list.mockReturnValueOnce(of({ ...result(0), coverage:{eligibleScanned:2,usable:0,missingGps:2,invalidGeometry:0,budgetExceeded:0} }));
