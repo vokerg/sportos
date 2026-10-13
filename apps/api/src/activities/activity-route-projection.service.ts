@@ -46,10 +46,8 @@ export class ActivityRouteProjectionService {
     // Rich payloads may have been explicitly refreshed without changing the
     // compact provider version. Metadata-only validation avoids serving the
     // old geometry if pre-replace invalidation failed or raced a refresh.
-    const resources=await new ActivityProviderResourcesRepository(db).metadata({
-     activityId:id,provider:'strava',providerActivityId:row.source_ref,
-     connectionId:'',providerVersion:row.source_version,
-    });
+    if(!ref.strava||ref.strava.providerActivityId!==row.source_ref)return null;
+    const resources=await new ActivityProviderResourcesRepository(db).metadata(ref.strava);
     const evidence=resources.find(r=>r.resourceType===row.resolution);
     if(!evidence||evidence.availability!=='available'
       ||evidence.providerVersion!==row.source_version
