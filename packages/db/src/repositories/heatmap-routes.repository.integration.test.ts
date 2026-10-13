@@ -18,6 +18,7 @@ databaseDescribe('owner-scoped heatmap route feed', () => {
     for (const owner of owners) {
       await withAccountContext(db, owner, async scoped => {
         await scoped.deleteFrom('provider_activity_links').execute();
+        await scoped.deleteFrom('garmin_activity_identities').execute();
         await scoped.deleteFrom('activities').execute();
         await scoped.deleteFrom('source_records').execute();
         await scoped.deleteFrom('import_batches').execute();
@@ -71,6 +72,26 @@ databaseDescribe('owner-scoped heatmap route feed', () => {
     expect((await list(ownerB, { limit: 50, cursor: { date: '2095-05-05', id: workbook } })).candidates).toEqual([]);
     expect([unlinked, stale, deleted].some(id => first.candidates.concat(second.candidates)
       .some(row => row.activityId === id))).toBe(false);
+    expect(first.candidates[0]).toMatchObject({stravaLinked:true,
+      stravaProviderActivityId:expect.any(String),stravaProviderVersion:'a'.repeat(64)});
+
+    // Garmin-only canonical IDs join the same bounded feed. An available Strava
+    // link blocks tempting FIT substitution even if its summary lacks GPS.
+    const garminOnly = await withAccountContext(db, ownerA, scoped => scoped.insertInto('activities')
+      .values({source:'garmin',activity_date:'2095-04-30',activity_type:'run'})
+      .returning('id').executeTakeFirstOrThrow()).then(row => row.id);
+    await garminLink(db, ownerA, garminOnly);
+    await garminLink(db, ownerA, missing);
+    const garminPage = await list(ownerA,{limit:50,from:'2095-04-30',to:'2095-05-04'});
+    expect(garminPage.candidates.map(c=>c.activityId)).toContain(garminOnly);
+    expect(garminPage.candidates.find(c=>c.activityId===garminOnly)).toMatchObject({
+      stravaLinked:false,polyline:null,garminIdentityKey:expect.any(String),
+      garminCurrentHash:'c'.repeat(64),
+    });
+    expect(garminPage.candidates.find(c=>c.activityId===missing)).toMatchObject({
+      stravaLinked:true,polyline:null,garminIdentityKey:expect.any(String),
+    });
+    expect((await list(ownerB,{limit:50,from:'2095-04-30',to:'2095-05-04'})).candidates).toEqual([]);
 
     // Identical calendar days must not duplicate or skip routes across cursor pages.
     const sameDayA = await seed(db, a, '2095-06-01', 'run');
@@ -158,4 +179,14 @@ async function seedLink(db: TestDb, fixture: Fixture, activity: string, key: str
       updated_at: new Date('2098-01-01T00:00:00Z'),
     }).execute();
   });
+}
+
+async function garminLink(db: TestDb, owner: string, activityId: string) {
+  await withAccountContext(db, owner, scoped => scoped.insertInto('garmin_activity_identities').values({
+    identity_key: 'native:' + randomUUID(), identity_kind: 'native', activity_id: activityId,
+    status: 'manual', activity_type: 'run', subtype: null, start_time: new Date('2095-04-30T10:00:00Z'),
+    elapsed_time_s: 3600, moving_time_s: 3600, distance_m: 10000,
+    current_hash: 'c'.repeat(64), source_updated_at: new Date('2095-04-30T10:00:00Z'),
+    match_evidence: {},
+  }).execute());
 }
