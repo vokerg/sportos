@@ -147,9 +147,16 @@ Strava summary geometry. Routes are never publicly cached
 
 Optional query parameters: inclusive `from` and `to` (real `YYYY-MM-DD`
 dates), canonical `activityType` (the same enumerated values as `GET /activities`),
-`limit` (1–50, default 25) and an opaque `cursor` returned by the previous page.
+`limit` (1–50, default 25), optional `encoding=polyline5` (permits up to
+200 candidates), and an opaque `cursor` returned by the previous page.
 Unknown/duplicate-style array parameters, bad cursors and malformed filters
 return 400. There is **no default date cutoff**; paginate to cover all time.
+Compact encoding returns `geometry: {type, polylines}` with one precision-5
+latitude-first encoded line per disjoint part; decoding reproduces the existing
+display coordinates. Compact pages cap geometry at 1,000,000 points and 1,600,000
+serialized characters; existing GeoJSON mode retains its smaller budgets.
+No route resampling occurs on the server.
+
 Ordering is deterministic by `activity_date DESC, id DESC`, with an exclusive
 cursor on the last **examined eligible** canonical activity. Clients must
 retain their original filters while advancing the cursor and stop when
@@ -480,19 +487,28 @@ sampling/GeoJSON, and MapLibre style). It uses the existing `GET /heatmap/routes
 from #137, defaulting to **all time and all eligible canonical sports**; users
 can restrict the sport and date range without downloading from providers.
 
-- The page reads every page (50 candidates/request, stable cursors); page counts
+- The page reads every page (200 candidates/request with compact precision-5
+  transport, stable cursors); page counts
   and missing/invalid/budget-skipped route coverage plus summary/streams/detail/FIT
   quality counts are accumulated and shown.
   A failed or cancelled page cannot expose a partial map. The browser caps
-  retained geometry at 2,500 routes / 160,000 original GPS points / 180,000
-  density samples / 120 pages. If exceeded, it refuses the dataset and prompts
+  input at 15,000 routes / 3,000,000 original GPS points / 100 pages,
+  and output at 400,000 display vertices / 180,000 weighted density cells /
+  3,000,000 uniform-distance samples. Each route remains bounded to 5,000
+  vertices / 50 parts. Pages are consumed incrementally so raw archive geometry
+  is released instead of retained alongside the rendered map. If exceeded,
+  it refuses the dataset and prompts
   narrower filters, rather than suggesting that a partial view is complete.
 - The style adapts `vokerg/heatmap/apps/web/src/app/map-style.ts`'s
   **heatmap-halo**, **heatmap-core**, **route-glow**, and **route-core** MapLibre
   layers to private in-memory GeoJSON. Low zoom conveys repeated corridors;
   higher zoom resolves individual tracks. Geometry sampling adapts
   `vokerg/heatmap/apps/api/src/db/file-store.ts`'s
-  `densifyCoordinates()` with an explicit bounded output. Each LineString or
+  distance interpolation with an explicit bounded output. Uniform 80 m samples
+  prevent richer streams from artificially brightening the same distance. Samples
+  merge into shared weighted cells at 1,280/320/80 m, selected at zoom
+  below 10 / 10–13 / above 13. Street-scale lines preserve endpoints and turns
+  using a 10 m local-metre display simplification tolerance. Each LineString or
   MultiLineString *part* is sampled separately, without interpolating across
   recording gaps. Sparse Strava summaries remain **approximate**; interpolation
   never reconstructs streets or the original high-resolution GPS.
@@ -506,7 +522,10 @@ can restrict the sport and date range without downloading from providers.
 - This is a browser GeoJSON renderer, **not** the separate Heatmap Fastify app,
   GPX importer, local JSON storage, PostGIS/MVT tile server, or separate auth.
   #139 reuses current retained high-resolution projections when present;
-  vector tiles / large-archive optimization remain explicitly deferred to #140.
+  #140's maintainer-authorized bounded optimization displays the current archive
+  without spatial infrastructure. PostGIS/vector tiles remain conditional on
+  evidence and a separate deployment/storage decision. See the
+  [real archive validation report](implementation/issue-140.md).
 
 Relevant tests: `heatmap-geometry.test.ts`, `heatmap-style.test.ts`,
 `heatmap.store.test.ts`, and `heatmap-page.component.test.ts`.

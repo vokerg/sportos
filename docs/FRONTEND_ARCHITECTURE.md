@@ -394,6 +394,7 @@ When adding or changing Angular code:
 `features/heatmap/` uses a lazy page, `data-access/heatmap-api.service.ts`
 for the authenticated owner-scoped bulk feed, `state/heatmap.store.ts`
 for pagination and cancellation, `model/` for bounded pure GPS transformations,
+compact transport decoding and an incremental dataset builder,
 and `ui/heatmap-style.ts` for MapLibre layer declarations. The lazy MapLibre
 loader lives in `shared/util/maplibre-loader.ts` for both heatmap and activity
 maps; the old Activities loader path is a compatibility re-export. Heatmap
@@ -402,3 +403,8 @@ client. Browser memory caps and no partial map on feed failure are deliberate.
 The API may return mixed Strava summary/streams/detail or Garmin FIT geometry;
 the store validates per-page resolution-quality totals, accumulates those counts
 over all pages, and renders each MultiLineString part without artificial joins.
+
+Heatmap #140 consumes compact pages incrementally, aggregates uniform-distance
+samples into three shared density resolutions and bounds simplified display lines
+separately from input. Filter replacement discards the entire pending builder;
+only a successfully completed dataset reaches MapLibre.

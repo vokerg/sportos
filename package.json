@@ -31,6 +31,7 @@
     "garmin:test": "node scripts/garmin-local.mjs test",
     "garmin:project-strength": "node scripts/garmin-project-strength.mjs",
     "strava:backfill-walks": "node scripts/strava-backfill-walks.mjs",
+    "heatmap:benchmark": "pnpm exec tsx scripts/heatmap-benchmark.mts",
     "activities:project": "pnpm --filter @sportos/db build && node scripts/activity-metrics-backfill.mjs",
     "activities:efforts": "pnpm --filter @sportos/db build && node scripts/running-efforts-backfill.mjs"
   },

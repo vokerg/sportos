@@ -26,7 +26,7 @@ export function heatmapRasterStyle(): object {
 }
 
 export function heatmapLayers(): object[] {
-  return [
+  const layers = [
     {
       id: 'heatmap-halo', type: 'heatmap', source: HEATMAP_SOURCE_ID, filter: densityFilter, maxzoom: 14.7,
       paint: {
@@ -71,4 +71,17 @@ export function heatmapLayers(): object[] {
       },
     },
   ];
+  const density = layers.slice(0, 2).flatMap(layer => [
+    { level: 0, min: layer.minzoom ?? 0, max: 10 },
+    { level: 1, min: 10, max: 13 },
+    { level: 2, min: 13, max: layer.maxzoom ?? 14.7 },
+  ].map(profile => ({ ...layer, id: `${layer.id}-${profile.level}`,
+    minzoom: profile.min, maxzoom: profile.max,
+    filter: ['all', densityFilter, ['==', ['get', 'level'], profile.level]],
+    paint: { ...layer.paint,
+      'heatmap-weight': ['interpolate', ['linear'],
+        ['ln', ['+', 1, ['coalesce', ['get', 'weight'], 0]]], 0, 0, Math.log(2), 0.15, Math.log(101), 1],
+    },
+  })));
+  return [...density, ...layers.slice(2)];
 }

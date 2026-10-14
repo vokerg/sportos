@@ -36,6 +36,18 @@ describe('heatmap routes API', () => {
     ]) expect(() => parseHeatmapQuery(input)).toThrow(BadRequestException);
   });
 
+  it('offers a larger bounded lossless encoded page without changing default GeoJSON limits', () => {
+    expect(parseHeatmapQuery({encoding:'polyline5',limit:'200'})).toMatchObject({encoding:'polyline5',limit:200});
+    for (const input of [{encoding:'unknown'},{encoding:'polyline5',limit:'201'},{limit:'200'}]) {
+      expect(() => parseHeatmapQuery(input)).toThrow();
+    }
+    const result = assembleHeatmapRoutes([candidate(first,'2026-01-01')],false,200,new Map(),'polyline5');
+    expect(result.items[0]?.geometry).toEqual({type:'LineString',polylines:[example]});
+    const long = '??' + 'A?'.repeat(4_999);
+    expect(assembleHeatmapRoutes(Array.from({length:200},()=>candidate(first,'2026-01-01',long)),
+      false,200,new Map(),'polyline5').coverage.budgetExceeded).toBeGreaterThan(0);
+  });
+
   it('never returns invalid, missing or over-budget geometry; reports coverage and advances past all scanned candidates', () => {
     const result = assembleHeatmapRoutes([
       candidate(first, '2026-01-04'),

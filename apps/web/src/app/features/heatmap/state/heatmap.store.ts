@@ -1,10 +1,10 @@
 import { inject, Injectable, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { HeatmapApiService } from '../data-access/heatmap-api.service';
-import { buildHeatmapDataset, type HeatmapDataset } from '../model/heatmap-geometry';
+import { HeatmapDatasetBuilder, type HeatmapDataset } from '../model/heatmap-geometry';
 import {
-  EMPTY_COVERAGE, HEATMAP_PAGE_SIZE, MAX_HEATMAP_PAGES, MAX_HEATMAP_ROUTES, MAX_RAW_ROUTE_POINTS,
-  type HeatmapCoverage, type HeatmapFilters, type HeatmapPage, type HeatmapRoute,
+  EMPTY_COVERAGE, HEATMAP_PAGE_SIZE, MAX_HEATMAP_PAGES,
+  type HeatmapCoverage, type HeatmapFilters, type HeatmapPage,
 } from '../model/heatmap.models';
 
 export type HeatmapLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
@@ -34,7 +34,7 @@ export class HeatmapStore implements OnDestroy {
     this.dataset.set(null);
     this.coverage.set(EMPTY());
     this.pagesLoaded.set(0);
-    this.nextPage(sequence, [], 0, undefined, new Set<string>(), new Set<string>(), EMPTY(), 0);
+    this.nextPage(sequence, new HeatmapDatasetBuilder(), undefined, new Set<string>(), new Set<string>(), EMPTY(), 0);
   }
 
   retry(): void { this.load(this.lastFilters); }
@@ -56,7 +56,7 @@ export class HeatmapStore implements OnDestroy {
   ngOnDestroy(): void { this.cancel(); this.dataset.set(null); }
 
   private nextPage(
-    sequence: number, routes: HeatmapRoute[], rawPoints: number, cursor: string | undefined,
+    sequence: number, builder: HeatmapDatasetBuilder, cursor: string | undefined,
     usedCursors: Set<string>, seenActivities: Set<string>, coverage: HeatmapCoverage, pageCount: number,
   ): void {
     if (sequence !== this.sequence) return;
@@ -99,29 +99,22 @@ export class HeatmapStore implements OnDestroy {
               fit: coverage.quality.fit + page.coverage.quality.fit,
             },
           };
-          const pointCount = page.items.reduce((sum, item) => sum +
-            (item.geometry?.type === 'LineString' ? item.geometry.coordinates.length :
-             item.geometry?.type === 'MultiLineString' ? item.geometry.coordinates.reduce((total, part) => total + part.length, 0) : 0), 0);
-          if (routes.length + page.items.length > MAX_HEATMAP_ROUTES ||
-              rawPoints + pointCount > MAX_RAW_ROUTE_POINTS) {
-            throw new RangeError('The selected archive exceeds the browser route/point budget. Narrow the filters.');
-          }
+          builder.add(page.items);
           this.coverage.set(nextCoverage);
           this.pagesLoaded.set(pageCount + 1);
-          const all = routes.concat(page.items);
           if (page.hasMore) {
             const next = page.nextCursor;
             if (!next || next === cursor || usedCursors.has(next) || page.coverage.eligibleScanned === 0) {
               throw new Error('The heatmap API returned an invalid pagination cursor.');
             }
             usedCursors.add(next);
-            this.nextPage(sequence, all, rawPoints + pointCount, next, usedCursors, seenActivities, nextCoverage, pageCount + 1);
+            this.nextPage(sequence, builder, next, usedCursors, seenActivities, nextCoverage, pageCount + 1);
           } else {
             if (page.nextCursor !== null) throw new Error('Unexpected heatmap cursor on final page.');
             // Validate all geometries and sample budgets before allowing any map to render.
-            const dataset = buildHeatmapDataset(all);
+            const dataset = builder.finish();
             this.dataset.set(dataset);
-            this.state.set(all.length ? 'ready' : 'empty');
+            this.state.set(dataset.routes ? 'ready' : 'empty');
           }
         } catch (error) {
           this.fail(error instanceof RangeError ? error.message : 'The heatmap response could not be completed. Please retry.');

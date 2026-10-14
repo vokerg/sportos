@@ -80,7 +80,7 @@ describe('HeatmapPageComponent', () => {
     expect((maps[0]!.options as { center: [number, number] }).center).toEqual([12.0001, 55]);
     maps[0]!.emit('load'); fixture.detectChanges();
     expect(maps[0]!.addSource).toHaveBeenCalledWith('sportos-heatmap', expect.objectContaining({type:'geojson'}));
-    expect(maps[0]!.addLayer).toHaveBeenCalledTimes(4);
+    expect(maps[0]!.addLayer).toHaveBeenCalledTimes(8);
     expect(maps[0]!.fitBounds).toHaveBeenCalledWith([[12,55],[12.0002,55]], expect.objectContaining({maxZoom:14}));
     expect(fixture.nativeElement.textContent).toContain('Strava summary (approximate)');
     expect(fixture.nativeElement.querySelector('select').value).toBe('all');

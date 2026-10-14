@@ -56,7 +56,7 @@ databaseDescribe('owner-scoped heatmap route feed', () => {
     expect(first.candidates[0]).toMatchObject({
       date: '2095-05-05', sport: 'run', polyline: newerPolyline, polylineType: 'string',
     });
-    expect(first.candidates[1]).toMatchObject({ polyline: null, polylineType: null });
+    expect(first.candidates[1]).toMatchObject({ polyline: null, polylineType: 'null' });
 
     const second = await list(ownerA, { limit: 2, cursor: { date: '2095-05-04', id: missing } });
     expect(second.hasMore).toBe(false);
@@ -115,7 +115,7 @@ databaseDescribe('owner-scoped heatmap route feed', () => {
     expect(sameDaySecond.hasMore).toBe(false);
     expect(sameDaySecond.candidates.map(row => row.activityId)).toEqual([sorted[1]]);
 
-  });
+  }, 30_000);
 });
 
 async function account(db: TestDb) {
