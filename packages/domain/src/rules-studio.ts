@@ -95,7 +95,7 @@ const METRICS_BY_ACTIVITY: Record<ActivityType, string[]> = {
   steps: ['steps'],
   run: ['distance_m', 'distance_km', 'duration_s', 'pace_s_per_km', 'avg_speed_mps', 'avg_speed_kmh'],
   bike: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
-  swim: ['distance_m', 'distance_km', 'duration_s', 'pace_s_per_km', 'avg_speed_mps', 'avg_speed_kmh'],
+  swim: ['distance_m', 'distance_km', 'duration_s', 'pace_s_per_km', 'moving_pace_s_per_km', 'avg_speed_mps', 'avg_speed_kmh'],
   workout: ['effort_points'],
   rowing: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
   sup: ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'],
@@ -299,6 +299,7 @@ export function metricUnit(metric: string): string {
     case 'distance_m': return 'm';
     case 'distance_km': return 'km';
     case 'duration_s': return 's';
+    case 'moving_pace_s_per_km':
     case 'pace_s_per_km': return 's/km';
     case 'avg_speed_mps': return 'm/s';
     case 'avg_speed_kmh': return 'km/h';

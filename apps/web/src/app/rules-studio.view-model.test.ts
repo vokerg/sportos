@@ -65,6 +65,8 @@ describe('Rules Studio view model', () => {
     ]);
     expect(metricOptionsFor('bike')).not.toContain('pace_s_per_km');
     expect(metricOptionsFor('swim')).toContain('pace_s_per_km');
+    expect(metricOptionsFor('swim')).toContain('moving_pace_s_per_km');
+    expect(metricOptionsFor('run')).not.toContain('moving_pace_s_per_km');
     expect(metricOptionsFor('steps')).toEqual(['steps']);
     expect(metricOptionsFor('workout')).toEqual(['effort_points']);
 
@@ -121,6 +123,7 @@ describe('Rules Studio view model', () => {
 
   it('formats rule formulas and cleans optional proposal fields for API submission', () => {
     expect(metricUnit('pace_s_per_km')).toBe('s/km');
+    expect(metricUnit('moving_pace_s_per_km')).toBe('s/km');
     expect(ruleFormula(coefficientRule)).toBe('× 1000');
     expect(ruleFormula({
       ruleKind: 'achievement',
