@@ -1,0 +1,57 @@
+name: sportos-oracle
+x-runtime: &runtime
+  restart: unless-stopped
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  pids_limit: 128
+  logging:
+    driver: json-file
+    options: {max-size: '10m', max-file: '3'}
+  stop_grace_period: 120s
+services:
+  web:
+    <<: *runtime
+    image: ${WEB_IMAGE:?Set immutable WEB_IMAGE digest}
+    mem_limit: 256m
+    cpus: 0.25
+    ports: ['127.0.0.1:8080:8080']
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8080/health]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+  api:
+    <<: *runtime
+    image: ${API_IMAGE:?Set immutable API_IMAGE digest}
+    mem_limit: 1536m
+    cpus: 0.5
+    env_file: [../../api.env]
+    environment:
+      NODE_ENV: production
+      API_PORT: '3010'
+      SPORTOS_UPLOAD_DIR: /uploads
+    volumes: [../../uploads:/uploads]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3010/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  worker:
+    <<: *runtime
+    image: ${WORKER_IMAGE:?Set immutable WORKER_IMAGE digest}
+    profiles: [worker-blocked]
+    # Fail closed even when someone explicitly selects the profile/service.
+    # Remove only with the #95 shared-storage implementation and validation.
+    entrypoint: [node, -e, "console.error('Worker blocked: shared Render/Oracle storage is unresolved (#95).');process.exit(1)"]
+    restart: 'no'
+    mem_limit: 2g
+    cpus: 0.75
+    env_file: [../../worker.env]
+    environment:
+      NODE_ENV: production
+      SPORTOS_UPLOAD_DIR: /uploads
+    volumes: [../../uploads:/uploads]

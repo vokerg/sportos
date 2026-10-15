@@ -1,0 +1,80 @@
+name: Oracle Start Stop Restart or Rollback
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Manual operation (no rebuilding or migrations)
+        type: choice
+        options: [stop, start, restart, rollback]
+      service:
+        description: Selection; all currently means API/web (worker blocked by 95)
+        type: choice
+        options: [all, web, api, worker]
+      release_sha:
+        description: Rollback only — published full 40-character commit SHA
+        type: string
+      schema_compatible:
+        description: Rollback only — I verified schema and queued-job compatibility
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: sportos-oracle-operations
+  cancel-in-progress: false
+jobs:
+  lifecycle:
+    if: inputs.operation != 'rollback'
+    runs-on: ubuntu-latest
+    environment: oracle
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Control saved release
+        env:
+          OPERATION: ${{ inputs.operation }}
+          SERVICE: ${{ inputs.service }}
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          ORACLE_SSH_HOST_KEY: ${{ secrets.ORACLE_SSH_HOST_KEY }}
+        run: bash deploy/oracle/ssh-operation.sh "$OPERATION" "$SERVICE"
+  rollback:
+    if: inputs.operation == 'rollback'
+    runs-on: ubuntu-latest
+    environment: oracle
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve explicitly selected immutable release
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          SCHEMA_COMPATIBLE: ${{ inputs.schema_compatible }}
+        run: |
+          set -euo pipefail
+          [[ $RELEASE_SHA =~ ^[0-9a-f]{40}$ && $SCHEMA_COMPATIBLE == true ]]
+          echo "RELEASE_SHA=$RELEASE_SHA" >> "$GITHUB_ENV"
+          for service in web api worker; do
+            repository="ghcr.io/vokerg/sportos-$service"
+            digest=$(docker buildx imagetools inspect "$repository:$RELEASE_SHA" --format '{{json .Manifest}}' | jq -r .digest)
+            [[ $digest =~ ^sha256:[0-9a-f]{64}$ ]]
+            echo "${service^^}_IMAGE=$repository@$digest" >> "$GITHUB_ENV"
+          done
+      - name: Deploy selected release (no database rollback)
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          ORACLE_SSH_HOST_KEY: ${{ secrets.ORACLE_SSH_HOST_KEY }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: bash deploy/oracle/ssh-operation.sh deploy

@@ -3,6 +3,9 @@
 Deployment work is tracked in issue #95. The reference is chess-trainer's Neon,
 Render and Vercel setup. SportOS uses pnpm and opaque session cookies.
 
+Parallel Oracle preparation is documented in [ORACLE_DEPLOYMENT.md](ORACLE_DEPLOYMENT.md)
+(#147). It does not enable the deferred shared-storage/worker phase.
+
 ## Topology
 
 - Vercel serves Angular and proxies `/api/:path*` to the Render API.

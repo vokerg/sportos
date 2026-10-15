@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.angular
+**/*.tsbuildinfo
+.git
+.env*
+**/.env*
+data
+work
+**/*.log
+**/.venv
+**/__pycache__
+coverage
+.DS_Store

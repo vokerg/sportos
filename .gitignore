@@ -41,3 +41,7 @@ yarn.lock
 __pycache__/
 *.pyc
 .venv/
+
+# Oracle runtime files (templates remain tracked)
+deploy/docker/api.env
+deploy/docker/worker.env
