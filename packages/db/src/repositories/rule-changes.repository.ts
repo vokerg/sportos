@@ -795,6 +795,7 @@ function toActivityFact(row: Activity): ActivityFact {
     subtype: row.subtype ?? undefined,
     distanceM: optionalNumber(row.distance_m),
     durationS: optionalNumber(row.duration_s),
+    movingTimeS: optionalNumber(row.moving_time_s),
     steps: optionalNumber(row.steps),
     avgSpeedMps: optionalNumber(row.avg_speed_mps),
     effortPoints: optionalNumber(row.effort_points),

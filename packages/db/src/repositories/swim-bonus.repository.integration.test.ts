@@ -33,12 +33,12 @@ integration('swim ladder with non-owner account-scoped persistence', () => {
     const date = '2093-05-18';
     const activity = await withAccountContext(db,owner,async tx=> {
       await tx.insertInto('daily_metrics').values({metric_date:date,swim_m:1000,base_points:7500,bonus_points:0,total_points:7500,score_status:'imported',excel_all_points:7500}).execute();
-      return tx.insertInto('activities').values({activity_date:date,activity_type:'swim',source:'strava',source_activity_id:randomUUID(),distance_m:1000,duration_s:1133,moving_time_s:1100}).returningAll().executeTakeFirstOrThrow();
+      return tx.insertInto('activities').values({activity_date:date,activity_type:'swim',source:'strava',source_activity_id:randomUUID(),distance_m:1000,duration_s:1202,moving_time_s:1192}).returningAll().executeTakeFirstOrThrow();
     });
     const result = await withAccountContext(db,owner,tx=>new DailyScoringRepository(tx).recalculateFromActivities(date));
-    expect(result).toMatchObject({scoreStatus:'calculated',score:{baseTotal:7500,bonusPoints:4000,appTotal:11500}});
+    expect(result).toMatchObject({scoreStatus:'calculated',score:{baseTotal:7500,bonusPoints:2000,appTotal:9500}});
     const bonus = result.ledger.filter(l=>l.rule?.achievementGroup==='swim.pace.1k');
-    expect(bonus).toHaveLength(1); expect(bonus[0]).toMatchObject({points:4000,activity:{id:activity.id},rule:{code:'swim.1k.sub19.bonus'},calculation:{metricValue:1133,multiplierValue:1}});
+    expect(bonus).toHaveLength(1); expect(bonus[0]).toMatchObject({points:2000,activity:{id:activity.id},rule:{code:'swim.1k.sub20.bonus',metric:'moving_pace_s_per_km'},calculation:{metricValue:1192,multiplierValue:1}});
     const beforeSnapshots = await withAccountContext(db,owner,tx=>tx.selectFrom('daily_score_snapshots').selectAll().where('metric_date','=',date).execute());
     await withAccountContext(db,owner,tx=>new DailyScoringRepository(tx).recalculateFromActivities(date));
     const afterSnapshots = await withAccountContext(db,owner,tx=>tx.selectFrom('daily_score_snapshots').selectAll().where('metric_date','=',date).execute());

@@ -33,10 +33,10 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | 71 | `run.pace.per5k.sub4m24.bonus` | Bonus | +2,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 264 s/km` (4:24/km) | Second tier; replaces the lower tier for the same activity. |
 | 72 | `run.pace.per5k.sub4m12.bonus` | Bonus | +3,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 252 s/km` (4:12/km) | Third tier; replaces lower tiers for the same activity. |
 | 73 | `run.pace.per5k.sub4.bonus` | Bonus | +4,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 240 s/km` (4:00/km) | Highest tier; replaces lower tiers for the same activity. |
-| 90 | `swim.1k.sub20.bonus` | Bonus | +2,000 points once per swim | elapsed pace strictly `< 1,200 s/km`; distance `>= 1,000 m` | Lowest tier of `swim.pace.1k`; V130 preserves the prior 1,000-point duration version. |
-| 91 | `swim.1k.sub19m30.bonus` | Bonus | +3,000 points once per swim | elapsed pace strictly `< 1,170 s/km` (19:30/km); distance `>= 1,000 m` | Replaces lower tier for the same swim. |
-| 92 | `swim.1k.sub19.bonus` | Bonus | +4,000 points once per swim | elapsed pace strictly `< 1,140 s/km` (19:00/km); distance `>= 1,000 m` | Replaces lower tiers for the same swim. |
-| 93 | `swim.1k.sub18m30.bonus` | Bonus | +5,000 points once per swim | elapsed pace strictly `< 1,110 s/km` (18:30/km); distance `>= 1,000 m` | Highest tier; no further tier and no distance multiplier. |
+| 90 | `swim.1k.sub20.bonus` | Bonus | +2,000 points once per swim | moving pace strictly `< 1,200 s/km`; distance `>= 1,000 m` | Lowest tier of `swim.pace.1k`; V130 preserves the prior 1,000-point duration version. |
+| 91 | `swim.1k.sub19m30.bonus` | Bonus | +3,000 points once per swim | moving pace strictly `< 1,170 s/km` (19:30/km); distance `>= 1,000 m` | Replaces lower tier for the same swim. |
+| 92 | `swim.1k.sub19.bonus` | Bonus | +4,000 points once per swim | moving pace strictly `< 1,140 s/km` (19:00/km); distance `>= 1,000 m` | Replaces lower tiers for the same swim. |
+| 93 | `swim.1k.sub18m30.bonus` | Bonus | +5,000 points once per swim | moving pace strictly `< 1,110 s/km` (18:30/km); distance `>= 1,000 m` | Highest tier; no further tier and no distance multiplier. |
 | 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | one activity: distance `>= 10,000 m`; average speed `>= 19.9 km/h` | The 0.1 km/h tolerance makes the 20 km/h target favourable at the boundary. Provider average speed is stored in m/s and converted to km/h for the threshold. |
 
 The base swim rule counts every canonical swim distance in meters, including
@@ -234,13 +234,14 @@ See ADR 0010 for sport-aware matching policies v2/v3 and immutable manual review
 
 Each canonical swim of at least 1,000 m earns exactly one highest qualifying
 bonus: 2,000 below 20:00/km, 3,000 below 19:30/km, 4,000 below 19:00/km, or
-5,000 below 18:30/km. Pace is canonical elapsed duration divided by canonical
-distance in kilometres, consistent with the existing achievement time authority.
-Moving duration and Garmin auxiliary fallback values never replace these inputs.
+5,000 below 18:30/km. Since V136, pace is canonical moving duration divided by canonical distance in
+kilometres. Elapsed duration, provider average pace and Garmin auxiliary fallback
+values never replace missing moving duration. V130 elapsed-pace rule UUIDs retain
+their original meaning; V136 publishes immutable moving-pace replacements.
 For example, a synthetic 1 km swim in 18:55 earns 4,000; a 2 km swim in 37:50
 also earns 4,000, once. Separate sub-kilometre swims do not combine. Boundaries
 are strict, with no run-style eligibility rounding. Missing/nonfinite/nonpositive
-durations or missing/nonfinite/short distances fail closed.
+moving durations or missing/nonfinite/short distances fail closed.
 
 V130 replaces only standard legacy swim rules with immutable grouped versions
 and retains their exact prior UUIDs. Customized account rules remain unchanged.
@@ -258,3 +259,9 @@ apply `scripts/swim-bonus-upgrade-fixture.sql`, migrate V130, then run
 `packages/db/src/repositories/swim-bonus.repository.integration.test.ts`; it
 requires a loopback test database and `SPORTOS_OWNER_TEST_DATABASE_URL`.
 No detail database or provider network access is involved.
+
+V136 preserves customized swim-group accounts, imported daily totals, canonical
+facts, base/unrelated contributions and all prior snapshots. Standard non-imported
+swim contributions are replaced atomically, with a new score snapshot retaining
+existing fact/provenance metadata. No provider or detail-database requests occur.
+Rules Studio preview and background recomputation carry canonical moving time.

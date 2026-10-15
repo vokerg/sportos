@@ -340,10 +340,11 @@ function achievementAuxiliaryConditions(
 ): Array<{ metric: string; operator: string; expected: number; actual: number; passed: boolean }> {
   if (rule.achievementGroup === 'swim.pace.1k') {
     const actual = activity.distanceM ?? 0;
-    const duration = activity.durationS ?? 0;
+    const moving = rule.metric === 'moving_pace_s_per_km';
+    const duration = (moving ? activity.movingTimeS : activity.durationS) ?? 0;
     return [
       { metric: 'distance_m', operator: 'gte', expected: 1000, actual, passed: Number.isFinite(actual) && actual >= 1000 },
-      { metric: 'duration_s', operator: 'gt', expected: 0, actual: duration, passed: Number.isFinite(duration) && duration > 0 },
+      { metric: moving ? 'moving_time_s' : 'duration_s', operator: 'gt', expected: 0, actual: duration, passed: Number.isFinite(duration) && duration > 0 },
     ];
   }
   if (rule.code === 'swim.1k.sub20.bonus') {
@@ -385,6 +386,7 @@ function metricUnit(metric: string): string {
     case 'distance_m': return 'm';
     case 'distance_km': return 'km';
     case 'duration_s': return 's';
+    case 'moving_pace_s_per_km':
     case 'pace_s_per_km': return 's/km';
     case 'avg_speed_mps': return 'm/s';
     case 'avg_speed_kmh': return 'km/h';
@@ -504,6 +506,10 @@ function getMetricValue(activity: ActivityFact, metric: string): number | undefi
     case 'distance_m': return activity.distanceM;
     case 'distance_km': return activity.distanceM === undefined ? undefined : metersToKm(activity.distanceM);
     case 'duration_s': return activity.durationS;
+    case 'moving_pace_s_per_km': {
+      if (activity.movingTimeS === undefined || activity.distanceM === undefined || activity.distanceM <= 0) return undefined;
+      return activity.movingTimeS / (activity.distanceM / 1000);
+    }
     case 'pace_s_per_km': {
       if (activity.durationS === undefined || activity.distanceM === undefined || activity.distanceM <= 0) return undefined;
       return activity.durationS / (activity.distanceM / 1000);
