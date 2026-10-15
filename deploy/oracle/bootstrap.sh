@@ -25,7 +25,7 @@ if ! command -v docker >/dev/null; then
 fi
 docker compose version
 docker info >/dev/null
-id sportos-deploy >/dev/null 2>&1 || useradd --create-home --shell /bin/bash sportos-deploy
+id sportos-deploy >/dev/null 2>&1 || useradd --user-group --create-home --shell /bin/bash sportos-deploy
 usermod -aG docker sportos-deploy
 install -d -m 700 -o sportos-deploy -g sportos-deploy /home/sportos-deploy/.ssh /opt/sportos-oracle /opt/sportos-oracle/releases
 # Only the container UID needs access to source bytes.

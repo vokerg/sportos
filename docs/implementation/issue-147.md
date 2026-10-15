@@ -32,8 +32,10 @@ Validation performed:
 
 - `pnpm build:backend` and `pnpm build:web:hosted` passed.
 - `actionlint .github/workflows/oracle-*.yml` passed.
+- Compose configuration validation passed with synthetic image references and
+  `--no-env-resolution` (no runtime secrets read).
 - `shellcheck deploy/oracle/*.sh` and Bash syntax checks passed.
-- `node --test deploy/oracle/control.test.mjs`: six orchestration tests passed,
+- `node --test deploy/oracle/control.test.mjs`: seven orchestration/transport tests passed,
   using host-command fixtures (not a real container/lock test).
 - `pnpm --filter @sportos/api deploy --prod <temporary-directory>` passed;
   isolated deployed workspace imports resolved successfully.

@@ -19,7 +19,6 @@ if [[ $operation == deploy ]]; then
 else
   printf '%s\n' "$service" > "$scratch/bundle/service"
 fi
-remote_script=$(cat deploy/oracle/remote.sh)
-# remote.sh contains no single quotes so it can be passed as one SSH shell argument.
-[[ $remote_script != *"'"* ]] || { echo 'remote.sh must contain no single quotes' >&2; exit 1; }
-tar -C "$scratch/bundle" -cf - . | ssh -i "$scratch/key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$scratch/known_hosts" -o ConnectTimeout=20 "$ORACLE_USER@$ORACLE_HOST" "bash -c '$remote_script'"
+# Encode only repository script text; stdin remains the private tar bundle.
+encoded_script=$(base64 < deploy/oracle/remote.sh | tr -d '\n')
+tar -C "$scratch/bundle" -cf - . | ssh -i "$scratch/key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$scratch/known_hosts" -o ConnectTimeout=20 "$ORACLE_USER@$ORACLE_HOST" "bash -c \"\$(printf %s $encoded_script | base64 -d)\""

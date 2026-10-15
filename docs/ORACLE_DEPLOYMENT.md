@@ -165,8 +165,8 @@ cd /opt/sportos-oracle
 bash current/control.sh stop all
 bash current/control.sh start all
 bash current/control.sh restart api
-docker compose --env-file deployment.env -p sportos-oracle -f current/compose.yml ps --all
-docker compose --env-file deployment.env -p sportos-oracle -f current/compose.yml logs --tail 100 api
+docker compose --env-file deployment.env -p sportos-oracle -f "$(readlink current)/compose.yml" ps --all
+docker compose --env-file deployment.env -p sportos-oracle -f "$(readlink current)/compose.yml" logs --tail 100 api
 ```
 
 Deploy waits for API/web health. `/api/health` is liveness only: it does not prove

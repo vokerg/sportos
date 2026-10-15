@@ -12,3 +12,10 @@ work
 **/__pycache__
 coverage
 .DS_Store
+**/data
+**/work
+**/.cache
+**/coverage
+**/.ssh
+**/*.pem
+**/*.key

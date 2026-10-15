@@ -57,6 +57,7 @@ test('deploy saves digest release, preserves previous state, and starts only API
   const starts = commands.filter(args => args.includes('up'));
   assert.deepEqual(starts.map(args => args.at(-1)), ['api', 'web']);
   assert.ok(starts.every(args => args.includes('--no-deps') && args.includes('--wait')));
+  assert.ok(starts.every(args => args.includes(join(root, 'releases', sha, 'compose.yml'))));
 });
 
 test('start/restart use saved containers without pulling or starting worker', async t => {
@@ -103,4 +104,35 @@ test('pull failure preserves selected release metadata', async t => {
   });
   assert.notEqual(result.status, 0);
   assert.equal(await readFile(join(root, 'deployment.env'), 'utf8'), 'old deployment\n');
+});
+
+test('SSH transport preserves remote script exactly and sends private bundle over stdin', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'sportos-ssh-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, 'bin'));
+  await writeFile(join(root, 'bin', 'ssh'), `#!/usr/bin/env node
+const fs = require('node:fs');
+fs.writeFileSync(process.env.ARG_CAPTURE, JSON.stringify(process.argv.slice(2)));
+process.stdin.pipe(fs.createWriteStream(process.env.TAR_CAPTURE));
+`, { mode: 0o755 });
+  const result = spawnSync('bash', ['deploy/oracle/ssh-operation.sh', 'deploy'], {
+    encoding: 'utf8', env: { ...process.env, PATH: `${root}/bin:${process.env.PATH}`,
+      ORACLE_HOST: 'oracle.example.com', ORACLE_USER: 'sportos-deploy',
+      ORACLE_SSH_KEY: 'synthetic-private-key', ORACLE_SSH_HOST_KEY: 'synthetic-host-key',
+      RELEASE_SHA: sha, WEB_IMAGE: images[0], API_IMAGE: images[1], WORKER_IMAGE: images[2],
+      GHCR_TOKEN: 'synthetic-token', GHCR_USER: 'synthetic-user',
+      ARG_CAPTURE: join(root, 'args.json'), TAR_CAPTURE: join(root, 'bundle.tar') },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const args = JSON.parse(await readFile(join(root, 'args.json'), 'utf8'));
+  assert.ok(args.includes('StrictHostKeyChecking=yes'));
+  assert.ok(args.includes('BatchMode=yes'));
+  const encoded = args.at(-1).match(/printf %s ([A-Za-z0-9+/=]+) \| base64 -d/)[1];
+  assert.equal(Buffer.from(encoded, 'base64').toString(), (await readFile('deploy/oracle/remote.sh', 'utf8')).trimEnd() + '\n');
+  // The actual remote shell must parse the command, including its nested quotes.
+  assert.equal(spawnSync('bash', ['-n', '-c', args.at(-1)]).status, 0);
+  const manifest = spawnSync('tar', ['-xOf', join(root, 'bundle.tar'), './manifest'], { encoding: 'utf8' });
+  assert.equal(manifest.status, 0, manifest.stderr);
+  assert.deepEqual(manifest.stdout.trim().split('\n'), [sha, ...images]);
+  assert.ok(!args.join(' ').includes('synthetic-token'));
 });

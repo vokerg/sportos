@@ -8,7 +8,13 @@ flock -w 900 9
 operation=${1:?operation required}
 selection=${2:-all}
 fail() { echo "$*" >&2; exit 1; }
-compose() { docker compose --env-file "$root/deployment.env" -p sportos-oracle -f "$root/current/compose.yml" "$@"; }
+compose() {
+  local release_dir
+  release_dir=$(readlink "$root/current")
+  [[ $release_dir =~ ^releases/[0-9a-f]{40}$ ]] || fail 'Invalid saved release directory'
+  # Resolve the symlink explicitly so ../../env and uploads stay under root.
+  docker compose --env-file "$root/deployment.env" -p sportos-oracle -f "$root/$release_dir/compose.yml" "$@"
+}
 verify() {
   local service id state
   for service in "$@"; do
