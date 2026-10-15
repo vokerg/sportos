@@ -46,4 +46,6 @@ not been verified. The manual publish workflow runs on native ARM64 and includes
 runtime import and web/proxy smoke checks without production credentials.
 Oracle capacity/account, VM, host bootstrap, secrets, GHCR publishing, production
 schema compatibility, browser auth/OAuth, shared storage and worker job execution
-remain unverified. No live infrastructure or production settings were changed.
+remain unverified. The GitHub `oracle` environment was created with deployments
+restricted to `main`; SSH secrets remain unset. No Oracle infrastructure or
+production settings were changed.

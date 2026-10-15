@@ -115,8 +115,9 @@ code has Docker/root-equivalent authority on the host.
    recreates API/web. It never reverses migrations. It can also deploy a published
    release after a previous SSH/deploy failure, without rebuilding.
 
-Create a GitHub Environment named **oracle**, with suitable branch/reviewer
-protection. Set its secrets (or repository secrets where appropriate):
+The GitHub Environment **oracle** has been created with a custom deployment
+branch policy allowing only `main`. Add reviewer protection if desired. Its SSH
+secrets remain unset; set these environment secrets when the VM exists:
 
 | Secret | Value |
 |---|---|
