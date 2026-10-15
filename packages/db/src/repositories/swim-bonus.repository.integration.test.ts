@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'kysely';
+import { previewRuleChange, validateRuleProposal } from '@sportos/domain';
+import { RuleChangesRepository } from './rule-changes.repository.js';
+import { WorkerDispatchRepository } from './worker-dispatch.repository.js';
 import { createDb } from '../pool.js';
 import { withAccountContext } from '../ownership-context.js';
 import { ScoringRepository } from './scoring.repository.js';
@@ -48,4 +51,29 @@ integration('swim ladder with non-owner account-scoped persistence', () => {
     expect(await withAccountContext(db,foreign,tx=>new ActivitiesRepository(tx).get(activity.id))).toBeNull();
     expect(await withAccountContext(db,foreign,tx=>tx.selectFrom('score_ledger').selectAll().where('activity_id','=',activity.id).execute())).toEqual([]);
   });
+  it('carries moving time through preview and split-role rule recomputation', async () => {
+    const date = '2093-05-18';
+    const rules = await withAccountContext(db,owner,tx=>new ScoringRepository(tx).listEnabledRules());
+    const previous = rules.find(r=>r.code==='swim.1k.sub20.bonus')!;
+    const proposal = validateRuleProposal({...previous,replaceRuleId:previous.id,validFrom:date,points:2100});
+    const days = await withAccountContext(db,owner,tx=>new RuleChangesRepository(tx).listPreviewDays(date,date));
+    expect(days[0].activities.find(a=>a.activityType==='swim')).toMatchObject({durationS:1202,movingTimeS:1192});
+    const preview = previewRuleChange(days,rules,proposal);
+    expect(preview).toMatchObject({changedDates:1,aggregateDelta:100,rows:[{proposedBonusPoints:2100,proposedTotalPoints:9600}]});
+    const queued = await withAccountContext(db,owner,tx=>new RuleChangesRepository(tx).enqueueChange({proposal,preview,previewFingerprint:'a'.repeat(64),initiatedBy:owner,reason:'Synthetic moving pace check'}));
+    const dispatcherUrl = new URL(url!); dispatcherUrl.username='sportos_worker'; dispatcherUrl.password='';
+    const dataUrl = new URL(url!); dataUrl.username='sportos_worker_data'; dataUrl.password='';
+    const dispatcher = createDb(dispatcherUrl.toString()), data = createDb(dataUrl.toString());
+    try {
+      const claim = await new WorkerDispatchRepository(dispatcher).claimRuleChange('swim-worker');
+      expect(claim).toMatchObject({id:queued.id,ownerId:owner});
+      expect(await withAccountContext(dispatcher,owner,tx=>tx.selectFrom('activities').select('id').execute())).toEqual([]);
+      expect(await withAccountContext(dispatcher,owner,tx=>tx.selectFrom('scoring_rules').select('id').execute())).toEqual([]);
+      expect(await withAccountContext(data,foreign,tx=>new RuleChangesRepository(tx).getById(queued.id))).toBeNull();
+      await withAccountContext(data,owner,tx=>new RuleChangesRepository(tx).activateAndRecompute(queued.id,'swim-worker'));
+      const result = await withAccountContext(db,owner,tx=>tx.selectFrom('daily_metrics').select(['bonus_points','total_points']).where('metric_date','=',date).executeTakeFirstOrThrow());
+      expect(result).toEqual({bonus_points:2100,total_points:9600});
+    } finally { await dispatcher.destroy(); await data.destroy(); }
+  });
+
 });

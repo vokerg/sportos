@@ -236,6 +236,10 @@ Activation records the authenticated account as actor. The dispatcher claims the
 
 Grouped achievements are mutually exclusive per canonical activity. A rule with the `completed_5k_blocks` multiplier calculates `floor(distance_m / 5000) × configured points`; the ledger records the overall pace, selected tier, completed-block count, per-block value, awarded total, and exact rule UUID. Separate runs are evaluated independently and never combined to create distance blocks or a faster aggregate pace.
 
+Swim achievements use canonical moving duration per kilometre from V136. The
+explicit `moving_pace_s_per_km` metric keeps historical elapsed-pace rule UUIDs
+reproducible. Missing moving time fails closed without elapsed/provider fallback.
+
 ### Imported score authority and explicit recalculation
 
 When a workbook row has a valid numeric `All`, the import transaction stores

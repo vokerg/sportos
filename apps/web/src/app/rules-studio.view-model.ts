@@ -61,7 +61,8 @@ export function metricOptionsFor(activityType: ActivityType): string[] {
   if (activityType === 'steps') return ['steps'];
   if (['workout', 'hiit', 'bonus'].includes(activityType)) return ['effort_points'];
   const distanceMetrics = ['distance_m', 'distance_km', 'duration_s', 'avg_speed_mps', 'avg_speed_kmh'];
-  return activityType === 'run' || activityType === 'swim'
+  if (activityType === 'swim') return [...distanceMetrics.slice(0, 3), 'pace_s_per_km', 'moving_pace_s_per_km', ...distanceMetrics.slice(3)];
+  return activityType === 'run'
     ? [...distanceMetrics.slice(0, 3), 'pace_s_per_km', ...distanceMetrics.slice(3)]
     : distanceMetrics;
 }
@@ -115,6 +116,7 @@ export function metricUnit(metric: string): string {
     case 'distance_m': return 'm';
     case 'distance_km': return 'km';
     case 'duration_s': return 's';
+    case 'moving_pace_s_per_km':
     case 'pace_s_per_km': return 's/km';
     case 'avg_speed_mps': return 'm/s';
     case 'avg_speed_kmh': return 'km/h';

@@ -12,7 +12,7 @@ JOIN (VALUES
 ) tier(code, threshold, points, priority)
   ON sr.code = tier.code AND sr.threshold_value = tier.threshold
   AND sr.points = tier.points AND sr.priority = tier.priority
-WHERE sr.enabled AND sr.activity_type = 'swim' AND sr.activity_subtype IS NULL
+WHERE sr.enabled AND sr.activity_type = 'swim'
   AND sr.rule_kind = 'achievement' AND sr.metric = 'pace_s_per_km'
   AND sr.threshold_operator = 'lt' AND sr.threshold_unit = 's/km'
   AND sr.achievement_group = 'swim.pace.1k' AND sr.points_multiplier IS NULL;

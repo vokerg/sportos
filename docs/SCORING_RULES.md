@@ -33,7 +33,7 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | 71 | `run.pace.per5k.sub4m24.bonus` | Bonus | +2,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 264 s/km` (4:24/km) | Second tier; replaces the lower tier for the same activity. |
 | 72 | `run.pace.per5k.sub4m12.bonus` | Bonus | +3,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 252 s/km` (4:12/km) | Third tier; replaces lower tiers for the same activity. |
 | 73 | `run.pace.per5k.sub4.bonus` | Bonus | +4,000 per rounded completed 5 km | one activity: pace rounded to 0.1 min/km is `<= 240 s/km` (4:00/km) | Highest tier; replaces lower tiers for the same activity. |
-| 90 | `swim.1k.sub20.bonus` | Bonus | +2,000 points once per swim | moving pace strictly `< 1,200 s/km`; distance `>= 1,000 m` | Lowest tier of `swim.pace.1k`; V130 preserves the prior 1,000-point duration version. |
+| 90 | `swim.1k.sub20.bonus` | Bonus | +2,000 points once per swim | moving pace strictly `< 1,200 s/km`; distance `>= 1,000 m` | Lowest tier of `swim.pace.1k`; V130 preserves the prior duration version; V136 versions elapsed tiers to moving pace. |
 | 91 | `swim.1k.sub19m30.bonus` | Bonus | +3,000 points once per swim | moving pace strictly `< 1,170 s/km` (19:30/km); distance `>= 1,000 m` | Replaces lower tier for the same swim. |
 | 92 | `swim.1k.sub19.bonus` | Bonus | +4,000 points once per swim | moving pace strictly `< 1,140 s/km` (19:00/km); distance `>= 1,000 m` | Replaces lower tiers for the same swim. |
 | 93 | `swim.1k.sub18m30.bonus` | Bonus | +5,000 points once per swim | moving pace strictly `< 1,110 s/km` (18:30/km); distance `>= 1,000 m` | Highest tier; no further tier and no distance multiplier. |
@@ -265,3 +265,11 @@ facts, base/unrelated contributions and all prior snapshots. Standard non-import
 swim contributions are replaced atomically, with a new score snapshot retaining
 existing fact/provenance metadata. No provider or detail-database requests occur.
 Rules Studio preview and background recomputation carry canonical moving time.
+
+Repeatable V136 populated upgrade: migrate a disposable database through V135,
+apply `scripts/swim-moving-time-upgrade-fixture.sql`, migrate V136, then run
+`scripts/verify-swim-moving-time-upgrade.sql`. Runtime tests above cover the
+current moving tiers, preview and split dispatcher/worker-data recomputation.
+The disposable loopback test cluster must provide login roles `sportos_app`,
+`sportos_worker` and `sportos_worker_data` (local trust authentication for the
+last two roles). No personal activity data is needed.
