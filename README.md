@@ -158,6 +158,7 @@ For the complete invariants and data flows, read [docs/ARCHITECTURE.md](docs/ARC
 
 For the Vercel frontend and Render backend setup, including personal
 username/password sign-in, see [Hosted deployment](docs/DEPLOYMENT.md).
+Manual ARM64 image publishing and parallel Oracle preparation: [Oracle deployment](docs/ORACLE_DEPLOYMENT.md).
 
 - Node.js 22
 - pnpm 9.12.0
