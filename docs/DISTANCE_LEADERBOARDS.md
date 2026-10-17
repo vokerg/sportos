@@ -24,6 +24,27 @@ whole-run performance event or summary estimate enters this ranking. Calculated
 windows exclude pauses and are **not certified race PRs**; historical Excel timing
 semantics may differ. Coverage counts overlap and never certify archive completeness.
 
+## Running workbook export layouts
+
+The running-record importer uses verified layouts rather than assuming every tab
+has time/date in columns A/B. The combined helper view can have distance/time/date
+in A/B/C. Only explicit supported distances are normalized; a rounded marathon
+helper value requires an exact matching date/time in the dedicated marathon tab.
+Google's XLSX export can sanitize the half-marathon tab `1/2` to `12`. It is treated
+as half marathon only when all valid rows match explicitly 21.1 km-labelled rows
+in the combined view. A genuine standalone 12 km sheet retains its old semantics
+and remains excluded from the leaderboard.
+
+Exact duplicate helper views share one achievement while retaining every original
+row and its provenance link. Distinct helper evidence remains a separate original
+achievement. Identical independent rows within a primary sheet are preserved;
+ambiguous helper-to-original identity stays raw with a warning. Physical row
+addresses are retained, including leading/interior blank rows. Existing nonblank
+row-hash identities stay stable across re-imports. Parser metadata records version
+2. If the same source identity was previously normalized to another date, distance
+or time, import fails with `RUN_RECORD_NORMALIZATION_CONFLICT`; existing facts are
+never silently reinterpreted. An explicit audited repair would be separate work.
+
 ## Local inventory and reconciliation
 
 Use the non-owner `sportos_app` primary runtime URL in `.env`. The explicit owner
@@ -78,8 +99,10 @@ pnpm performance:catchup -- --owner ACCOUNT_UUID --limit 25 \
 ```
 
 The command derives the actual latest Excel event date separately per target.
-Targets without historical rows have no invented cutoff: all eligible runs for
-that target are candidates. If there are **no Excel cutoffs at all**, default
+Targets without historical rows have no invented cutoff: they are computed
+opportunistically when another target selects the same run. They do not select
+an entire older archive by default. An explicit `--from` opts into that bounded
+additional history for targets without an Excel cutoff. If there are **no Excel cutoffs at all**, default
 execution stops with `no_excel_cutoffs`, fetching nothing. An operator can explicitly
 choose a bounded alternative range with `--from YYYY-MM-DD --through YYYY-MM-DD`;
 this is a deliberate separate history scan, not a claim about workbook cutoffs.

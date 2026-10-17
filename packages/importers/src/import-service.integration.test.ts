@@ -78,8 +78,8 @@ databaseDescribe('ImportService database integration', () => {
       ...reconciledDay,
       excel_all_points: Number(reconciledDay.excel_all_points),
     }).toEqual({
-      base_points: 55_610,
-      bonus_points: 0,
+      base_points: 55_603,
+      bonus_points: 7,
       total_points: 55_610,
       excel_all_points: 55_610,
       score_status: 'imported',

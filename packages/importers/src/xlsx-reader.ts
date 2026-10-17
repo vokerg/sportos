@@ -20,6 +20,7 @@ export interface WorkbookExtract {
   sheetNames: string[];
   rows: WorkbookRow[];
   workbook: WorkBook;
+  physicalRowPositions?: boolean;
 }
 
 export function readWorkbook(path: string): WorkbookExtract {
@@ -63,6 +64,30 @@ export function readWorkbookBuffer(bytes: Uint8Array, filename: string): Workboo
     rows,
     workbook,
   };
+}
+
+/** Running-record imports need actual spreadsheet row addresses. Keep the
+ * historical nonblank-ordinal hash identity so re-import does not duplicate facts.
+ * Daily workbook extraction retains its existing identity/layout contract.
+ */
+export function withPhysicalWorkbookRows(extract: WorkbookExtract): WorkbookExtract {
+  if (extract.physicalRowPositions) return extract;
+  const rows: WorkbookRow[] = [];
+  for (const sheetName of extract.sheetNames) {
+    const sheet = extract.workbook.Sheets[sheetName];
+    if (!sheet) continue;
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {header:1,raw:true,defval:null,blankrows:true,range:0});
+    const nonblank = (cells: unknown[]) => cells.some(cell => cell !== null && cell !== undefined && cell !== '');
+    const headers = matrix.find(nonblank) ?? []; let identityOrdinal = 0;
+    matrix.forEach((cells,rowIndex) => {
+      if (!nonblank(cells)) return;
+      identityOrdinal++;
+      const formulas = formulasForRow(sheet,headers,rowIndex);
+      rows.push({sheetName,rowIndex:rowIndex+1,headers,cells,...(Object.keys(formulas).length?{formulas}:{}),
+        hash:rowHash({sheetName,rowIndex:identityOrdinal,cells})});
+    });
+  }
+  return {...extract,rows,physicalRowPositions:true};
 }
 
 export function sheetMatrix(workbook: WorkBook, sheetName: string): unknown[][] {

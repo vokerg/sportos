@@ -47,7 +47,8 @@ pause-excluded analytical evidence, not certified race records. Scoring is uncha
 ## Validation / operations
 
 Focused implementation validation is complete as documented below. Historical
-reconciliation and rich catch-up await verified legacy record input. Private
+record import and reconciliation have now been executed; rich catch-up remains
+a separate bounded operation. Private
 aggregate inventory stays local; personal measurements, provider payloads,
 credentials and raw history are excluded from this branch.
 
@@ -110,11 +111,15 @@ catalog; range validation reuses the shared calendar helper.
   coverage; API health and leaderboard GET succeeded.
 
 Private aggregate inventory and verification reports stay outside the repository.
-Historical reconciliation/catch-up is **not claimed complete**: verified legacy
-record input/cutoffs are not available in the configured local installation.
-No historical cutoff was guessed, no real rich provider download was performed,
-and no unprocessed archive is presented as complete. Resolving that input is the
-remaining local execution dependency. Full general CI/backend/importer/worker
+The maintainer subsequently supplied the original workbook. It has now been
+inspected in Google Sheets, exported privately, imported through normal authenticated
+upload/leased-worker orchestration and reconciled using summary-only evidence.
+The previous missing-input dependency is resolved. A complete source replay
+preserved achievement identities/times and reconciliation heads. Ambiguous and
+unmatched records remain available for explicit review. Historical rich catch-up
+has been previewed with the derived cutoffs but is **not claimed complete**; no
+unprocessed archive is presented as complete and no real rich provider download
+was performed during this import follow-up. Full general CI/backend/importer/worker
 matrices were not run; focused cross-boundary validation above was used. Merge and
 individual-issue closure still require explicit maintainer authorization.
 
@@ -154,3 +159,49 @@ individual-issue closure still require explicit maintainer authorization.
   `garmin-reconcile-retained.mjs`, `running-efforts-upgrade-fixture.sql`,
   `verify-running-efforts-upgrade.sql`; `docs/implementation/issue-122.md`.
 - All new/changed #151 files were inspected during implementation and self-review.
+
+## Verified workbook import follow-up
+
+The maintainer supplied a legacy Google workbook after the initial DB inventory.
+Direct source inspection revealed an export naming ambiguity (`1/2` → `12`), a
+mixed distance/time/date helper layout and duplicated worksheet views. The old
+parser would misclassify half marathons and interpret distance values as time.
+The corrected parser verifies explicit native distance/date/time evidence,
+retains physical row addresses without changing existing source hash identity,
+and links exact helper-view duplicates to one achievement. Independent/ambiguous
+source evidence is preserved. A normalization-conflict guard prevents silently
+rewriting existing date/time/distance interpretations. No private workbook,
+source URL, personal dates/times, provider IDs or raw reports are committed.
+
+Provenance linking now uses bounded SQL batches with existing last-write and RLS
+semantics. Reconciliation inspects and publishes one bounded automatic batch under
+one account lock, avoiding remote per-record round trips. Single-record review
+uses the same deterministic hash field order; replay across both paths creates no
+duplicate decisions. Accepted/operator decisions remain protected.
+
+Catch-up defaults select only targets with actual Excel cutoffs. New catalog
+targets without historical rows are computed opportunistically for selected runs;
+a bounded explicit from-date is required to scan their older history. This avoids
+turning an absent cutoff into an implicit full-archive download.
+
+Additional validation: six export-layout/identity tests, three non-owner import/
+provenance/replay/conflict/isolation integration tests, existing six importer
+transaction/history integrations, two split-role worker import integrations and
+20 API upload/controller tests passed. All 27 importer unit tests pass; the
+owner-scoped batch/leaderboard suite now has seven passing tests. The existing
+import fixture's expected base/bonus split was updated to the already-established
+V118 semantics; scoring code and total were unchanged. Root typecheck/backend
+build pass. Live import retains all original source rows, core official-row
+comparison is unchanged, reconciliation dry-run/apply agree, and real source
+re-import preserves every original achievement identity/time and accepted mapping.
+Counts, date ranges and candidate diagnostics remain in private local reports.
+
+Additional inspected files: `packages/importers/src/xlsx-reader.ts`,
+`run-db.importer.ts`, `import-service.ts`, `xlsx-fixtures.test.ts`,
+`test-fixtures/xlsx-fixtures.ts`, `import-service.integration.test.ts`,
+`import-history.integration.test.ts`, `upload-storage.ts`; `packages/shared/src/dates.ts`;
+`packages/db/src/repositories/imports.repository.ts`, `import-jobs.repository.ts`;
+`apps/api/src/imports/imports.controller.ts`, `imports.service.ts`,
+`workbook-upload.test.ts`; `apps/api/src/storage/upload-storage.ts`;
+`apps/worker/src/import-job-runner.ts`, `import-job-runner.integration.test.ts`;
+`flyway/sql/V001__create_import_tables.sql`, `V101__remove_uuid_text_compatibility.sql`.

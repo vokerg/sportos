@@ -22,12 +22,12 @@ const enabled=process.env.SPORTOS_OWNER_TEST_DATABASE_URL && process.env.SPORTOS
   foreign=(await db.insertInto('accounts').values({status:'active',display_name:'Synthetic leaderboard',email:null}).returning('id').executeTakeFirstOrThrow()).id;
  });
  afterAll(async()=>{await db?.destroy();await detail?.destroy();});
- async function fixture(activityDate='2026-05-01'){return scoped(async d=>{
+ async function fixture(activityDate='2026-05-01',distance=10040,moving=2410){return scoped(async d=>{
   const native=randomUUID(),hash=createHash('sha256').update(native).digest('hex');
   const c=await d.insertInto('provider_connections').values({provider:'strava',provider_account_id:native,display_name:null,scopes:[],status:'connected',access_expires_at:null,cursor_json:{}}).onConflict(oc=>oc.columns(['owner_id','provider']).doUpdateSet({status:'connected'})).returning('id').executeTakeFirstOrThrow();
   const batch=await d.insertInto('import_batches').values({source:'strava_api',source_kind:'strava',filename:null,original_sha256:null,status:'normalized',completed_at:null,metadata:{}}).returning('id').executeTakeFirstOrThrow();
-  const source=await d.insertInto('source_records').values({import_batch_id:batch.id,source:'strava_api',sheet_name:null,row_index:null,source_record_key:native,row_hash:hash,raw_json:{distance:10040,moving_time:2410},normalized_entity_type:null,normalized_entity_id:null,status:'raw',errors:[],warnings:[]}).returning('id').executeTakeFirstOrThrow();
-  const a=await d.insertInto('activities').values({source:'strava',source_record_id:source.id,source_activity_id:native,activity_type:'run',activity_date:activityDate,subtype:'outdoor',distance_m:10040,moving_time_s:2410,duration_s:2500}).returning('id').executeTakeFirstOrThrow();
+  const source=await d.insertInto('source_records').values({import_batch_id:batch.id,source:'strava_api',sheet_name:null,row_index:null,source_record_key:native,row_hash:hash,raw_json:{distance,moving_time:moving},normalized_entity_type:null,normalized_entity_id:null,status:'raw',errors:[],warnings:[]}).returning('id').executeTakeFirstOrThrow();
+  const a=await d.insertInto('activities').values({source:'strava',source_record_id:source.id,source_activity_id:native,activity_type:'run',activity_date:activityDate,subtype:'outdoor',distance_m:distance,moving_time_s:moving,duration_s:moving+90}).returning('id').executeTakeFirstOrThrow();
   const link=await d.insertInto('provider_activity_links').values({connection_id:c.id,provider_activity_id:native,activity_id:a.id,latest_source_record_id:source.id,identity_fingerprint:hash,fingerprint_version:1,availability:'available',provider_updated_at:null}).returning('id').executeTakeFirstOrThrow();
   const events=[];for(const distance of [5000,10000,12000,21100,42195]){
    const row={source:'run_db_xlsx' as const,activity_id:null,source_record_id:null,source_record_hash:createHash('sha256').update(`${native}-${distance}`).digest('hex'),event_date:'2026-05-01',distance_m:distance,duration_s:Math.round(distance*.24),pace_s_per_km:240,is_treadmill:false,is_race:false,is_pr_marker:false,source_rank:99,tags:[],notes:null,raw_payload_json:{}};
@@ -85,9 +85,11 @@ const enabled=process.env.SPORTOS_OWNER_TEST_DATABASE_URL && process.env.SPORTOS
  it('previews per-distance cutoffs, unions targets, reuses retained streams and rejects stale source versions without requests',async()=>{
   const network=vi.spyOn(globalThis,'fetch').mockRejectedValue(new Error('Provider requests forbidden'));
   try{
-   const f=await fixture('2026-06-01');
+   const f=await fixture('2026-06-01'),oldLong=await fixture('2026-04-01',20000,5000);
    const preview=(account=owner,cursor?:string)=>scoped(d=>previewPerformanceCatchup(d,fn=>withAccountContext(detail,account,fn),{dryRun:true,limit:25,through:'2026-10-17',cursor}),account);
    expect((await preview(foreign)).blocked).toBe('no_excel_cutoffs');
+   const explicit=await scoped(d=>previewPerformanceCatchup(d,fn=>withAccountContext(detail,owner,fn),{dryRun:true,limit:25,through:'2026-10-17',from:'2026-01-01'}));
+   expect(explicit.rows.find(r=>r.activityId===oldLong.activity)?.targets).toEqual([15000,20000]);
    const first=await preview();expect(first.rows).toEqual([{activityId:f.activity,targets:[5000,10000],category:'needs_rich_fetch',action:'fetch'}]);
    const distances=Array.from({length:1005},(_,i)=>i*10);
    await withAccountContext(detail,owner,d=>new ActivityProviderResourcesRepository(d).replace({activityId:f.activity,provider:'strava',providerActivityId:f.native,connectionId:f.connection,providerVersion:f.hash},[{resourceType:'streams',availability:'available',httpStatus:200,payload:{time:{data:distances.map(d=>d*.25)},distance:{data:distances},moving:{data:distances.map(()=>true)}} as Json}]));
@@ -118,6 +120,20 @@ const enabled=process.env.SPORTOS_OWNER_TEST_DATABASE_URL && process.env.SPORTOS
   const result=await board(),ranked=result.rows.find(r=>r.activityId===f.activity)!;
   expect(ranked.alternativeCount).toBe(22);expect(ranked.alternatives).toHaveLength(20);
   expect(result.rows.find(r=>r.eventId===f.activity)).toMatchObject({activityId:null,durationS:1400});
+ });
+ it('publishes bounded automatic batches atomically and replays without new decisions',async()=>{
+  const before=await scoped(d=>d.selectFrom('performance_match_decisions').selectAll().orderBy('id').execute());
+  const preview=await scoped(d=>new PerformanceMatchesRepository(d).batch({dryRun:true,limit:100}));
+  expect(await scoped(d=>d.selectFrom('performance_match_decisions').selectAll().orderBy('id').execute())).toEqual(before);
+  expect(Object.values(preview.counts).reduce((a,b)=>a+b,0)).toBe(preview.processed);
+  const applied=await scoped(d=>new PerformanceMatchesRepository(d).batch({dryRun:false,limit:100}));expect(applied.counts).toEqual(preview.counts);
+  const published=await scoped(d=>d.selectFrom('performance_match_decisions').selectAll().orderBy('id').execute());
+  await scoped(d=>new PerformanceMatchesRepository(d).batch({dryRun:false,limit:100}));
+  expect(await scoped(d=>d.selectFrom('performance_match_decisions').selectAll().orderBy('id').execute())).toEqual(published);
+  const auto=published.find(d=>d.method==='automatic'&&d.status!=='accepted');
+  if(auto)await scoped(d=>new PerformanceMatchesRepository(d).reconcile(auto.event_id,false));
+  expect(await scoped(d=>d.selectFrom('performance_match_decisions').selectAll().orderBy('id').execute())).toEqual(published);
+  expect((await scoped(d=>new PerformanceMatchesRepository(d).batch({dryRun:true,limit:100}),foreign)).processed).toBe(0);
  });
  it('dispatcher cannot access match heads, audit or leaderboard inputs',async()=>{
   if(!process.env.SPORTOS_WORKER_TEST_DATABASE_URL)return;

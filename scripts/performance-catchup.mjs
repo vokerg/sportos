@@ -49,7 +49,7 @@ try{
  if(previous?.cutoffs&&JSON.stringify(previous.cutoffs)!==JSON.stringify(plan.cutoffs))throw new Error('Historical cutoffs changed; restart with a new checkpoint.');
  if(plan.blocked){console.log(JSON.stringify({blocked:plan.blocked,processed:0,fetched:0}));process.exitCode=1;}
  else{
-  const report={dryRun:!apply,eligible:plan.rows.length,categories,reprocessed:0,fetched:0,failed:0,reasons:{},nextCursor:options.cursor??null,hasMore:plan.hasMore};
+  const report={dryRun:!apply,unanchoredTargets:plan.unanchoredTargets,eligible:plan.rows.length,categories,reprocessed:0,fetched:0,failed:0,reasons:{},nextCursor:options.cursor??null,hasMore:plan.hasMore};
   if(apply){
    if(previous?.retryAt&&Date.parse(previous.retryAt)>Date.now())throw new Error('Rate-limit checkpoint is not due yet.');
    mkdirSync(dirname(checkpoint),{recursive:true,mode:0o700});
