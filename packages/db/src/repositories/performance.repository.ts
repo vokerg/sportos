@@ -54,7 +54,7 @@ export class PerformanceRepository {
           .values(chunk)
           .onConflict((oc) =>
             oc.columns(['owner_id', 'source', 'source_record_hash']).doUpdateSet({
-              activity_id: sql`excluded.activity_id`,
+              activity_id: sql`coalesce(performance_events.activity_id, excluded.activity_id)`,
               source_record_id: sql`excluded.source_record_id`,
               event_date: sql`excluded.event_date`,
               distance_m: sql`excluded.distance_m`,

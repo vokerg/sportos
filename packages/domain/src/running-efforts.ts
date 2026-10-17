@@ -1,6 +1,6 @@
 /** Independent analytical running windows. No canonical/scoring dependency. */
-export const RUNNING_EFFORT_ALGORITHM_VERSION = 4;
-export const RUNNING_EFFORT_TARGETS = [5000, 10000, 15000, 20000, 21097.5, 25000] as const;
+export const RUNNING_EFFORT_ALGORITHM_VERSION = 5;
+export const RUNNING_EFFORT_TARGETS = [5000, 10000, 15000, 20000, 21097.5, 25000, 42195] as const;
 export const RUNNING_EFFORT_LIMITS = { samples: 200000, events: 10000, gapS: 30, speedMps: 12, distanceM: 1000000, durationS: 604800, pauseBoundaryDistanceM: 10 } as const;
 export function runningEffortDistanceTolerance(targetM: number): number { return Math.min(10, targetM * .001); }
 export type EffortMethod = 'summary_estimate' | 'stream_calculated' | 'fit_calculated';

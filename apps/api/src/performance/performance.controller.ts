@@ -1,5 +1,5 @@
-import { Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
-import { LEGACY_ACCOUNT_ID, PerformanceRepository } from '@sportos/db';
+import { BadRequestException, Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
+import { DistanceLeaderboardRepository, LEGACY_ACCOUNT_ID, PerformanceRepository } from '@sportos/db';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { DbProvider } from '../db.provider.js';
@@ -14,6 +14,20 @@ import {
 @Controller('performance')
 export class PerformanceController {
   constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
+
+  @Get('leaderboard')
+  async leaderboard(
+    @Query('distanceM') distanceM?: string, @Query('from') from?: string,
+    @Query('to') to?: string, @Query('limit') limit?: string,
+    @CurrentAccount() account?: AuthenticatedAccount,
+  ) {
+    const target = parsePositiveNumber(distanceM, {name:'distanceM',defaultValue:5000});
+    if (![5000,10000,15000,20000,21097.5,21100,25000,42195].includes(target))
+      throw new BadRequestException({code:'INVALID_DISTANCE_M',message:'Unsupported leaderboard distance.'});
+    const range=parseDateRange(from,to,{maxDays:36600});
+    const count=parseBoundedInteger(limit,{name:'limit',defaultValue:100,min:1,max:200});
+    return this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID, db=>new DistanceLeaderboardRepository(db).read({...range,distanceM:target,limit:count}));
+  }
 
   @Get('best')
   async best(
