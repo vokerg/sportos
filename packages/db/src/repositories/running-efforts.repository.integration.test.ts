@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { sql, type Kysely } from 'kysely';
-import { estimateStravaEfforts } from '@sportos/domain';
+import { RUNNING_EFFORT_ALGORITHM_VERSION, RUNNING_EFFORT_TARGETS, estimateStravaEfforts } from '@sportos/domain';
 import { createDb } from '../pool.js';
 import { withAccountContext } from '../ownership-context.js';
 import type { Database, Json } from '../schema.js';
@@ -122,7 +122,7 @@ integration('running efforts retained-only non-owner primary/detail integration'
       const source = await db.insertInto('source_records').values({ import_batch_id: f.batch, source: 'strava_api', sheet_name: null, row_index: null, source_record_key: f.native, row_hash: 'c'.repeat(64), raw_json: { distance: 9000, moving_time: 2900 }, normalized_entity_type: null, normalized_entity_id: null, status: 'raw', errors: [], warnings: [] }).returning('id').executeTakeFirstOrThrow();
       await db.updateTable('provider_activity_links').set({ latest_source_record_id: source.id }).where('id', '=', f.link).execute();
     });
-    expect((await read(f.activity)).providers[0]).toMatchObject({ state: 'stale', efforts: [expect.objectContaining({ durationS: null }), ...Array(5).fill(expect.anything())] });
+    expect((await read(f.activity)).providers[0]).toMatchObject({ state: 'stale', efforts: [expect.objectContaining({ durationS: null }), ...Array(RUNNING_EFFORT_TARGETS.length-1).fill(expect.anything())] });
     await project(f.activity); expect((await read(f.activity)).providers[0].efforts[0]).toMatchObject({ status: 'estimated', durationS: 5000 * 2900 / 9000 });
   });
   it('projects retained paused-distance streams and FIT as calculated without network or official writes', async () => {
@@ -138,7 +138,7 @@ integration('running efforts retained-only non-owner primary/detail integration'
     expect((await project(f.activity)).map(r => r.category)).toEqual(['newly_projected', 'newly_projected']);
     const response = await read(f.activity);
     for (const provider of response.providers) {
-      expect(provider).toMatchObject({ state: 'current', algorithmVersion: 4 });
+      expect(provider).toMatchObject({ state: 'current', algorithmVersion: RUNNING_EFFORT_ALGORITHM_VERSION });
       expect(provider.efforts[1]).toMatchObject({ status: 'calculated', durationS: 3000, coverageDistanceM: 10000, endOffsetS: 3060 });
     }
     expect(response.providers.map(p => p.efforts[1].sourceDistanceM)).toEqual([10000.7, 10001.05]);

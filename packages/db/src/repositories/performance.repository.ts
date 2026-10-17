@@ -27,6 +27,7 @@ export interface PerformanceEventListItem {
 }
 
 export interface PerformanceEventDetail extends PerformanceEventListItem {
+  reconciliation?: { status: string; method: string; policyVersion: number; reason: string } | null;
   provenance: {
     status: 'available' | 'missing' | 'unsupported';
     sourceRecordId: string | null;
@@ -54,7 +55,7 @@ export class PerformanceRepository {
           .values(chunk)
           .onConflict((oc) =>
             oc.columns(['owner_id', 'source', 'source_record_hash']).doUpdateSet({
-              activity_id: sql`excluded.activity_id`,
+              activity_id: sql`case when excluded.source='run_db_xlsx' then coalesce(performance_events.activity_id, excluded.activity_id) else excluded.activity_id end`,
               source_record_id: sql`excluded.source_record_id`,
               event_date: sql`excluded.event_date`,
               distance_m: sql`excluded.distance_m`,
@@ -186,10 +187,14 @@ export class PerformanceRepository {
       .where('event.id', '=', eventId)
       .executeTakeFirst();
     if (!row) return null;
+    const match = await this.db.selectFrom('performance_match_heads as h')
+      .innerJoin('performance_match_decisions as d',j=>j.onRef('d.owner_id','=','h.owner_id').onRef('d.id','=','h.decision_id'))
+      .select(['d.activity_id','d.status','d.method','d.policy_version','d.reason']).where('h.event_id','=',eventId).executeTakeFirst();
     const traceable = row.sourceRecordId !== null && row.importBatchId !== null;
     return {
       id: row.id,
-      activityId: row.activityId,
+      activityId: match ? match.status === 'accepted' ? match.activity_id : null : row.activityId,
+      reconciliation: match ? {status:match.status,method:match.method,policyVersion:match.policy_version,reason:match.reason} : null,
       eventDate: toIsoDate(row.eventDate),
       source: row.source,
       distanceM: Number(row.distanceM),

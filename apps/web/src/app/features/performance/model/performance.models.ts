@@ -40,6 +40,7 @@ export interface PerformanceEventRow {
 }
 
 export interface PerformanceEventDetail extends PerformanceEventRow {
+  reconciliation?: {status:string;method:string;policyVersion:number;reason:string} | null;
   provenance: ProvenanceReference;
 }
 
@@ -48,4 +49,15 @@ export interface PerformanceEventQuery {
   to?: string;
   limit?: number;
   distanceM?: number;
+}
+
+export interface DistanceLeaderboardRow {
+  id: string; activityId: string | null; eventId: string | null; date: string; durationS: number; rank: number;
+  source: 'excel' | 'strava' | 'garmin'; reason: string | null; pausePolicy: string; alternativeCount: number;
+  alternatives: { source: string; durationS: number; eventId: string | null; reason: string | null }[];
+}
+export interface DistanceLeaderboard {
+  targets: number[]; targetDistanceM: number; rows: DistanceLeaderboardRow[];
+  coverage: { eligibleRuns: number; measuredCurrent: number; legacyLinked: number; legacyUnmatched: number; legacyAmbiguous: number;
+    estimatedOnly: number; missingRichDetail: number; unprocessed: number; staleOrFailed: number; unavailable: number };
 }

@@ -1,3 +1,4 @@
+import type { PerformanceMatchDecisionsTable, PerformanceMatchHeadsTable } from './performance-match-schema.js';
 import type { RunningEffortProjectionsTable, RunningEffortValuesTable, RunningEffortHeadsTable } from './running-effort-schema.js';
 import type { ActivityRouteProjectionsTable } from './activity-route-projection-schema.js';
 import type { ActivityMetricProjectionsTable, ActivityProviderMetricValuesTable, ActivityMetricHeadsTable } from './activity-metric-schema.js';
@@ -419,6 +420,8 @@ export interface Database {
   activity_route_projections: ActivityRouteProjectionsTable;
   running_effort_projections: RunningEffortProjectionsTable;
   running_effort_values: RunningEffortValuesTable;
+  performance_match_decisions: PerformanceMatchDecisionsTable;
+  performance_match_heads: PerformanceMatchHeadsTable;
   running_effort_heads: RunningEffortHeadsTable;
   activity_metric_projections: ActivityMetricProjectionsTable;
   activity_provider_metric_values: ActivityProviderMetricValuesTable;

@@ -42,6 +42,9 @@ jobs:
       - name: Fast Angular architecture guardrails
         run: pnpm check:web-architecture
 
+      - name: Performance operator restart and rate-limit checks
+        run: node --test scripts/performance-catchup-runner.test.mjs
+
       - name: Check database integration configuration
         id: database_config
         env:
@@ -211,6 +214,7 @@ jobs:
         if: steps.database_config.outputs.ready == 'true'
         env:
           SPORTOS_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_LEGACY_DATABASE_URL }}
+          SPORTOS_OWNER_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_APP_DATABASE_URL }}
         run: pnpm --filter @sportos/importers test:integration
 
       - name: Build

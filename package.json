@@ -33,7 +33,9 @@
     "strava:backfill-walks": "node scripts/strava-backfill-walks.mjs",
     "heatmap:benchmark": "pnpm exec tsx scripts/heatmap-benchmark.mts",
     "activities:project": "pnpm --filter @sportos/db build && node scripts/activity-metrics-backfill.mjs",
-    "activities:efforts": "pnpm --filter @sportos/db build && node scripts/running-efforts-backfill.mjs"
+    "activities:efforts": "pnpm --filter @sportos/db build && node scripts/running-efforts-backfill.mjs",
+    "performance:reconcile": "pnpm --filter @sportos/db build && node scripts/performance-reconcile.mjs",
+    "performance:catchup": "pnpm --filter @sportos/db build && node scripts/performance-catchup.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -208,3 +208,13 @@ unknown gaps qualify coverage without stitched windows. See implementation/issue
 Maintainer-authorized small distance tolerance (0.1%, capped at 10 m) and bounded
 Strava stopped-marker handling are included in #124. Both provider half-marathon
 results are calculated on the inspected run with explicit qualifications.
+
+## Unified distance leaderboard (#151)
+
+PR #152 delivers audited Excel/workout reconciliation, a qualified owner-scoped
+leaderboard and explicit bounded local catch-up. Original Excel timing, canonical/
+scoring authority and selective ordinary rich fetching are preserved. The supplied
+workbook has been imported and reconciled with replay verification. Remaining
+historical rich catch-up, evidence-limited record review and live completion
+verification are tracked in [#153](https://github.com/vokerg/sportos/issues/153).
+See the [operator guide](DISTANCE_LEADERBOARDS.md).

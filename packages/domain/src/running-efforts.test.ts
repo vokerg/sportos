@@ -9,7 +9,7 @@ function fit(time: number[], distance: number[], events: [number, string][] = [[
 }
 describe('independent pause-excluded running efforts', () => {
   it('estimates all catalog targets within the actual Strava summary, with no segment offsets', () => {
-    const rows = estimateStravaEfforts(26000, 7800);
+    const rows = estimateStravaEfforts(43000, 12900);
     expect(rows.map(r => r.targetDistanceM)).toEqual([...RUNNING_EFFORT_TARGETS]);
     rows.forEach(r => { expect(r.durationS).toBeCloseTo(r.targetDistanceM * .3); expect(r.status).toBe('estimated'); expect(r.startOffsetS).toBeNull(); expect(r.endOffsetS).toBeNull(); });
     expect(estimateStravaEfforts(4999.99, 1500)[0]).toMatchObject({ status: 'unavailable', reason: 'too_short', durationS: null });
@@ -17,10 +17,16 @@ describe('independent pause-excluded running efforts', () => {
     expect(estimateStravaEfforts(5000, 0)[0].status).toBe('unavailable');
     expect(estimateStravaEfforts(5000, 100)[0].status).toBe('unavailable');
   });
-  it('fixed pace covers 5/10/15/20/half/25 km with earliest deterministic ties', () => {
-    const rows = stravaStreamEfforts(run());
+  it('fixed pace covers 5/10/15/20/half/25 km and marathon with earliest deterministic ties', () => {
+    const rows = stravaStreamEfforts(run(43));
     rows.forEach(r => { expect(r.durationS).toBeCloseTo(r.targetDistanceM * .3); expect(r.status).toBe('calculated'); expect(r.startOffsetS).toBe(0); });
     expect(rows[4].endOffsetS).toBeCloseTo(6329.25);
+  });
+  it('supports native marathon windows and never extrapolates a short source', () => {
+    const source=run(43,300), index=RUNNING_EFFORT_TARGETS.indexOf(42195);
+    expect(garminFitEfforts(fit(source.time.data,source.distance.data))[index]).toMatchObject({status:'calculated',durationS:12658.5});
+    expect(stravaStreamEfforts(run(42))[index]).toMatchObject({status:'unavailable',durationS:null});
+    expect(estimateStravaEfforts(42194,12658.2)[index]).toMatchObject({status:'unavailable',durationS:null});
   });
   it('finds fastest 5 km in the middle and positive/negative splits', () => {
     const d = Array.from({ length: 1001 }, (_, i) => i * 10);

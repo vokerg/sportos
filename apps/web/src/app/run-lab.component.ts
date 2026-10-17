@@ -1,3 +1,5 @@
+import { DistanceLeaderboardComponent } from './features/performance/pages/distance-leaderboard.component';
+import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
@@ -16,11 +18,12 @@ type DetailState = 'idle' | 'loading' | 'loaded' | 'error';
 @Component({
   selector: 'sportos-run-lab',
   standalone: true,
-  imports: [NgxEchartsDirective],
+  imports: [NgxEchartsDirective, DistanceLeaderboardComponent, RouterLink],
   template: `
+    <sportos-distance-leaderboard (inspect)="openEvent($event)" />
     <section class="card" aria-labelledby="run-lab-title">
-      <h2 id="run-lab-title">Run Lab</h2>
-      <p class="help">Review a deterministic distance trend, race/treadmill/PR markers, and the retained source provenance for each event.</p>
+      <h2 id="run-lab-title">Performance event history</h2>
+      <p class="help">Imported achievements and provider whole-run events, with their original provenance. The leaderboard above ranks qualified distance evidence.</p>
 
       <form class="filter-bar" (submit)="applyFilters(); $event.preventDefault()" aria-label="Run Lab filters">
         <label>Distance
@@ -48,13 +51,14 @@ type DetailState = 'idle' | 'loading' | 'loaded' | 'error';
         <div class="table-scroll">
           <table>
             <caption class="visually-hidden">Filtered performance events</caption>
-            <thead><tr><th>Date</th><th>Time</th><th>Pace</th><th>Markers</th><th>Rank</th><th>Details</th></tr></thead>
+            <thead><tr><th>Date</th><th>Time</th><th>Pace</th><th>Source</th><th>Markers</th><th>Rank</th><th>Details</th></tr></thead>
             <tbody>
               @for (row of rows(); track row.id) {
                 <tr>
                   <td>{{ formatDate(row.eventDate) }}</td>
                   <td>{{ formatDuration(row.durationS) }}</td>
                   <td>{{ formatPace(row.paceSPerKm) }}/km</td>
+                  <td>{{ row.source === 'run_db_xlsx' ? 'Excel record' : row.source === 'strava' ? 'Strava whole run' : row.source }}</td>
                   <td>{{ markers(row) }}</td>
                   <td>{{ row.allTimeRank }}</td>
                   <td><button type="button" (click)="openEvent(row.id)" [attr.aria-label]="'Inspect performance event on ' + formatDate(row.eventDate)">Inspect</button></td>
@@ -79,6 +83,8 @@ type DetailState = 'idle' | 'loading' | 'loaded' | 'error';
               <div><dt>Time</dt><dd>{{ formatDuration(detail()!.durationS) }}</dd></div>
               <div><dt>Markers</dt><dd>{{ markers(detail()!) }}</dd></div>
               <div><dt>Source</dt><dd>{{ detail()!.source }}</dd></div>
+              @if(detail()!.activityId){<div><dt>Linked run</dt><dd><a [routerLink]="['/activity',detail()!.activityId]">Open canonical activity</a></dd></div>}
+              @if(detail()!.reconciliation; as match){<div><dt>Workout reconciliation</dt><dd>{{match.status}} · {{match.method}} · v{{match.policyVersion}} · {{match.reason}}</dd></div>}
               <div><dt>Provenance</dt><dd>{{ detail()!.provenance.status }}</dd></div>
               <div><dt>Source record</dt><dd>{{ detail()!.provenance.sourceRecordId ?? 'Not available' }}</dd></div>
               <div><dt>Import batch</dt><dd>{{ detail()!.provenance.importBatchId ?? 'Not available' }}</dd></div>

@@ -300,16 +300,15 @@ export class ImportsRepository {
   }
 
   async linkNormalizedRecords(links: NormalizedSourceRecordLink[]): Promise<void> {
-    for (const link of links) {
-      await this.db
-        .updateTable('source_records')
-        .set({
-          normalized_entity_type: link.entityType,
-          normalized_entity_id: link.entityId,
-          status: 'normalized',
-        })
-        .where('id', '=', link.sourceRecordId)
-        .execute();
+    // Duplicate worksheet views can contribute thousands of provenance links.
+    // Keep last-write semantics for repeated source IDs and bound each statement.
+    const unique=[...new Map(links.map(link=>[link.sourceRecordId,link])).values()];
+    for(let offset=0;offset<unique.length;offset+=500){
+      const values=sql.join(unique.slice(offset,offset+500).map(link=>sql`(${link.sourceRecordId}::uuid,${link.entityType}::text,${link.entityId}::text)`));
+      await sql`update source_records as source set normalized_entity_type=linked.entity_type,
+        normalized_entity_id=linked.entity_id,status='normalized'
+        from (values ${values}) as linked(source_id,entity_type,entity_id)
+        where source.id=linked.source_id`.execute(this.db);
     }
   }
 

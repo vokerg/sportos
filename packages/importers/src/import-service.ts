@@ -18,8 +18,8 @@ import {
 } from '@sportos/db';
 import type { GarminCsvExtract, GarminCsvRawRow } from './garmin-csv.js';
 import { parseMySportWorkbook } from './my-sport.importer.js';
-import { parseRunDbWorkbook } from './run-db.importer.js';
-import { readWorkbook, type WorkbookExtract, type WorkbookRow } from './xlsx-reader.js';
+import { RUN_RECORD_PARSER_VERSION, parseRunDbWorkbook } from './run-db.importer.js';
+import { readWorkbook, withPhysicalWorkbookRows, type WorkbookExtract, type WorkbookRow } from './xlsx-reader.js';
 
 export interface ImportLocalFilesInput {
   mySportPath?: string;
@@ -366,12 +366,13 @@ export class ImportService {
     result: ImportLocalFilesResult,
     uploadId?: string,
   ): Promise<void> {
+    extract = withPhysicalWorkbookRows(extract);
     const batch = await this.importsRepo.createBatch({
       source: 'run_db_xlsx',
       sourceKind: 'xlsx',
       filename: extract.filename,
       originalSha256: extract.sha256,
-      metadata: { sheets: extract.sheetNames, ...(uploadId ? { uploadId } : {}) },
+      metadata: { sheets: extract.sheetNames, runRecordParserVersion: RUN_RECORD_PARSER_VERSION, ...(uploadId ? { uploadId } : {}) },
     });
     if (uploadId) await this.uploadsRepo.linkBatch(uploadId, batch.id);
     result.batches.push({ id: batch.id, filename: batch.filename, source: batch.source });
@@ -423,6 +424,18 @@ export class ImportService {
           };
         });
 
+        // Immutable source identity must never silently acquire another date/time/distance
+        // after a parser correction. Existing incompatible history needs explicit repair.
+        for (let offset=0; offset<rows.length; offset+=500) {
+          const chunk=rows.slice(offset,offset+500);
+          const prior=await transaction.selectFrom('performance_events').select(['source_record_hash','event_date','distance_m','duration_s'])
+            .where('source','=','run_db_xlsx').where('source_record_hash','in',chunk.map(r=>r.source_record_hash!)).execute();
+          for (const row of chunk) {
+            const old=prior.find(p=>p.source_record_hash===row.source_record_hash);
+            if(old&&(String(old.event_date).slice(0,10)!==row.event_date||Number(old.distance_m)!==row.distance_m||old.duration_s!==row.duration_s))
+              throw new Error('RUN_RECORD_NORMALIZATION_CONFLICT');
+          }
+        }
         const upserted = await performanceRepo.insertPerformanceEvents(rows);
         normalizedCount = upserted.length;
         await importsRepo.markRecordsNormalized(
@@ -435,6 +448,18 @@ export class ImportService {
             };
           }),
         );
+
+        const eventByHash=new Map(upserted.map(event=>[event.source_record_hash,event.id]));
+        const eventByLocation=new Map(parsed.events.map(event=>{
+          const source=requireSourceRecord(recordsByLocation,event.rawPayloadJson,'performance event');
+          return [sourceRecordLocationKey(source.sheet_name!,source.row_index!),eventByHash.get(source.row_hash)!];
+        }));
+        await importsRepo.markRecordsNormalized(parsed.duplicateRows.map(alias=>{
+          const source=requireSourceRecord(recordsByLocation,{sheetName:alias.sheetName,rowIndex:alias.rowIndex},'duplicate achievement');
+          const entityId=eventByLocation.get(sourceRecordLocationKey(alias.originalSheetName,alias.originalRowIndex));
+          if(!entityId)throw new Error('Duplicate achievement original is unavailable.');
+          return {sourceRecordId:source.id,entityType:'performance_event' as const,entityId};
+        }));
 
         phase = 'canonical-written';
         await this.injectFailure(phase, { batchId: batch.id, source: 'run_db_xlsx' });
