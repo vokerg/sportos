@@ -119,9 +119,12 @@ preserved achievement identities/times and reconciliation heads. Ambiguous and
 unmatched records remain available for explicit review. Historical rich catch-up
 has been previewed with the derived cutoffs but is **not claimed complete**; no
 unprocessed archive is presented as complete and no real rich provider download
-was performed during this import follow-up. Full general CI/backend/importer/worker
-matrices were not run; focused cross-boundary validation above was used. Merge and
-individual-issue closure still require explicit maintainer authorization.
+was performed during this import follow-up. Focused cross-boundary validation
+above and the full GitHub CI build passed. The maintainer has authorized squash
+merge of PR #152 and transfer of all unfinished operational work to
+[#153](https://github.com/vokerg/sportos/issues/153): bounded historical rich
+catch-up, ambiguous/unmatched record review, live refresh and final coverage/
+official-data verification. This transfer does not claim archive completeness.
 
 ## Additional actual files inspected
 
