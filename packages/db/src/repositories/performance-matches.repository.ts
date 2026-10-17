@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { matchHistoricalPerformance, performanceTarget, type HistoricalRecord, type HistoricalWorkoutCandidate } from '@sportos/domain';
+import { RUNNING_EFFORT_TARGETS, matchHistoricalPerformance, performanceTarget, type HistoricalRecord, type HistoricalWorkoutCandidate } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Database, Json } from '../schema.js';
 import { lockActivityReconciliation } from './garmin-activities.repository.js';
@@ -21,7 +21,11 @@ export class PerformanceMatchesRepository {
         where l.owner_id=a.owner_id and l.activity_id=a.id and l.availability='available' and c.provider='strava' and s.source='strava_api')
       order by a.id limit 101`.execute(this.db)).rows;
     if (candidates.length > 100) throw new Error('Candidate bound exceeded; narrow operator review is required.');
-    return { record, existingActivityId:row.activity_id, result:matchHistoricalPerformance(record,candidates) };
+    const storedDecision=await this.db.selectFrom('performance_match_heads as h')
+      .innerJoin('performance_match_decisions as d',j=>j.onRef('d.owner_id','=','h.owner_id').onRef('d.id','=','h.decision_id'))
+      .select(['d.status','d.method','d.activity_id as activityId','d.policy_version as policyVersion','d.reason'])
+      .where('h.event_id','=',eventId).executeTakeFirst();
+    return { record, existingActivityId:row.activity_id, storedDecision:storedDecision??null, result:matchHistoricalPerformance(record,candidates) };
   }
   /** Automatic replay never changes an accepted or explicitly rejected decision. */
   async reconcile(eventId: string, dryRun = true, override?: { activityId: string | null }) {
@@ -46,7 +50,7 @@ export class PerformanceMatchesRepository {
       if (previous?.input_hash===inputHash) return {...inspection,result};
       const decision = await tx.insertInto('performance_match_decisions').values({event_id:eventId,activity_id:result.activityId,
         status:override && !override.activityId ? 'rejected' : result.status,method,policy_version:result.version,input_hash:inputHash,
-        reason:result.reason,diagnostics:result.candidates as unknown as Json}).returning('id').executeTakeFirstOrThrow();
+        reason:result.reason,diagnostics:sql<Json>`${JSON.stringify(result.candidates)}::jsonb`}).returning('id').executeTakeFirstOrThrow();
       await tx.insertInto('performance_match_heads').values({event_id:eventId,decision_id:decision.id})
         .onConflict(oc=>oc.columns(['owner_id','event_id']).doUpdateSet({decision_id:decision.id})).execute();
       return {...inspection,result};
@@ -54,11 +58,11 @@ export class PerformanceMatchesRepository {
   }
   async batch(options: MetricBackfillOptions) {
     validateMetricBackfillOptions(options);
-    let query=this.db.selectFrom('performance_events').select('id').where('source','=','run_db_xlsx').where('distance_m','in',[5000,10000,15000,20000,21100,21097.5,25000,42195]).orderBy('id');
+    let query=this.db.selectFrom('performance_events').select('id').where('source','=','run_db_xlsx').where('distance_m','in',[...RUNNING_EFFORT_TARGETS,21100]).orderBy('id');
     if(options.cursor) query=query.where('id','>',options.cursor);
     const rows=await query.limit(options.limit+1).execute(), batch=rows.slice(0,options.limit);
-    const counts={accepted:0,ambiguous:0,unmatched:0};
-    for(const row of batch) { const inspection=await this.reconcile(row.id,options.dryRun); if(inspection)counts[inspection.result.status]++; }
+    const counts={accepted:0,ambiguous:0,unmatched:0,rejected:0};
+    for(const row of batch) { const inspection=await this.reconcile(row.id,options.dryRun); if(inspection){ const stored=inspection.storedDecision; counts[stored && (stored.status==='accepted'||stored.method==='operator') ? stored.status : inspection.result.status]++; } }
     return {dryRun:options.dryRun,processed:batch.length,counts,nextCursor:batch.at(-1)?.id??options.cursor??null,hasMore:rows.length>options.limit};
   }
 }

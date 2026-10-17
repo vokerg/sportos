@@ -208,3 +208,12 @@ unknown gaps qualify coverage without stitched windows. See implementation/issue
 Maintainer-authorized small distance tolerance (0.1%, capped at 10 m) and bounded
 Strava stopped-marker handling are included in #124. Both provider half-marathon
 results are calculated on the inspected run with explicit qualifications.
+
+## Unified distance leaderboard (#151)
+
+The implementation branch adds audited Excel/workout reconciliation, a qualified
+owner-scoped leaderboard and explicit bounded local catch-up. It preserves
+original Excel timing, canonical/scoring authority and selective ordinary rich
+fetching. Completion requires focused ownership/replay/UI validation, real local
+aggregate verification and an authorized PR merge; the individual issue remains
+the status authority. See [operator guide](DISTANCE_LEADERBOARDS.md).

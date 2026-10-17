@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { PerformanceRepository, type Database, type Kysely } from '@sportos/db';
+import { DistanceLeaderboardRepository, PerformanceRepository, type Database, type Kysely } from '@sportos/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DbProvider } from '../db.provider.js';
 import { PerformanceController } from './performance.controller.js';
@@ -15,6 +15,18 @@ describe('PerformanceController', () => {
 
     await expect(controller.best(undefined, undefined)).resolves.toEqual([]);
     expect(best).toHaveBeenCalledWith(5000, 25);
+  });
+
+  it('validates the unified target and bounded range before reading', async () => {
+    const read=vi.spyOn(DistanceLeaderboardRepository.prototype,'read').mockResolvedValue({rows:[]} as never);
+    const controller=createController();
+    await controller.leaderboard('21097.5','2017-01-01','2026-10-17','200');
+    expect(read).toHaveBeenCalledWith({distanceM:21097.5,from:'2017-01-01',to:'2026-10-17',limit:200});
+    read.mockClear();
+    for(const distance of ['12000','-1',''])await expect(controller.leaderboard(distance)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.leaderboard('5000',undefined,undefined,'201')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.leaderboard('5000','2026-02-30')).rejects.toBeInstanceOf(BadRequestException);
+    expect(read).not.toHaveBeenCalled();
   });
 
   it('rejects an explicitly empty required distance with a stable code', async () => {

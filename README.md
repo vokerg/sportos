@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V136, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V137, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
 
 ## What SportOS can do
 
@@ -312,6 +312,7 @@ GET  /daily/:date/garmin/resources/:category
 GET  /daily/:date/score-breakdown
 POST /daily/:date/recalculate
 
+GET  /performance/leaderboard?distanceM=5000&limit=100
 GET  /performance/best?distanceM=5000&limit=50
 GET  /performance/events?distanceM=5000&from=YYYY-MM-DD&to=YYYY-MM-DD&limit=100
 GET  /performance/events/:eventId
@@ -447,3 +448,5 @@ Track new product and operational work in individual [GitHub issues](https://git
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changing authentication, ownership, imports, providers, jobs, scoring rules, migrations, read models, analysis, or exports. For a generic next-task request, select an eligible open GitHub issue according to [AGENTS.md](AGENTS.md), checking active PRs and deferred/human-triggered exclusions first.
 
 Per-run [running efforts](docs/RUNNING_EFFORTS.md) compare independently calculated retained Strava/Garmin windows with clearly labeled Strava summary estimates. Processing is explicit and pause-excluded; canonical facts, scores and Run Lab remain independent. Primary V135 is required for bounded distance and pause qualifications.
+
+Distance leaderboard and private local reconciliation/catch-up operations: [guide](docs/DISTANCE_LEADERBOARDS.md).

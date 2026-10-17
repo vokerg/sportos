@@ -1,3 +1,4 @@
+import { performanceTarget } from '@sportos/domain';
 import { BadRequestException, Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
 import { DistanceLeaderboardRepository, LEGACY_ACCOUNT_ID, PerformanceRepository } from '@sportos/db';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
@@ -22,7 +23,7 @@ export class PerformanceController {
     @CurrentAccount() account?: AuthenticatedAccount,
   ) {
     const target = parsePositiveNumber(distanceM, {name:'distanceM',defaultValue:5000});
-    if (![5000,10000,15000,20000,21097.5,21100,25000,42195].includes(target))
+    if (performanceTarget(target) === null)
       throw new BadRequestException({code:'INVALID_DISTANCE_M',message:'Unsupported leaderboard distance.'});
     const range=parseDateRange(from,to,{maxDays:36600});
     const count=parseBoundedInteger(limit,{name:'limit',defaultValue:100,min:1,max:200});

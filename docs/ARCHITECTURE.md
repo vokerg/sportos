@@ -451,3 +451,18 @@ recording gaps. Invalid, missing or over-budget geometry is omitted with
 page and quality coverage; auxiliary failure falls back to primary Strava
 summaries. No rich payload access, provider token, upstream request, new
 persistence, tile server or public GPS cache is involved. See [Heatmap route feed](ACTIVITIES.md#heatmap-route-feed-137).
+
+## Unified distance leaderboard (#151)
+
+V137 adds immutable owner-scoped performance match decisions and a current head
+per Excel event. Same-owner foreign keys, forced RLS, source/run validation and
+append-only audit enforcement preserve original provenance across re-imports.
+The pure deterministic matcher uses workout identity rather than exact interval
+timing, allowing multiple record distances to share one canonical Strava run.
+The primary-only leaderboard combines unchanged Excel achievements with current
+measured effort heads, preferring historical Excel time and exposing alternatives
+without duplicate activity/target ranks. Summary estimates, stale/failed values
+and provider whole-run events never rank. Algorithm v5 extends measured efforts
+to marathon. Explicit bounded local catch-up reuses retained evidence or existing
+authenticated Fetch Detail POSTs; ordinary sync and GETs remain summary-first.
+See [operations and timing semantics](DISTANCE_LEADERBOARDS.md).

@@ -3,7 +3,7 @@ import { sql, type Kysely } from 'kysely';
 import type { Database } from '../schema.js';
 export interface DistanceLeaderboardRow {
   id: string; activityId: string | null; eventId: string | null; date: string; durationS: number; rank: number;
-  source: 'excel' | 'strava' | 'garmin'; reason: string | null; pausePolicy: string;
+  source: 'excel' | 'strava' | 'garmin'; reason: string | null; pausePolicy: string; alternativeCount: number;
   alternatives: { source: string; durationS: number; eventId: string | null; reason: string | null }[];
 }
 export interface DistanceLeaderboard {
@@ -60,20 +60,21 @@ export class DistanceLeaderboardRepository {
       ), combined as (
         select * from legacy union all select * from measured
       ), grouped as (
-        select *,coalesce(activity_id::text,id) as occurrence,
-          row_number() over(partition by coalesce(activity_id::text,id) order by
+        select *,coalesce('activity:'||activity_id::text,'event:'||id) as occurrence,
+          row_number() over(partition by coalesce('activity:'||activity_id::text,'event:'||id) order by
             case source when 'excel' then 0 when 'strava' then 1 else 2 end,duration_s,date,id) as preference
         from combined
       ), ranked as (
         select *,row_number() over(order by duration_s,date,id) as rank from grouped where preference=1
       ), limited as (select * from ranked order by rank limit ${input.limit}), eligible as (
-        select a.id from runs a where a.distance_m>=${target-runningEffortDistanceTolerance(target)}
-          and exists(select 1 from refs r where r.activity_id=a.id and r.provider='strava')
+        select a.id from runs a where (a.distance_m>=${target-runningEffortDistanceTolerance(target)} or exists(select 1 from measured m where m.activity_id=a.id))
+          and exists(select 1 from refs r where r.activity_id=a.id)
       )
       select coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'activityId',r.activity_id,'eventId',r.event_id,'date',r.date,
         'durationS',r.duration_s,'rank',r.rank,'source',r.source,'reason',r.reason,'pausePolicy',r.pause_policy,
+        'alternativeCount',(select count(*) from grouped g where g.occurrence=r.occurrence and g.id<>r.id),
         'alternatives',coalesce((select jsonb_agg(jsonb_build_object('source',g.source,'durationS',g.duration_s,'eventId',g.event_id,'reason',g.reason) order by g.preference)
-          from grouped g where g.occurrence=r.occurrence and g.id<>r.id),'[]'::jsonb)) order by r.rank) from limited r),'[]'::jsonb) as rows,
+          from (select g.* from grouped g where g.occurrence=r.occurrence and g.id<>r.id order by g.preference limit 20) g),'[]'::jsonb)) order by r.rank) from limited r),'[]'::jsonb) as rows,
         jsonb_build_object(
           'eligibleRuns',(select count(*) from eligible),
           'measuredCurrent',(select count(distinct activity_id) from measured),

@@ -1,17 +1,27 @@
 # Per-activity running efforts (#122)
 
-Apply primary Flyway **V135** before deploying algorithm v4. V133 introduced
+Effort storage requires primary Flyway **V135**; the full #151 leaderboard requires **V137**. Algorithm v5 retains v4 pause/distance qualification and adds marathon. V133 introduced
 the projections, V134 permits continuous-section qualification, and V135 enforces
 the bounded distance/pause qualifications. The existing separate detail
 schema through V003 is reused unchanged. `/activity/:id` shows independent Strava
-and Garmin results for 5, 10, 15, 20, 21.0975 (displayed 21.1) and 25 km. The central
+and Garmin results for 5, 10, 15, 20, 21.0975 (displayed 21.1) 25 km and (algorithm v5) marathon. The central
 catalog is `packages/domain/src/running-efforts.ts`; extending it requires a
 calculation version bump and retained reprocessing, not a schema migration.
 
 These are analytical **pause-excluded** efforts, not race-standard elapsed times,
-certified personal records or Run Lab rankings. No canonical activity, daily fact,
+certified personal records. See the #151 section below for qualified Run Lab rankings. No canonical activity, daily fact,
 score, ledger, snapshot or performance event is changed. Each provider uses only
 its own distance/time evidence; disagreements remain visible.
+
+## Distance leaderboard integration (#151)
+
+Algorithm v5 extends the catalog to **42,195 m** using the existing qualified
+window algorithm. All earlier projections require explicit retained reprocessing.
+Current measured results may now enter Run Lab's separate unified distance
+leaderboard; summary estimates still never rank. Original Excel time takes
+precedence for a linked historical activity/target, with measured alternatives
+visible. See [leaderboard/reconciliation operations](DISTANCE_LEADERBOARDS.md).
+V137 is required for that read model; no detail schema change is needed.
 
 ## Evidence and calculations
 
@@ -67,7 +77,7 @@ qualifies only a small shortfall; it never credits stopped movement as running.
 
 ## Deterministic limits and unavailable data
 
-Version 4 accepts at most 200,000 samples, 10,000 timer events, 1,000,000 metres,
+Version 4 (unchanged in v5) accepts at most 200,000 samples, 10,000 timer events, 1,000,000 metres,
 and a 604,800-second activity timeline. Timestamps must strictly increase and
 cumulative distance cannot decrease. Duplicate/missing timestamps, nonfinite or
 negative values, distance resets, misaligned stream arrays/metadata and running

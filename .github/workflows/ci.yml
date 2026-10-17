@@ -42,6 +42,9 @@ jobs:
       - name: Fast Angular architecture guardrails
         run: pnpm check:web-architecture
 
+      - name: Performance operator restart and rate-limit checks
+        run: node --test scripts/performance-catchup-runner.test.mjs
+
       - name: Check database integration configuration
         id: database_config
         env:
