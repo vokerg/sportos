@@ -529,3 +529,11 @@ can restrict the sport and date range without downloading from providers.
 
 Relevant tests: `heatmap-geometry.test.ts`, `heatmap-style.test.ts`,
 `heatmap.store.test.ts`, and `heatmap-page.component.test.ts`.
+
+## Reconstructed historical runs (#154)
+
+Retained Excel evidence can fill missing run dates through the explicit
+[historical backfill](HISTORICAL_RUN_ACTIVITIES.md). These Activities are labelled
+Historical Excel summary, with unknown session count and absent GPS/start/device
+fields. Existing Activities and all ledger/score authority are preserved. Choose
+All sources and All time to include this history.

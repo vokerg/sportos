@@ -218,3 +218,11 @@ workbook has been imported and reconciled with replay verification. Remaining
 historical rich catch-up, evidence-limited record review and live completion
 verification are tracked in [#153](https://github.com/vokerg/sportos/issues/153).
 See the [operator guide](DISTANCE_LEADERBOARDS.md).
+
+## Missing historical run Activities (#154)
+
+An explicit Excel-backed day-summary backfill fills absent history and associates
+legacy achievements without fabricating provider identities or GPS. The configured
+local backfill and replay completed with existing facts and all score authority
+preserved. See [operator policy](HISTORICAL_RUN_ACTIVITIES.md) and the individual
+issue/PR for review status.

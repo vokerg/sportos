@@ -24,6 +24,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
       </header>
       </sportos-activity-metric-comparison>
+      @if (item.historicalSummary) { <p class="card">Historical Excel reconstruction: a daily run summary. The number of sessions, device, start time and GPS route are unknown. A historical time is shown only when an exact full-distance record supports it; its pause basis is unspecified.</p> }
       @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
       @if (store.mapState() === 'loading') { <section class="card map-status" role="status">Loading activity route…</section> }
       @else if (store.mapState() === 'available' && store.mapData()) {

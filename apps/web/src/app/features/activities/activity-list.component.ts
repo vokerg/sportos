@@ -16,7 +16,7 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
             @let values = compactActivityMetrics(activity);
             <tr [attr.data-sport]="activity.activity_type">
               <td>{{ activity.activity_date }} @if (startTime(activity.start_time); as time) { <span class="muted">{{ time }}</span> }</td>
-              <th scope="row"><a [routerLink]="['/activity', activity.id]">{{ title(activity) }} @if (displayedSubtype(activity)) { <span class="muted" [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</span> } @if (activity.source === 'strava' && activity.notes) { <span class="row-name" [title]="activity.notes">{{ activity.notes }}</span> }</a></th>
+              <th scope="row"><a [routerLink]="['/activity', activity.id]">{{ title(activity) }} @if (activity.historicalSummary) { <span class="muted">· Historical Excel summary</span> } @if (displayedSubtype(activity)) { <span class="muted" [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</span> } @if (activity.source === 'strava' && activity.notes) { <span class="row-name" [title]="activity.notes">{{ activity.notes }}</span> }</a></th>
               <td class="number">{{ values.distance }}</td><td class="number">{{ values.paceOrSpeed }}</td>
               <td class="number" [title]="values.time?.label ?? 'Time unavailable'" [attr.aria-label]="values.time ? values.time.label + ': ' + values.time.value : 'Time unavailable'">{{ values.time?.value ?? '—' }}</td>
               <td class="number">{{ values.heartRate }}</td><td class="number">{{ values.elevation }}</td>
@@ -29,7 +29,7 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
     <div class="activity-list">
       @for (activity of activities(); track activity.id) {
         <a class="card activity" [attr.data-sport]="activity.activity_type" [routerLink]="['/activity', activity.id]">
-          <div class="heading"><strong>{{ title(activity) }} @if (displayedSubtype(activity)) { <small [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</small> }</strong><span>{{ activity.activity_date }} @if (startTime(activity.start_time)) { · {{ startTime(activity.start_time) }} }</span></div>
+          <div class="heading"><strong>{{ title(activity) }} @if (activity.historicalSummary) { <span class="muted">· Historical Excel summary</span> } @if (displayedSubtype(activity)) { <small [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</small> }</strong><span>{{ activity.activity_date }} @if (startTime(activity.start_time)) { · {{ startTime(activity.start_time) }} }</span></div>
           @if (activity.source === 'strava' && activity.notes) { <div class="description">{{ activity.notes }}</div> }
           <sportos-provider-metric-status [statuses]="activity.providerMetrics ?? []" />
           <div class="metrics highlights">@for (metric of listMetricHighlights(activity); track metric.label) { <span><b>{{ metric.value }}</b><small>{{ metric.label }}</small></span> }</div>
