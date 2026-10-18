@@ -8,7 +8,7 @@ Activities are the human-readable training history backed directly by the accoun
 
 - **Activities**: canonical activity facts, duration, distance, heart rate and other imported metrics. The UI reads `activities` through `ActivitiesRepository` and account context.
 - **Daily Log**: day-level facts, official scoring, ledger contributions, manual daily entry and provenance. Activities do not display or calculate day scores.
-- **Performance events and Run Lab**: separately imported running achievements and performance history. Run Lab keeps imported event history and adds a separate distance leaderboard combining original Excel times with current measured effort projections. Activity navigation still reads no ledger or performance rows and makes no provider requests. See [distance leaderboards](DISTANCE_LEADERBOARDS.md).
+- **Performance events and Run Lab**: separately imported running achievements and performance history. Run Lab presents a paginated distance leaderboard combining original Excel times with current measured effort projections; original event provenance remains available through row inspection. Activity navigation still reads no ledger or performance rows and makes no provider requests. See [distance leaderboards](DISTANCE_LEADERBOARDS.md).
 
 ## Walking history
 

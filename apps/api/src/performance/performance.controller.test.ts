@@ -21,11 +21,14 @@ describe('PerformanceController', () => {
     const read=vi.spyOn(DistanceLeaderboardRepository.prototype,'read').mockResolvedValue({rows:[]} as never);
     const controller=createController();
     await controller.leaderboard('21097.5','2017-01-01','2026-10-17','200');
-    expect(read).toHaveBeenCalledWith({distanceM:21097.5,from:'2017-01-01',to:'2026-10-17',limit:200});
+    expect(read).toHaveBeenCalledWith({distanceM:21097.5,from:'2017-01-01',to:'2026-10-17',limit:200,offset:0});
+    await controller.leaderboard('5000',undefined,undefined,'50','250');
+    expect(read).toHaveBeenLastCalledWith({distanceM:5000,from:undefined,to:undefined,limit:50,offset:250});
     read.mockClear();
     for(const distance of ['12000','-1',''])await expect(controller.leaderboard(distance)).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.leaderboard('5000',undefined,undefined,'201')).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.leaderboard('5000','2026-02-30')).rejects.toBeInstanceOf(BadRequestException);
+    for(const offset of ['-1','1.5','abc','100001'])await expect(controller.leaderboard('5000',undefined,undefined,'100',offset)).rejects.toBeInstanceOf(BadRequestException);
     expect(read).not.toHaveBeenCalled();
   });
 
