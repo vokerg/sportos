@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { planHistoricalRun as plan, type HistoricalRunDay, type HistoricalRunRecord } from './historical-run-plan.js';
-const record=(distanceM=5000,durationS=1500):HistoricalRunRecord=>({id:String(distanceM),date:'2017-05-01',distanceM,durationS,treadmill:true,sourceRecordId:'record',locked:false});
-const day:HistoricalRunDay={date:'2017-05-01',daily:{distanceM:10000,sourceRecordId:'daily',subtype:'unknown'},records:[],activities:[]};
+const record=(distanceM=5000,durationS=1500):HistoricalRunRecord=>({id:String(distanceM),date:'2074-05-01',distanceM,durationS,treadmill:true,sourceRecordId:'record',locked:false});
+const day:HistoricalRunDay={date:'2074-05-01',daily:{distanceM:10000,sourceRecordId:'daily',subtype:'unknown'},records:[],activities:[]};
 describe('historical run reconstruction',()=>{
  it('uses daily distance once and never extrapolates a subdistance time',()=>{const r=plan({...day,records:[record()]});expect(r.create).toMatchObject({distanceM:10000,durationS:null,subtype:'treadmill',basis:'daily_total'});expect(r.links).toHaveLength(1);});
  it('links multiple achievement distances to one summary with exact full-distance time',()=>{const r=plan({...day,records:[record(),record(10000,3600)]});expect(r.create).toMatchObject({distanceM:10000,durationS:3600,timingEventId:'10000'});expect(r.links).toHaveLength(2);});

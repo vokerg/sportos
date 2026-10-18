@@ -15,7 +15,7 @@ it.each([false,true])('labels reconstructed summaries in compact=%s history with
  TestBed.overrideComponent(ActivityListComponent,{set:{imports:[RouterLink],schemas:[CUSTOM_ELEMENTS_SCHEMA]}});
  TestBed.configureTestingModule({imports:[ActivityListComponent],providers:[provideRouter([])]});
  const fixture=TestBed.createComponent(ActivityListComponent);
- const activity={id:'historical',activity_date:'2017-05-01',start_time:null,activity_type:'run',subtype:'unknown',source:'my_sport_xlsx',distance_m:5000,duration_s:null,moving_time_s:null,avg_pace_s_per_km:null,historicalSummary:true} as Activity;
+ const activity={id:'historical',activity_date:'2074-05-01',start_time:null,activity_type:'run',subtype:'unknown',source:'my_sport_xlsx',distance_m:5000,duration_s:null,moving_time_s:null,avg_pace_s_per_km:null,historicalSummary:true} as Activity;
  // Vitest uses JIT without the Angular signal-input compiler transform.
  Object.defineProperty(fixture.componentInstance,'activities',{value:()=>[activity]});
  Object.defineProperty(fixture.componentInstance,'compact',{value:()=>compact});fixture.detectChanges();
