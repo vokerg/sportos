@@ -65,7 +65,7 @@ export class HistoricalRunsRepository {
         if (!activityId) throw new Error('Historical activity missing.');
         const evidence = {activityId,eventId:link.eventId,date,policyVersion:1,basis:plan.create?.basis??'existing_workbook_activity'};
         const decision = await this.db.insertInto('performance_match_decisions').values({event_id:link.eventId,activity_id:activityId,status:'accepted',method:'historical',
-          policy_version:1,input_hash:hash(evidence),reason:'historical_excel_reconstruction',diagnostics:[evidence] as Json}).returning('id').executeTakeFirstOrThrow();
+          policy_version:1,input_hash:hash(evidence),reason:'historical_excel_reconstruction',diagnostics:sql<Json>`${JSON.stringify([evidence])}::jsonb`}).returning('id').executeTakeFirstOrThrow();
         await this.db.insertInto('performance_match_heads').values({event_id:link.eventId,decision_id:decision.id})
           .onConflict(oc=>oc.columns(['owner_id','event_id']).doUpdateSet({decision_id:decision.id})).execute();
         linked++;

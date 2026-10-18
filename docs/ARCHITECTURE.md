@@ -466,3 +466,18 @@ and provider whole-run events never rank. Algorithm v5 extends measured efforts
 to marathon. Explicit bounded local catch-up reuses retained evidence or existing
 authenticated Fetch Detail POSTs; ordinary sync and GETs remain summary-first.
 See [operations and timing semantics](DISTANCE_LEADERBOARDS.md).
+
+## Historical Excel run reconstruction (#154)
+
+An explicit bounded local operator fills missing run dates from retained daily
+workbook totals or running achievements. Existing canonical runs suppress creation;
+one summary represents the day without claiming a known number of workouts. Raw
+source references and bounded reconstruction metadata distinguish these from
+recorded provider sessions. Full-distance historical timing is optional; GPS,
+start time, device and moving time are not invented.
+
+V138 extends audited match decisions with a separate historical method validated
+against owner-scoped workbook provenance/date/distance/subtype. Ordinary Strava
+identity checks remain unchanged. Preview is read-only; apply shares the account
+reconciliation lock and is atomic/replay-safe. The operator performs no scoring,
+ledger, snapshot, rule or provider mutations. See [policy](HISTORICAL_RUN_ACTIVITIES.md).

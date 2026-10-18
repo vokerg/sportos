@@ -9,7 +9,7 @@ import { ActivitiesRepository } from './activities.repository.js';
 const url=process.env.SPORTOS_OWNER_TEST_DATABASE_URL;
 (url?describe:describe.skip)('historical workbook reconstruction with non-owner RLS',()=>{
  let db:Kysely<Database>,owner:string,foreign:string;
- beforeAll(async()=>{db=createDb(url);expect((await sql`select current_user as role,rolsuper,rolbypassrls from pg_roles where rolname=current_user`.execute(db)).rows[0]).toEqual({role:'sportos_app',rolsuper:false,rolbypassrls:false});owner=(await db.insertInto('accounts').values({status:'active'}).returning('id').executeTakeFirstOrThrow()).id;foreign=(await db.insertInto('accounts').values({status:'active'}).returning('id').executeTakeFirstOrThrow()).id;});
+ beforeAll(async()=>{db=createDb(url);expect((await sql`select current_user as role,rolsuper,rolbypassrls from pg_roles where rolname=current_user`.execute(db)).rows[0]).toEqual({role:'sportos_app',rolsuper:false,rolbypassrls:false});owner=(await db.insertInto('accounts').values({status:'active',display_name:'Synthetic historical reconstruction',email:null}).returning('id').executeTakeFirstOrThrow()).id;foreign=(await db.insertInto('accounts').values({status:'active',display_name:'Synthetic historical reconstruction',email:null}).returning('id').executeTakeFirstOrThrow()).id;});
  afterAll(async()=>{await db?.destroy();});
  const scoped=<T>(fn:(d:Kysely<Database>)=>Promise<T>,account=owner)=>withAccountContext(db,account,fn);
  async function source(d:Kysely<Database>,type:'my_sport_xlsx'|'run_db_xlsx'){
@@ -41,7 +41,7 @@ const url=process.env.SPORTOS_OWNER_TEST_DATABASE_URL;
   const date='2074-03-01',ids=await fixture(date);await run(date,true);
   const own=(await scoped(d=>d.selectFrom('activities').select('id').where('activity_date','=',date).executeTakeFirstOrThrow())).id;
   const other=(await scoped(d=>d.insertInto('activities').values({source:'manual',activity_type:'run',activity_date:date,distance_m:10000}).returning('id').executeTakeFirstOrThrow(),foreign)).id;
-  const decision=(activityId:string,method:'historical'|'operator')=>scoped(d=>d.insertInto('performance_match_decisions').values({event_id:ids[0],activity_id:activityId,status:'accepted',method,policy_version:1,input_hash:'a'.repeat(64),reason:'historical_excel_reconstruction',diagnostics:[]}).execute());
+  const decision=(activityId:string,method:'historical'|'operator')=>scoped(d=>d.insertInto('performance_match_decisions').values({event_id:ids[0],activity_id:activityId,status:'accepted',method,policy_version:1,input_hash:'a'.repeat(64),reason:'historical_excel_reconstruction',diagnostics:sql`'[]'::jsonb`}).execute());
   await expect(decision(other,'historical')).rejects.toThrow();await expect(decision(own,'operator')).rejects.toThrow('Running provider identity unavailable');
   await expect(scoped(d=>d.updateTable('performance_match_decisions').set({reason:'changed'}).where('event_id','=',ids[0]).execute())).rejects.toThrow();
  });
