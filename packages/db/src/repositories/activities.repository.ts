@@ -23,6 +23,8 @@ export interface ActivitiesQuery {
   offset: number;
 }
 
+const historicalSummary = (alias: string) => sql<boolean>`coalesce((${sql.ref(`${alias}.raw_payload_json`)}->'historicalReconstruction'->>'policyVersion')='1',false)`;
+
 const publicColumns = [
   'id', 'source', 'source_activity_id', 'activity_date', 'start_time', 'activity_type', 'subtype',
   'distance_m', 'duration_s', 'moving_time_s', 'steps', 'calories', 'avg_hr', 'max_hr',
@@ -55,7 +57,7 @@ export class ActivitiesRepository {
     if (input.minAvgSpeedMps !== undefined) filtered = filtered.where('avg_speed_mps', '>=', input.minAvgSpeedMps);
     if (input.swimPaceUnderSPer100m !== undefined) filtered = filtered.where('avg_pace_s_per_km', '<', input.swimPaceUnderSPer100m * 10);
     const [rows, summary] = await Promise.all([
-      filtered.select(publicColumns).select((hasGarmin ? runClassification('activities') : sql<null>`null`).as('runClassification')).select((hasGarmin ? garminLink('activities') : sql<null>`null`).as('garmin'))
+      filtered.select(publicColumns).select(historicalSummary('activities').as('historicalSummary')).select((hasGarmin ? runClassification('activities') : sql<null>`null`).as('runClassification')).select((hasGarmin ? garminLink('activities') : sql<null>`null`).as('garmin'))
         .orderBy('activity_date', 'desc').orderBy('start_time', 'desc').orderBy('id', 'desc')
         .limit(input.limit).offset(input.offset).execute(),
       filtered.select((eb) => [
@@ -95,6 +97,7 @@ export class ActivitiesRepository {
         .onRef('providerConnection.owner_id', '=', 'providerLink.owner_id')
         .onRef('providerConnection.id', '=', 'providerLink.connection_id'))
       .select(publicColumns.map((column) => `activity.${column}` as const))
+      .select(historicalSummary('activity').as('historicalSummary'))
       .select((hasGarmin ? runClassification('activity') : sql<null>`null`).as('runClassification'))
       .select((hasGarmin ? garminLink('activity') : sql<null>`null`).as('garmin'))
       .select(['record.id as sourceRecordId', 'record.source as sourceRecordSource', 'providerConnection.provider as linkedProvider', 'providerLink.provider_activity_id as linkedProviderActivityId'])

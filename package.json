@@ -35,7 +35,8 @@
     "activities:project": "pnpm --filter @sportos/db build && node scripts/activity-metrics-backfill.mjs",
     "activities:efforts": "pnpm --filter @sportos/db build && node scripts/running-efforts-backfill.mjs",
     "performance:reconcile": "pnpm --filter @sportos/db build && node scripts/performance-reconcile.mjs",
-    "performance:catchup": "pnpm --filter @sportos/db build && node scripts/performance-catchup.mjs"
+    "performance:catchup": "pnpm --filter @sportos/db build && node scripts/performance-catchup.mjs",
+    "activities:historical": "pnpm --filter @sportos/db build && node scripts/historical-runs.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

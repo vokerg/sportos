@@ -7,7 +7,7 @@ import { validateMetricBackfillOptions, type MetricBackfillOptions } from '../ac
 
 interface BatchInspection {
   record: HistoricalRecord; existingActivityId: string | null; result: PerformanceMatch;
-  previous: {status:'accepted'|'ambiguous'|'unmatched'|'rejected';method:'automatic'|'operator';inputHash:string} | null;
+  previous: {status:'accepted'|'ambiguous'|'unmatched'|'rejected';method:'automatic'|'operator'|'historical';inputHash:string} | null;
 }
 export class PerformanceMatchesRepository {
   constructor(private readonly db: Kysely<Database>) {}
@@ -96,7 +96,7 @@ export class PerformanceMatchesRepository {
     if(!ids.length)return [];if(ids.length>100)throw new Error('Inspection batch exceeds limit.');
     const rows=(await sql<{id:string;date:string;distanceM:number;durationS:number;treadmill:boolean;activityId:string|null;
       status:'accepted'|'ambiguous'|'unmatched'|'rejected'|null;
-      method:'automatic'|'operator'|null;inputHash:string|null;candidates:HistoricalWorkoutCandidate[]}>`
+      method:'automatic'|'operator'|'historical'|null;inputHash:string|null;candidates:HistoricalWorkoutCandidate[]}>`
       select e.id,e.event_date::text as date,e.distance_m::float8 as "distanceM",e.duration_s as "durationS",e.is_treadmill as treadmill,e.activity_id as "activityId",
         d.status,d.method,d.input_hash as "inputHash",
         coalesce((select jsonb_agg(candidate order by candidate.id) from (
@@ -120,7 +120,7 @@ export class PerformanceMatchesRepository {
 }
 function date(value: unknown): string { return value instanceof Date ? value.toISOString().slice(0,10) : String(value).slice(0,10); }
 
-function decisionHash(record:HistoricalRecord,result:PerformanceMatch,method:'automatic'|'operator'){
+function decisionHash(record:HistoricalRecord,result:PerformanceMatch,method:'automatic'|'operator'|'historical'){
   const candidates=result.candidates.map(c=>({id:c.id,date:c.date,distanceM:c.distanceM,movingTimeS:c.movingTimeS,subtype:c.subtype,
     paceSPerKm:c.paceSPerKm,score:c.score,reason:c.reason}));
   return createHash('sha256').update(JSON.stringify({record,result:{status:result.status,activityId:result.activityId,version:result.version,reason:result.reason,candidates},method})).digest('hex');

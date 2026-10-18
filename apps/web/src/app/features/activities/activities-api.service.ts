@@ -8,6 +8,7 @@ export type ActivityType = 'steps' | 'walk' | 'run' | 'bike' | 'swim' | 'workout
 export type ActivitySubtype = 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown';
 export type ActivitySource = 'manual' | 'my_sport_xlsx' | 'run_db_xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit';
 export interface Activity {
+  historicalSummary?: boolean;
   runClassification?: { subtype: ActivitySubtype; source: 'garmin' } | null;
   providerMetrics?: ProviderMetricStatus[];
   id: string;

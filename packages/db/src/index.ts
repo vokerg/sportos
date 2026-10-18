@@ -61,3 +61,6 @@ export * from './repositories/performance-matches.repository.js';
 export * from './repositories/distance-leaderboard.repository.js';
 export * from './performance-catchup.js';
 export * from './performance-match-schema.js';
+
+export * from './historical-run-plan.js';
+export * from './repositories/historical-runs.repository.js';
