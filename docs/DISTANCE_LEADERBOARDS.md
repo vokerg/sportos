@@ -12,8 +12,11 @@ older projections are stale until explicitly reprocessed. No new detail migratio
 is required. Existing Fetch/Refresh and Calculate retained efforts publish compact
 results; the next leaderboard read reflects them without provider requests.
 
-`GET /performance/leaderboard?distanceM=5000&from=YYYY-MM-DD&to=YYYY-MM-DD&limit=100`
-reads owner-scoped primary metadata only. Limit is 1–200; range is optional and
+`GET /performance/leaderboard?distanceM=5000&from=YYYY-MM-DD&to=YYYY-MM-DD&limit=100&offset=0`
+reads owner-scoped primary metadata only. Limit is 1–200 (default 100); offset is
+0–100,000 (default 0). The response includes `total`, `limit`, and `offset`.
+Counting and pagination happen after activity/target deduplication in the same
+query; ranks remain global across pages. Range is optional and
 bounded to 36,600 days when both dates are present. Default is all dates/5 km.
 One activity/target ranks once, ordered by duration, date and stable identifier.
 Original Excel time wins over current calculated Strava, then calculated Garmin.
@@ -23,6 +26,13 @@ Unlinked Excel achievements remain independent historical records. No provider
 whole-run performance event or summary estimate enters this ranking. Calculated
 windows exclude pauses and are **not certified race PRs**; historical Excel timing
 semantics may differ. Coverage counts overlap and never certify archive completeness.
+
+Run Lab has one results table: the distance leaderboard. First/previous/next/last
+controls and 50/100/200 rows per page replace the former 200-result cutoff. Applying
+filters or changing page size returns to the first page. Paging uses the last
+applied filters and cancels superseded requests. Original Excel provenance remains
+available through Inspect Excel / Inspect original; there is no separate event
+history table or chart. Original records and their detail API remain retained.
 
 ## Running workbook export layouts
 

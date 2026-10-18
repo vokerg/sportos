@@ -19,7 +19,7 @@ export class PerformanceController {
   @Get('leaderboard')
   async leaderboard(
     @Query('distanceM') distanceM?: string, @Query('from') from?: string,
-    @Query('to') to?: string, @Query('limit') limit?: string,
+    @Query('to') to?: string, @Query('limit') limit?: string, @Query('offset') offset?: string,
     @CurrentAccount() account?: AuthenticatedAccount,
   ) {
     const target = parsePositiveNumber(distanceM, {name:'distanceM',defaultValue:5000});
@@ -27,7 +27,8 @@ export class PerformanceController {
       throw new BadRequestException({code:'INVALID_DISTANCE_M',message:'Unsupported leaderboard distance.'});
     const range=parseDateRange(from,to,{maxDays:36600});
     const count=parseBoundedInteger(limit,{name:'limit',defaultValue:100,min:1,max:200});
-    return this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID, db=>new DistanceLeaderboardRepository(db).read({...range,distanceM:target,limit:count}));
+    const start=parseBoundedInteger(offset,{name:'offset',defaultValue:0,min:0,max:100000});
+    return this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID, db=>new DistanceLeaderboardRepository(db).read({...range,distanceM:target,limit:count,offset:start}));
   }
 
   @Get('best')

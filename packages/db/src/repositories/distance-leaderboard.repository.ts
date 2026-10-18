@@ -7,17 +7,19 @@ export interface DistanceLeaderboardRow {
   alternatives: { source: string; durationS: number; eventId: string | null; reason: string | null }[];
 }
 export interface DistanceLeaderboard {
-  targets: readonly number[]; targetDistanceM: number; rows: DistanceLeaderboardRow[];
+  targets: readonly number[]; targetDistanceM: number; total: number; limit: number; offset: number; rows: DistanceLeaderboardRow[];
   coverage: { eligibleRuns: number; measuredCurrent: number; legacyLinked: number; legacyUnmatched: number; legacyAmbiguous: number;
     estimatedOnly: number; missingRichDetail: number; unprocessed: number; staleOrFailed: number; unavailable: number };
 }
 /** Primary compact reads only. GET cannot fetch, reproject or mutate any evidence. */
 export class DistanceLeaderboardRepository {
   constructor(private readonly db: Kysely<Database>) {}
-  async read(input: { distanceM: number; from?: string; to?: string; limit: number }): Promise<DistanceLeaderboard> {
+  async read(input: { distanceM: number; from?: string; to?: string; limit: number; offset?: number }): Promise<DistanceLeaderboard> {
+    const offset=input.offset??0;
+    if (!Number.isInteger(input.limit)||input.limit<1||input.limit>200||!Number.isInteger(offset)||offset<0||offset>100000) throw new Error('Invalid leaderboard page.');
     const target=performanceTarget(input.distanceM);
     if (!target) throw new Error('Unsupported leaderboard target.');
-    const data=(await sql<{rows:DistanceLeaderboardRow[];coverage:DistanceLeaderboard['coverage']}>`
+    const data=(await sql<{rows:DistanceLeaderboardRow[];total:number;coverage:DistanceLeaderboard['coverage']}>`
       with runs as (
         select a.* from activities a where a.activity_type='run'
           and (${input.from??null}::date is null or a.activity_date>=${input.from??null}::date)
@@ -66,7 +68,7 @@ export class DistanceLeaderboardRepository {
         from combined
       ), ranked as (
         select *,row_number() over(order by duration_s,date,id) as rank from grouped where preference=1
-      ), limited as (select * from ranked order by rank limit ${input.limit}), eligible as (
+      ), limited as (select * from ranked order by rank limit ${input.limit} offset ${offset}), eligible as (
         select a.id from runs a where (a.distance_m>=${target-runningEffortDistanceTolerance(target)} or exists(select 1 from measured m where m.activity_id=a.id))
           and exists(select 1 from refs r where r.activity_id=a.id)
       )
@@ -75,6 +77,7 @@ export class DistanceLeaderboardRepository {
         'alternativeCount',(select count(*) from grouped g where g.occurrence=r.occurrence and g.id<>r.id),
         'alternatives',coalesce((select jsonb_agg(jsonb_build_object('source',g.source,'durationS',g.duration_s,'eventId',g.event_id,'reason',g.reason) order by g.preference)
           from (select g.* from grouped g where g.occurrence=r.occurrence and g.id<>r.id order by g.preference limit 20) g),'[]'::jsonb)) order by r.rank) from limited r),'[]'::jsonb) as rows,
+        (select count(*)::int from ranked) as total,
         jsonb_build_object(
           'eligibleRuns',(select count(*) from eligible),
           'measuredCurrent',(select count(distinct activity_id) from measured),
@@ -87,6 +90,6 @@ export class DistanceLeaderboardRepository {
           'staleOrFailed',(select count(distinct e.activity_id) from evidence e join eligible a on a.id=e.activity_id where e.state in ('stale','failed')),
           'unavailable',(select count(distinct e.activity_id) from evidence e join eligible a on a.id=e.activity_id where e.state='current' and e.status='unavailable' and not exists(select 1 from measured m where m.activity_id=e.activity_id))
         ) as coverage`.execute(this.db)).rows[0]!;
-    return {targets:[...RUNNING_EFFORT_TARGETS],targetDistanceM:target,...data};
+    return {targets:[...RUNNING_EFFORT_TARGETS],targetDistanceM:target,limit:input.limit,offset,...data};
   }
 }

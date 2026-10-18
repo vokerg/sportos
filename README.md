@@ -268,7 +268,7 @@ After authentication, the Angular cockpit provides:
 - **Daily Log Quick entry** — the exact editable manual fact fields, with a per-day durable Strava refresh followed by deterministic recalculation.
 - **Daily score** (`/daily/:date`) — Overview shows daily totals, editing/recalculation, concise training sessions and Garmin day metrics. Manual total entries stay out of the session list. Score contains calculations and reconciliation; Sources contains workbook/provider provenance and explicit Garmin resource inspection.
 - **Activities and Heatmap** — inspect canonical activities, their retained individual GPS maps, and the private all-time multi-route density map at `/heatmap` with sport/date filters, approximate-summary labeling and quality counts for existing retained Strava streams/detail or eligible Garmin FIT traces.
-- **Run Lab** — performance rankings, bounded event search, event detail, and provenance.
+- **Run Lab** — paginated distance rankings, original-record detail, and provenance.
 - **Rules** — current rule versions, read-only preview, activation, recomputation progress, retry, and cancellation.
 - **Providers** — Strava connection, backfill, incremental sync, status, retry, cancellation, disconnect, and provenance.
 - **Imports** — XLSX and manual Garmin CSV upload, durable job status, history, diagnostics, retry, cancellation, and reconciliation handoff. Garmin CSV uploads are staging-only and never trigger score recalculation; an explicit daily recalculation can consume exact `daily_summary` steps.

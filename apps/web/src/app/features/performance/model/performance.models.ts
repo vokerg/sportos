@@ -51,13 +51,15 @@ export interface PerformanceEventQuery {
   distanceM?: number;
 }
 
+export interface DistanceLeaderboardQuery extends PerformanceEventQuery { offset?: number; }
+
 export interface DistanceLeaderboardRow {
   id: string; activityId: string | null; eventId: string | null; date: string; durationS: number; rank: number;
   source: 'excel' | 'strava' | 'garmin'; reason: string | null; pausePolicy: string; alternativeCount: number;
   alternatives: { source: string; durationS: number; eventId: string | null; reason: string | null }[];
 }
 export interface DistanceLeaderboard {
-  targets: number[]; targetDistanceM: number; rows: DistanceLeaderboardRow[];
+  targets: number[]; targetDistanceM: number; total: number; limit: number; offset: number; rows: DistanceLeaderboardRow[];
   coverage: { eligibleRuns: number; measuredCurrent: number; legacyLinked: number; legacyUnmatched: number; legacyAmbiguous: number;
     estimatedOnly: number; missingRichDetail: number; unprocessed: number; staleOrFailed: number; unavailable: number };
 }

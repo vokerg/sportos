@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { SPORTOS_API_BASE } from '../../../core/config/api-base';
 import type {
   DistanceLeaderboard,
+  DistanceLeaderboardQuery,
   PerformanceEventDetail,
   PerformanceEventQuery,
   PerformanceEventRow,
@@ -15,7 +16,7 @@ export class PerformanceApiService {
 
   constructor(private readonly http: HttpClient) {}
 
-  leaderboard(query: PerformanceEventQuery) {
+  leaderboard(query: DistanceLeaderboardQuery) {
     return this.http.get<DistanceLeaderboard>(`${this.apiBase}/performance/leaderboard`, {params: queryParams(query)});
   }
 

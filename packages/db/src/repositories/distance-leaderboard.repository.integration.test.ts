@@ -36,6 +36,17 @@ const enabled=process.env.SPORTOS_OWNER_TEST_DATABASE_URL && process.env.SPORTOS
   return {activity:a.id,native,hash,connection:c.id,link:link.id,source:source.id,batch:batch.id,events};
  });}
  const board=(distanceM=5000,account=owner)=>scoped(d=>new DistanceLeaderboardRepository(d).read({distanceM,limit:100}),account);
+ it('paginates every deduplicated rank beyond 200 with stable ties and account-scoped totals',async()=>{
+  const date='2078-01-01';
+  const paginationOwner=(await db.insertInto('accounts').values({status:'active',display_name:'Synthetic pagination',email:null}).returning('id').executeTakeFirstOrThrow()).id;
+  await scoped(d=>d.insertInto('performance_events').values(Array.from({length:225},(_,i)=>({source:'run_db_xlsx' as const,event_date:date,distance_m:5000,duration_s:1200+Math.floor(i/3),pace_s_per_km:240,source_record_hash:createHash('sha256').update(randomUUID()).digest('hex')}))).execute(),paginationOwner);
+  const page=(offset:number,account=paginationOwner)=>scoped(d=>new DistanceLeaderboardRepository(d).read({distanceM:5000,from:date,to:date,limit:100,offset}),account);
+  const first=await page(0),second=await page(100),last=await page(200);
+  for(const p of[first,second,last])expect(p.total).toBe(225);
+  expect([first.rows.length,second.rows.length,last.rows.length]).toEqual([100,100,25]);
+  const all=[...first.rows,...second.rows,...last.rows];expect(all.map(r=>r.rank)).toEqual(Array.from({length:225},(_,i)=>i+1));expect(new Set(all.map(r=>r.id)).size).toBe(225);
+  expect(await page(100)).toEqual(second);expect(await page(300)).toMatchObject({rows:[],total:225});expect(await page(200,foreign)).toMatchObject({rows:[],total:0});
+ });
  it('matches summary-only many-to-one, preserves re-imports, prefers Excel and hides stale measured alternatives',async()=>{
   const f=await fixture();
   for(const e of f.events.slice(0,2)){
@@ -43,7 +54,7 @@ const enabled=process.env.SPORTOS_OWNER_TEST_DATABASE_URL && process.env.SPORTOS
    expect(await scoped(d=>d.selectFrom('performance_match_heads').selectAll().where('event_id','=',e.event.id).execute())).toHaveLength(0);
    await scoped(d=>new PerformanceMatchesRepository(d).reconcile(e.event.id,false));
   }
-  expect((await board()).rows).toHaveLength(1);expect((await board()).rows[0]).toMatchObject({source:'excel',durationS:1200,activityId:f.activity,rank:1});
+  expect((await board()).total).toBe(1);expect((await board()).rows).toHaveLength(1);expect((await board()).rows[0]).toMatchObject({source:'excel',durationS:1200,activityId:f.activity,rank:1});
   expect((await board(21097.5)).rows[0].durationS).toBe(5064);expect((await board(42195)).rows).toHaveLength(1);
   await expect(board(12000)).rejects.toThrow('Unsupported');
   const old=await scoped(d=>d.selectFrom('performance_match_decisions').selectAll().execute());

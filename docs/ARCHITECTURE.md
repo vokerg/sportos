@@ -461,7 +461,10 @@ The pure deterministic matcher uses workout identity rather than exact interval
 timing, allowing multiple record distances to share one canonical Strava run.
 The primary-only leaderboard combines unchanged Excel achievements with current
 measured effort heads, preferring historical Excel time and exposing alternatives
-without duplicate activity/target ranks. Summary estimates, stale/failed values
+without duplicate activity/target ranks. Run Lab uses this as its sole results
+table, with bounded offset pagination and a deduplicated total from the same SQL
+statement. Global ranks survive paging; original event detail remains available
+without a separate history table. Summary estimates, stale/failed values
 and provider whole-run events never rank. Algorithm v5 extends measured efforts
 to marathon. Explicit bounded local catch-up reuses retained evidence or existing
 authenticated Fetch Detail POSTs; ordinary sync and GETs remain summary-first.

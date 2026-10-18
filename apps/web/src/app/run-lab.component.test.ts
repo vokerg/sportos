@@ -1,5 +1,5 @@
 import '@angular/compiler';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import type { PerformanceApiService } from './features/performance/data-access/performance-api.service';
 import type { PerformanceEventDetail, PerformanceEventRow } from './features/performance/model/performance.models';
@@ -38,23 +38,10 @@ const detail: PerformanceEventDetail = {
 };
 
 describe('RunLabComponent', () => {
-  it('loads filtered performance events and builds a chronological trend', () => {
-    const api = { performanceEvents: vi.fn().mockReturnValue(of([row])), performanceEvent: vi.fn() };
+  it('does not request the removed history list', () => {
+    const api = { performanceEvents: vi.fn(), performanceEvent: vi.fn() };
     const component = new RunLabComponent(api as unknown as PerformanceApiService);
-    component.ngOnInit();
-    expect(component.state()).toBe('loaded');
-    expect(component.rows()).toEqual([row]);
-    expect(api.performanceEvents).toHaveBeenCalledWith({ distanceM: 5000, from: undefined, to: undefined, limit: 500 });
-    expect(component.chartOptions()).toMatchObject({ series: [{ name: 'Duration' }] });
-  });
-
-  it('rejects reversed dates without calling the API', () => {
-    const api = { performanceEvents: vi.fn().mockReturnValue(of([])), performanceEvent: vi.fn() };
-    const component = new RunLabComponent(api as unknown as PerformanceApiService);
-    component.from.set('2026-06-01');
-    component.to.set('2026-05-01');
-    component.applyFilters();
-    expect(component.state()).toBe('error');
+    expect(component.detailState()).toBe('idle');
     expect(api.performanceEvents).not.toHaveBeenCalled();
   });
 
@@ -68,10 +55,11 @@ describe('RunLabComponent', () => {
     expect(component.markers(row)).toBe('Race, PR');
   });
 
+  it('cancels source inspection on close, replacement and teardown',()=>{const a=new Subject<PerformanceEventDetail>(),b=new Subject<PerformanceEventDetail>();const component=new RunLabComponent({performanceEvent:vi.fn().mockReturnValueOnce(a).mockReturnValueOnce(b)} as unknown as PerformanceApiService);component.openEvent('a');component.openEvent('b');expect(a.observed).toBe(false);component.closeDetail();expect(b.observed).toBe(false);expect(component.detailState()).toBe('idle');component.ngOnDestroy();});
+
   it('formats duration and pace for non-developer review', () => {
     const component = new RunLabComponent({} as PerformanceApiService);
     expect(component.formatDuration(1500)).toBe('25:00');
     expect(component.formatDuration(3661)).toBe('1:01:01');
-    expect(component.formatPace(305)).toBe('5:05');
   });
 });
