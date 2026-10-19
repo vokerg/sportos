@@ -28,16 +28,18 @@ export class GarminDayService {
   async read(owner: string, date: string, result?: 'cached' | 'fetched') {
     const rows = await this.rows(owner, date);
     const categories = [];
+    let uncoveredStravaActivities = false;
     for (const category of GARMIN_DAY_CATEGORIES) {
       const row = rows.find(item => item.category === category);
       let projection = row?.projection_json ?? null;
       if (category === 'activities' && projection && typeof projection === 'object' && !Array.isArray(projection)) {
-        const ids = Array.isArray(projection.identities) ? projection.identities.filter((id): id is string => typeof id === 'string').slice(0,20) : [];
+        const ids = activityIdentityKeys(projection);
+        uncoveredStravaActivities = await this.primary.withAccount(owner, db => new GarminDayRepository(db).hasUncoveredStravaActivities(date, ids));
         const attempt = row?.attempt_json;
         const identities = ids.length ? await this.primary.withAccount(owner, db => db.selectFrom('garmin_activity_identities')
           .select(['identity_key','activity_id','status']).where('identity_key','in',ids).limit(20).execute()) : [];
         const failures = attempt && typeof attempt === 'object' && !Array.isArray(attempt) && Array.isArray(attempt.failures) ? attempt.failures : [];
-        projection = { count: ids.length, complete: projection.complete ?? false, activities: ids.map((key, index) => {
+        projection = { count: ids.length, complete: projection.complete ?? false, uncoveredStravaActivities, activities: ids.map((key, index) => {
           const identity = identities.find(item => item.identity_key === key);
           const failure = failures.find(item => item && typeof item === 'object' && !Array.isArray(item) && item.identityKey === key);
           return { ordinal: index + 1, activityId: identity?.activity_id ?? null, reconciliation: identity?.status ?? 'staged',
@@ -49,7 +51,7 @@ export class GarminDayService {
         retainedAt: row?.retrieved_at?.toISOString() ?? null, attemptedAt: row?.attempted_at.toISOString() ?? null,
         evidence: projection, resourceAvailable: Boolean(row?.source_hash) });
     }
-    const partial = rows.some(row => retryable(row.state));
+    const partial = uncoveredStravaActivities || rows.some(row => retryable(row.state));
     return { date, origin: 'garmin_connect', evidenceOnly: true, fetchEnabled: this.enrichment.localEnabled(owner),
       state: !rows.length ? 'missing' : partial || rows.length < 8 ? 'partial' : 'current', result: result ?? null, categories };
   }
@@ -87,6 +89,12 @@ export class GarminDayService {
             const identity = await this.primary.withAccount(account.id, db => db.selectFrom('garmin_activity_identities').select(['current_hash']).where('identity_key','=',key).executeTakeFirst());
             if (!identity || !await retention.cachedBundle(key, identity.current_hash, account)) { complete = false; break; }
           }
+        }
+        // A prior successful discovery may predate a later Strava arrival.
+        // Recheck compact discovery explicitly, reusing existing rich resources.
+        if (complete && category === 'activities') {
+          const ids = activityIdentityKeys(row?.projection_json ?? null);
+          if (await this.primary.withAccount(account.id, db => new GarminDayRepository(db).hasUncoveredStravaActivities(date, ids))) complete = false;
         }
         if (refresh || !complete) requested.push(category);
       }
@@ -200,4 +208,9 @@ function parseDayBundle(raw: unknown, date: string, requested: GarminDayCategory
     } else if (entry.byteSize !== undefined || ['available','not_recorded','private'].includes(entry.state)) throw new BadRequestException('Missing Garmin day source.');
   }
   return value.categories;
+}
+
+function activityIdentityKeys(projection: Json): string[] {
+  return projection && typeof projection === 'object' && !Array.isArray(projection) && Array.isArray(projection.identities)
+    ? projection.identities.filter((key): key is string => typeof key === 'string').slice(0, 20) : [];
 }
