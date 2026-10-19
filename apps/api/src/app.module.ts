@@ -1,3 +1,5 @@
+import { ActivityTimelineService } from './activities/activity-timeline.service.js';
+import { ActivityTimelineController } from './activities/activity-timeline.controller.js';
 import { RunningEffortsService } from './activities/running-efforts.service.js';
 import { ActivityMetricsService } from './activities/activity-metrics.service.js';
 import { GarminDayController } from './daily/garmin-day.controller.js';
@@ -53,6 +55,7 @@ import { ActivityRouteProjectionService } from './activities/activity-route-proj
     ActivitiesController,
     HeatmapController,
     ActivityEnrichmentController,
+    ActivityTimelineController,
     GarminActivitiesController,
     GarminLocalIngestController,
   ],
@@ -74,6 +77,7 @@ import { ActivityRouteProjectionService } from './activities/activity-route-proj
     ActivityRouteProjectionService,
     ActivityMetricsService,
     ActivityEnrichmentService,
+    ActivityTimelineService,
     { provide: AnalysisTextGenerator, useFactory: createAnalysisTextGenerator },
     SessionGuard,
     { provide: APP_GUARD, useExisting: SessionGuard },

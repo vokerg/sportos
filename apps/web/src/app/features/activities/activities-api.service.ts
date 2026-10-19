@@ -1,3 +1,4 @@
+import type { ActivityTimeline, TimelineSource } from './model/activity-timeline.models';
 import type { RunningEfforts } from './model/running-efforts.models';
 import type { ProviderMetricStatus, ActivityMetricComparison } from './model/activity-metrics.models';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -121,6 +122,10 @@ export class ActivitiesApiService {
 
   map(id: string) {
     return this.http.get<ActivityMapResponse>(`${this.apiBase}/activities/${encodeURIComponent(id)}/map`);
+  }
+
+  timeline(id: string, source: TimelineSource) {
+    return this.http.get<ActivityTimeline>(`${this.apiBase}/activities/${encodeURIComponent(id)}/timeline`, { params: { source } });
   }
 
   reprocessMap(id:string) { return this.http.post(`${this.apiBase}/activities/${encodeURIComponent(id)}/map/reprocess`,{}); }
