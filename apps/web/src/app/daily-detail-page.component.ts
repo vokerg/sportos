@@ -58,7 +58,7 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
       (recalculate)="recalculate()"
       (saveManualFacts)="saveManualFacts($event)"
       (closed)="close()">
-      <sportos-garmin-day-card #garmin [date]="date() ?? ''" [showPrimaryAction]="false" [inspection]="panel.activeTab() === 'sources'" (linkedActivities)="garminActivityIds.set($event)" />
+      <sportos-garmin-day-card #garmin [date]="date() ?? ''" [showPrimaryAction]="false" [coverageRevision]="garminCoverageRevision()" [inspection]="panel.activeTab() === 'sources'" (linkedActivities)="garminActivityIds.set($event)" />
     </sportos-score-breakdown-panel>
   `,
   styles: [`
@@ -73,6 +73,7 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
 })
 export class DailyDetailPageComponent implements OnInit, OnDestroy {
   readonly garminActivityIds = signal<string[]>([]);
+  readonly garminCoverageRevision = signal(0);
   readonly date = signal<string | null>(null);
   readonly state = signal<ScoreBreakdownViewState>('loading');
   readonly breakdown = signal<DailyScoreBreakdown | null>(null);
@@ -282,6 +283,7 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
   private scheduleStravaPoll(job: ProviderSyncJob): void {
     this.clearStravaPollTimer();
     if (job.status === 'succeeded') {
+      this.garminCoverageRevision.update(value => value + 1);
       this.activeStravaJobId.set(null);
       this.stravaRefreshStatus.set('Strava is up to date. Recalculating this day…');
       this.recalculateAfterStravaRefresh();

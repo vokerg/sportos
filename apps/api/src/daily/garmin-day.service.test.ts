@@ -10,10 +10,11 @@ function setup(enabled=true) {
   const enrichment={localEnabled:vi.fn(()=>enabled),bridge:vi.fn()};
   const service=new GarminDayService(primary as never,detail as never,{} as never,enrichment as never);
   const rows=vi.spyOn(GarminDayRepository.prototype,'read').mockResolvedValue([]);
+  const uncovered=vi.spyOn(GarminDayRepository.prototype,'hasUncoveredStravaActivities').mockResolvedValue(false);
   const publish=vi.spyOn(GarminDayRepository.prototype,'publish').mockResolvedValue(undefined);
   const retain=vi.spyOn(GarminDayResourcesRepository.prototype,'retain').mockResolvedValue(undefined);
   vi.spyOn(GarminDayResourcesRepository.prototype,'read').mockResolvedValue({payload_json:{}});
-  return {service,primary,detail,enrichment,rows,publish,retain};
+  return {service,primary,detail,enrichment,rows,publish,retain,uncovered};
 }
 const bundle=(changes: Record<string,unknown>={})=>({schema:'sportos.garmin-day.v1',date,categories:GARMIN_DAY_CATEGORIES.map(category=>({category,state:'unsupported',...changes}))});
 describe('Garmin day workflow',()=>{
@@ -41,6 +42,29 @@ describe('Garmin day workflow',()=>{
     expect(enrichment.bridge).not.toHaveBeenCalled();
     await expect(service.fetch(account,date,false)).rejects.toMatchObject({response:{code:'GARMIN_LOCAL_FETCH_DISABLED'}});
     expect(enrichment.bridge).not.toHaveBeenCalled();
+  });
+  it('reports later Strava coverage gaps on GET without downloads and rechecks discovery on ordinary Fetch', async()=>{
+    const {service,enrichment,rows,uncovered,publish,detail}=setup();
+    rows.mockResolvedValue(GARMIN_DAY_CATEGORIES.map(category=>({category,state:'available',source_hash:hash,
+      projection_json:category==='activities'?{identities:['native:1'],complete:true}:{steps:123},
+      attempted_at:new Date(),retrieved_at:new Date(),availability:'available'})) as never);
+    uncovered.mockResolvedValue(true);
+    vi.spyOn(GarminLocalIngestService.prototype,'cachedBundle').mockResolvedValue(true);
+    const primary=(service as unknown as {primary:{withAccount:ReturnType<typeof vi.fn>}}).primary;
+    const chain={select:()=>chain,where:()=>chain,limit:()=>chain,execute:async()=>[],executeTakeFirst:async()=>({current_hash:hash})};
+    primary.withAccount.mockImplementation(async (_owner,fn)=>fn({selectFrom:()=>chain}));
+    const read=await service.read(account.id,date);
+    expect(read.state).toBe('partial');
+    expect(detail.withAccount).not.toHaveBeenCalled();
+    expect(read.categories.find(row=>row.category==='activities')?.evidence).toMatchObject({uncoveredStravaActivities:true});
+    expect(enrichment.bridge).not.toHaveBeenCalled();
+    enrichment.bridge.mockResolvedValue({schema:'sportos.garmin-day.v1',date,categories:[{category:'activities',state:'available',sourceHash:hash,byteSize:100}]});
+    vi.spyOn(service,'localPayload').mockResolvedValue({items:[{activityId:1,startTimeLocal:`${date} 10:00:00`}],complete:true});
+    await service.fetch(account,date,false);
+    expect(enrichment.bridge).toHaveBeenCalledWith({operation:'day',date,categories:['activities']},expect.any(AbortSignal));
+    expect(enrichment.bridge).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({category:'activities',state:'available'}));
+    expect(uncovered).toHaveBeenCalledWith(date,['native:1']);
   });
   it('disables new upstream requests when local helper policy forbids the account',async()=>{
     const {service,enrichment}=setup(false);

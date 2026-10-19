@@ -39,9 +39,15 @@ inside account context; dispatcher, worker-data, legacy and shared-data roles
 have no access to the new day tables.
 
 - **Fetch Garmin day** reuses complete retained categories and complete activity
-  resources. An unchanged completed fetch contacts no Garmin endpoint.
+  resources. If later Strava sessions are absent from the retained day’s linked
+  identities, it rechecks bounded compact activity discovery and downloads only
+  missing activity resources. No special fetch order is required. With complete
+  coverage, an unchanged completed fetch contacts no Garmin endpoint.
 - **Retry missing Garmin data** fetches failed/missing categories while preserving
-  successful categories. Retained activity identity/resources are checked before
+  successful categories. Missing Strava coverage also makes the day partial,
+  even when an earlier Garmin discovery response was complete. This is a coverage
+  gap, not proof that Garmin has a counterpart: Strava-only sessions can remain
+  unpaired. Retained activity identity/resources are checked before
   expensive downloads.
 - **Show metrics** expands compact evidence already read from
   SportOS. It works without local Garmin authorization.
@@ -107,6 +113,13 @@ upstream category reads while preserving completed categories. Successful
 categories survive other category failures. Storage errors cannot publish false
 current coverage. Cancellation may leave immutable auxiliary resources without a
 primary reference; a retry converges safely.
+
+After an explicit Strava day refresh succeeds, the daily page rereads compact
+Garmin coverage without downloading. Navigation and coverage checks use only
+owner-scoped canonical rows and compact identities; they never guess a match or
+fetch a provider. A later Garmin Fetch discovers new uploads and reconciles them
+through the same policy. Garmin-first ingestion still stages pending identities
+for reconciliation when Strava later arrives.
 
 Activities reuse #97 identity/reconciliation and the #99 original/detail/sets/FIT
 retention path. Metadata/local/remote cache checks precede full downloads. Unique

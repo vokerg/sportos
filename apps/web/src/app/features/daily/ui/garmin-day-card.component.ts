@@ -53,6 +53,9 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
                       </div>
                     }
                   } @else if (item.category === 'activities') {
+                    @if (evidence.uncoveredStravaActivities) {
+                      <p role="status">Some Strava sessions have no Garmin coverage in this saved day. Fetch Garmin day to check for later uploads. Sessions recorded only in Strava may remain unpaired.</p>
+                    }
                     <p>{{ evidence.count ?? 0 }} Garmin activities @if (!evidence.complete) { · Incomplete } </p>
                     @if (inspection()) {
                     <ul>@for (activity of evidence.activities ?? []; track activity.ordinal) {
@@ -97,6 +100,7 @@ export class GarminDayCardComponent implements OnChanges {
   readonly primaryAction = viewChild<TemplateRef<unknown>>('primaryAction');
   readonly showPrimaryAction = input(true);
   readonly inspection = input(false);
+  readonly coverageRevision = input(0);
   readonly linkedActivities = output<string[]>();
   constructor() {
     effect(() => {
@@ -112,7 +116,9 @@ export class GarminDayCardComponent implements OnChanges {
   }
   readonly date = input.required<string>();
   readonly store = inject(GarminDayStore); readonly labels = GARMIN_CATEGORY_LABELS;
-  ngOnChanges(changes?: SimpleChanges) { if ((!changes || changes['date']) && this.date()) this.store.load(this.date()); }
+  ngOnChanges(changes?: SimpleChanges) {
+    if ((!changes || changes['date'] || (changes['coverageRevision'] && !this.store.fetching())) && this.date()) this.store.load(this.date());
+  }
   status(state: GarminDayCategoryState): string {
     return { missing: 'Not fetched', available: 'Available', not_recorded: 'Not recorded for this date', unsupported: 'Unsupported by this endpoint/device', private: 'Private in Garmin', failed: 'Failed — retry available', authentication_required: 'Authentication required — run pnpm garmin:login locally', rate_limited: 'Rate limited — retry later' }[state];
   }

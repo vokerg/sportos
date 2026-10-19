@@ -7,7 +7,7 @@ export interface GarminDayMeasurement {
 export interface GarminDayActivity { ordinal: number; activityId: string | null; reconciliation: string; resourceState: string; }
 export interface GarminDayEvidence {
   [key: string]: unknown;
-  measurements?: GarminDayMeasurement[]; activities?: GarminDayActivity[]; count?: number; complete?: boolean;
+  measurements?: GarminDayMeasurement[]; activities?: GarminDayActivity[]; count?: number; complete?: boolean; uncoveredStravaActivities?: boolean;
 }
 export interface GarminDayCategoryEvidence {
   category: GarminDayCategory; state: GarminDayCategoryState; retainedState: string | null;

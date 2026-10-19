@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'kysely';
 import { createDb } from '../pool.js';
 import { withAccountContext } from '../ownership-context.js';
+import { GarminActivitiesRepository } from './garmin-activities.repository.js';
 import { GarminDayRepository, GarminDayResourcesRepository } from './garmin-day.repository.js';
 const primaryUrl=process.env.SPORTOS_OWNER_TEST_DATABASE_URL, detailUrl=process.env.SPORTOS_ACTIVITY_DETAIL_TEST_DATABASE_URL;
 const integration=primaryUrl && detailUrl ? describe : describe.skip;
@@ -35,6 +36,18 @@ integration('Garmin day provenance and RLS',()=>{
     // Old attempts cannot rewind the head.
     await withAccountContext(primary,owner,db=>new GarminDayRepository(db).publish(date,{category:'summary',state:'failed',attemptedAt:new Date('2020-01-01')}));
     expect((await withAccountContext(primary,owner,db=>new GarminDayRepository(db).read(date)))[0]?.state).toBe('authentication_required');
+  });
+  it('detects later canonical arrivals only within the owner, date and retained identity coverage',async()=>{
+    const coverage=(account:string,keys:string[]=[])=>withAccountContext(primary,account,db=>new GarminDayRepository(db).hasUncoveredStravaActivities(date,keys));
+    expect(await coverage(owner)).toBe(false);
+    const activity=await withAccountContext(primary,owner,async db=>(await db.insertInto('activities').values({source:'strava',activity_type:'walk',subtype:'outdoor',activity_date:date,start_time:new Date(`${date}T10:00:00Z`),duration_s:1800,distance_m:2000,moving_time_s:1700}).returning('id').executeTakeFirstOrThrow()).id);
+    expect(await coverage(owner)).toBe(true);
+    expect(await coverage(foreign)).toBe(false);
+    await withAccountContext(primary,owner,db=>new GarminActivitiesRepository(db).ingest({provider:'garmin',providerActivityId:'999001',contentHash:hash,origin:'connect',sourceUpdatedAt:new Date(),summary:{activityType:'walk',subtype:'outdoor',startTime:new Date(`${date}T10:00:00Z`),elapsedTimeS:1800,movingTimeS:1700,distanceM:2000}}));
+    expect(await coverage(owner,['native:999001'])).toBe(false);
+    expect(await coverage(owner,['native:999002'])).toBe(true);
+    expect(await withAccountContext(primary,owner,db=>new GarminDayRepository(db).hasUncoveredStravaActivities('2026-03-28',[]))).toBe(false);
+    expect((await withAccountContext(primary,owner,db=>db.selectFrom('activities').select('id').where('id','=',activity).executeTakeFirst()))?.id).toBe(activity);
   });
   it('isolates reads, same-owner heads and immutable raw/provenance',async()=>{
     expect(await withAccountContext(primary,foreign,db=>new GarminDayRepository(db).read(date))).toEqual([]);

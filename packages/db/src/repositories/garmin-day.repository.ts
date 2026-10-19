@@ -21,6 +21,19 @@ export class GarminDayRepository {
       .select(['h.category', 'h.version_id', 'h.state', 'h.attempt_json', 'h.attempted_at', 'v.source_hash', 'v.projection_json', 'v.retrieved_at', 'v.availability'])
       .where('h.calendar_date', '=', date).orderBy('h.category').limit(8).execute();
   }
+  /** Compact coverage check only; absence is a discovery gap, not an identity match. */
+  async hasUncoveredStravaActivities(date: string, identityKeys: string[]) {
+    validate(date);
+    if (identityKeys.length > 20 || identityKeys.some(key => !/^native:[0-9]{1,20}$/.test(key))) throw new Error('Invalid Garmin day identities.');
+    const row = await this.db.selectFrom('activities as a').select('a.id')
+      .where('a.activity_date', '=', date).where('a.source', '=', 'strava')
+      .where(eb => eb.not(eb.exists(
+        eb.selectFrom('garmin_activity_identities as i').select('i.id')
+          .whereRef('i.owner_id', '=', 'a.owner_id').whereRef('i.activity_id', '=', 'a.id')
+          .where('i.identity_key', 'in', identityKeys.length ? identityKeys : ['native:0'])
+      ))).limit(1).executeTakeFirst();
+    return Boolean(row);
+  }
   async publish(date: string, input: GarminDayWrite) {
     validate(date, input.category, input.version?.hash);
     if (Buffer.byteLength(JSON.stringify(input.version?.projection ?? {})) > 60000 || Buffer.byteLength(JSON.stringify(input.attempt ?? {})) > 8000) throw new Error('Garmin projection exceeds bounds.');
