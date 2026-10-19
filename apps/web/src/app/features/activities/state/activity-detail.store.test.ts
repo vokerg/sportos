@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActivityDetailStore } from './activity-detail.store';
 const coverage = { strava: { state: 'cached' }, garmin: { state: 'cached', linked: true, fetchEnabled: true } };
 function setup() {
-  const api = { map: vi.fn(() => of({status: 'unavailable', reason: 'no_gps'})), reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), sourceJson: vi.fn(), garminResource: vi.fn(() => of({ payload: [] })) };
+  const api = { timeline: vi.fn(() => of({source:'strava',status:'available',metrics:[],durationS:1,sampleCount:2,simplified:false})), map: vi.fn(() => of({status: 'unavailable', reason: 'no_gps'})), reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), sourceJson: vi.fn(), garminResource: vi.fn(() => of({ payload: [] })) };
   return { api, store: new ActivityDetailStore(api as never) };
 }
 describe('ActivityDetailStore', () => {
@@ -116,5 +116,26 @@ describe('activity map state', () => {
     expect(api.detail).toHaveBeenCalledTimes(1);
     expect(api.map).toHaveBeenCalledTimes(2);
     store.ngOnDestroy();
+  });
+});
+
+describe('activity timeline workflow', () => {
+  it('reads rich telemetry only on graph intent, keeping downloads separate', () => {
+    const {api,store}=setup();store.load('one');expect(api.timeline).not.toHaveBeenCalled();
+    store.loadTimeline('strava');expect(api.timeline).toHaveBeenCalledWith('one','strava');expect(store.timelineState()).toBe('loaded');
+    expect(api.fetchProviderDetail).not.toHaveBeenCalled();expect(api.fetchGarminDetail).not.toHaveBeenCalled();
+  });
+  it('cancels old source requests, prevents repeated clicks, and clears data on activity changes', () => {
+    const {api,store}=setup();const pending=new Subject<never>();api.timeline.mockReturnValueOnce(pending as never);
+    store.load('one');store.loadTimeline('strava');store.loadTimeline('strava');expect(api.timeline).toHaveBeenCalledTimes(1);
+    store.loadTimeline('garmin');expect(pending.observed).toBe(false);expect(store.timelineSource()).toBe('garmin');
+    store.load('two');expect(store.timelineData()).toBeNull();expect(store.timelineState()).toBe('idle');
+    api.timeline.mockReturnValueOnce(pending as never);store.loadTimeline('garmin');store.ngOnDestroy();expect(pending.observed).toBe(false);
+  });
+  it('clears the previous source on a failed switch and supports retry', () => {
+    const {api,store}=setup();store.load('one');store.loadTimeline('strava');
+    api.timeline.mockReturnValueOnce(throwError(()=>new Error('offline')));store.loadTimeline('garmin');
+    expect(store.timelineState()).toBe('error');expect(store.timelineData()).toBeNull();
+    store.loadTimeline('garmin');expect(store.timelineState()).toBe('loaded');
   });
 });

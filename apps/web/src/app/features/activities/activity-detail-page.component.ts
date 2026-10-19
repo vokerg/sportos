@@ -1,3 +1,4 @@
+import { ActivityTimelineComponent } from './ui/activity-timeline.component';
 import { ActivityMapComponent } from './ui/activity-map.component';
 import { RunningEffortsComponent } from './ui/running-efforts.component';
 import { ActivityMetricProvenanceComponent } from './ui/activity-metric-provenance.component';
@@ -12,7 +13,7 @@ import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.vi
 import { startTime, title, displayedSubtype } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityTimelineComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
   template: `
     <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
     @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
@@ -36,6 +37,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         </section>
       }
       @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
+      <sportos-activity-timeline [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
       <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
       @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
       @if (item.garminStrength; as strength) {

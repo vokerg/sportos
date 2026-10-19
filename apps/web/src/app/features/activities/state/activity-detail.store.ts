@@ -1,3 +1,4 @@
+import type { ActivityTimeline, TimelineSource } from '../model/activity-timeline.models';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
@@ -6,6 +7,10 @@ type LoadState = 'idle' | 'loading' | 'loaded' | 'missing' | 'error';
 
 @Injectable()
 export class ActivityDetailStore implements OnDestroy {
+  readonly timelineState = signal<'idle'|'loading'|'loaded'|'error'>('idle');
+  readonly timelineSource = signal<TimelineSource>('strava');
+  readonly timelineData = signal<ActivityTimeline|null>(null);
+  private timelineRequest = 0;
   readonly mapState = signal<'idle' | 'loading' | 'available' | 'unavailable' | 'error'>('idle');
   readonly mapData = signal<ActivityMapAvailable | null>(null);
   readonly mapReason = signal<string | null>(null);
@@ -24,11 +29,21 @@ export class ActivityDetailStore implements OnDestroy {
   ngOnDestroy() { this.cancel(); }
   private cancel() { this.generation++; for (const request of this.requests.values()) request.unsubscribe(); this.requests.clear(); }
   load(id: string, options: { coverage?: boolean } = {}) {
-    this.cancel(); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false);
+    this.cancel(); this.timelineRequest++; this.timelineState.set('idle'); this.timelineData.set(null); this.timelineSource.set('strava'); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false);
     this.sourceState.set('idle'); this.sourceJson.set(null); this.providerState.set('idle'); this.providerDetail.set(null); this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerError.set('');
     this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
     const generation = this.generation;
     this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); this.state.set('loaded'); if (options.coverage !== false) this.refreshCoverage(); this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
+  }
+  loadTimeline(source: TimelineSource = this.timelineSource()) {
+    if (!this.activity() || (this.timelineState() === 'loading' && source === this.timelineSource())) return;
+    this.requests.get('timeline')?.unsubscribe();
+    this.timelineSource.set(source); this.timelineData.set(null); this.timelineState.set('loading');
+    const generation = this.generation, request = ++this.timelineRequest;
+    this.requests.set('timeline', this.api.timeline(this.id, source).subscribe({
+      next: data => { if (generation === this.generation && request === this.timelineRequest) { this.timelineData.set(data); this.timelineState.set('loaded'); } },
+      error: () => { if (generation === this.generation && request === this.timelineRequest) this.timelineState.set('error'); },
+    }));
   }
   loadMap() {
     if (!this.activity()) return;

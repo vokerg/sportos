@@ -537,3 +537,44 @@ Retained Excel evidence can fill missing run dates through the explicit
 Historical Excel summary, with unknown session count and absent GPS/start/device
 fields. Existing Activities and all ledger/score authority are preserved. Choose
 All sources and All time to include this history.
+
+
+## Activity metric graph (#160)
+
+The Activity graph card reads retained telemetry only when **Show graph**, a
+source toggle, or **Reload retained graph** is selected. Opening an activity
+continues to read compact facts/coverage/maps without loading telemetry or
+contacting providers. Strava and Garmin stay independent; selecting a source
+never downloads missing data. Existing explicit Fetch/Refresh actions remain in
+Provider data.
+
+`GET /activities/:activityId/timeline?source=strava|garmin` validates the UUID and
+strict source allowlist, checks canonical visibility in authenticated account
+context before accessing the separate detail database, then reads only the
+selected linked source's current evidence. Foreign/nonexistent activities share
+the same 404. Stale Strava streams and incomplete Garmin manifests are unavailable.
+The response contains source/status/reason, elapsed duration, sample count,
+simplification status, and allowlisted numeric chart series. No coordinates,
+notes, raw JSON, source hashes, storage references, credentials or ownership data
+are returned. All database reads use the requesting account's non-owner context.
+No schema, canonical/scoring, provider, projection or audit writes occur.
+
+Supported recorded timelines are pace, heart rate, power, speed, native cadence,
+elevation, temperature and distance; Garmin additionally supports native ground
+contact time and vertical oscillation with explicit units. Pace is the inverse of
+recorded speed in min/km, speed is km/h, distance is km, and cadence stays in native
+rpm without assuming sport-specific steps or strokes. Unknown/developer units
+are omitted; absent metrics are never inferred from summary averages. Source
+sampling metadata must agree for Strava streams. FIT requires native UTC
+timestamps in strict order. Elapsed time includes pauses; it is relative to the
+provider timeline, not an alignment/merging of providers or official score input.
+
+The graph defaults to available pace/heart-rate/power lanes, with buttons for
+other metrics, shared elapsed-time zoom, independent unit axes, and hover values.
+Zero speed yields missing pace; zero power is retained. Missing samples and gaps
+over 30 seconds remain disconnected. Inputs are bounded at 150,000 record samples,
+100 Garmin chunks and seven elapsed days. Garmin queries extract only allowlisted
+record fields and never load GPS/vendor/original manifests. Each displayed series
+is bounded to 3,000 points (bucket extrema for complete sections, missing markers
+for incomplete sections). Simplification is labelled; retained originals remain
+unchanged. API/auxiliary failures are isolated to the graph with a retry control.

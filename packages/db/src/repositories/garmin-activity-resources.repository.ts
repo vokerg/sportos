@@ -56,6 +56,25 @@ export class GarminActivityResourcesRepository {
     return rows.rows.map(row => row.message);
   }
 
+  /** Allowlisted chart fields only. No coordinates, vendor payloads or manifest. */
+  async timelineRecords(reference: GarminResourceReference, chunkIndex: number, limit: number) {
+    validate(reference);
+    if (!Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex > 10000
+      || !Number.isInteger(limit) || limit < 1 || limit > 150001) throw new Error('Invalid timeline bounds.');
+    const rows = await sql<{ message: Json }>`select jsonb_build_object('message', value->'message', 'fields',
+      (select coalesce(jsonb_agg(field), '[]'::jsonb)
+       from jsonb_array_elements(case when jsonb_typeof(value->'fields')='array' then value->'fields' else '[]'::jsonb end) as field
+       where field->>'name' in ('timestamp','enhanced_speed','speed','heart_rate','power','cadence',
+         'enhanced_altitude','altitude','temperature','distance','stance_time','vertical_oscillation'))) as message
+      from garmin_activity_resources r cross join lateral jsonb_array_elements(
+        case when jsonb_typeof(r.payload_json)='array' then r.payload_json else '[]'::jsonb end)
+        with ordinality as m(value, position)
+      where r.identity_key=${reference.identityKey} and r.source_hash=${reference.sourceHash}
+        and r.resource_type='records' and r.chunk_index=${chunkIndex} and value->>'message'='record'
+      order by position limit ${limit}`.execute(this.db);
+    return rows.rows.map(row => row.message);
+  }
+
   async read(reference: GarminResourceReference, resourceType: GarminResourceWrite['resourceType'], chunkIndex = 0) {
     validate(reference);
     const row = await this.db.selectFrom('garmin_activity_resources').select('payload_json')

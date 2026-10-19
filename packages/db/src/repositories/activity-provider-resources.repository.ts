@@ -73,6 +73,15 @@ export class ActivityProviderResourcesRepository {
     }));
   }
 
+  /** One owner-scoped retained resource; no detail/laps/zones materialization. */
+  async streams(reference: ActivityProviderReference) {
+    return this.db.selectFrom('activity_provider_resources')
+      .select(['availability', 'provider_version as providerVersion', 'payload_json as payload'])
+      .where('activity_id', '=', reference.activityId).where('provider', '=', 'strava')
+      .where('provider_activity_id', '=', reference.providerActivityId)
+      .where('resource_type', '=', 'streams').executeTakeFirst();
+  }
+
   /** Metadata-only batch check; no large streams, FIT or JSON payload reads. */
   async metadataMany(refs: {activityId: string; providerActivityId: string}[]) {
     if (!refs.length) return [];
