@@ -44,7 +44,7 @@ describe('Garmin day workflow',()=>{
     expect(enrichment.bridge).not.toHaveBeenCalled();
   });
   it('reports later Strava coverage gaps on GET without downloads and rechecks discovery on ordinary Fetch', async()=>{
-    const {service,enrichment,rows,uncovered,publish}=setup();
+    const {service,enrichment,rows,uncovered,publish,detail}=setup();
     rows.mockResolvedValue(GARMIN_DAY_CATEGORIES.map(category=>({category,state:'available',source_hash:hash,
       projection_json:category==='activities'?{identities:['native:1'],complete:true}:{steps:123},
       attempted_at:new Date(),retrieved_at:new Date(),availability:'available'})) as never);
@@ -55,6 +55,7 @@ describe('Garmin day workflow',()=>{
     primary.withAccount.mockImplementation(async (_owner,fn)=>fn({selectFrom:()=>chain}));
     const read=await service.read(account.id,date);
     expect(read.state).toBe('partial');
+    expect(detail.withAccount).not.toHaveBeenCalled();
     expect(read.categories.find(row=>row.category==='activities')?.evidence).toMatchObject({uncoveredStravaActivities:true});
     expect(enrichment.bridge).not.toHaveBeenCalled();
     enrichment.bridge.mockResolvedValue({schema:'sportos.garmin-day.v1',date,categories:[{category:'activities',state:'available',sourceHash:hash,byteSize:100}]});

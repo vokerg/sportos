@@ -11,7 +11,7 @@ import { GarminDayStore } from '../state/garmin-day.store';
 beforeAll(() => TestBed.initTestEnvironment(BrowserDynamicTestingModule, platformBrowserDynamicTesting()));
 afterEach(() => TestBed.resetTestingModule());
 function setup() {
-  const store = {load: vi.fn(), data: () => null};
+  const store = {load: vi.fn(), data: () => null, fetching: () => false};
   TestBed.configureTestingModule({providers: [{provide: GarminDayStore, useValue: store}]});
   const component = TestBed.runInInjectionContext(() => new GarminDayCardComponent());
   return {component, store, injector: {destroy: () => TestBed.resetTestingModule()}};
@@ -26,6 +26,17 @@ describe('Garmin day evidence card',()=>{
   it('switches inspection views without reloading coverage or fetching resources', () => {
     const {component, store, injector} = setup();
     component.ngOnChanges({inspection: new SimpleChange(false, true, false)});
+    expect(store.load).not.toHaveBeenCalled();
+    injector.destroy();
+  });
+  it('rereads compact coverage after Strava completes without fetching provider data', () => {
+    const {component, store, injector} = setup();
+    Object.defineProperty(component, 'date', {value: () => '2026-03-29'});
+    component.ngOnChanges({coverageRevision: new SimpleChange(0, 1, false)});
+    expect(store.load).toHaveBeenCalledWith('2026-03-29');
+    store.load.mockClear();
+    store.fetching = () => true;
+    component.ngOnChanges({coverageRevision: new SimpleChange(1, 2, false)});
     expect(store.load).not.toHaveBeenCalled();
     injector.destroy();
   });

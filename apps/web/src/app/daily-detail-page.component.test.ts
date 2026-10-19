@@ -111,6 +111,7 @@ describe('DailyDetailPageComponent', () => {
     });
     expect(api.recalculate).toHaveBeenCalledWith(date);
     expect(component.stravaRefreshStatus()).toContain('latest activities');
+    expect(component.garminCoverageRevision()).toBe(1);
     expect(component.refreshingFromStrava()).toBe(false);
   });
 });
