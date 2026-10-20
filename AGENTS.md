@@ -410,3 +410,14 @@ An issue is complete only when its acceptance criteria are satisfied; the releva
   bounded pause only with at most 10 m drift and a moving sample resuming within
   30 seconds. Selected windows crossing it carry the qualification; genuine
   unknown gaps still split sections. Never use Garmin to fill Strava gaps.
+
+
+### Swim bonus distance multiplier (#164)
+
+- V139 versions standard swim tiers with `completed_1k_blocks`: highest strict
+  moving-pace tier × `floor(canonical distanceM / 1000)` per canonical swim.
+  A 2 km swim at 19:57/km earns 4,000; do not round distance favourably or combine
+  separate swims. Preserve the V136 no-multiplier UUID semantics and snapshots.
+- Domain proposal validation and database constraints restrict this multiplier to
+  `swim.pace.1k` / `moving_pace_s_per_km` / strict `lt`. Customized groups and
+  imported authority remain unchanged by the upgrade. See `docs/SCORING_RULES.md`.

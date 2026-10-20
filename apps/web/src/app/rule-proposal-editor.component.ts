@@ -83,6 +83,7 @@ import {
           <label>Points multiplier
             <select name="pointsMultiplier" [ngModel]="proposal().pointsMultiplier" (ngModelChange)="patch('pointsMultiplier', $event)">
               <option [ngValue]="undefined">None</option>
+              <option value="completed_1k_blocks">Completed 1 km blocks (swim)</option>
               <option value="completed_5k_blocks">Completed 5 km blocks</option>
               <option value="rounded_5k_blocks">Favourably rounded 5 km blocks</option>
             </select>

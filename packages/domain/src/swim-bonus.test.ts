@@ -50,3 +50,53 @@ describe('one highest swim bonus per canonical activity', () => {
     expect(validateRuleProposal({...tiers[0],pointsMultiplier:undefined})).toMatchObject({metric:'moving_pace_s_per_km',achievementGroup:'swim.pace.1k'});
   });
 });
+
+
+const kilometreTiers: ScoringRule[] = tiers.map(rule => ({
+  ...rule, id: `km-${rule.id}`, pointsMultiplier: 'completed_1k_blocks',
+}));
+
+describe('swim bonus per completed kilometre', () => {
+  it.each([
+    [1000, 1197, 2000], [2000, 2394, 4000], [3000, 3591, 6000],
+    [1999, 1999 * 1.197, 2000], [2500, 2992.5, 4000],
+    [2000, 2400, 0], [2000, 2340, 4000], [2000, 2338, 6000],
+    [2000, 2280, 6000], [2000, 2278, 8000], [2000, 2220, 8000],
+    [2000, 2218, 10000], [999.99, 1000, 0],
+  ])('scores %s m in %s moving seconds as %s bonus', (distanceM, movingTimeS, bonusPoints) => {
+    const result = score([swim({ distanceM, movingTimeS })], kilometreTiers);
+    expect(result.bonusPoints).toBe(bonusPoints);
+    expect(result.ledger).toHaveLength(bonusPoints ? 1 : 0);
+  });
+
+  it('records the exact multiplier, canonical inputs and new rule UUID', () => {
+    const result = score([swim({ distanceM: 2000, movingTimeS: 2394 })], kilometreTiers);
+    expect(result.ledger[0]).toMatchObject({
+      ruleId: 'km-rule-0', points: 4000,
+      calculationJson: { metricValue: 1197, configuredPoints: 2000,
+        pointsMultiplier: 'completed_1k_blocks', multiplierValue: 2,
+        multiplierInputValue: 2000, awardedPoints: 4000, eligibilityRounding: null },
+    });
+    expect(result.ledger[0].reason).toContain('2 completed km × 2000 = 4000');
+    expect(score([swim({ distanceM: 2000, movingTimeS: 2394 })], tiers).bonusPoints).toBe(2000);
+  });
+
+  it('never combines separate swim distances and rejects missing moving time', () => {
+    expect(score([swim({ id: 'a', distanceM: 600, movingTimeS: 600 }),
+      swim({ id: 'b', distanceM: 600, movingTimeS: 600 })], kilometreTiers).bonusPoints).toBe(0);
+    expect(score([swim({ id: 'a', distanceM: 1500, movingTimeS: 1795.5 }),
+      swim({ id: 'b', distanceM: 1500, movingTimeS: 1795.5 })], kilometreTiers).bonusPoints).toBe(4000);
+    expect(score([swim({ distanceM: 2000, movingTimeS: undefined, durationS: 2394 })], kilometreTiers).bonusPoints).toBe(0);
+  });
+
+  it('allows only the supported swim rule shape for preview/publication', () => {
+    expect(validateRuleProposal(kilometreTiers[0])).toMatchObject({ pointsMultiplier: 'completed_1k_blocks' });
+    for (const override of [
+      { activityType: 'run' }, { metric: 'pace_s_per_km' },
+      { achievementGroup: undefined }, { achievementGroup: 'another.group' },
+      { thresholdOperator: 'lte' },
+    ]) {
+      expect(() => validateRuleProposal({ ...kilometreTiers[0], ...override })).toThrow();
+    }
+  });
+});

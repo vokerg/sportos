@@ -154,3 +154,10 @@ describe('Rules Studio view model', () => {
     }));
   });
 });
+
+
+it('describes swim tier points per completed kilometre', () => {
+  expect(ruleFormula({ ruleKind: 'achievement', thresholdOperator: 'lt',
+    thresholdValue: 1200, thresholdUnit: 's/km', points: 2000,
+    pointsMultiplier: 'completed_1k_blocks' })).toBe('lt 1200 s/km → +2000 per completed km');
+});

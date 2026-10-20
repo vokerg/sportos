@@ -72,7 +72,7 @@ export interface DailyScoreBreakdownLedgerRow {
   ruleThresholdUnit: string | null;
   ruleConfiguredPoints: number | null;
   ruleAchievementGroup: string | null;
-  rulePointsMultiplier: 'completed_5k_blocks' | 'rounded_5k_blocks' | null;
+  rulePointsMultiplier: 'completed_5k_blocks' | 'rounded_5k_blocks' | 'completed_1k_blocks' | null;
   ruleValidFrom: string | null;
   ruleValidTo: string | null;
   rulePriority: number | null;
