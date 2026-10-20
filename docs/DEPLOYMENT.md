@@ -93,9 +93,9 @@ exact origin for API CORS, browser redirects, and the Strava callback URL.
 The Render API hostname is `https://sportos-api-5qdc.onrender.com`; Vercel's
 `/api` rewrite targets that exact service.
 
-Deploy the same reviewed commit to both hosts. Until the PR is merged, explicitly
-select `issue-95-hosted-deployment` as the deployment source. Merging is a separate
-maintainer action; switch production Git branches to `main` after that merge.
+Deploy the same reviewed commit to both hosts. Production deployments on both
+hosts must follow `main`: keep Render's service branch and Vercel's Production
+Branch set to `main`, and keep every other Git branch disabled for deployment.
 
 ## Database, backup and rollback
 
