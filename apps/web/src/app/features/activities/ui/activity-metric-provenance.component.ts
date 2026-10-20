@@ -14,7 +14,7 @@ import { metricValue, type ActivityMetricComparison } from '../model/activity-me
       </details>
     }
   `,
-  styles: [`details{margin-top:16px;font-size:13px;overflow-wrap:anywhere}summary{cursor:pointer;font-weight:700}p{color:#667085}`],
+  styles: [`details{margin-top:16px;font-size:13px;overflow-wrap:anywhere}summary{cursor:pointer;font-weight:700}p{color:var(--text-muted)}`],
 })
 export class ActivityMetricProvenanceComponent {
   readonly metrics = input<ActivityMetricComparison[]>([]);

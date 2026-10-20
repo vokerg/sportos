@@ -35,10 +35,10 @@ export type { DailyQuickEntryChange, DailyQuickEntryGridRow } from './features/d
     </ag-grid-angular>
   `,
   styles: [`
-    .quick-entry-help { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 12px 14px; border: 1px solid #b8c8ed; border-radius: 12px 12px 0 0; background: #eef3ff; }
+    .quick-entry-help { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 12px 14px; border: 1px solid var(--border-accent); border-radius: 12px 12px 0 0; background: var(--accent-surface); }
     .quick-entry-help div { display: grid; gap: 3px; }
-    .quick-entry-help strong { color: #243b73; font-size: 13px; }
-    .quick-entry-help span { color: #667085; font-size: 12px; }
+    .quick-entry-help strong { color: var(--link); font-size: 13px; }
+    .quick-entry-help span { color: var(--text-muted); font-size: 12px; }
     .save-note { align-self: center; }
     .quick-grid { width: 100%; height: min(66vh, 760px); min-height: 500px; }
     @media (max-width: 760px) { .quick-entry-help { flex-direction: column; } }

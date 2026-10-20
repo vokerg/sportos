@@ -78,7 +78,7 @@ import { WebAuthService } from './web-auth.service';
   styles: [`
     .auth-card { max-width: 560px; margin: 10vh auto 0; text-align: center; }
     .sign-in-form { display: grid; gap: 10px; text-align: left; max-width: 340px; margin: 24px auto 0; }
-    .sign-in-form input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #b8c1d1; border-radius: 8px; font: inherit; }
+    .sign-in-form input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
     .sign-in-form button { margin-top: 10px; }
     .app-header {
       position: sticky;
@@ -90,19 +90,19 @@ import { WebAuthService } from './web-auth.service';
       gap: 22px;
       min-height: 72px;
       padding: 10px clamp(20px, 4vw, 72px);
-      border-bottom: 1px solid #e4e7ec;
-      background: rgba(255, 255, 255, .96);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-glass);
       box-shadow: 0 4px 18px rgba(20, 33, 61, .05);
       backdrop-filter: blur(12px);
     }
-    .brand { display: inline-flex; align-items: center; gap: 10px; color: #172033; font-size: 20px; text-decoration: none; }
-    .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #2854d9; color: #fff; font-weight: 850; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); font-size: 20px; text-decoration: none; }
+    .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: var(--primary); color: var(--on-primary); font-weight: 850; }
     nav { display: flex; justify-content: center; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
-    nav a { padding: 9px 10px; border-radius: 10px; color: #5d6880; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; }
-    nav a:hover { background: #f2f4f8; color: #172033; }
-    nav a.active { background: #e9efff; color: #244fc5; box-shadow: inset 0 0 0 1px #a8baf0; }
+    nav a { padding: 9px 10px; border-radius: 10px; color: var(--text-muted); font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+    nav a:hover { background: var(--surface-muted); color: var(--text); }
+    nav a.active { background: var(--accent-surface); color: var(--link); box-shadow: inset 0 0 0 1px var(--accent-surface); }
     .account-actions { display: flex; align-items: center; gap: 10px; }
-    .account-name { max-width: 170px; overflow: hidden; color: #667085; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .account-name { max-width: 170px; overflow: hidden; color: var(--text-muted); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
     .page-shell.full-page { padding: 0; }
     .page-shell { padding: 24px clamp(20px, 4vw, 72px) 48px; }
     @media (max-width: 1180px) {

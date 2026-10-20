@@ -260,6 +260,9 @@ For focused work, `pnpm dev:api` starts only the compiled/watch API, while
 
 ## Cockpit workflows
 
+The cockpit follows the browser's light/dark color preference automatically,
+including forms, tables and charts. Preference changes apply without a page reload.
+
 After authentication, the Angular cockpit provides:
 
 - **Overview** — recent official score highlights and a selected-day quick sheet, with explicit paths to the complete ledger and day workspace.

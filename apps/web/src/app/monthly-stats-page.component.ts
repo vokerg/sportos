@@ -1,5 +1,6 @@
+import { ColorSchemeService } from './core/theme/color-scheme.service';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { inject, Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { Subject, takeUntil } from 'rxjs';
@@ -116,7 +117,7 @@ const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
         <section class="card chart-card" aria-labelledby="trend-title">
         <div class="section-title"><div><span class="page-kicker">Trend</span><h2 id="trend-title">Selected metrics</h2></div><span>{{ current.range.from }} → {{ current.range.to }}</span></div>
         @if (mode() === 'absolute' && hasMixedUnits()) { <p class="axis-note">Absolute series use a separate labelled axis for each metric. Choose indexed comparison to compare shapes across unlike units.</p> }
-        <div echarts class="dynamics-chart" [options]="chartOptions()" role="img" aria-label="Selected SportOS metric trends"></div>
+        <div echarts [theme]="colorScheme.chartTheme()" class="dynamics-chart" [options]="chartOptions()" role="img" aria-label="Selected SportOS metric trends"></div>
         </section>
 
         <section class="card table-card" aria-labelledby="monthly-title">
@@ -177,16 +178,17 @@ const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
     }
   `,
   styles: [`
-    .dynamics-heading { margin: 6px 0 22px; }.dynamics-heading h1 { margin: 5px 0; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.035em; }.dynamics-heading p, .semantics, .axis-note, .section-title > span, .table-description { margin: 0; color: #667085; }
-    .page-kicker { color: #5368ae; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { margin: 0; padding: 12px; border: 1px solid #dbe3f0; border-radius: 12px; } legend { padding: 0 6px; color: #475467; font-size: 12px; font-weight: 750; }
-    .metric-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; }.metric-picker label { display: flex; align-items: center; gap: 6px; }.metric-picker input { min-width: auto; }.semantics, .axis-note, .selection-message { font-size: 12px; }.selection-message { margin: 0; color: #991b1b; }
+    .dynamics-heading { margin: 6px 0 22px; }.dynamics-heading h1 { margin: 5px 0; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.035em; }.dynamics-heading p, .semantics, .axis-note, .section-title > span, .table-description { margin: 0; color: var(--text-muted); }
+    .page-kicker { color: var(--link); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { margin: 0; padding: 12px; border: 1px solid var(--border-accent); border-radius: 12px; } legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 750; }
+    .metric-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; }.metric-picker label { display: flex; align-items: center; gap: 6px; }.metric-picker input { min-width: auto; }.semantics, .axis-note, .selection-message { font-size: 12px; }.selection-message { margin: 0; color: var(--danger); }
     .chart-card, .table-card { margin-bottom: 16px; }.section-title { display: flex; justify-content: space-between; align-items: end; gap: 16px; }.section-title h2 { margin: 4px 0 0; }.table-description { margin-top: 6px; font-size: 12px; }.dynamics-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }.axis-note { margin-top: 8px; }
-    .table-scroll { margin-top: 14px; min-height: 520px; max-height: 760px; overflow: auto; border: 1px solid #e4e7ec; border-radius: 12px; } table { width: 100%; border-collapse: collapse; white-space: nowrap; } th, td { padding: 11px 12px; border-bottom: 1px solid #edf0f5; text-align: right; } th:first-child, td:first-child { text-align: left; } thead th { position: sticky; top: 0; background: #f7f9fc; color: #667085; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }.ledger-table thead th:nth-child(n+4) { min-width: 78px; }.month-row .year-cell { width: 116px; }.month-cell { color: #344054; font-weight: 650; text-align: left; }.coverage { color: #667085; font-size: 12px; }.tree-toggle { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 0; background: transparent; color: #23314f; font: inherit; cursor: pointer; }.tree-toggle span { display: inline-grid; width: 17px; height: 17px; place-items: center; border: 1px solid #b7c3d8; border-radius: 4px; color: #5368ae; font-weight: 800; line-height: 1; }.year-total th, .year-total td { background: #eaf0fa; font-weight: 750; border-bottom-color: #d6dfef; }.year-total.collapsed th, .year-total.collapsed td { background: #dce5f3; }.partial { margin-left: 5px; padding: 3px 6px; border-radius: 999px; background: #fff1d6; color: #945c00; font-size: 9px; text-transform: uppercase; }.state-card { display: grid; gap: 12px; justify-items: start; }.state-card.error { color: #991b1b; }
+    .table-scroll { margin-top: 14px; min-height: 520px; max-height: 760px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; } table { width: 100%; border-collapse: collapse; white-space: nowrap; } th, td { padding: 11px 12px; border-bottom: 1px solid var(--border); text-align: right; } th:first-child, td:first-child { text-align: left; } thead th { position: sticky; top: 0; background: var(--accent-surface); color: var(--text-muted); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }.ledger-table thead th:nth-child(n+4) { min-width: 78px; }.month-row .year-cell { width: 116px; }.month-cell { color: var(--text-secondary); font-weight: 650; text-align: left; }.coverage { color: var(--text-muted); font-size: 12px; }.tree-toggle { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 0; background: transparent; color: var(--text); font: inherit; cursor: pointer; }.tree-toggle span { display: inline-grid; width: 17px; height: 17px; place-items: center; border: 1px solid var(--border); border-radius: 4px; color: var(--link); font-weight: 800; line-height: 1; }.year-total th, .year-total td { background: var(--accent-surface); font-weight: 750; border-bottom-color: var(--border-accent); }.year-total.collapsed th, .year-total.collapsed td { background: var(--accent-surface); }.partial { margin-left: 5px; padding: 3px 6px; border-radius: 999px; background: var(--warning-surface); color: var(--warning); font-size: 9px; text-transform: uppercase; }.state-card { display: grid; gap: 12px; justify-items: start; }.state-card.error { color: var(--danger); }
     @media (max-width: 700px) { .section-title { display: grid; }.dynamics-chart { min-height: 340px; } }
   `],
 })
 export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
+  readonly colorScheme = inject(ColorSchemeService);
   readonly availableMetrics = DYNAMICS_METRICS;
   readonly labels = DYNAMICS_LABELS;
   readonly quickRange = signal<QuickRange>(DEFAULT_MONTHLY_QUICK_RANGE);

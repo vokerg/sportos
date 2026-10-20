@@ -53,7 +53,7 @@ import { DistanceLeaderboardStore } from '../state/distance-leaderboard.store';
         </nav>
       }
     </section>`,
-  styles:[`:host{display:block;margin-bottom:16px}.source-badge{display:inline-block;font-size:12px;font-weight:600;padding:3px 7px;background:#eef2ff;color:#3448a5;border-radius:6px}p{color:#667085;font-size:13px}table{width:100%;border-collapse:collapse}th,td{padding:10px;text-align:left;border-bottom:1px solid #e4e7ec}.table-scroll{overflow-x:auto}small{display:block}.coverage{margin:14px 0}.pagination{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}.pagination span{margin-right:auto}td button,td a{margin-right:8px}`],
+  styles:[`:host{display:block;margin-bottom:16px}.source-badge{display:inline-block;font-size:12px;font-weight:600;padding:3px 7px;background:var(--accent-surface);color:var(--link);border-radius:6px}p{color:var(--text-muted);font-size:13px}table{width:100%;border-collapse:collapse}th,td{padding:10px;text-align:left;border-bottom:1px solid var(--border)}.table-scroll{overflow-x:auto}small{display:block}.coverage{margin:14px 0}.pagination{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}.pagination span{margin-right:auto}td button,td a{margin-right:8px}`],
 })
 export class DistanceLeaderboardComponent implements OnInit {
   readonly store=inject(DistanceLeaderboardStore);

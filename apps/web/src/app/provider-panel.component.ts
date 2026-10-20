@@ -57,13 +57,13 @@ import { ProviderStore } from './features/providers/state/provider.store';
     </section>
   `,
   styles: [`
-    .help { margin: -6px 0 16px; color: #667085; font-size: 13px; }
+    .help { margin: -6px 0 16px; color: var(--text-muted); font-size: 13px; }
     .provider-summary, .job-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .provider-summary div { display: grid; gap: 2px; }
     .status { text-transform: capitalize; font-size: 12px; font-weight: 700; }
-    .meta { color: #667085; font-size: 13px; overflow-wrap: anywhere; }
+    .meta { color: var(--text-muted); font-size: 13px; overflow-wrap: anywhere; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    .job { margin-top: 18px; padding-top: 16px; border-top: 1px solid #eaecf0; }
+    .job { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
     progress { width: 100%; margin-top: 10px; }
   `],
 })

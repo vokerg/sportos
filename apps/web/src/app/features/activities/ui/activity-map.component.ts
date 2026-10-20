@@ -51,11 +51,11 @@ export function routeQuality(route: Pick<ActivityMapAvailable, 'source' | 'resol
   `,
   styles: [`
     :host{display:block;margin:16px 0}.activity-route{overflow:hidden}.heading{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:6px}
-    h2{font-size:17px;margin:0}.quality{font-size:12px;border-radius:16px;background:#eef2ff;color:#344054;padding:5px 10px;font-weight:650}
-    .description,.text-route{font-size:13px;color:#667085}.description{margin:4px 0 12px}
-    .map{width:100%;height:clamp(260px,40vw,440px);border-radius:12px;background:#eef2f5;overflow:hidden}
-    .map:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}.text-route{margin:10px 0 0}
-    .expand-link{margin-left:auto;font-size:13px;font-weight:700;color:#1d4ed8}
+    h2{font-size:17px;margin:0}.quality{font-size:12px;border-radius:16px;background:var(--accent-surface);color:var(--text-secondary);padding:5px 10px;font-weight:650}
+    .description,.text-route{font-size:13px;color:var(--text-muted)}.description{margin:4px 0 12px}
+    .map{width:100%;height:clamp(260px,40vw,440px);border-radius:12px;background:var(--surface-muted);overflow:hidden}
+    .map:focus-visible{outline:3px solid var(--focus);outline-offset:2px}.text-route{margin:10px 0 0}
+    .expand-link{margin-left:auto;font-size:13px;font-weight:700;color:var(--link)}
     :host.expanded{height:100%;min-height:0;margin:0;display:flex;flex-direction:column}
     :host.expanded .activity-route{flex:1;min-height:0;display:flex;flex-direction:column;border:0;border-radius:0;padding:12px 16px}
     :host.expanded .map{flex:1;min-height:0;height:auto;border-radius:0}

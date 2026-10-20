@@ -37,19 +37,19 @@ import type { ImportJob } from './features/imports/model/imports.models';
     <p class="developer-note">Status polling stops on a terminal state or after 120 checks. The server-local CLI remains available for development.</p>
   `,
   styles: [`
-    .job-card { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: #f8fafc; }
+    .job-card { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--accent-surface); }
     .job-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .job-heading p, .privacy-note, .developer-note { color: #667085; font-size: 13px; }
+    .job-heading p, .privacy-note, .developer-note { color: var(--text-muted); font-size: 13px; }
     .job-heading p, .privacy-note, .request-message, .developer-note { margin: 0; }
     .job-progress { display: flex; align-items: center; gap: 10px; }
     .job-progress progress { width: min(360px, 100%); }
     .job-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .secondary { background: #e8eefc; color: #1d4ed8; }
-    .error-message { color: #991b1b; }
-    .status { display: inline-flex; padding: 3px 8px; border-radius: 999px; background: #e5e7eb; color: #344054; font-size: 11px; font-weight: 750; text-transform: uppercase; }
-    .status-succeeded { background: #dcfce7; color: #166534; }
-    .status-failed, .status-cancelled { background: #fee2e2; color: #991b1b; }
-    .status-queued, .status-running { background: #fef3c7; color: #92400e; }
+    .secondary { background: var(--accent-surface); color: var(--link); }
+    .error-message { color: var(--danger); }
+    .status { display: inline-flex; padding: 3px 8px; border-radius: 999px; background: var(--surface-muted); color: var(--text-secondary); font-size: 11px; font-weight: 750; text-transform: uppercase; }
+    .status-succeeded { background: var(--success-surface); color: var(--success); }
+    .status-failed, .status-cancelled { background: var(--danger-surface); color: var(--danger); }
+    .status-queued, .status-running { background: var(--warning-surface); color: var(--warning); }
   `],
 })
 export class ImportJobProgressComponent {

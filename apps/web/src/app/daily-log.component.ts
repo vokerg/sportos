@@ -96,13 +96,13 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
   styles: [`
     .daily-log-header { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
     .daily-log-header h2 { margin-bottom: 6px; }
-    .daily-log-help { margin: 0; color: #667085; font-size: 13px; }
-    .current-average { display: grid; flex: 0 0 auto; gap: 3px; min-width: 150px; padding: 10px 14px; border-radius: 12px; background: #eef3ff; }
-    .current-average span { color: #667085; font-size: 11px; font-weight: 650; }
-    .current-average strong { color: #172b4d; font-size: 22px; }
-    .view-switch { display: flex; gap: 4px; width: fit-content; padding: 4px; border: 1px solid #dbe4f0; border-radius: 10px; background: #f8fafc; }
-    .view-switch button { border-color: transparent; background: transparent; color: #667085; }
-    .view-switch button.active { border-color: #b8c8ed; background: #fff; color: #243b73; box-shadow: 0 1px 2px rgba(16, 24, 40, .08); }
+    .daily-log-help { margin: 0; color: var(--text-muted); font-size: 13px; }
+    .current-average { display: grid; flex: 0 0 auto; gap: 3px; min-width: 150px; padding: 10px 14px; border-radius: 12px; background: var(--accent-surface); }
+    .current-average span { color: var(--text-muted); font-size: 11px; font-weight: 650; }
+    .current-average strong { color: var(--text); font-size: 22px; }
+    .view-switch { display: flex; gap: 4px; width: fit-content; padding: 4px; border: 1px solid var(--border-accent); border-radius: 10px; background: var(--accent-surface); }
+    .view-switch button { border-color: transparent; background: transparent; color: var(--text-muted); }
+    .view-switch button.active { border-color: var(--border-accent); background: var(--surface); color: var(--link); box-shadow: 0 1px 2px rgba(16, 24, 40, .08); }
     @media (max-width: 640px) { .daily-log-header { align-items: stretch; flex-direction: column; } .current-average { min-width: 0; } }
   `],
 })

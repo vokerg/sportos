@@ -33,10 +33,10 @@ import { startTime, title } from '../activity.view-model';
     </section>
   `,
   styles: [`
-    .map-page{display:flex;flex-direction:column;background:#fff;height:100dvh}
-    header{display:flex;align-items:center;flex-wrap:wrap;gap:10px 24px;padding:12px 16px;border-bottom:1px solid #e4e7ec}
-    header a{color:#1d4ed8;font-size:14px;font-weight:700}h1{margin:0;font-size:18px;overflow-wrap:anywhere}
-    header span{color:#667085;font-size:13px}.status{padding:16px}sportos-activity-map{flex:1;min-height:0}
+    .map-page{display:flex;flex-direction:column;background:var(--surface);height:100dvh}
+    header{display:flex;align-items:center;flex-wrap:wrap;gap:10px 24px;padding:12px 16px;border-bottom:1px solid var(--border)}
+    header a{color:var(--link);font-size:14px;font-weight:700}h1{margin:0;font-size:18px;overflow-wrap:anywhere}
+    header span{color:var(--text-muted);font-size:13px}.status{padding:16px}sportos-activity-map{flex:1;min-height:0}
   `],
 })
 export class ActivityMapPageComponent implements OnInit, OnDestroy {

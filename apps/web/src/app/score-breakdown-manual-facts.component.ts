@@ -67,23 +67,23 @@ import { formatScoreDate } from './score-breakdown.view-model';
     :host { display: block; }
     .manual-dialog-layer { position: fixed; z-index: 400; inset: 0; display: grid; place-items: center; padding: 20px; box-sizing: border-box; }
     .manual-dialog-scrim { position: absolute; inset: 0; background: rgba(23, 32, 51, .34); backdrop-filter: blur(2px); }
-    .manual-facts-form { position: relative; width: min(920px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow-y: auto; box-sizing: border-box; padding: 22px; border: 1px solid #e2d5ae; border-radius: 16px; background: #fffdf8; box-shadow: 0 24px 70px rgba(23, 32, 51, .25); }
+    .manual-facts-form { position: relative; width: min(920px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow-y: auto; box-sizing: border-box; padding: 22px; border: 1px solid var(--border); border-radius: 16px; background: var(--warning-surface); box-shadow: 0 24px 70px rgba(23, 32, 51, .25); }
     .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
-    .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
-    .section-label { color: #667085; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-    .section-help { max-width: 760px; margin: 5px 0 0; color: #667085; font-size: 12px; line-height: 1.45; }
+    .section-heading h4 { margin: 3px 0 0; color: var(--text); font-size: 17px; }
+    .section-label { color: var(--text-muted); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .section-help { max-width: 760px; margin: 5px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
     .manual-facts-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 10px; }
-    .manual-facts-grid label { display: grid; gap: 5px; color: #475467; font-size: 11px; font-weight: 700; }
-    .manual-facts-grid input { min-width: 0; padding: 8px; border: 1px solid #cbd6ed; border-radius: 7px; background: white; }
-    .steps-option { display: flex; align-items: center; gap: 8px; margin-top: 14px; color: #344054; font-size: 12px; font-weight: 650; }
-    .steps-preview { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: #eef3ff; color: #243b73; font-size: 12px; }
-    .more-fields { margin-top: 14px; border-top: 1px solid #e1e7f0; padding-top: 12px; }
-    .more-fields summary { cursor: pointer; color: #40558f; font-size: 12px; font-weight: 750; }
+    .manual-facts-grid label { display: grid; gap: 5px; color: var(--text-secondary); font-size: 11px; font-weight: 700; }
+    .manual-facts-grid input { min-width: 0; padding: 8px; border: 1px solid var(--border-accent); border-radius: 7px; background: var(--surface); }
+    .steps-option { display: flex; align-items: center; gap: 8px; margin-top: 14px; color: var(--text-secondary); font-size: 12px; font-weight: 650; }
+    .steps-preview { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--accent-surface); color: var(--link); font-size: 12px; }
+    .more-fields { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .more-fields summary { cursor: pointer; color: var(--link); font-size: 12px; font-weight: 750; }
     .more-fields .manual-facts-grid { margin-top: 12px; }
     .manual-form-actions { display: flex; gap: 8px; margin-top: 14px; }
-    .recalculation-error { color: #b54747; font-size: 12px; }
-    .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
-    .dialog-close { flex: 0 0 auto; width: 34px; height: 34px; padding: 0; border: 1px solid #d0d5dd; border-radius: 50%; background: white; color: #475467; font-size: 21px; line-height: 1; }
+    .recalculation-error { color: var(--danger); font-size: 12px; }
+    .secondary-button { background: var(--surface); color: var(--link); border: 1px solid var(--border-accent); box-shadow: none; }
+    .dialog-close { flex: 0 0 auto; width: 34px; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-secondary); font-size: 21px; line-height: 1; }
     @media (max-width: 900px) { .manual-facts-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); } }
     @media (max-width: 520px) {
       .manual-dialog-layer { padding: 10px; }
