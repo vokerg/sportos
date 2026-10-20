@@ -304,3 +304,15 @@ partial kilometres, imported/manual/calculated authority, exact multiplier
 provenance, unchanged activities/history/base and ledger-total parity. Runtime
 coverage in `swim-bonus.repository.integration.test.ts` uses non-owner app,
 dispatcher and worker-data roles for a 2 km swim and preview/recomputation.
+
+
+## Human-readable rule guide
+
+`/rules` is a read-only explanation of the account's current effective rules.
+It separates base points from achievement ladders, explains strict versus
+inclusive pace thresholds and completed-distance multipliers, and keeps past,
+inactive and scheduled versions in a collapsed reference table. It has no rule
+editing or activation controls. `GET /rules` includes deterministic domain-owned
+`guide` text for each version; default run/bike rates reuse authoritative subtype
+coefficients rather than presenting the configured generic fallback as universal.
+Historical rule definitions and the backend audited publication API remain intact.

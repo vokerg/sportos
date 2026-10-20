@@ -226,7 +226,7 @@ The poller emits explicit `loading`, `terminal`, `error`, and `exhausted` states
 
 Do not add direct `setTimeout`, `setInterval`, or RxJS `timer` polling loops for durable jobs. Keep provider/import/rule models out of `core/jobs/`; the poller depends only on the caller-supplied request and terminal predicate.
 
-Imports and Providers now own durable-job polling in route-scoped feature stores under `features/imports/state/` and `features/providers/state/`. Their components bind store signals and forward intents rather than scheduling timers. Daily quick-entry Strava refresh remains another feature-state reference adoption: the Daily store owns the provider job lifecycle and uses the core poller rather than a component timer. Rules Studio remains a legacy polling migration for later focused work.
+Imports and Providers now own durable-job polling in route-scoped feature stores under `features/imports/state/` and `features/providers/state/`. Their components bind store signals and forward intents rather than scheduling timers. Daily quick-entry Strava refresh remains another feature-state reference adoption: the Daily store owns the provider job lifecycle and uses the core poller rather than a component timer. The Rules route is now a read-only guide under `features/rules/pages/`; its single cancellable read needs no workflow store or job polling.
 
 ### Daily feature-state reference
 
@@ -408,3 +408,22 @@ Heatmap #140 consumes compact pages incrementally, aggregates uniform-distance
 samples into three shared density resolutions and bounds simplified display lines
 separately from input. Filter replacement discards the entire pending builder;
 only a successfully completed dataset reaches MapLibre.
+
+
+## Read-only scoring guide (#164)
+
+The `/rules` route uses `features/rules/pages/rules-page.component.ts`. It makes
+one account-scoped `GET /rules` request, cancels it on refresh/navigation, and
+renders current effective rules by activity with version history collapsed.
+`model/rules-guide.models.ts` groups and orders server descriptions without
+calculating scores. The browser Rules client exposes only the read operation;
+there are no edit, preview, publish, retry or cancel controls on this route.
+
+The API adds deterministic `guide` descriptions to rule versions using
+`packages/domain/src/rule-guide.ts`. This keeps units, moving/elapsed semantics,
+subtype coefficients, tier thresholds and multiplier examples outside Angular.
+Default run/bike subtype rates reuse the same domain coefficient helper as
+scoring. Disabled and scheduled versions retain their own descriptions and are
+excluded from the current cards using the local calendar date. The audited
+backend rule-publication/recomputation API remains available for maintained
+workflows; this UI change does not disable it or modify rule definitions.

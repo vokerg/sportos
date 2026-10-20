@@ -486,7 +486,7 @@ function scoreActivityWithConfirmedSubtypeCoefficient(
   return entry;
 }
 
-function confirmedSubtypeCoefficient(rule: ScoringRule, activity: ActivityFact): number | undefined {
+export function confirmedSubtypeCoefficient(rule: Pick<ScoringRule, 'code'>, activity: Pick<ActivityFact, 'subtype'>): number | undefined {
   if (rule.code === 'run.km.default') {
     if (activity.subtype === 'treadmill') return 1850;
     if (activity.subtype === 'outdoor') return 1700;

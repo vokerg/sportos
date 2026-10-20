@@ -421,3 +421,9 @@ An issue is complete only when its acceptance criteria are satisfied; the releva
 - Domain proposal validation and database constraints restrict this multiplier to
   `swim.pace.1k` / `moving_pace_s_per_km` / strict `lt`. Customized groups and
   imported authority remain unchanged by the upgrade. See `docs/SCORING_RULES.md`.
+
+- The `/rules` frontend is a read-only scoring guide under `features/rules/`.
+  Keep human descriptions in domain `rule-guide.ts` and expose them through
+  account-scoped `GET /rules`. Angular groups/describes API output only. Do not
+  restore rule editing, preview/publication or job mutation controls without a
+  new maintainer request. Backend audited rule management remains supported.

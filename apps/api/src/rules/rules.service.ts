@@ -1,3 +1,4 @@
+import { describeScoringRule, type RuleGuide } from '@sportos/domain';
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import {
@@ -47,8 +48,9 @@ export class RulesService {
 
   constructor(private readonly database: DbProvider) {}
 
-  listRules(accountId = LEGACY_ACCOUNT_ID): Promise<RuleVersionReadModel[]> {
-    return this.database.withAccount(accountId, (db) => new RuleChangesRepository(db).listRuleVersions());
+  async listRules(accountId = LEGACY_ACCOUNT_ID): Promise<Array<RuleVersionReadModel & { guide: RuleGuide }>> {
+    const rules = await this.database.withAccount(accountId, (db) => new RuleChangesRepository(db).listRuleVersions());
+    return rules.map(rule => ({ ...rule, guide: describeScoringRule(rule) }));
   }
 
   listChanges(limit = 50, accountId = LEGACY_ACCOUNT_ID): Promise<RuleChangeReadModel[]> {

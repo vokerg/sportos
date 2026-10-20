@@ -59,8 +59,8 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: 'rules',
-    loadComponent: () => import('./rules-studio.component').then((module) => module.RulesStudioComponent),
-    title: 'Rules Studio · SportOS',
+    loadComponent: () => import('./features/rules/pages/rules-page.component').then((module) => module.RulesPageComponent),
+    title: 'Scoring rules · SportOS',
   },
   {
     path: 'providers',
