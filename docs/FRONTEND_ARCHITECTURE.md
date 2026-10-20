@@ -201,6 +201,22 @@ The helper is intentionally pure and feature-agnostic. It must not import Angula
 
 ## Core ownership
 
+### Browser color preference
+
+The application follows `prefers-color-scheme` with no saved override or toggle.
+`src/styles.css` owns semantic light/dark CSS variables and native `color-scheme`;
+component styles use those variables for text, surfaces, borders and status colors.
+AG Grid's legacy Quartz variables inherit the same palette, including editors and
+filter popups. Keep white text on solid action backgrounds separate from link
+colors, which become lighter in dark mode.
+
+`core/theme/color-scheme.service.ts` adapts the same media query to a read-only
+signal for ECharts canvas rendering. Bind chart `[theme]` to its `chartTheme()`;
+ngx-echarts recreates charts on theme changes. Keep theme handling outside pure
+analytics models, and let axis/grid colors inherit the chart theme. Series colors,
+provider logos and the native OpenStreetMap raster/heatmap color scale retain
+their visual identity. Theme changes do not request SportOS data or write settings.
+
 Application-wide infrastructure belongs in `core/`:
 
 - authentication/session state -> `core/auth/`;

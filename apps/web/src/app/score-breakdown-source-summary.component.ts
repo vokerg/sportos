@@ -27,16 +27,16 @@ import { sourceSummary } from './score-breakdown.view-model';
     </div>
   `,
   styles: [`
-    .source-card { display: flex; align-items: center; justify-content: flex-start; gap: 16px; margin: 14px 0 22px; padding: 12px 14px; border: 1px solid #e1e7f0; border-radius: 12px; background: rgba(255, 255, 255, .72); }
-    .source-icon { display: grid; flex: 0 0 auto; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #e9edff; color: #5368ae; font-weight: 800; }
+    .source-card { display: flex; align-items: center; justify-content: flex-start; gap: 16px; margin: 14px 0 22px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-glass); }
+    .source-icon { display: grid; flex: 0 0 auto; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-surface); color: var(--link); font-weight: 800; }
     .source-copy { min-width: 0; flex: 1; }
-    .source-copy strong { display: block; margin-top: 3px; color: #344054; font-size: 13px; }
-    .section-label { color: #667085; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .source-copy strong { display: block; margin-top: 3px; color: var(--text-secondary); font-size: 13px; }
+    .section-label { color: var(--text-muted); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
     details { margin-top: 6px; }
-    summary { cursor: pointer; color: #5267a8; font-size: 12px; font-weight: 700; }
-    summary:focus-visible { outline: 3px solid #a8b9ef; outline-offset: 3px; border-radius: 4px; }
+    summary { cursor: pointer; color: var(--link); font-size: 12px; font-weight: 700; }
+    summary:focus-visible { outline: 3px solid var(--accent-surface); outline-offset: 3px; border-radius: 4px; }
     dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; margin: 8px 0 0; font-size: 11px; }
-    dt { color: #667085; }
+    dt { color: var(--text-muted); }
     dd { margin: 0; overflow-wrap: anywhere; }
     .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   `],

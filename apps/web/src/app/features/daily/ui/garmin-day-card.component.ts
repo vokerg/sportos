@@ -85,14 +85,14 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
     </section>
   `,
   styles: [`
-    .garmin-day { border: 1px solid #dbe4f5; border-radius: 12px; padding: 16px; margin-bottom: 12px; background: #f8faff; }
+    .garmin-day { border: 1px solid var(--border-accent); border-radius: 12px; padding: 16px; margin-bottom: 12px; background: var(--accent-surface); }
     h2 { font-size: 16px; margin: 0 0 8px; } h3 { font-size: 14px; margin: 0; }
     p { font-size: 13px; margin: 6px 0; } .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
     .categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 12px; margin-top: 12px; }
-    article { background: white; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; min-width: 0; }
-    dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 13px; } dd { margin: 0; } .muted { color: #667085; font-size: 11px; }
-    .measurement { border-top: 1px solid #e2e8f0; margin-top: 8px; padding-top: 8px; } .measurement span { display: block; font-size: 12px; }
-    .error { color: #b54747; } pre { max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
+    article { background: var(--surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border); min-width: 0; }
+    dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 13px; } dd { margin: 0; } .muted { color: var(--text-muted); font-size: 11px; }
+    .measurement { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px; } .measurement span { display: block; font-size: 12px; }
+    .error { color: var(--danger); } pre { max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
     .resource { font-size: 12px; } ul { padding-left: 16px; font-size: 13px; } a { margin-left: 6px; }
   `],
 })

@@ -55,27 +55,27 @@ import {
   styles: [`
     .data-section { margin: 22px 0; }
     .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
-    .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
-    .section-label { color: #667085; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-    .section-help { max-width: 760px; margin: 5px 0 0; color: #667085; font-size: 12px; line-height: 1.45; }
-    .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 12px; }
-    .empty-inline { padding: 14px; border: 1px dashed #c7d2e5; border-radius: 10px; color: #667085; background: #fff; }
-    .table-scroll { overflow-x: auto; border: 1px solid #e1e7f0; border-radius: 10px; background: #fff; }
+    .section-heading h4 { margin: 3px 0 0; color: var(--text); font-size: 17px; }
+    .section-label { color: var(--text-muted); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .section-help { max-width: 760px; margin: 5px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+    .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: var(--accent-surface); color: var(--link); font-size: 12px; }
+    .empty-inline { padding: 14px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-muted); background: var(--surface); }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
     .activity-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 12px; }
-    .activity-table th, .activity-table td { padding: 10px 11px; border-bottom: 1px solid #edf0f5; text-align: left; vertical-align: top; }
-    .activity-table th { color: #667085; background: #f8fafc; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+    .activity-table th, .activity-table td { padding: 10px 11px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+    .activity-table th { color: var(--text-muted); background: var(--accent-surface); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
     .activity-table tbody tr:last-child td { border-bottom: 0; }
-    .activity-table td strong { display: block; color: #243b73; }
-    .activity-table td a { color: #243b73; text-decoration: underline; text-underline-offset: 3px; }
-    .activity-table td a:hover { color: #1d4ed8; }
-    .activity-table td a:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 3px; border-radius: 2px; }
-    .activity-table td small { display: block; margin-top: 3px; color: #667085; }
-    .source-badge, .score-link { display: inline-block; padding: 4px 7px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 10px; font-weight: 800; white-space: nowrap; }
-    .source-badge[data-source='garmin'] { background: #e8f4ff; color: #1769aa; }
-    .source-badge[data-source='strava'] { background: #fff0e8; color: #b54708; }
-    .source-badge[data-source='my_sport_xlsx'] { background: #eaf7ee; color: #13795b; }
-    .score-link.daily-fact { background: #eaf7ee; color: #13795b; }
-    .score-link.context-only { background: #f2f4f7; color: #667085; }
+    .activity-table td strong { display: block; color: var(--link); }
+    .activity-table td a { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
+    .activity-table td a:hover { color: var(--link); }
+    .activity-table td a:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; border-radius: 2px; }
+    .activity-table td small { display: block; margin-top: 3px; color: var(--text-muted); }
+    .source-badge, .score-link { display: inline-block; padding: 4px 7px; border-radius: 999px; background: var(--accent-surface); color: var(--link); font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .source-badge[data-source='garmin'] { background: var(--accent-surface); color: var(--link); }
+    .source-badge[data-source='strava'] { background: var(--warning-surface); color: var(--warning); }
+    .source-badge[data-source='my_sport_xlsx'] { background: var(--success-surface); color: var(--success); }
+    .score-link.daily-fact { background: var(--success-surface); color: var(--success); }
+    .score-link.context-only { background: var(--surface-muted); color: var(--text-muted); }
     @media (max-width: 680px) { .section-heading { flex-direction: column; } }
   `],
 })

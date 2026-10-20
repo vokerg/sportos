@@ -144,50 +144,50 @@ import {
   styles: [`
     .ledger-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 20px 0 10px; }
     .ledger-heading h4, .ledger-heading p { margin: 0; }
-    .ledger-heading h4 { margin-top: 3px; color: #172b4d; font-size: 17px; }
-    .ledger-heading p { margin-top: 4px; color: #667085; font-size: 12px; }
-    .section-label, .detail-label { color: #667085; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-    .recomputed { color: #667085; font-size: 12px; text-align: right; white-space: nowrap; }
+    .ledger-heading h4 { margin-top: 3px; color: var(--text); font-size: 17px; }
+    .ledger-heading p { margin-top: 4px; color: var(--text-muted); font-size: 12px; }
+    .section-label, .detail-label { color: var(--text-muted); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .recomputed { color: var(--text-muted); font-size: 12px; text-align: right; white-space: nowrap; }
     .ledger-list { display: grid; gap: 10px; }
-    .ledger-entry { padding: 15px; border: 1px solid #e1e7f0; border-radius: 14px; background: white; box-shadow: 0 2px 6px rgba(36, 55, 95, .03); }
+    .ledger-entry { padding: 15px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 2px 6px rgba(36, 55, 95, .03); }
     .entry-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .rule-copy { display: flex; align-items: flex-start; gap: 9px; min-width: 0; }
-    .rule-dot { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: #8b9de8; box-shadow: 0 0 0 4px #eef1ff; }
-    .rule-copy strong { display: block; color: #243b73; font-size: 14px; }
+    .rule-dot { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--accent-surface); box-shadow: 0 0 0 4px var(--accent-surface); }
+    .rule-copy strong { display: block; color: var(--link); font-size: 14px; }
     .rule-copy code { display: block; margin-top: 3px; }
-    .points-pill { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #e6f6eb; font-size: 15px; font-weight: 800; }
-    .positive-points { color: #13795b !important; }
-    .negative-points { color: #b54747 !important; }
-    .entry-reason { margin: 13px 0 10px; color: #344054; font-size: 14px; line-height: 1.45; }
+    .points-pill { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: var(--success-surface); font-size: 15px; font-weight: 800; }
+    .positive-points { color: var(--success) !important; }
+    .negative-points { color: var(--danger) !important; }
+    .entry-reason { margin: 13px 0 10px; color: var(--text-secondary); font-size: 14px; line-height: 1.45; }
     .entry-context { display: flex; flex-wrap: wrap; gap: 8px; }
-    .entry-context > span { padding: 7px 9px; border-radius: 8px; background: #f7f9fc; color: #475467; font-size: 12px; }
-    .entry-context small { display: block; margin-bottom: 2px; color: #667085; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
-    .entry-details { margin-top: 12px; padding-top: 10px; border-top: 1px solid #edf0f5; }
+    .entry-context > span { padding: 7px 9px; border-radius: 8px; background: var(--accent-surface); color: var(--text-secondary); font-size: 12px; }
+    .entry-context small { display: block; margin-bottom: 2px; color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .entry-details { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
     details { margin-top: 6px; }
-    summary { cursor: pointer; color: #5267a8; font-size: 12px; font-weight: 700; }
-    summary:focus-visible { outline: 3px solid #a8b9ef; outline-offset: 3px; border-radius: 4px; }
+    summary { cursor: pointer; color: var(--link); font-size: 12px; font-weight: 700; }
+    summary:focus-visible { outline: 3px solid var(--accent-surface); outline-offset: 3px; border-radius: 4px; }
     .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
-    .detail-grid > div { padding: 9px; border-radius: 8px; background: #f8fafc; }
-    .detail-grid p { margin: 4px 0 0; color: #667085; font-size: 12px; overflow-wrap: anywhere; line-height: 1.45; }
+    .detail-grid > div { padding: 9px; border-radius: 8px; background: var(--accent-surface); }
+    .detail-grid p { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; line-height: 1.45; }
     .imported-calculation { grid-column: 1 / -1; }
     .formula-line { display: grid; gap: 5px; margin-top: 6px; }
-    .formula-line > span { color: #667085; font-size: 11px; }
-    .formula-line code { display: block; padding: 8px 9px; border: 1px solid #d8e0f1; border-radius: 7px; background: #eef3ff; color: #344b8a; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .calculation-equation { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 9px; padding: 10px; border: 1px solid #cddaf4; border-radius: 9px; background: #f5f8ff; }
-    .source-evidence-equation { border-style: dashed; background: #fbfcfe; }
+    .formula-line > span { color: var(--text-muted); font-size: 11px; }
+    .formula-line code { display: block; padding: 8px 9px; border: 1px solid var(--border-accent); border-radius: 7px; background: var(--accent-surface); color: var(--link); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .calculation-equation { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 9px; padding: 10px; border: 1px solid var(--border-accent); border-radius: 9px; background: var(--accent-surface); }
+    .source-evidence-equation { border-style: dashed; background: var(--accent-surface); }
     .equation-term { display: grid; gap: 2px; min-width: 76px; }
-    .equation-term > span { color: #667085; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
-    .equation-term strong { color: #243b73; font-size: 14px; }
-    .equation-operator, .equation-arrow { color: #667085; font-weight: 800; }
-    .equation-total { color: #172b4d; font-size: 16px; }
+    .equation-term > span { color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .equation-term strong { color: var(--link); font-size: 14px; }
+    .equation-operator, .equation-arrow { color: var(--text-muted); font-weight: 800; }
+    .equation-total { color: var(--text); font-size: 16px; }
     .formula-input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 7px; margin-top: 9px; }
-    .formula-input-grid > span { display: grid; gap: 2px; padding: 7px 8px; border: 1px solid #e1e7f0; border-radius: 7px; background: white; }
-    .formula-input-grid small { color: #667085; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
-    .formula-input-grid strong { color: #243b73; font-size: 14px; }
-    .calculation-note { color: #667085; font-size: 11px; }
-    code { color: #667085; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .state-box { display: flex; align-items: flex-start; gap: 11px; padding: 18px; border: 1px dashed #c7d2e5; border-radius: 14px; background: white; }
-    .state-box span { color: #667085; font-size: 12px; }
+    .formula-input-grid > span { display: grid; gap: 2px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+    .formula-input-grid small { color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .formula-input-grid strong { color: var(--link); font-size: 14px; }
+    .calculation-note { color: var(--text-muted); font-size: 11px; }
+    code { color: var(--text-muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .state-box { display: flex; align-items: flex-start; gap: 11px; padding: 18px; border: 1px dashed var(--border); border-radius: 14px; background: var(--surface); }
+    .state-box span { color: var(--text-muted); font-size: 12px; }
     @media (max-width: 680px) {
       .ledger-heading { align-items: stretch; flex-direction: column; }
       .recomputed { text-align: left; }

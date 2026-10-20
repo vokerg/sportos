@@ -75,15 +75,15 @@ import { formatSwimMeters } from './swim-distance';
       gap: 16px;
       margin-bottom: 10px;
     }
-    .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
+    .section-heading h4 { margin: 3px 0 0; color: var(--text); font-size: 17px; }
     .section-label {
-      color: #667085;
+      color: var(--text-muted);
       font-size: 11px;
       font-weight: 750;
       letter-spacing: .06em;
       text-transform: uppercase;
     }
-    .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
+    .secondary-button { background: var(--surface); color: var(--link); border: 1px solid var(--border-accent); box-shadow: none; }
     .facts-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -93,16 +93,16 @@ import { formatSwimMeters } from './swim-distance';
       display: grid;
       gap: 5px;
       padding: 11px 12px;
-      border: 1px solid #e1e7f0;
+      border: 1px solid var(--border);
       border-radius: 10px;
-      background: #fff;
+      background: var(--surface);
     }
-    .facts-grid span { color: #667085; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-    .facts-grid strong { color: #172b4d; font-size: 16px; }
-    .facts-grid small { color: #667085; font-size: 10px; line-height: 1.35; }
-    .steps-calculation { margin-top: 10px; padding: 11px 12px; border: 1px solid #f0d9ad; border-radius: 10px; background: #fffaf0; color: #7a4b00; font-size: 12px; }
-    .steps-calculation ul { display: grid; gap: 4px; margin: 7px 0 0; padding-left: 18px; color: #667085; }
-    .steps-calculation small { display: block; margin-top: 7px; color: #8a5a13; }
+    .facts-grid span { color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .facts-grid strong { color: var(--text); font-size: 16px; }
+    .facts-grid small { color: var(--text-muted); font-size: 10px; line-height: 1.35; }
+    .steps-calculation { margin-top: 10px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--warning-surface); color: var(--warning); font-size: 12px; }
+    .steps-calculation ul { display: grid; gap: 4px; margin: 7px 0 0; padding-left: 18px; color: var(--text-muted); }
+    .steps-calculation small { display: block; margin-top: 7px; color: var(--warning); }
     @media (max-width: 900px) { .facts-grid { grid-template-columns: repeat(3, minmax(100px, 1fr)); } }
     @media (max-width: 680px) {
       .facts-grid { grid-template-columns: repeat(2, minmax(100px, 1fr)); }

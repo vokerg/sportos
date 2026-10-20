@@ -41,28 +41,28 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
   `,
   styles: [`
     :host { display: block; min-width: 0; }
-    .table-scroll { overflow-x: auto; border: 1px solid #e4e7ec; border-radius: 12px; background: white; }
-    .table-scroll:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+    .table-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
     table { border-collapse: collapse; width: 100%; font-size: 13px; white-space: nowrap; }
-    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eaecf0; }
-    thead th { background: #f8fafc; color: #475467; font-size: 11px; font-weight: 650; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    thead th { background: var(--accent-surface); color: var(--text-secondary); font-size: 11px; font-weight: 650; }
     tbody th { font-weight: 600; } tbody tr:last-child :is(th, td) { border-bottom: 0; }
-    tbody tr:hover { background: #f8faff; } tbody a { display: flex; align-items: center; gap: 6px; color: #3457bd; text-decoration: none; }
-    tr[data-sport=bike] a { color: #087969; } tr[data-sport=swim] a { color: #096e9a; }
-    .muted, .row-name { color: #667085; font-weight: 400; }.muted { margin-left: 4px; }
+    tbody tr:hover { background: var(--accent-surface); } tbody a { display: flex; align-items: center; gap: 6px; color: var(--sport-run); text-decoration: none; }
+    tr[data-sport=bike] a { color: var(--sport-bike); } tr[data-sport=swim] a { color: var(--sport-swim); }
+    .muted, .row-name { color: var(--text-muted); font-weight: 400; }.muted { margin-left: 4px; }
     .row-name { display: inline-block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
     .number { font-variant-numeric: tabular-nums; }
     .activity-list { display: grid; gap: 10px; }
-    .activity { --accent: #3457bd; border-left: 4px solid var(--accent); display: grid; gap: 10px; color: inherit; text-decoration: none; }
-    .activity[data-sport=bike] { --accent: #087969; }.activity[data-sport=swim] { --accent: #096e9a; }
-    .activity:hover { border-color: #91a9e6; background: #f8faff; }
+    .activity { --accent: var(--sport-run); border-left: 4px solid var(--accent); display: grid; gap: 10px; color: inherit; text-decoration: none; }
+    .activity[data-sport=bike] { --accent: var(--sport-bike); }.activity[data-sport=swim] { --accent: var(--sport-swim); }
+    .activity:hover { border-color: var(--border-accent); background: var(--accent-surface); }
     .heading { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-    .heading strong { font-size: 18px; }.heading small { font-size: 13px; color: #667085; font-weight: 500; }
-    .heading span { color: #667085; font-size: 13px; }.provider-key{margin:0 0 10px;color:#667085;font-size:11px}.provider-key b{color:#475467}
-    .description { color: #344054; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .heading strong { font-size: 18px; }.heading small { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .heading span { color: var(--text-muted); font-size: 13px; }.provider-key{margin:0 0 10px;color:var(--text-muted);font-size:11px}.provider-key b{color:var(--text-secondary)}
+    .description { color: var(--text-secondary); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .metrics { display: flex; flex-wrap: wrap; gap: 10px 24px; }
     .highlights { padding: 12px 0 4px; gap: 12px 32px; }.highlights b { font-size: 24px; color: var(--accent); font-variant-numeric: tabular-nums; }.secondary b { font-size: 13px; font-weight: 500; }.secondary:empty { display: none; }
-    .metrics span { display: grid; gap: 2px; }.metrics small { color: #667085; font-size: 11px; }
+    .metrics span { display: grid; gap: 2px; }.metrics small { color: var(--text-muted); font-size: 11px; }
   `],
 })
 export class ActivityListComponent {

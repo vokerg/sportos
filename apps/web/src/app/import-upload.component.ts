@@ -50,9 +50,9 @@ import type { UploadWorkbookKind } from './features/imports/model/imports.models
     </section>
   `,
   styles: [`
-    .upload-panel { display: grid; gap: 12px; border: 1px solid #dbe3f0; border-radius: 14px; padding: 14px; }
+    .upload-panel { display: grid; gap: 12px; border: 1px solid var(--border-accent); border-radius: 14px; padding: 14px; }
     .upload-panel h3 { margin-bottom: 4px; }
-    .privacy-note { margin: 0; color: #667085; font-size: 13px; }
+    .privacy-note { margin: 0; color: var(--text-muted); font-size: 13px; }
     .upload-fields { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(220px, 1.4fr); gap: 12px; }
     .upload-fields label { display: grid; gap: 5px; font-size: 13px; font-weight: 650; }
     .upload-fields input, .upload-fields select { box-sizing: border-box; width: 100%; min-width: 0; }

@@ -1,4 +1,6 @@
 import '@angular/compiler';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ColorSchemeService } from './core/theme/color-scheme.service';
 import { convertToParamMap, type ActivatedRoute, type Router } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
@@ -17,7 +19,7 @@ describe('RollingDynamicsPageComponent', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', metric: 'run', windows: '30,365', measure: 'recordedDayAverage' }));
     const api = { rollingDynamics: vi.fn().mockReturnValue(of(response)) };
     const router = { navigate: vi.fn().mockResolvedValue(true) };
-    const component = new RollingDynamicsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
+    const component = createComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
     component.ngOnInit();
 
     expect(api.rollingDynamics).toHaveBeenCalledTimes(8);
@@ -38,7 +40,7 @@ describe('RollingDynamicsPageComponent', () => {
     vi.setSystemTime(new Date('2026-09-18T12:00:00.000Z'));
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', metric: 'run', windows: '30' }));
     const router = { navigate: vi.fn().mockResolvedValue(true) };
-    const component = new RollingDynamicsPageComponent(
+    const component = createComponent(
       { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as DynamicsApiService,
       { queryParamMap: params } as unknown as ActivatedRoute,
       router as unknown as Router,
@@ -69,7 +71,7 @@ describe('RollingDynamicsPageComponent', () => {
 
   it('does not allow the last trailing window to be removed', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', windows: '30' }));
-    const component = new RollingDynamicsPageComponent(
+    const component = createComponent(
       { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as DynamicsApiService,
       { queryParamMap: params } as unknown as ActivatedRoute,
       { navigate: vi.fn() } as unknown as Router,
@@ -82,7 +84,7 @@ describe('RollingDynamicsPageComponent', () => {
 
   it('offers active-day frequency for activities but not official score', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', metric: 'run', windows: '30', measure: 'activeDays' }));
-    const component = new RollingDynamicsPageComponent(
+    const component = createComponent(
       { rollingDynamics: vi.fn().mockReturnValue(of({ ...response, windows: [30] })) } as unknown as DynamicsApiService,
       { queryParamMap: params } as unknown as ActivatedRoute,
       { navigate: vi.fn() } as unknown as Router,
@@ -99,3 +101,8 @@ describe('RollingDynamicsPageComponent', () => {
     expect(component.measure()).toBe('total');
   });
 });
+
+function createComponent(...args: ConstructorParameters<typeof RollingDynamicsPageComponent>) {
+  const injector = Injector.create({ providers: [{ provide: ColorSchemeService, useValue: { chartTheme: () => ({}) } }] });
+  return runInInjectionContext(injector, () => new RollingDynamicsPageComponent(...args));
+}

@@ -64,7 +64,7 @@ import { ImportUploadComponent } from './import-upload.component';
     .import-card { display: grid; gap: 16px; }
     .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .section-heading h2 { margin-bottom: 4px; }
-    .help { color: #667085; font-size: 13px; }
+    .help { color: var(--text-muted); font-size: 13px; }
     @media (max-width: 620px) { .section-heading { align-items: stretch; flex-direction: column; } }
   `],
 })

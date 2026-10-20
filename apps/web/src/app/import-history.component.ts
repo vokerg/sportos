@@ -56,20 +56,20 @@ import type { ImportRequestState } from './import-workflow.view-model';
     .history-heading, .batch-primary { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .history-heading > div { display: grid; gap: 4px; }
     .history-heading h3 { margin: 0; }
-    .history-heading span, .state-message, .batch-secondary, .batch-counts { color: #667085; font-size: 13px; }
-    .secondary { background: #e8eefc; color: #1d4ed8; }
-    .state-message { padding: 14px; border-radius: 12px; background: #f8fafc; }
+    .history-heading span, .state-message, .batch-secondary, .batch-counts { color: var(--text-muted); font-size: 13px; }
+    .secondary { background: var(--accent-surface); color: var(--link); }
+    .state-message { padding: 14px; border-radius: 12px; background: var(--accent-surface); }
     .state-message p { margin-top: 0; }
-    .error-message { color: #991b1b; }
+    .error-message { color: var(--danger); }
     .batch-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-    .batch-button { width: 100%; text-align: left; background: #f8fafc; color: #172033; border: 1px solid transparent; }
-    .batch-button.selected { border-color: #1d4ed8; background: #eef3ff; }
+    .batch-button { width: 100%; text-align: left; background: var(--accent-surface); color: var(--text); border: 1px solid transparent; }
+    .batch-button.selected { border-color: var(--link); background: var(--accent-surface); }
     .batch-primary { align-items: center; }
     .batch-secondary, .batch-counts { display: block; margin-top: 4px; }
-    .status { display: inline-flex; padding: 3px 8px; border-radius: 999px; background: #e5e7eb; color: #344054; font-size: 11px; font-weight: 750; text-transform: uppercase; }
-    .status-scored, .status-normalized { background: #dcfce7; color: #166534; }
-    .status-failed { background: #fee2e2; color: #991b1b; }
-    .status-started, .status-parsed { background: #fef3c7; color: #92400e; }
+    .status { display: inline-flex; padding: 3px 8px; border-radius: 999px; background: var(--surface-muted); color: var(--text-secondary); font-size: 11px; font-weight: 750; text-transform: uppercase; }
+    .status-scored, .status-normalized { background: var(--success-surface); color: var(--success); }
+    .status-failed { background: var(--danger-surface); color: var(--danger); }
+    .status-started, .status-parsed { background: var(--warning-surface); color: var(--warning); }
   `],
 })
 export class ImportHistoryComponent {

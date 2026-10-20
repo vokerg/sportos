@@ -32,7 +32,7 @@ export function timelineOptions(data: ActivityTimeline, metrics: TimelineMetric[
     yAxis: metrics.map((metric,i) => ({type:'value', gridIndex:i, scale:true, inverse:metric.key==='pace',
       name:`${metric.label} · ${metric.unit}`, nameLocation:metric.key==='pace' ? 'start' : 'end', nameTextStyle:{align:'left',color:colors[data.metrics.indexOf(metric)%colors.length],fontWeight:600},
       axisLabel:{formatter:(v:number) => metric.key==='pace' ? timelineTime(v*60) : String(Number(v.toFixed(1)))}, splitNumber:3,
-      splitLine:{lineStyle:{color:'#edf0f5'}}})),
+      splitLine:{show:true}})),
     dataZoom: [{type:'inside', xAxisIndex:metrics.map((_,i)=>i), filterMode:'none'},
       {type:'slider',xAxisIndex:metrics.map((_,i)=>i),bottom:0,height:18,showDetail:false,filterMode:'none'}],
     series: metrics.map((metric,i) => ({id:metric.key,name:metric.label,type:'line',xAxisIndex:i,yAxisIndex:i,
