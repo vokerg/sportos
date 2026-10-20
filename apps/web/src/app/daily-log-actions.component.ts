@@ -26,12 +26,12 @@ import { Component, input, output } from '@angular/core';
     </div>
   `,
   styles: [`
-    .activity-recalculation { display: flex; align-items: end; gap: 14px; margin: 16px 0 20px; padding: 14px; border: 1px solid #dbe4f0; border-radius: 12px; background: #f8faff; }
+    .activity-recalculation { display: flex; align-items: end; gap: 14px; margin: 16px 0 20px; padding: 14px; border: 1px solid var(--border-accent); border-radius: 12px; background: var(--accent-surface); }
     .activity-recalculation > div:first-child { display: grid; gap: 4px; min-width: 0; flex: 1; }
-    .activity-recalculation strong { color: #243b73; font-size: 14px; }
-    .activity-recalculation small { color: #667085; font-size: 12px; line-height: 1.4; }
-    .recalculation-label { color: #5368ae; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-    .recalculation-error { flex-basis: 100%; margin: 0; color: #b54747; font-size: 12px; }
+    .activity-recalculation strong { color: var(--link); font-size: 14px; }
+    .activity-recalculation small { color: var(--text-muted); font-size: 12px; line-height: 1.4; }
+    .recalculation-label { color: var(--link); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .recalculation-error { flex-basis: 100%; margin: 0; color: var(--danger); font-size: 12px; }
     @media (max-width: 760px) { .activity-recalculation { align-items: stretch; flex-direction: column; } }
   `],
 })

@@ -1,5 +1,6 @@
+import { ColorSchemeService } from './core/theme/color-scheme.service';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { inject, Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { forkJoin, of, Subject, takeUntil } from 'rxjs';
@@ -93,7 +94,7 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
 
         <section class="card chart-card" aria-labelledby="rolling-chart-title">
         <div class="section-title"><div><span class="page-kicker">Daily timeline</span><h2 id="rolling-chart-title">{{ labels[current.metric] }}</h2></div><span>{{ current.range.from }} → {{ current.range.to }}</span></div>
-        <div echarts class="rolling-chart" [options]="chartOptions()" role="img" [attr.aria-label]="labels[current.metric] + ' rolling daily dynamics'"></div>
+        <div echarts [theme]="colorScheme.chartTheme()" class="rolling-chart" [options]="chartOptions()" role="img" [attr.aria-label]="labels[current.metric] + ' rolling daily dynamics'"></div>
         </section>
 
         @for (window of current.windows; track window) {
@@ -101,7 +102,7 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
           <div class="section-title"><div><span class="page-kicker">Official score mix</span><h2 [id]="'contribution-chart-title-' + window">{{ window }}-day score contribution</h2></div><span>Average points per calendar day</span></div>
           <p class="chart-help">Each layer shows how much an activity contributes to the official trailing {{ window }}-day average, using the retained ledger components.</p>
           @if (hasContribution(window)) {
-            <div echarts class="contribution-chart" [options]="contributionChartOptions(window)" role="img" [attr.aria-label]="'Activity contributions to the trailing ' + window + '-day average official score'"></div>
+            <div echarts [theme]="colorScheme.chartTheme()" class="contribution-chart" [options]="contributionChartOptions(window)" role="img" [attr.aria-label]="'Activity contributions to the trailing ' + window + '-day average official score'"></div>
           } @else {
             <p class="contribution-empty">No official score contributions exist in this range.</p>
           }
@@ -126,14 +127,15 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
     }
   `,
   styles: [`
-    .page-heading { margin: 6px 0 22px; }.page-heading h1 { margin: 5px 0; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.035em; }.page-heading p, .semantics, .section-title > span { margin: 0; color: #667085; }.page-kicker { color: #5368ae; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { margin: 0; padding: 12px; border: 1px solid #dbe3f0; border-radius: 12px; } legend { padding: 0 6px; color: #475467; font-size: 12px; font-weight: 750; }.window-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; }.window-picker label { display: flex; align-items: center; gap: 6px; }.window-picker input { min-width: auto; }.semantics, .selection-message { font-size: 12px; }.selection-message { margin: 0; color: #991b1b; }
-    .latest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }.latest { display: grid; gap: 5px; }.latest span, .latest small { color: #667085; font-size: 12px; }.latest strong { color: #243b73; font-size: 27px; }.chart-card, .table-card { margin-bottom: 16px; }.section-title { display: flex; justify-content: space-between; align-items: end; gap: 16px; }.section-title h2 { margin: 4px 0 0; }.rolling-chart, .contribution-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }.chart-help, .table-help, .contribution-empty { margin: 8px 0 0; color: #667085; font-size: 12px; }
-    .table-scroll { margin-top: 14px; max-height: 640px; overflow: auto; border: 1px solid #e4e7ec; border-radius: 12px; } table { width: 100%; border-collapse: collapse; white-space: nowrap; } th, td { padding: 10px 12px; border-bottom: 1px solid #edf0f5; text-align: right; } th:first-child { text-align: left; } thead th { position: sticky; top: 0; z-index: 1; background: #f7f9fc; color: #667085; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }.incomplete { color: #a15c00; background: #fffaf0; }.state-card { display: grid; gap: 12px; justify-items: start; }.state-card.error { color: #991b1b; }
+    .page-heading { margin: 6px 0 22px; }.page-heading h1 { margin: 5px 0; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.035em; }.page-heading p, .semantics, .section-title > span { margin: 0; color: var(--text-muted); }.page-kicker { color: var(--link); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { margin: 0; padding: 12px; border: 1px solid var(--border-accent); border-radius: 12px; } legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 750; }.window-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; }.window-picker label { display: flex; align-items: center; gap: 6px; }.window-picker input { min-width: auto; }.semantics, .selection-message { font-size: 12px; }.selection-message { margin: 0; color: var(--danger); }
+    .latest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }.latest { display: grid; gap: 5px; }.latest span, .latest small { color: var(--text-muted); font-size: 12px; }.latest strong { color: var(--link); font-size: 27px; }.chart-card, .table-card { margin-bottom: 16px; }.section-title { display: flex; justify-content: space-between; align-items: end; gap: 16px; }.section-title h2 { margin: 4px 0 0; }.rolling-chart, .contribution-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }.chart-help, .table-help, .contribution-empty { margin: 8px 0 0; color: var(--text-muted); font-size: 12px; }
+    .table-scroll { margin-top: 14px; max-height: 640px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; } table { width: 100%; border-collapse: collapse; white-space: nowrap; } th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: right; } th:first-child { text-align: left; } thead th { position: sticky; top: 0; z-index: 1; background: var(--accent-surface); color: var(--text-muted); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }.incomplete { color: var(--warning); background: var(--warning-surface); }.state-card { display: grid; gap: 12px; justify-items: start; }.state-card.error { color: var(--danger); }
     @media (max-width: 700px) { .section-title { display: grid; }.rolling-chart, .contribution-chart { min-height: 340px; } }
   `],
 })
 export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
+  readonly colorScheme = inject(ColorSchemeService);
   readonly metrics = DYNAMICS_METRICS;
   readonly labels = DYNAMICS_LABELS;
   readonly availableWindows = ROLLING_WINDOWS;

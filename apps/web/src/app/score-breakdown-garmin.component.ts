@@ -69,22 +69,22 @@ const METRIC_LABELS: Record<string, string> = {
   styles: [`
     .data-section { margin: 22px 0; }
     .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
-    .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
-    .section-label { color: #8a5a12; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-    .section-help { max-width: 760px; margin: 5px 0 0; color: #667085; font-size: 12px; line-height: 1.45; }
-    .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #fff4dc; color: #8a5a12; font-size: 12px; }
+    .section-heading h4 { margin: 3px 0 0; color: var(--text); font-size: 17px; }
+    .section-label { color: var(--warning); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .section-help { max-width: 760px; margin: 5px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+    .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: var(--warning-surface); color: var(--warning); font-size: 12px; }
     .observation-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
-    .observation-card { padding: 13px; border: 1px solid #eadcbf; border-radius: 12px; background: #fffdf8; }
+    .observation-card { padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--warning-surface); }
     .observation-card header, .observation-card header div { display: flex; align-items: center; gap: 8px; }
     .observation-card header { justify-content: space-between; }
-    .observation-card header strong { color: #344054; font-size: 13px; }
-    .garmin-badge { padding: 3px 6px; border-radius: 999px; background: #e8f4ff; color: #1769aa; font-size: 9px; font-weight: 800; text-transform: uppercase; }
-    .observation-date { color: #667085; font-size: 11px; white-space: nowrap; }
+    .observation-card header strong { color: var(--text-secondary); font-size: 13px; }
+    .garmin-badge { padding: 3px 6px; border-radius: 999px; background: var(--accent-surface); color: var(--link); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+    .observation-date { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
     dl { display: grid; gap: 6px; margin: 12px 0 0; }
-    dl div { display: flex; justify-content: space-between; gap: 16px; padding-top: 6px; border-top: 1px solid #f1e8d5; }
-    dt { color: #667085; font-size: 11px; }
-    dd { margin: 0; color: #172b4d; font-size: 12px; font-weight: 700; text-align: right; }
-    .source-line { margin: 11px 0 0; color: #7a6d59; font-size: 10px; overflow-wrap: anywhere; }
+    dl div { display: flex; justify-content: space-between; gap: 16px; padding-top: 6px; border-top: 1px solid var(--border); }
+    dt { color: var(--text-muted); font-size: 11px; }
+    dd { margin: 0; color: var(--text); font-size: 12px; font-weight: 700; text-align: right; }
+    .source-line { margin: 11px 0 0; color: var(--text-muted); font-size: 10px; overflow-wrap: anywhere; }
     @media (max-width: 680px) { .section-heading { flex-direction: column; } }
   `],
 })

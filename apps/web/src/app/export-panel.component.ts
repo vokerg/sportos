@@ -30,7 +30,7 @@ type ExportState = 'idle' | 'loading' | 'ready' | 'error';
       }
     </section>
   `,
-  styles: [`.help { margin: -6px 0 16px; color: #667085; font-size: 13px; }`],
+  styles: [`.help { margin: -6px 0 16px; color: var(--text-muted); font-size: 13px; }`],
 })
 export class ExportPanelComponent implements OnDestroy {
   readonly from = signal(defaultFrom());

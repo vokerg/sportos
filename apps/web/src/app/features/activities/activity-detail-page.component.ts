@@ -131,17 +131,17 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
     } }
   `,
   styles: [`
-    .map-status{margin:16px 0;padding:12px 18px;color:#667085}.map-status p{margin:0}.map-status button{margin-left:8px}
-    .provider-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }.provider-heading h3 { margin: 0 4px 0 0; }.badge { font-size: 12px; border-radius: 16px; padding: 4px 9px; background: #eef2ff; color: #344054; }.provider-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; } button:disabled { opacity: .55; cursor: default; } select { max-width: 100%; margin: 8px; }.metrics dt { text-transform: capitalize; }
-    .breadcrumb { margin-bottom: 18px; color: #667085; }.breadcrumb a { color: #1d4ed8; }
-    header { margin-bottom: 18px; } h1 { margin: 4px 0; } h1 small { font-size: 18px; font-weight: 500; color: #667085; }
-    header p { margin: 0; color: #667085; text-transform: capitalize; }.source-name { margin-top: 10px; color: #344054; font-size: 16px; text-transform: none; }.page-kicker { color: #5368ae; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .map-status{margin:16px 0;padding:12px 18px;color:var(--text-muted)}.map-status p{margin:0}.map-status button{margin-left:8px}
+    .provider-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }.provider-heading h3 { margin: 0 4px 0 0; }.badge { font-size: 12px; border-radius: 16px; padding: 4px 9px; background: var(--accent-surface); color: var(--text-secondary); }.provider-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; } button:disabled { opacity: .55; cursor: default; } select { max-width: 100%; margin: 8px; }.metrics dt { text-transform: capitalize; }
+    .breadcrumb { margin-bottom: 18px; color: var(--text-muted); }.breadcrumb a { color: var(--link); }
+    header { margin-bottom: 18px; } h1 { margin: 4px 0; } h1 small { font-size: 18px; font-weight: 500; color: var(--text-muted); }
+    header p { margin: 0; color: var(--text-muted); text-transform: capitalize; }.source-name { margin-top: 10px; color: var(--text-secondary); font-size: 16px; text-transform: none; }.page-kicker { color: var(--link); font-size: 11px; font-weight: 800; text-transform: uppercase; }
     .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 18px; }
-    dt { color: #667085; font-size: 12px; } dd { margin: 3px 0 0; font-weight: 700; overflow-wrap: anywhere; }
-    .notes-card { margin-top: 12px; }.notes { white-space: pre-wrap; }.provider-detail { margin-top: 16px; }.provider-detail h2 { margin-top: 0; font-size: 17px; }.provider-detail p { color: #667085; }.provider-json summary { cursor: pointer; font-weight: 700; }.provider-json pre { max-height: 620px; overflow: auto; padding: 16px; border-radius: 8px; background: #101828; color: #f2f4f7; font-size: 12px; line-height: 1.5; white-space: pre; }.provenance { margin-top: 16px; }.provenance summary { cursor: pointer; font-weight: 700; }
+    dt { color: var(--text-muted); font-size: 12px; } dd { margin: 3px 0 0; font-weight: 700; overflow-wrap: anywhere; }
+    .notes-card { margin-top: 12px; }.notes { white-space: pre-wrap; }.provider-detail { margin-top: 16px; }.provider-detail h2 { margin-top: 0; font-size: 17px; }.provider-detail p { color: var(--text-muted); }.provider-json summary { cursor: pointer; font-weight: 700; }.provider-json pre { max-height: 620px; overflow: auto; padding: 16px; border-radius: 8px; background: var(--code-background); color: var(--code-text); font-size: 12px; line-height: 1.5; white-space: pre; }.provenance { margin-top: 16px; }.provenance summary { cursor: pointer; font-weight: 700; }
     .provenance dl { display: grid; gap: 10px; }
     .source-json { margin-top: 12px; }.source-json summary { cursor: pointer; font-weight: 700; }
-    .source-json p { color: #667085; }.source-json pre { max-height: 520px; overflow: auto; padding: 16px; border-radius: 8px; background: #101828; color: #f2f4f7; font-size: 12px; line-height: 1.5; white-space: pre; }
+    .source-json p { color: var(--text-muted); }.source-json pre { max-height: 520px; overflow: auto; padding: 16px; border-radius: 8px; background: var(--code-background); color: var(--code-text); font-size: 12px; line-height: 1.5; white-space: pre; }
   `],
 })
 export class ActivityDetailPageComponent implements OnInit, OnDestroy {

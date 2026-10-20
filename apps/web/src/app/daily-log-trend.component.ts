@@ -1,4 +1,5 @@
-import { Component, computed, input, output } from '@angular/core';
+import { ColorSchemeService } from './core/theme/color-scheme.service';
+import { inject, Component, computed, input, output } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-model';
@@ -10,7 +11,7 @@ import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-
   template: `
     <div
       class="daily-chart"
-      echarts
+      echarts [theme]="colorScheme.chartTheme()"
       [options]="chartOptions()"
       (chartClick)="handleChartClick($event)"
       role="img"
@@ -22,6 +23,7 @@ import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-
   `],
 })
 export class DailyLogTrendComponent {
+  readonly colorScheme = inject(ColorSchemeService);
   readonly rows = input<DailySummaryRow[]>([]);
   readonly openDay = output<string>();
   readonly chartOptions = computed(() => dailyLogChartOptions(this.rows()));

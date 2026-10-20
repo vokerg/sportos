@@ -1,4 +1,5 @@
 import '@angular/compiler';
+import { ColorSchemeService } from './core/theme/color-scheme.service';
 import {
   EnvironmentInjector,
   Injector,
@@ -35,7 +36,7 @@ const row: DailySummaryRow = {
 
 describe('daily log presentation components', () => {
   it('exposes filter and explicit-action intents without API dependencies', () => {
-    const injector = createEnvironmentInjector([], Injector.NULL as unknown as EnvironmentInjector);
+    const injector = createEnvironmentInjector([{ provide: ColorSchemeService, useValue: { chartTheme: () => ({}) } }], Injector.NULL as unknown as EnvironmentInjector);
     const { filters, actions } = runInInjectionContext(injector, () => ({
       filters: new DailyLogFiltersComponent(),
       actions: new DailyLogActionsComponent(),
@@ -68,7 +69,7 @@ describe('daily log presentation components', () => {
   });
 
   it('keeps AG Grid configuration and row actions inside the grid presenter', () => {
-    const injector = createEnvironmentInjector([], Injector.NULL as unknown as EnvironmentInjector);
+    const injector = createEnvironmentInjector([{ provide: ColorSchemeService, useValue: { chartTheme: () => ({}) } }], Injector.NULL as unknown as EnvironmentInjector);
     const grid = runInInjectionContext(injector, () => new DailyLogGridComponent());
     const setGridOption = vi.fn();
     const opened: DailySummaryRow[] = [];
@@ -102,7 +103,7 @@ describe('daily log presentation components', () => {
   });
 
   it('constructs trend and grid leaves with empty presentation state', () => {
-    const injector = createEnvironmentInjector([], Injector.NULL as unknown as EnvironmentInjector);
+    const injector = createEnvironmentInjector([{ provide: ColorSchemeService, useValue: { chartTheme: () => ({}) } }], Injector.NULL as unknown as EnvironmentInjector);
     const { trend, grid } = runInInjectionContext(injector, () => ({
       trend: new DailyLogTrendComponent(),
       grid: new DailyLogGridComponent(),

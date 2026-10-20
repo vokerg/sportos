@@ -32,7 +32,7 @@ export interface DailyBreakdownGridContext {
       border: 1px solid transparent;
       border-radius: 50%;
       background: transparent;
-      color: #60709a;
+      color: var(--text-muted);
       font-size: 24px;
       font-weight: 400;
       line-height: 1;
@@ -42,14 +42,14 @@ export interface DailyBreakdownGridContext {
     }
 
     .details-link:hover {
-      color: #243b73;
-      border-color: #d5ddef;
-      background: #f1f4fa;
+      color: var(--link);
+      border-color: var(--border-accent);
+      background: var(--accent-surface);
       transform: translateX(1px);
     }
 
     .details-link:focus-visible {
-      outline: 3px solid #a8b9ef;
+      outline: 3px solid var(--accent-surface);
       outline-offset: 3px;
       border-radius: 50%;
     }

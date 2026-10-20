@@ -101,18 +101,18 @@ type AnalysisState = 'idle' | 'loading' | 'ready' | 'error';
     </section>
   `,
   styles: [`
-    .boundary { border-left: 4px solid #475467; padding: 10px 12px; background: #f8fafc; }
+    .boundary { border-left: 4px solid var(--text-secondary); padding: 10px 12px; background: var(--accent-surface); }
     .analysis-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
     .question, .help, .analysis-form button { grid-column: 1 / -1; }
     textarea, select, input { width: 100%; }
-    .generated, .official { margin-top: 18px; padding-top: 16px; border-top: 1px solid #d0d5dd; }
+    .generated, .official { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
     .answer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-    .help, small, .audit { color: #667085; font-size: 13px; }
+    .help, small, .audit { color: var(--text-muted); font-size: 13px; }
     small { display: block; margin-top: 3px; }
     .facts { margin: 12px 0; }
-    .facts pre { max-height: 280px; overflow: auto; padding: 12px; background: #f8fafc; border: 1px solid #d0d5dd; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .facts pre { max-height: 280px; overflow: auto; padding: 12px; background: var(--accent-surface); border: 1px solid var(--border); white-space: pre-wrap; overflow-wrap: anywhere; }
     .citations { max-height: 240px; overflow: auto; }
-    .warning { background: #fffaeb; }
+    .warning { background: var(--warning-surface); }
     @media (max-width: 760px) { .analysis-form, .answer-grid { grid-template-columns: 1fr; } }
   `],
 })

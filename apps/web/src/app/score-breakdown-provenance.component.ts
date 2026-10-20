@@ -65,40 +65,40 @@ import {
   styles: [`
     .data-section { margin: 22px 0; }
     .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
-    .section-heading h4 { margin: 3px 0 0; color: #172b4d; font-size: 17px; }
-    .section-label { color: #667085; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-    .section-help { max-width: 760px; margin: 5px 0 0; color: #667085; font-size: 12px; line-height: 1.45; }
-    .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 12px; }
-    .empty-inline { padding: 14px; border: 1px dashed #c7d2e5; border-radius: 10px; color: #667085; background: #fff; }
+    .section-heading h4 { margin: 3px 0 0; color: var(--text); font-size: 17px; }
+    .section-label { color: var(--text-muted); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .section-help { max-width: 760px; margin: 5px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+    .count-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: var(--accent-surface); color: var(--link); font-size: 12px; }
+    .empty-inline { padding: 14px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-muted); background: var(--surface); }
     .source-record-list { display: grid; gap: 8px; }
-    .source-record { border: 1px solid #e1e7f0; border-radius: 10px; background: #fff; }
+    .source-record { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
     .source-record summary { display: flex; align-items: center; gap: 9px; padding: 11px 12px; list-style: none; }
     .source-record summary::-webkit-details-marker { display: none; }
-    .source-record summary::before { content: '›'; color: #667085; font-size: 17px; transition: transform .15s ease; }
+    .source-record summary::before { content: '›'; color: var(--text-muted); font-size: 17px; transition: transform .15s ease; }
     .source-record[open] summary::before { transform: rotate(90deg); }
-    .source-record summary strong { min-width: 0; color: #344054; overflow-wrap: anywhere; }
-    .source-record-meta { margin-left: auto; color: #667085; font-size: 11px; white-space: nowrap; }
+    .source-record summary strong { min-width: 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+    .source-record-meta { margin-left: auto; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
     .source-record-body { padding: 0 12px 12px; }
     .source-meta { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 12px; margin: 0 0 10px; font-size: 11px; }
-    .source-meta dt { color: #667085; }
+    .source-meta dt { color: var(--text-muted); }
     .source-meta dd { margin: 0; overflow-wrap: anywhere; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .raw-table-wrap { overflow-x: auto; border: 1px solid #e1e7f0; border-radius: 10px; background: #fff; }
+    .raw-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
     .raw-cell-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 12px; }
-    .raw-cell-table th, .raw-cell-table td { padding: 10px 11px; border-bottom: 1px solid #edf0f5; text-align: left; vertical-align: top; }
-    .raw-cell-table thead th { color: #667085; background: #f8fafc; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+    .raw-cell-table th, .raw-cell-table td { padding: 10px 11px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+    .raw-cell-table thead th { color: var(--text-muted); background: var(--accent-surface); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
     .raw-cell-table tbody tr:last-child th, .raw-cell-table tbody tr:last-child td { border-bottom: 0; }
     .raw-cell-table th:first-child { width: 260px; }
-    .raw-cell-table tbody th { color: #667085; font-weight: 650; background: #fbfcfe; }
+    .raw-cell-table tbody th { color: var(--text-muted); font-weight: 650; background: var(--accent-surface); }
     .raw-cell-table td { max-width: 680px; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .raw-json { max-height: 420px; margin: 0; padding: 12px; overflow: auto; border-radius: 8px; background: #111827; color: #e5e7eb; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .source-badge { display: inline-block; padding: 4px 7px; border-radius: 999px; background: #eef3ff; color: #40558f; font-size: 10px; font-weight: 800; white-space: nowrap; }
-    .source-badge[data-source='strava'] { background: #fff0e8; color: #b54708; }
-    .source-badge[data-source='my_sport_xlsx'] { background: #eaf7ee; color: #13795b; }
-    .source-badge[data-source='garmin_csv'] { background: #e8f4ff; color: #1769aa; }
+    .raw-json { max-height: 420px; margin: 0; padding: 12px; overflow: auto; border-radius: 8px; background: var(--primary); color: var(--surface-muted); font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .source-badge { display: inline-block; padding: 4px 7px; border-radius: 999px; background: var(--accent-surface); color: var(--link); font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .source-badge[data-source='strava'] { background: var(--warning-surface); color: var(--warning); }
+    .source-badge[data-source='my_sport_xlsx'] { background: var(--success-surface); color: var(--success); }
+    .source-badge[data-source='garmin_csv'] { background: var(--accent-surface); color: var(--link); }
     details { margin-top: 6px; }
-    summary { cursor: pointer; color: #5267a8; font-size: 12px; font-weight: 700; }
-    summary:focus-visible { outline: 3px solid #a8b9ef; outline-offset: 3px; border-radius: 4px; }
+    summary { cursor: pointer; color: var(--link); font-size: 12px; font-weight: 700; }
+    summary:focus-visible { outline: 3px solid var(--accent-surface); outline-offset: 3px; border-radius: 4px; }
     @media (max-width: 680px) {
       .section-heading { flex-direction: column; }
       .source-record-meta { margin-left: 0; }

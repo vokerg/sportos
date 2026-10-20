@@ -85,7 +85,7 @@ export function scoreContributionChartOptions(response: RollingDynamicsResponse 
     legend: { bottom: 0, data: contribution.categories.map((category) => SCORE_CONTRIBUTION_LABELS[category]) },
     grid: { left: 48, right: 24, top: 28, bottom: 68, containLabel: true },
     xAxis: { type: 'category', boundaryGap: false, data: contribution.points.map((point) => point.date), axisLabel: { hideOverlap: true } },
-    yAxis: { type: 'value', name: 'pts/day', min: 0, splitLine: { lineStyle: { type: 'dashed', color: '#d7dce5' } } },
+    yAxis: { type: 'value', name: 'pts/day', min: 0, splitLine: { lineStyle: { type: 'dashed' } } },
     series: contribution.categories.map((category) => ({
       name: SCORE_CONTRIBUTION_LABELS[category],
       type: 'line',

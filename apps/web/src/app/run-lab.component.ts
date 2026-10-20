@@ -40,8 +40,8 @@ type DetailState = 'idle' | 'loading' | 'loaded' | 'error';
   styles: [`
     .detail-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
     dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    dl div { padding: 10px; background: #f8fafc; border-radius: 10px; min-width: 0; }
-    dt { color: #667085; font-size: 12px; } dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+    dl div { padding: 10px; background: var(--accent-surface); border-radius: 10px; min-width: 0; }
+    dt { color: var(--text-muted); font-size: 12px; } dd { margin: 4px 0 0; overflow-wrap: anywhere; }
   `],
 })
 export class RunLabComponent implements OnDestroy {

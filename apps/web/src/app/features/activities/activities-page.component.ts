@@ -58,18 +58,18 @@ import {
     } }
   `,
   styles: [`
-    .view-toolbar { display: flex; justify-content: flex-end; margin: 12px 0; }.view-switch { display: flex; gap: 3px; padding: 3px; border: 1px solid #d0d5dd; border-radius: 10px; background: white; }
-    .view-switch button { padding: 6px 12px; border-radius: 7px; background: transparent; color: #475467; font-size: 12px; }.view-switch button.active { background: #eef2ff; color: #3457bd; }
-    header { margin: 4px 0 18px; } h1 { margin: 3px 0; } p { color: #667085; margin: 0; }
-    .page-kicker { color: #5368ae; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .view-toolbar { display: flex; justify-content: flex-end; margin: 12px 0; }.view-switch { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .view-switch button { padding: 6px 12px; border-radius: 7px; background: transparent; color: var(--text-secondary); font-size: 12px; }.view-switch button.active { background: var(--accent-surface); color: var(--sport-run); }
+    header { margin: 4px 0 18px; } h1 { margin: 3px 0; } p { color: var(--text-muted); margin: 0; }
+    .page-kicker { color: var(--link); font-size: 11px; font-weight: 800; text-transform: uppercase; }
     .filters { display: grid; gap: 14px; margin-bottom: 14px; }
     .filter-row,.sport-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
-    .sport-filters { border: 1px solid #dbe4f5; border-radius: 10px; padding: 10px 14px 14px; background: #f8faff; }
-    .sport-filters legend { color: #344054; font-size: 13px; font-weight: 800; padding: 0 5px; }
-    label { display: grid; gap: 5px; color: #475467; font-size: 12px; font-weight: 700; }
-    input,select { min-height: 36px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 7px; background: white; color: #172033; }
+    .sport-filters { border: 1px solid var(--border-accent); border-radius: 10px; padding: 10px 14px 14px; background: var(--accent-surface); }
+    .sport-filters legend { color: var(--text-secondary); font-size: 13px; font-weight: 800; padding: 0 5px; }
+    label { display: grid; gap: 5px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+    input,select { min-height: 36px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); }
     .actions { display: flex; gap: 8px; }.summary,.pages { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; margin: 12px 0; }
-    .summary span,.pages span { color: #667085; }.pages { justify-content: center; }
+    .summary span,.pages span { color: var(--text-muted); }.pages { justify-content: center; }
   `],
 })
 export class ActivitiesPageComponent implements OnInit, OnDestroy {

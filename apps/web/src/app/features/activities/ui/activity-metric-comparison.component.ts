@@ -41,23 +41,23 @@ import { comparisonGroups, detailMetricGroups, highlightMetrics } from '../model
     }
   `,
   styles: [`
-    :host{display:block;margin-top:16px}h2{font-size:17px;margin-top:0}h3{font-size:14px;color:#344054;margin:0 0 12px}
-    p,.unavailable{color:#667085;font-size:13px}.group{border-top:1px solid #eaecf0;padding-top:16px;margin-top:16px}
+    :host{display:block;margin-top:16px}h2{font-size:17px;margin-top:0}h3{font-size:14px;color:var(--text-secondary);margin:0 0 12px}
+    p,.unavailable{color:var(--text-muted);font-size:13px}.group{border-top:1px solid var(--border);padding-top:16px;margin-top:16px}
     .comparison{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:20px;margin:0}
-    .metric{min-width:0;overflow-wrap:anywhere}dt{color:#667085;font-size:12px;margin-bottom:6px}dd{margin:0;display:grid;gap:8px}
+    .metric{min-width:0;overflow-wrap:anywhere}dt{color:var(--text-muted);font-size:12px;margin-bottom:6px}dd{margin:0;display:grid;gap:8px}
     .value{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 8px;font-size:14px}.value strong{font-weight:500}.authoritative strong{font-weight:750}
-    .sources{color:#475467;font-size:12px}.fallback{font-size:11px;padding:2px 6px;border-radius:4px;background:#eef2ff;color:#344054}
-    .highlights{--accent:#3457bd;--tint:#edf2ff;border:1px solid #d9e1f0;border-radius:20px;padding:24px;margin-bottom:20px;background:linear-gradient(120deg,var(--tint),#fff 85%);box-shadow:0 8px 24px #14213d06}
-    .highlights[data-sport=bike]{--accent:#087969;--tint:#e8f6f1}
-    .highlights[data-sport=swim]{--accent:#096e9a;--tint:#e8f5fc}
+    .sources{color:var(--text-secondary);font-size:12px}.fallback{font-size:11px;padding:2px 6px;border-radius:4px;background:var(--accent-surface);color:var(--text-secondary)}
+    .highlights{--accent:var(--sport-run);--tint:var(--accent-surface);border:1px solid var(--border-accent);border-radius:20px;padding:24px;margin-bottom:20px;background:linear-gradient(120deg,var(--tint),var(--surface) 85%);box-shadow:0 8px 24px #14213d06}
+    .highlights[data-sport=bike]{--accent:var(--sport-bike);--tint:var(--success-surface)}
+    .highlights[data-sport=swim]{--accent:var(--sport-swim);--tint:var(--accent-surface)}
     .summary-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
-    .summary-heading h2{margin:0;color:var(--accent);font-size:16px}.summary-heading>span{color:#475467;font-size:12px}
+    .summary-heading h2{margin:0;color:var(--accent);font-size:16px}.summary-heading>span{color:var(--text-secondary);font-size:12px}
     .highlight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin:0}
     .highlight{min-width:0;border-left:3px solid var(--accent);padding-left:18px}
-    .highlight dt{font-size:13px;font-weight:600;color:#475467;margin-bottom:10px}
+    .highlight dt{font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:10px}
     .highlight .value{display:grid;gap:4px;font-variant-numeric:tabular-nums}
-    .highlight strong{font-size:clamp(24px,2.5vw,38px);letter-spacing:-1px;font-weight:750;line-height:1.15;color:#172033}
-    .highlight .alternative strong{font-size:20px;font-weight:500;letter-spacing:-.4px;color:#475467}
+    .highlight strong{font-size:clamp(24px,2.5vw,38px);letter-spacing:-1px;font-weight:750;line-height:1.15;color:var(--text)}
+    .highlight .alternative strong{font-size:20px;font-weight:500;letter-spacing:-.4px;color:var(--text-secondary)}
     .highlight .sources{font-size:12px}.highlight .fallback{justify-self:start}
     @media(max-width:700px){.highlights{padding:18px}.highlight-grid{grid-template-columns:1fr;gap:20px}.highlight{padding-left:14px}.highlight strong{font-size:30px}.summary-heading{margin-bottom:18px}}
   `],

@@ -1,4 +1,6 @@
 import '@angular/compiler';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ColorSchemeService } from './core/theme/color-scheme.service';
 import { convertToParamMap, type ActivatedRoute, type Router } from '@angular/router';
 import { BehaviorSubject, of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
@@ -20,7 +22,7 @@ describe('MonthlyStatsPageComponent', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-02-28', granularity: 'monthly', metrics: 'score,run', measure: 'recordedDayAverage', mode: 'indexed' }));
     const api = { monthlyStats: vi.fn().mockReturnValue(of(response)) };
     const router = { navigate: vi.fn().mockResolvedValue(true) };
-    const component = new MonthlyStatsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
+    const component = createComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
 
     component.ngOnInit();
     expect(api.monthlyStats).toHaveBeenCalledWith({ from: '2026-01-01', to: '2026-02-28', granularity: 'monthly', metrics: ['score', 'run'] });
@@ -39,7 +41,7 @@ describe('MonthlyStatsPageComponent', () => {
     const params = new BehaviorSubject(convertToParamMap({ ...oneMonth, metrics: 'run' }));
     const api = { monthlyStats: vi.fn().mockReturnValue(of(response)) };
     const router = { navigate: vi.fn().mockResolvedValue(true) };
-    const component = new MonthlyStatsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
+    const component = createComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, router as unknown as Router);
 
     component.ngOnInit();
     expect(component.quickRange()).toBe('1m');
@@ -58,7 +60,7 @@ describe('MonthlyStatsPageComponent', () => {
   it('enforces one-to-four selected metrics and surfaces API failures', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-02-28', metrics: 'score,steps,run,bike' }));
     const api = { monthlyStats: vi.fn().mockReturnValue(throwError(() => new Error('offline'))) };
-    const component = new MonthlyStatsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, { navigate: vi.fn() } as unknown as Router);
+    const component = createComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, { navigate: vi.fn() } as unknown as Router);
     component.ngOnInit();
     expect(component.state()).toBe('error');
     component.toggleMetric('swim', true);
@@ -79,7 +81,7 @@ describe('MonthlyStatsPageComponent', () => {
     };
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-02-28', metrics: 'run' }));
     const api = { monthlyStats: vi.fn().mockReturnValue(of({ ...response, monthly: [january, february] })) };
-    const component = new MonthlyStatsPageComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, { navigate: vi.fn() } as unknown as Router);
+    const component = createComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, { navigate: vi.fn() } as unknown as Router);
 
     component.ngOnInit();
     expect(component.cellBackground(january, 'run', 'total')).toBe('rgba(116, 168, 132, 0.10)');
@@ -106,3 +108,8 @@ describe('MonthlyStatsPageComponent', () => {
     expect(ledger[0]?.totals).toMatchObject({ bike: 5_000, run: 12_000, swim: 3_000, workout: 133, steps: 240, bonus: 47, score: 30 });
   });
 });
+
+function createComponent(...args: ConstructorParameters<typeof MonthlyStatsPageComponent>) {
+  const injector = Injector.create({ providers: [{ provide: ColorSchemeService, useValue: { chartTheme: () => ({}) } }] });
+  return runInInjectionContext(injector, () => new MonthlyStatsPageComponent(...args));
+}

@@ -56,19 +56,19 @@ import { formatSwimMeters } from './swim-distance';
     </ag-grid-angular>
   `,
   styles: [`
-    .daily-grid-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 12px 14px; border: 1px solid #dbe4f0; border-radius: 12px 12px 0 0; background: #f8faff; }
+    .daily-grid-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 12px 14px; border: 1px solid var(--border-accent); border-radius: 12px 12px 0 0; background: var(--accent-surface); }
     .daily-grid-toolbar > div { display: grid; gap: 3px; min-width: 0; }
-    .daily-grid-toolbar strong { color: #243b73; font-size: 13px; }
-    .table-kicker { color: #5368ae; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .daily-grid-toolbar strong { color: var(--link); font-size: 13px; }
+    .table-kicker { color: var(--link); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
     .daily-grid-toolbar label { display: grid; gap: 5px; }
     .daily-grid-toolbar select { min-width: 104px; min-height: 34px; padding: 6px 24px 6px 9px; border-radius: 9px; font-size: 12px; font-weight: 700; }
     .daily-grid { width: 100%; }
     .daily-grid .ag-paging-panel { min-height: 54px; height: auto; padding: 8px 12px; gap: 6px; }
-    .daily-grid .ag-paging-description { color: #667085; font-size: 12px; font-weight: 650; white-space: nowrap; }
-    .daily-grid .ag-paging-button { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 34px; padding: 0 9px; border: 1px solid #d0d5dd; border-radius: 9px; background: #fff; color: #344054; font-size: 12px; font-weight: 750; line-height: 1; }
-    .daily-grid .ag-paging-button:hover:not(.ag-disabled) { border-color: #8fa5df; background: #eef3ff; color: #243b73; }
-    .daily-grid .ag-paging-button.ag-disabled { border-color: #eaecf0; background: #f8fafc; color: #98a2b3; opacity: 1; }
-    .daily-grid .ag-paging-button:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+    .daily-grid .ag-paging-description { color: var(--text-muted); font-size: 12px; font-weight: 650; white-space: nowrap; }
+    .daily-grid .ag-paging-button { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 34px; padding: 0 9px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-secondary); font-size: 12px; font-weight: 750; line-height: 1; }
+    .daily-grid .ag-paging-button:hover:not(.ag-disabled) { border-color: var(--border-accent); background: var(--accent-surface); color: var(--link); }
+    .daily-grid .ag-paging-button.ag-disabled { border-color: var(--border); background: var(--accent-surface); color: var(--text-muted); opacity: 1; }
+    .daily-grid .ag-paging-button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   `],
 })
 export class DailyLogGridComponent {

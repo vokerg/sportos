@@ -122,35 +122,35 @@ import { formatScoreDate } from './score-breakdown.view-model';
     </section>
   `,
   styles: [`
-    .view-tabs { display: flex; gap: 6px; margin: 18px 0; border-bottom: 1px solid #dbe4f0; padding-bottom: 8px; }
-    .view-tabs button { background: transparent; color: #667085; box-shadow: none; border: 1px solid transparent; border-radius: 8px; padding: 9px 16px; }
-    .view-tabs button[aria-pressed='true'] { color: #243b73; background: #eaf0ff; font-weight: 750; }
+    .view-tabs { display: flex; gap: 6px; margin: 18px 0; border-bottom: 1px solid var(--border-accent); padding-bottom: 8px; }
+    .view-tabs button { background: transparent; color: var(--text-muted); box-shadow: none; border: 1px solid transparent; border-radius: 8px; padding: 9px 16px; }
+    .view-tabs button[aria-pressed='true'] { color: var(--link); background: var(--accent-surface); font-weight: 750; }
     [hidden] { display: none !important; }
     .breakdown-panel {
       margin-top: 18px;
-      border: 1px solid #dbe4f0;
-      border-left: 4px solid #8b9de8;
+      border: 1px solid var(--border-accent);
+      border-left: 4px solid var(--border-accent);
       border-radius: 16px;
       padding: 20px;
-      background: linear-gradient(145deg, #fbfcff 0%, #f4f7fc 100%);
+      background: linear-gradient(145deg, var(--accent-surface) 0%, var(--accent-surface) 100%);
       box-shadow: 0 8px 24px rgba(36, 55, 95, .07);
     }
     .panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-    .panel-header h3 { margin: 0; color: #172b4d; font-size: 22px; }
-    .panel-subtitle { margin: 5px 0 0; color: #667085; font-size: 13px; }
-    .eyebrow { margin-bottom: 5px; color: #5b6cae; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-    .secondary-button { background: white; color: #40558f; border: 1px solid #cbd6ed; box-shadow: none; }
+    .panel-header h3 { margin: 0; color: var(--text); font-size: 22px; }
+    .panel-subtitle { margin: 5px 0 0; color: var(--text-muted); font-size: 13px; }
+    .eyebrow { margin-bottom: 5px; color: var(--link); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .secondary-button { background: var(--surface); color: var(--link); border: 1px solid var(--border-accent); box-shadow: none; }
     .state-box {
       display: flex;
       align-items: flex-start;
       gap: 11px;
       padding: 18px;
-      border: 1px dashed #c7d2e5;
+      border: 1px dashed var(--border);
       border-radius: 14px;
-      background: white;
+      background: var(--surface);
     }
     .state-box > div { display: grid; gap: 5px; }
-    .state-box span { color: #667085; font-size: 12px; }
+    .state-box span { color: var(--text-muted); font-size: 12px; }
     .state-icon {
       display: grid;
       flex: 0 0 auto;
@@ -158,18 +158,18 @@ import { formatScoreDate } from './score-breakdown.view-model';
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      background: #dff4e5;
-      color: #13795b;
+      background: var(--success-surface);
+      color: var(--success);
       font-weight: 800;
     }
-    .loading-icon { background: #e9edff; color: #5368ae; }
-    .error-box { border-color: #efb9b9; background: #fff8f8; }
-    .error-box .state-icon { background: #ffe2e2; color: #b54747; }
+    .loading-icon { background: var(--accent-surface); color: var(--link); }
+    .error-box { border-color: var(--border); background: var(--danger-surface); }
+    .error-box .state-icon { background: var(--danger-surface); color: var(--danger); }
     .error-box button, .state-box > button { margin-left: auto; }
     @media (max-width: 680px) {
-      .view-tabs { display: flex; gap: 6px; margin: 18px 0; border-bottom: 1px solid #dbe4f0; padding-bottom: 8px; }
-    .view-tabs button { background: transparent; color: #667085; box-shadow: none; border: 1px solid transparent; border-radius: 8px; padding: 9px 16px; }
-    .view-tabs button[aria-pressed='true'] { color: #243b73; background: #eaf0ff; font-weight: 750; }
+      .view-tabs { display: flex; gap: 6px; margin: 18px 0; border-bottom: 1px solid var(--border-accent); padding-bottom: 8px; }
+    .view-tabs button { background: transparent; color: var(--text-muted); box-shadow: none; border: 1px solid transparent; border-radius: 8px; padding: 9px 16px; }
+    .view-tabs button[aria-pressed='true'] { color: var(--link); background: var(--accent-surface); font-weight: 750; }
     [hidden] { display: none !important; }
     .breakdown-panel { padding: 14px; }
       .panel-header h3 { font-size: 20px; }

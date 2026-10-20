@@ -35,14 +35,14 @@ import { importDiagnosticKey, importDiagnosticLocation } from './import-workflow
   styles: [`
     .diagnostic-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .diagnostic-heading h4 { margin-bottom: 4px; }
-    .diagnostic-heading span { color: #667085; font-size: 13px; }
+    .diagnostic-heading span { color: var(--text-muted); font-size: 13px; }
     .diagnostic-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-    .diagnostic { padding: 10px; border-left: 4px solid #d97706; border-radius: 10px; background: #fffbeb; }
-    .diagnostic-error { border-color: #dc2626; background: #fef2f2; }
+    .diagnostic { padding: 10px; border-left: 4px solid var(--warning); border-radius: 10px; background: var(--warning-surface); }
+    .diagnostic-error { border-color: var(--danger); background: var(--danger-surface); }
     .diagnostic-title { display: flex; justify-content: space-between; gap: 8px; }
     .diagnostic p { margin: 5px 0; font-size: 13px; }
-    .diagnostic small { color: #667085; }
-    .secondary { margin-top: 8px; background: #e8eefc; color: #1d4ed8; }
+    .diagnostic small { color: var(--text-muted); }
+    .secondary { margin-top: 8px; background: var(--accent-surface); color: var(--link); }
   `],
 })
 export class ImportDiagnosticsComponent {

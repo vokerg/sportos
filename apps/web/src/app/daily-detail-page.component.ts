@@ -62,13 +62,13 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
     </sportos-score-breakdown-panel>
   `,
   styles: [`
-    .main-actions { margin-bottom: 12px; padding: 16px; border: 1px solid #dbe4f5; border-radius: 12px; background: #f8faff; }
-    .main-actions h2 { margin: 0 0 12px; color: #172b4d; font-size: 16px; }
+    .main-actions { margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-accent); border-radius: 12px; background: var(--accent-surface); }
+    .main-actions h2 { margin: 0 0 12px; color: var(--text); font-size: 16px; }
     .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-    .action-help { margin: 10px 0 0; color: #667085; font-size: 12px; }
-    .breadcrumb { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #667085; font-size: 12px; }
-    .breadcrumb a { color: #1d4ed8; font-weight: 700; text-decoration: none; }
-    .refresh-error { margin: 8px 0 0; color: #b54747; font-size: 12px; }
+    .action-help { margin: 10px 0 0; color: var(--text-muted); font-size: 12px; }
+    .breadcrumb { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--text-muted); font-size: 12px; }
+    .breadcrumb a { color: var(--link); font-weight: 700; text-decoration: none; }
+    .refresh-error { margin: 8px 0 0; color: var(--danger); font-size: 12px; }
   `],
 })
 export class DailyDetailPageComponent implements OnInit, OnDestroy {
