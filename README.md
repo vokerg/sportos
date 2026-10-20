@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V138, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V139, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
 
 ## What SportOS can do
 
@@ -51,6 +51,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Recompute affected scores atomically through audited background jobs.
 - Reconcile persisted score totals against deterministic domain calculations.
 - Award the highest qualifying universal run-pace tier per activity, using favourable 0.1 km and 0.1 min/km eligibility rounding and multiplying by rounded completed 5 km blocks.
+- Multiply the highest qualifying moving-pace swim tier by each completed kilometre in that swim.
 - Export bounded, versioned `sportos.canonical-export.v3` JSON from one repeatable-read snapshot, including each daily score's authority status.
 - Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.
 - Review canonical score, steps, run, bike, swim, workout, and bonus totals in Monthly Stats, and graph their true day-by-day trailing 10/20/30/60/365-day totals, averages, or positive activity-day frequency in Dynamics with explicit data coverage and an authoritative stacked 30-day score-contribution view.
@@ -272,7 +273,7 @@ After authentication, the Angular cockpit provides:
 - **Daily score** (`/daily/:date`) — Overview shows daily totals, editing/recalculation, concise training sessions and Garmin day metrics. Manual total entries stay out of the session list. Score contains calculations and reconciliation; Sources contains workbook/provider provenance and explicit Garmin resource inspection.
 - **Activities and Heatmap** — inspect canonical activities, their retained individual GPS maps, and the private all-time multi-route density map at `/heatmap` with sport/date filters, approximate-summary labeling and quality counts for existing retained Strava streams/detail or eligible Garmin FIT traces.
 - **Run Lab** — paginated distance rankings, original-record detail, and provenance.
-- **Rules** — current rule versions, read-only preview, activation, recomputation progress, retry, and cancellation.
+- **Rules** — a read-only scoring guide grouped by activity, with plain-language base rates, pace bonus ladders, distance-block examples and collapsible rule-version history.
 - **Providers** — Strava connection, backfill, incremental sync, status, retry, cancellation, disconnect, and provenance.
 - **Imports** — XLSX and manual Garmin CSV upload, durable job status, history, diagnostics, retry, cancellation, and reconciliation handoff. Garmin CSV uploads are staging-only and never trigger score recalculation; an explicit daily recalculation can consume exact `daily_summary` steps.
 - **Export** — bounded canonical JSON export with deterministic ordering and explicit provenance.

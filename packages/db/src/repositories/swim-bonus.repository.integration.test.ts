@@ -26,7 +26,7 @@ integration('swim ladder with non-owner account-scoped persistence', () => {
   it('seeds exactly four grouped tiers for new accounts, retaining disabled history', async () => {
     const rules = await withAccountContext(db,owner,tx=>new ScoringRepository(tx).listEnabledRules());
     expect(rules.filter(r=>r.achievementGroup==='swim.pace.1k').map(r=>[r.thresholdValue,r.points,r.pointsMultiplier]).sort((a,b)=>Number(b[0])-Number(a[0])))
-      .toEqual([[1200,2000,undefined],[1170,3000,undefined],[1140,4000,undefined],[1110,5000,undefined]]);
+      .toEqual([[1200,2000,'completed_1k_blocks'],[1170,3000,'completed_1k_blocks'],[1140,4000,'completed_1k_blocks'],[1110,5000,'completed_1k_blocks']]);
     const legacy = await withAccountContext(db,owner,tx=>tx.selectFrom('scoring_rules').select(['enabled','points','metric']).where('code','=','swim.1k.sub20.bonus').where('version','=',1).executeTakeFirstOrThrow());
     expect(legacy).toMatchObject({enabled:false,points:1000,metric:'duration_s'});
     expect(await withAccountContext(db,foreign,tx=>new ScoringRepository(tx).listEnabledRules())).toEqual([]);
@@ -35,13 +35,13 @@ integration('swim ladder with non-owner account-scoped persistence', () => {
   it('recalculates one canonical swim, links its exact rule UUID and preserves prior snapshots', async () => {
     const date = '2093-05-18';
     const activity = await withAccountContext(db,owner,async tx=> {
-      await tx.insertInto('daily_metrics').values({metric_date:date,swim_m:1000,base_points:7500,bonus_points:0,total_points:7500,score_status:'imported',excel_all_points:7500}).execute();
-      return tx.insertInto('activities').values({activity_date:date,activity_type:'swim',source:'strava',source_activity_id:randomUUID(),distance_m:1000,duration_s:1202,moving_time_s:1192}).returningAll().executeTakeFirstOrThrow();
+      await tx.insertInto('daily_metrics').values({metric_date:date,swim_m:2000,base_points:15000,bonus_points:0,total_points:15000,score_status:'imported',excel_all_points:15000}).execute();
+      return tx.insertInto('activities').values({activity_date:date,activity_type:'swim',source:'strava',source_activity_id:randomUUID(),distance_m:2000,duration_s:2461,moving_time_s:2394}).returningAll().executeTakeFirstOrThrow();
     });
     const result = await withAccountContext(db,owner,tx=>new DailyScoringRepository(tx).recalculateFromActivities(date));
-    expect(result).toMatchObject({scoreStatus:'calculated',score:{baseTotal:7500,bonusPoints:2000,appTotal:9500}});
+    expect(result).toMatchObject({scoreStatus:'calculated',score:{baseTotal:15000,bonusPoints:4000,appTotal:19000}});
     const bonus = result.ledger.filter(l=>l.rule?.achievementGroup==='swim.pace.1k');
-    expect(bonus).toHaveLength(1); expect(bonus[0]).toMatchObject({points:2000,activity:{id:activity.id},rule:{code:'swim.1k.sub20.bonus',metric:'moving_pace_s_per_km'},calculation:{metricValue:1192,multiplierValue:1}});
+    expect(bonus).toHaveLength(1); expect(bonus[0]).toMatchObject({points:4000,activity:{id:activity.id},rule:{code:'swim.1k.sub20.bonus',metric:'moving_pace_s_per_km',pointsMultiplier:'completed_1k_blocks'},calculation:{metricValue:1197,multiplierValue:2,multiplierInputValue:2000}});
     const beforeSnapshots = await withAccountContext(db,owner,tx=>tx.selectFrom('daily_score_snapshots').selectAll().where('metric_date','=',date).execute());
     await withAccountContext(db,owner,tx=>new DailyScoringRepository(tx).recalculateFromActivities(date));
     const afterSnapshots = await withAccountContext(db,owner,tx=>tx.selectFrom('daily_score_snapshots').selectAll().where('metric_date','=',date).execute());
@@ -57,9 +57,9 @@ integration('swim ladder with non-owner account-scoped persistence', () => {
     const previous = rules.find(r=>r.code==='swim.1k.sub20.bonus')!;
     const proposal = validateRuleProposal({...previous,replaceRuleId:previous.id,validFrom:date,points:2100});
     const days = await withAccountContext(db,owner,tx=>new RuleChangesRepository(tx).listPreviewDays(date,date));
-    expect(days[0].activities.find(a=>a.activityType==='swim')).toMatchObject({durationS:1202,movingTimeS:1192});
+    expect(days[0].activities.find(a=>a.activityType==='swim')).toMatchObject({durationS:2461,movingTimeS:2394});
     const preview = previewRuleChange(days,rules,proposal);
-    expect(preview).toMatchObject({changedDates:1,aggregateDelta:100,rows:[{proposedBonusPoints:2100,proposedTotalPoints:9600}]});
+    expect(preview).toMatchObject({changedDates:1,aggregateDelta:200,rows:[{proposedBonusPoints:4200,proposedTotalPoints:19200}]});
     const queued = await withAccountContext(db,owner,tx=>new RuleChangesRepository(tx).enqueueChange({proposal,preview,previewFingerprint:'a'.repeat(64),initiatedBy:owner,reason:'Synthetic moving pace check'}));
     const dispatcherUrl = new URL(url!); dispatcherUrl.username='sportos_worker'; dispatcherUrl.password='';
     const dataUrl = new URL(url!); dataUrl.username='sportos_worker_data'; dataUrl.password='';
@@ -72,7 +72,7 @@ integration('swim ladder with non-owner account-scoped persistence', () => {
       expect(await withAccountContext(data,foreign,tx=>new RuleChangesRepository(tx).getById(queued.id))).toBeNull();
       await withAccountContext(data,owner,tx=>new RuleChangesRepository(tx).activateAndRecompute(queued.id,'swim-worker'));
       const result = await withAccountContext(db,owner,tx=>tx.selectFrom('daily_metrics').select(['bonus_points','total_points']).where('metric_date','=',date).executeTakeFirstOrThrow());
-      expect(result).toEqual({bonus_points:2100,total_points:9600});
+      expect(result).toEqual({bonus_points:4200,total_points:19200});
     } finally { await dispatcher.destroy(); await data.destroy(); }
   });
 
