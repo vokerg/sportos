@@ -38,17 +38,20 @@ separate schema-owner Flyway settings. Runtime reads/writes use `sportos_app`
 inside account context; dispatcher, worker-data, legacy and shared-data roles
 have no access to the new day tables.
 
-- **Fetch Garmin day** reuses complete retained categories and complete activity
-  resources. If later Strava sessions are absent from the retained day’s linked
-  identities, it rechecks bounded compact activity discovery and downloads only
-  missing activity resources. No special fetch order is required. With complete
-  coverage, an unchanged completed fetch contacts no Garmin endpoint.
-- **Retry missing Garmin data** fetches failed/missing categories while preserving
-  successful categories. Missing Strava coverage also makes the day partial,
-  even when an earlier Garmin discovery response was complete. This is a coverage
-  gap, not proof that Garmin has a counterpart: Strava-only sessions can remain
-  unpaired. Retained activity identity/resources are checked before
-  expensive downloads.
+- **Fetch Garmin day** requests fresh evidence from Garmin. Once day data has
+  been saved, the main action becomes **Refresh from Garmin** and also requests
+  fresh evidence, including day totals uploaded later from the watch. Both UI
+  actions send `refresh: true`; a complete saved day is never silently reused
+  instead of checking Garmin. This can take a few minutes because activity
+  resources are refreshed too. Navigation still reads saved data only.
+- A partial day also offers **Refresh from Garmin**. Successful retained evidence
+  survives failures. Missing Strava coverage makes the day partial even when
+  Garmin discovery was complete; Strava-only sessions can remain unpaired.
+- Completion feedback confirms when the latest day data was checked, distinguishes
+  incomplete attempts, and reminds the user to Recalculate daily totals and score.
+  The API still supports cache-aware `refresh: false` for explicit callers: it
+  reuses complete categories/resources and retries missing coverage. A cached
+  response is explicitly labelled as saved data reused in the UI.
 - **Show metrics** expands compact evidence already read from
   SportOS. It works without local Garmin authorization.
 - **Refresh from Garmin** explicitly reads all categories again and refreshes

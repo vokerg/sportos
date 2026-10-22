@@ -34,7 +34,7 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
         <ng-container [ngTemplateOutlet]="garmin.primaryAction() ?? null" />
         <button type="button" (click)="requestManualEdit()" [disabled]="state() !== 'loaded' || recalculating() || savingManual() || refreshingFromStrava()">Enter facts manually</button>
       </div>
-      <p class="action-help">Strava refresh fetches activities and recalculates this day. Garmin fetch saves evidence; use Recalculate to update the score.</p>
+      <p class="action-help">Strava refresh fetches activities and recalculates this day. Garmin Fetch/Refresh checks for updated day data; use Recalculate to update daily totals and score.</p>
       @if (refreshingFromStrava() || stravaRefreshStatus() || !canRefreshFromStrava()) { <p class="action-help" role="status">{{ stravaRefreshHelp() }}</p> }
       @if (garmin.store.fetching()) { <p class="action-help" role="status">Fetching from Garmin…</p> }
       @if (recalculationError()) { <p class="refresh-error" role="alert">{{ recalculationError() }}</p> }
