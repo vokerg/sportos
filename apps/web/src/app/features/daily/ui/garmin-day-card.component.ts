@@ -7,18 +7,21 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
   selector: 'sportos-garmin-day-card', standalone: true, imports: [DatePipe, DecimalPipe, RouterLink, NgTemplateOutlet], providers: [GarminDayStore],
   template: `
     <ng-template #primaryAction>
-      <button type="button" (click)="store.fetch()" [disabled]="store.loading() || !store.data()?.fetchEnabled || store.fetching()">
-        {{ store.fetching() ? 'Fetching Garmin day…' : store.data()?.state === 'partial' ? 'Retry missing Garmin data' : 'Fetch Garmin day' }}
+      <button type="button" (click)="store.fetch(true)" [disabled]="store.loading() || !store.data()?.fetchEnabled || store.fetching()">
+        {{ store.fetching() ? 'Updating Garmin day…' : store.data()?.state && store.data()?.state !== 'missing' ? 'Refresh from Garmin' : 'Fetch Garmin day' }}
       </button>
     </ng-template>
     <section class="garmin-day" aria-label="Garmin day evidence" [attr.aria-busy]="store.loading() || store.fetching()">
       <h2>Garmin Connect</h2>
-      <p class="muted">Day metrics · Fetch and Refresh leave your score unchanged.</p>
+      <p class="muted">Fetch and Refresh check Garmin for the latest day data, including later watch uploads. Use Recalculate to update daily totals and score.</p>
       @if (store.loading()) { <p role="status">Reading retained coverage…</p> }
       @if (store.data(); as day) {
         <p role="status">{{ day.state === 'missing' ? 'Not fetched' : day.state === 'partial' ? 'Some data needs another attempt' : 'Saved day data' }}
           
-          @if (store.fetching()) { · Fetching from Garmin… }</p>
+          @if (store.fetching()) { · Updating from Garmin… This can take a few minutes. }
+          @else if (day.result === 'fetched' && day.state === 'current') { · Latest day data checked. Use Recalculate to update daily totals and score. }
+          @else if (day.result === 'fetched') { · Update attempted; some data is still unavailable. Previous saved evidence is kept. }
+          @else if (day.result === 'cached') { · Saved data reused; use Refresh from Garmin to check for updates. }</p>
         <div class="actions">
           @if (showPrimaryAction()) { <ng-container [ngTemplateOutlet]="primaryAction" /> }
           <button type="button" (click)="store.view()" [disabled]="day.state === 'missing'">{{ store.expanded() ? 'Hide metrics' : 'Show metrics' }}</button>
@@ -54,7 +57,7 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
                     }
                   } @else if (item.category === 'activities') {
                     @if (evidence.uncoveredStravaActivities) {
-                      <p role="status">Some Strava sessions have no Garmin coverage in this saved day. Fetch Garmin day to check for later uploads. Sessions recorded only in Strava may remain unpaired.</p>
+                      <p role="status">Some Strava sessions have no Garmin coverage in this saved day. Refresh from Garmin to check for later uploads. Sessions recorded only in Strava may remain unpaired.</p>
                     }
                     <p>{{ evidence.count ?? 0 }} Garmin activities @if (!evidence.complete) { · Incomplete } </p>
                     @if (inspection()) {

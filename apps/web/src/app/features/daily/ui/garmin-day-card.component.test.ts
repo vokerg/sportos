@@ -4,6 +4,7 @@ import 'zone.js';
 import 'zone.js/testing';
 import { TestBed } from '@angular/core/testing';
 import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from '@angular/platform-browser-dynamic/testing';
+import { of, Subject } from 'rxjs';
 import { SimpleChange } from '@angular/core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GarminDayCardComponent } from './garmin-day-card.component';
@@ -52,4 +53,55 @@ describe('Garmin day evidence card',()=>{
   it('replaces the card workflow when the selected calendar date changes',()=>{
     const {component,store,injector}=setup();Object.defineProperty(component,'date',{value:()=> '2026-03-29',configurable:true});component.ngOnChanges();expect(store.load).toHaveBeenCalledWith('2026-03-29');Object.defineProperty(component,'date',{value:()=> '2026-03-30'});component.ngOnChanges();expect(store.load).toHaveBeenCalledWith('2026-03-30');injector.destroy();
   });
+});
+
+function renderDay(state: 'missing' | 'current' | 'partial', result?: 'cached' | 'fetched') {
+  const day = {date: '2026-03-29', origin: 'garmin_connect', evidenceOnly: true,
+    fetchEnabled: true, state, result: result ?? null, categories: []};
+  const api = {read: vi.fn(() => of(day)), fetch: vi.fn(() => of({...day, state: 'current', result: 'fetched'}))};
+  const store = new GarminDayStore(api as never);
+  TestBed.configureTestingModule({imports: [GarminDayCardComponent]});
+  TestBed.overrideComponent(GarminDayCardComponent, {set: {providers: [{provide: GarminDayStore, useValue: store}]}});
+  const fixture = TestBed.createComponent(GarminDayCardComponent);
+  // Vitest JIT does not compile signal-input metadata; supply the input getter.
+  Object.defineProperty(fixture.componentInstance, 'date', {value: () => day.date});
+  store.load(day.date);
+  fixture.detectChanges();
+  return {fixture, api, store};
+}
+
+it.each(['missing', 'current', 'partial'] as const)('the main %s-day action requests fresh Garmin data', state => {
+  const {fixture, api} = renderDay(state);
+  const label = state === 'missing' ? 'Fetch Garmin day' : 'Refresh from Garmin';
+  expect(api.fetch).not.toHaveBeenCalled();
+  const button = [...fixture.nativeElement.querySelectorAll('button')].find(item => item.textContent?.trim() === label) as HTMLButtonElement;
+  expect(button).toBeDefined();
+  button.click();
+  fixture.detectChanges();
+  expect(api.fetch).toHaveBeenCalledExactlyOnceWith('2026-03-29', true);
+  expect(fixture.nativeElement.textContent).toContain('Latest day data checked. Use Recalculate');
+});
+
+it('explains cached and incomplete results without claiming a successful update', () => {
+  const {fixture, store} = renderDay('current', 'cached');
+  expect(fixture.nativeElement.textContent).toContain('Saved data reused; use Refresh from Garmin');
+  store.data.update(day => ({...day!, state: 'partial', result: 'fetched'}));
+  fixture.detectChanges();
+  expect(fixture.nativeElement.textContent).toContain('Update attempted; some data is still unavailable');
+  expect(fixture.nativeElement.textContent).not.toContain('Latest day data checked');
+});
+
+it('disables both refresh controls while an update is running', () => {
+  const {fixture, api} = renderDay('current');
+  const pending = new Subject<never>();
+  api.fetch.mockReturnValue(pending as never);
+  const primary = [...fixture.nativeElement.querySelectorAll('button')].find(item => item.textContent?.trim() === 'Refresh from Garmin') as HTMLButtonElement;
+  primary.click();
+  fixture.detectChanges();
+  const buttons = [...fixture.nativeElement.querySelectorAll('button')] as HTMLButtonElement[];
+  expect(buttons.find(item => item.textContent?.includes('Updating Garmin day'))?.disabled).toBe(true);
+  expect(buttons.find(item => item.textContent?.trim() === 'Refresh from Garmin')?.disabled).toBe(true);
+  expect(fixture.nativeElement.textContent).toContain('This can take a few minutes');
+  pending.complete();
+  fixture.destroy();
 });
