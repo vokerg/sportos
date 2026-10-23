@@ -578,3 +578,29 @@ record fields and never load GPS/vendor/original manifests. Each displayed serie
 is bounded to 3,000 points (bucket extrema for complete sections, missing markers
 for incomplete sections). Simplification is labelled; retained originals remain
 unchanged. API/auxiliary failures are isolated to the graph with a retry control.
+
+## Swimming detail (draft swim UX PR)
+
+Indoor pool swims do not render or request GPS route maps; outdoor/open-water swims retain normal route behavior.
+The retained telemetry graph applies swimming pace per 100 metres and distance in metres for canonical swim
+activities. It does not substitute corrected summary distance for sampled speed. Generic run dynamics/power
+are not treated as swimming telemetry.
+
+`GET /activities/:activityId/swim-lengths` is an authenticated, owner-scoped read that requires no query
+parameters. The API checks the canonical activity and current linked Garmin version, validates complete FIT
+resource coverage, and reads a bounded set of up to 2,001 native FIT `length` messages from the existing
+detail database. It returns at most 2,000 entries and an explicit `truncated` flag, plus pool length
+from the session when its unit is known to be metres. Missing/non-metric pool size is not guessed.
+
+The pool breakdown is opt-in, obtained only after **Show lengths**, and uses the actual FIT `length`
+messages, not Strava `laps` or Garmin `lap` aggregates. For each recorded active length it shows
+timer duration (or explicitly labelled elapsed fallback), per-100m pace when pool size is available,
+recorded strokes, and SWOLF calculated only when timer and strokes both exist. An idle length becomes
+a rest row, not a fictitious extra 25/50 metres. Charts plot pace, SWOLF and strokes by active
+length, using gaps for missing values. Garmin-reported length counts are compared with retained
+messages and discrepancies are disclosed. This is display evidence only: original provider
+metrics, canonical distance, provider matching and official scoring are unchanged.
+
+Local verification is still required against an actual Garmin pool-swim FIT bundle, especially
+for the example swim of 2026-10-21. Manual distance correction is a separate, explicitly audited
+canonical-fact workflow and must not be implemented by editing raw FIT or Strava payloads.
