@@ -17,6 +17,10 @@ describe('activity timeline authorization and retained-only reads',()=>{
     for(const query of [{},{source:'fit'},{source:['strava']},{source:'strava',owner}]) expect(()=>c.read(id,query,{id:owner} as never)).toThrow();
     expect(()=>c.read('invalid',{source:'strava'},{id:owner} as never)).toThrow();
     c.read(id,{source:'garmin'},{id:owner} as never);expect(read).toHaveBeenCalledWith(owner,id,'garmin');
+    const swim = vi.fn(); const swimController = new ActivityTimelineController({swimLengths:swim} as never);
+    expect(()=>swimController.swimLengths(id,{owner},{id:owner} as never)).toThrow();
+    swimController.swimLengths(id,{},{id:owner} as never);
+    expect(swim).toHaveBeenCalledWith(owner,id);
   });
   it('checks canonical visibility before auxiliary access for foreign and nonexistent identifiers',async()=>{
     const {service,detail}=setup();vi.spyOn(ActivitiesRepository.prototype,'get').mockResolvedValue(null);
@@ -31,6 +35,18 @@ describe('activity timeline authorization and retained-only reads',()=>{
     streams.mockResolvedValue({availability:'available',providerVersion:'a',payload:{time:{data:[0,1]},heartrate:{data:[140,141]}}});
     expect(await service.read(owner,id,'strava')).toMatchObject({status:'available',metrics:[{key:'heartRate'}]});
     for(const scoped of [primary,detail]) expect(scoped.withAccount).toHaveBeenCalledWith(owner,expect.any(Function));
+  });
+  it('reads pool splits through owner-bound current Garmin FIT evidence only',async()=>{
+    const {service,detail}=setup({identity_key:'native:1',current_hash:'a'.repeat(64)});
+    vi.spyOn(ActivitiesRepository.prototype,'get').mockResolvedValue({id,activity_type:'swim',subtype:'indoor'} as never);
+    vi.spyOn(GarminActivityResourcesRepository.prototype,'coverage').mockResolvedValue([{resourceType:'records',chunkIndex:0}] as never);
+    vi.spyOn(GarminActivityResourcesRepository.prototype,'expectedResources').mockResolvedValue(
+      [{resourceType:'records',chunkIndex:0},{resourceType:'sets',chunkIndex:0},{resourceType:'detail',chunkIndex:0}]);
+    vi.spyOn(GarminActivityResourcesRepository.prototype,'messages').mockResolvedValue([{message:'session',fields:[{name:'pool_length',value:25,units:'m'}]}] as never);
+    vi.spyOn(GarminActivityResourcesRepository.prototype,'swimLengthMessages').mockResolvedValue(
+      [{message:'length',fields:[{name:'length_type',value:'active',units:null},{name:'total_timer_time',value:24,units:'s'}]}] as never);
+    expect(await service.swimLengths(owner,id)).toMatchObject({status:'available',poolLengthM:25,lengths:[{durationS:24,paceSPer100M:96}]});
+    expect(detail.withAccount).toHaveBeenCalledWith(owner,expect.any(Function));
   });
   it('requires complete current Garmin resources before reading bounded native records',async()=>{
     const {service,detail}=setup({identity_key:'native:1',current_hash:'a'.repeat(64)});
