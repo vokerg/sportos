@@ -35,7 +35,7 @@ export class ActivityDetailStore implements OnDestroy {
     this.sourceState.set('idle'); this.sourceJson.set(null); this.providerState.set('idle'); this.providerDetail.set(null); this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerError.set('');
     this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
     const generation = this.generation;
-    this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); this.state.set('loaded'); if (options.coverage !== false) this.refreshCoverage(); if (activity.activity_type !== 'swim' || activity.subtype === 'outdoor') this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
+    this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); if (activity.activity_type === 'swim' && activity.garmin) this.timelineSource.set('garmin'); this.state.set('loaded'); if (options.coverage !== false) this.refreshCoverage(); if (activity.activity_type !== 'swim' || activity.subtype === 'outdoor') this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
   }
   loadTimeline(source: TimelineSource = this.timelineSource()) {
     if (!this.activity() || (this.timelineState() === 'loading' && source === this.timelineSource())) return;
