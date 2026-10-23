@@ -1,9 +1,12 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
+import { NgxEchartsDirective } from 'ngx-echarts';
+import { ColorSchemeService } from '../../../core/theme/color-scheme.service';
+import { swimLengthChartOptions, swimLengthChartHeight } from '../model/swim-length-chart.models';
 import { formatDurationClock } from '../../../shared/util/duration';
 import type { SwimLengthResponse } from '../activities-api.service';
 
 @Component({
-  selector: 'sportos-swim-lengths', standalone: true,
+  selector: 'sportos-swim-lengths', standalone: true, imports: [NgxEchartsDirective],
   template: `
     <section class="card swim-lengths" aria-labelledby="swim-lengths-title">
       <div class="heading">
@@ -28,6 +31,10 @@ import type { SwimLengthResponse } from '../activities-api.service';
           }
           @if (data.poolLengthM === null) {
             <p class="muted">Pool length could not be verified. Split durations are shown, but per-100 m pace is unavailable.</p>
+          }
+          @if (chart(); as options) {
+            <div echarts [theme]="colorScheme.chartTheme()" class="chart" [style.height.px]="chartHeight()" [options]="options" [notMerge]="true"
+              role="img" aria-label="Swimming pace per 100 metres, SWOLF and stroke count by active pool length"></div>
           }
           <div class="table-scroll">
             <table>
@@ -54,10 +61,13 @@ import type { SwimLengthResponse } from '../activities-api.service';
     </section>
   `,
   styles: [`
-    :host{display:block;margin:16px 0}.swim-lengths{overflow:hidden}.heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}.heading h2{margin:0;font-size:19px}.heading p{margin:6px 0;color:var(--text-muted);font-size:13px}.muted{color:var(--text-muted)}.note{font-size:12px;line-height:1.6}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;font-variant-numeric:tabular-nums}th,td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}th{font-size:12px;color:var(--text-muted)}.rest{color:var(--text-muted)}small{font-size:10px;color:var(--text-muted)}
+    :host{display:block;margin:16px 0}.swim-lengths{overflow:hidden}.heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}.heading h2{margin:0;font-size:19px}.heading p{margin:6px 0;color:var(--text-muted);font-size:13px}.muted{color:var(--text-muted)}.note{font-size:12px;line-height:1.6}.chart{width:100%;min-width:0;margin:16px 0}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;font-variant-numeric:tabular-nums}th,td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}th{font-size:12px;color:var(--text-muted)}.rest{color:var(--text-muted)}small{font-size:10px;color:var(--text-muted)}
   `]
 })
 export class SwimLengthsComponent {
+  readonly colorScheme = inject(ColorSchemeService);
+  readonly chart = computed(() => this.data()?.status === 'available' ? swimLengthChartOptions(this.data()!) : null);
+  readonly chartHeight = computed(() => this.data()?.status === 'available' ? swimLengthChartHeight(this.data()!) : 0);
   readonly state = input<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   readonly data = input<SwimLengthResponse | null>(null);
   readonly load = output<void>();
