@@ -45,8 +45,9 @@ function number(field: { value: unknown; units: unknown } | undefined, unit: str
     (unit === null ? field.units !== null && field.units !== '' && field.units !== undefined : field.units !== unit)) return null;
   return field.value;
 }
-function count(field: { value: unknown; units: unknown } | undefined) {
-  const n = number(field, null, 0, 10000);
+function count(field: { value: unknown; units: unknown } | undefined, unit: string) {
+  if (!field || ![null,undefined,'',unit].includes(field.units as string | null | undefined)) return null;
+  const n = number({ ...field, units: null }, null, 0, 10000);
   return n !== null && Number.isInteger(n) ? n : null;
 }
 export function parseSwimLengths(session: unknown, raw: unknown[], truncated = false): SwimLengths {
@@ -57,8 +58,8 @@ export function parseSwimLengths(session: unknown, raw: unknown[], truncated = f
   const size = number(lengthField, 'm', 1, 200);
   // FIT decoded pool_length is metres. A different or unrecognized unit is not guessed.
   const poolLengthM = size;
-  const expectedLengths = count(sessionFields.get('num_lengths'));
-  const expectedActiveLengths = count(sessionFields.get('num_active_lengths'));
+  const expectedLengths = count(sessionFields.get('num_lengths'), 'lengths');
+  const expectedActiveLengths = count(sessionFields.get('num_active_lengths'), 'lengths');
   let active = 0;
   const lengths: SwimLength[] = [];
   for (const message of raw) {
@@ -70,7 +71,7 @@ export function parseSwimLengths(session: unknown, raw: unknown[], truncated = f
     const timer = number(row.get('total_timer_time'), 's', 0, 86400);
     const elapsed = number(row.get('total_elapsed_time'), 's', 0, 86400);
     const durationS = timer ?? elapsed;
-    const strokes = kind === 'active' ? count(row.get('total_strokes')) : null;
+    const strokes = kind === 'active' ? count(row.get('total_strokes'), 'strokes') : null;
     const paceSPer100M = kind === 'active' && poolLengthM && durationS !== null && durationS > 0
       ? durationS * 100 / poolLengthM : null;
     const strokeType = row.get('swim_stroke')?.value;
