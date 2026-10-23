@@ -9,10 +9,12 @@ export class ActivityTimelineService {
   constructor(private readonly primary: DbProvider, private readonly detail: ActivityDetailDbProvider) {}
   async read(owner: string, id: string, source: TimelineSource) {
     const refs = await this.primary.withAccount(owner, async db => {
-      if (!await new ActivitiesRepository(db).get(id)) throw new NotFoundException('Activity was not found.');
-      return source === 'strava'
+      const activity = await new ActivitiesRepository(db).get(id);
+      if (!activity) throw new NotFoundException('Activity was not found.');
+      const linkage = source === 'strava'
         ? { strava: await new ActivityProviderResourcesRepository(db).getProviderReference(id), garmin: undefined }
         : { strava: null, garmin: await db.selectFrom('garmin_activity_identities').select(['identity_key','current_hash']).where('activity_id','=',id).executeTakeFirst() };
+      return { ...linkage, swimming: activity.activity_type === 'swim' };
     });
     if (source === 'strava') {
       if (!refs.strava) return unavailableTimeline(source, 'not_linked');
@@ -21,7 +23,7 @@ export class ActivityTimelineService {
       if (!row) return unavailableTimeline(source, 'not_retained');
       if (row.providerVersion !== ref.providerVersion) return unavailableTimeline(source, 'stale');
       if (row.availability !== 'available') return unavailableTimeline(source, 'not_recorded');
-      return stravaTimeline(row.payload);
+      return stravaTimeline(row.payload, refs.swimming);
     }
     if (!refs.garmin) return unavailableTimeline(source, 'not_linked');
     const ref = { identityKey: refs.garmin.identity_key, sourceHash: refs.garmin.current_hash };
@@ -38,7 +40,7 @@ export class ActivityTimelineService {
         for (const message of await repo.timelineRecords(ref, chunk.chunkIndex, MAX_TIMELINE_SAMPLES + 1 - messages.length)) messages.push(message);
         if (messages.length > MAX_TIMELINE_SAMPLES) return unavailableTimeline(source, 'sample_limit_or_missing');
       }
-      return garminTimeline(messages);
+      return garminTimeline(messages, refs.swimming);
     });
   }
 }
