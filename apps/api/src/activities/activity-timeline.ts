@@ -69,7 +69,7 @@ function finish(source: TimelineSource, times: number[], values: Record<string, 
   const metrics: TimelineMetric[] = [];
   let simplified = false;
   for (const [key, label, unit] of definitions) {
-    if (swimming && ['power','cadence','elevation','groundContact','verticalOscillation'].includes(key)) continue;
+    if (swimming && ['power','cadence','speed','elevation','groundContact','verticalOscillation'].includes(key)) continue;
     const data = values[key];
     if (!data || data.length !== times.length) continue;
     const points: TimelineMetric['points'] = [];
