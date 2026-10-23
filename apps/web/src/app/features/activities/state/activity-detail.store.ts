@@ -2,7 +2,7 @@ import type { ActivityTimeline, TimelineSource } from '../model/activity-timelin
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, OnDestroy, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { ActivitiesApiService, type ActivityDetail, type ActivityMapAvailable, type ActivityMapResponse, type ActivityProviderDetailResponse, type EnrichmentStatus, type GarminDetail } from '../activities-api.service';
+import { ActivitiesApiService, type ActivityDetail, type ActivityMapAvailable, type ActivityMapResponse, type ActivityProviderDetailResponse, type EnrichmentStatus, type GarminDetail, type SwimLengthResponse } from '../activities-api.service';
 type LoadState = 'idle' | 'loading' | 'loaded' | 'missing' | 'error';
 
 @Injectable()
@@ -11,6 +11,8 @@ export class ActivityDetailStore implements OnDestroy {
   readonly timelineSource = signal<TimelineSource>('strava');
   readonly timelineData = signal<ActivityTimeline|null>(null);
   private timelineRequest = 0;
+  readonly swimLengthState = signal<'idle'|'loading'|'loaded'|'error'>('idle');
+  readonly swimLengths = signal<SwimLengthResponse|null>(null);
   readonly mapState = signal<'idle' | 'loading' | 'available' | 'unavailable' | 'error'>('idle');
   readonly mapData = signal<ActivityMapAvailable | null>(null);
   readonly mapReason = signal<string | null>(null);
@@ -29,7 +31,7 @@ export class ActivityDetailStore implements OnDestroy {
   ngOnDestroy() { this.cancel(); }
   private cancel() { this.generation++; for (const request of this.requests.values()) request.unsubscribe(); this.requests.clear(); }
   load(id: string, options: { coverage?: boolean } = {}) {
-    this.cancel(); this.timelineRequest++; this.timelineState.set('idle'); this.timelineData.set(null); this.timelineSource.set('strava'); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false);
+    this.cancel(); this.swimLengthState.set('idle'); this.swimLengths.set(null); this.timelineRequest++; this.timelineState.set('idle'); this.timelineData.set(null); this.timelineSource.set('strava'); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false);
     this.sourceState.set('idle'); this.sourceJson.set(null); this.providerState.set('idle'); this.providerDetail.set(null); this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerError.set('');
     this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
     const generation = this.generation;
@@ -43,6 +45,17 @@ export class ActivityDetailStore implements OnDestroy {
     this.requests.set('timeline', this.api.timeline(this.id, source).subscribe({
       next: data => { if (generation === this.generation && request === this.timelineRequest) { this.timelineData.set(data); this.timelineState.set('loaded'); } },
       error: () => { if (generation === this.generation && request === this.timelineRequest) this.timelineState.set('error'); },
+    }));
+  }
+  loadSwimLengths() {
+    const activity = this.activity();
+    if (!activity || activity.activity_type !== 'swim' || activity.subtype === 'outdoor' || this.swimLengthState() === 'loading') return;
+    this.swimLengthState.set('loading'); this.swimLengths.set(null);
+    const generation = this.generation;
+    this.requests.get('swimLengths')?.unsubscribe();
+    this.requests.set('swimLengths', this.api.swimLengths(this.id).subscribe({
+      next: data => { if (generation === this.generation) { this.swimLengths.set(data); this.swimLengthState.set('loaded'); } },
+      error: () => { if (generation === this.generation) this.swimLengthState.set('error'); },
     }));
   }
   loadMap() {
