@@ -1,3 +1,4 @@
+import { runPollingLoop } from './polling-loop.js';
 import {
   ImportJobsRepository,
   UploadsRepository,
@@ -130,10 +131,7 @@ export class ImportJobRunner {
   }
 
   async run(signal: AbortSignal): Promise<void> {
-    while (!signal.aborted) {
-      const processed = await this.processNext();
-      if (!processed) await delay(this.pollIntervalMs, signal);
-    }
+    await runPollingLoop(() => this.processNext(), this.pollIntervalMs, signal);
   }
 
   private updateJob<T>(
@@ -158,17 +156,6 @@ function failureCode(error: unknown): string {
 
 function toJson(result: ImportLocalFilesResult): Json {
   return JSON.parse(JSON.stringify(result)) as Json;
-}
-
-function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
-  if (signal.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    const timeout = setTimeout(resolve, milliseconds);
-    signal.addEventListener('abort', () => {
-      clearTimeout(timeout);
-      resolve();
-    }, { once: true });
-  });
 }
 
 function clampInteger(value: number, minimum: number, maximum: number): number {

@@ -1,3 +1,4 @@
+import { runPollingLoop } from './polling-loop.js';
 import {
   RuleChangeCancelledError,
   RuleChangesRepository,
@@ -56,10 +57,7 @@ export class RuleChangeRunner {
   }
 
   async run(signal: AbortSignal): Promise<void> {
-    while (!signal.aborted) {
-      const processed = await this.processNext();
-      if (!processed) await delay(this.pollIntervalMs, signal);
-    }
+    await runPollingLoop(() => this.processNext(), this.pollIntervalMs, signal);
   }
 }
 
@@ -68,17 +66,6 @@ function failureCode(error: unknown): string {
     return error.name.replace(/[^A-Z0-9]+/gi, '_').toUpperCase().slice(0, 120);
   }
   return 'RULE_CHANGE_FAILED';
-}
-
-function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
-  if (signal.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    const timeout = setTimeout(resolve, milliseconds);
-    signal.addEventListener('abort', () => {
-      clearTimeout(timeout);
-      resolve();
-    }, { once: true });
-  });
 }
 
 function clampInteger(value: number, minimum: number, maximum: number): number {

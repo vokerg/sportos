@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/import-worker.ts",
+    "dev": "node ../../scripts/dev.mjs --worker-only",
     "start": "node dist/import-worker.js",
     "jobs": "tsx src/import-worker.ts",
     "import:local": "tsx src/import-local.ts",

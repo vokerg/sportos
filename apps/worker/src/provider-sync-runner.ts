@@ -1,3 +1,4 @@
+import { runPollingLoop } from './polling-loop.js';
 import { createHash } from 'node:crypto';
 import {
   ImportsRepository, ProvidersRepository, WorkerDispatchRepository, withAccountContext,
@@ -29,12 +30,13 @@ export class ProviderSyncRunner {
 
   async run(signal: AbortSignal): Promise<void> {
     const dispatch = new WorkerDispatchRepository(this.dispatchDb);
-    while (!signal.aborted) {
+    await runPollingLoop(async () => {
       await dispatch.recoverStaleProviderSyncs();
       const job = await dispatch.claimProviderSync(this.workerId, this.leaseSeconds);
-      if (!job) { await delay(this.pollIntervalMs, signal); continue; }
+      if (!job) return false;
       await this.process(job).catch(() => undefined);
-    }
+      return true;
+    }, this.pollIntervalMs, signal);
   }
 
   async process(job: DispatchedProviderSync): Promise<void> {
@@ -174,7 +176,6 @@ function safeErrorMessage(error: unknown): string { return (error instanceof Err
 function requireBatch(value: string | null): string { if (!value) throw new Error('Provider sync batch is unavailable.'); return value; }
 function safeWorkerId(value: string): string { return value.trim().slice(0, 200) || 'sportos-provider-worker'; }
 function clampInteger(value: number, minimum: number, maximum: number): number { if (!Number.isFinite(value)) return minimum; return Math.min(maximum, Math.max(minimum, Math.trunc(value))); }
-function delay(milliseconds: number, signal: AbortSignal): Promise<void> { return new Promise((resolve) => { if (signal.aborted) return resolve(); const timer = setTimeout(resolve, milliseconds); signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true }); }); }
 
 /** Shared by normal synchronization and retained-source walking backfill. */
 export function stravaSnapshotInput(activity: ProviderActivity, source: {

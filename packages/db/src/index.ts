@@ -64,3 +64,4 @@ export * from './performance-match-schema.js';
 
 export * from './historical-run-plan.js';
 export * from './repositories/historical-runs.repository.js';
+export * from './connection-errors.js';

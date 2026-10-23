@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
 import {
@@ -62,6 +62,26 @@ describe('daily log view model', () => {
     expect(dailyLogRowAtChartIndex(rows, 0)?.metric_date).toBe(rows[120]!.metric_date);
     expect(dailyLogRowAtChartIndex(rows, 120)?.metric_date).toBe(rows[0]!.metric_date);
     expect(dailyLogRowAtChartIndex(rows, -1)).toBeUndefined();
+  });
+
+  it('omits today and future days from both chart series and bar navigation', () => {
+    vi.useFakeTimers();
+    // Local midnight is deliberate: the cutoff must follow the browser day.
+    vi.setSystemTime(new Date(2026, 0, 31, 0, 15));
+    try {
+      const rows = ['2026-02-01', '2026-01-31', '2026-01-30', '2026-01-29']
+        .map((metric_date, index) => ({ ...row, metric_date, total_points: index, avg_30d: index * 10 }));
+      const options = dailyLogChartOptions(rows) as Record<string, any>;
+      expect(options.xAxis.data).toEqual(['2026-01-29', '2026-01-30'].map((date) => formatDate(date)));
+      expect(options.series.map((series: any) => series.data)).toEqual([[3, 2], [30, 20]]);
+      expect(dailyLogRowAtChartIndex(rows, 0)?.metric_date).toBe('2026-01-29');
+      expect(dailyLogRowAtChartIndex(rows, 1)?.metric_date).toBe('2026-01-30');
+      expect(dailyLogRowAtChartIndex(rows, 2)).toBeUndefined();
+      expect(rows).toHaveLength(4);
+      const todayOnly = rows.slice(0, 2);
+      expect((dailyLogChartOptions(todayOnly).xAxis as { data: string[] }).data).toEqual([]);
+      expect(dailyLogRowAtChartIndex(todayOnly, 0)).toBeUndefined();
+    } finally { vi.useRealTimers(); }
   });
 
   it('keeps table formatting and authority labels explicit', () => {

@@ -42,6 +42,9 @@ jobs:
       - name: Fast Angular architecture guardrails
         run: pnpm check:web-architecture
 
+      - name: Local development recovery checks
+        run: pnpm test:dev-recovery
+
       - name: Performance operator restart and rate-limit checks
         run: node --test scripts/performance-catchup-runner.test.mjs
 

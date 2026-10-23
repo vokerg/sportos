@@ -10,21 +10,32 @@ export function createDb(databaseUrl = process.env.DATABASE_URL): Kysely<Databas
     databaseUrl = process.env.DATABASE_URL;
   }
   if (!databaseUrl) throw new Error('DATABASE_URL is required');
-  return new Kysely<Database>({
-    dialect: new PostgresDialect({
-      pool: new Pool({
-        connectionString: databaseUrl,
-        // PostgreSQL DATE values are calendar dates, not instants. Keep them
-        // as strings so the process timezone cannot move them to the prior day.
-        types: {
-          getTypeParser(oid, format) {
-            if (oid === 1082 && format === 'text') return (value: string) => value;
-            return pgTypes.getTypeParser(oid, format);
-          },
-        },
-      }),
-    }),
+  const pool = new Pool({
+    connectionTimeoutMillis: 10_000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
+    connectionString: databaseUrl,
+    // PostgreSQL DATE values are calendar dates, not instants. Keep them
+    // as strings so the process timezone cannot move them to the prior day.
+    types: {
+      getTypeParser(oid, format) {
+        if (oid === 1082 && format === 'text') return (value: string) => value;
+        return pgTypes.getTypeParser(oid, format);
+      },
+    },
   });
+  // pg removes disconnected idle clients before emitting this event. Never log
+  // the error/client: they can contain credentials, queries and private values.
+  pool.on('error', () => {
+    console.warn('Idle database connection lost; the pool will replace it.');
+  });
+  pool.on('connect', (client) => {
+    // pg-pool removes its idle error listener during checkout. Kysely does not
+    // install one, so connection errors between queries need a listener too.
+    // Active queries still reject normally; no statement is replayed here.
+    client.on('error', () => undefined);
+  });
+  return new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
 }
 
 export function resolveActivityDetailDatabaseUrl(): string {
