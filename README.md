@@ -263,6 +263,9 @@ and restart exited runtime processes with bounded backoff. Database connections
 and worker queue scans recover from transient disconnects after wake; interrupted
 requests may still need a refresh. See [local recovery](docs/LOCAL_RECOVERY.md).
 
+Daily and Dynamics charts show completed local calendar days, excluding today
+and future dates. Today remains available in daily records and tables.
+
 ## Cockpit workflows
 
 The cockpit follows the browser's light/dark color preference automatically,

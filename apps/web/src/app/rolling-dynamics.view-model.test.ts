@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import type { RollingDynamicsResponse } from './features/dynamics/model/dynamics.models';
+import { describe, expect, it, vi } from 'vitest';
+import { DYNAMICS_METRICS, type RollingDynamicsResponse } from './features/dynamics/model/dynamics.models';
 import { buildRollingAggregateRows, formatRollingValue, rollingDynamicsChartOptions, scoreContributionChartOptions } from './rolling-dynamics.view-model';
 
 const response: RollingDynamicsResponse = {
@@ -46,6 +46,40 @@ describe('rolling dynamics view model', () => {
     expect(options.series.every((series: any) => series.stack === 'score-contribution' && series.areaStyle)).toBe(true);
     expect(options.series[0].data).toEqual([10, 8]);
     expect(options.tooltip.valueFormatter(10.25)).toBe('10 pts/day');
+  });
+
+  it('excludes the incomplete local day from every metric, measure, window and contribution series', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 0, 31, 0, 15));
+    try {
+      const data = {
+        ...response,
+        points: [...response.points, { ...response.points[1]!, date: '2026-02-01' }],
+        scoreContributions: Object.fromEntries(response.windows.map((window) => [window, {
+          ...response.scoreContributions[30]!,
+          windowDays: window,
+          points: [...response.scoreContributions[30]!.points, {
+            ...response.scoreContributions[30]!.points[1]!, date: '2026-02-01',
+          }],
+        }])),
+      };
+      for (const metric of DYNAMICS_METRICS) {
+        for (const measure of ['total', 'recordedDayAverage', 'activeDays'] as const) {
+          const options = rollingDynamicsChartOptions({ ...data, metric }, measure) as Record<string, any>;
+          expect(options.xAxis.data).toEqual(['2026-01-30']);
+          expect(options.series.every((series: any) => series.data.length === 1)).toBe(true);
+        }
+      }
+      for (const window of response.windows) {
+        const options = scoreContributionChartOptions(data, window) as Record<string, any>;
+        expect(options.xAxis.data).toEqual(['2026-01-30']);
+        expect(options.series.map((series: any) => series.data)).toEqual([[10], [2]]);
+      }
+      expect(data.points).toHaveLength(3);
+      expect(response.points).toHaveLength(2);
+      const todayOnly = { ...data, points: data.points.slice(1) };
+      expect((rollingDynamicsChartOptions(todayOnly, 'total') as Record<string, any>).xAxis.data).toEqual([]);
+    } finally { vi.useRealTimers(); }
   });
 
   it('builds the selected-cycle aggregate row across training metrics', () => {

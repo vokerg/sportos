@@ -1,3 +1,4 @@
+import { localCalendarDate } from './shared/util/analytics-query-state';
 import type { EChartsCoreOption } from 'echarts/core';
 import type { DynamicsMetric, RollingDynamicsMeasure, RollingDynamicsResponse, RollingWindow, ScoreContributionCategory } from './features/dynamics/model/dynamics.models';
 
@@ -45,6 +46,8 @@ export function rollingDynamicsChartOptions(
   measure: RollingDynamicsMeasure,
 ): EChartsCoreOption {
   if (!response) return {};
+  const today = localCalendarDate();
+  const points = response.points.filter((point) => point.date < today);
   const activeDays = measure === 'activeDays';
   const unit = activeDays ? 'days' : displayUnit(response.unit);
   return {
@@ -55,14 +58,14 @@ export function rollingDynamicsChartOptions(
     },
     legend: { bottom: 0 },
     grid: { left: 44, right: 24, top: 28, bottom: 58, containLabel: true },
-    xAxis: { type: 'category', data: response.points.map((point) => point.date), axisLabel: { hideOverlap: true } },
+    xAxis: { type: 'category', data: points.map((point) => point.date), axisLabel: { hideOverlap: true } },
     yAxis: { type: 'value', name: unit },
     series: response.windows.map((window) => ({
       name: `${window}d ${measure === 'total' ? 'total' : measure === 'activeDays' ? 'active days' : 'avg/day'}`,
       type: 'line',
-      showSymbol: response.points.length <= 60,
+      showSymbol: points.length <= 60,
       connectNulls: false,
-      data: response.points.map((point) => activeDays
+      data: points.map((point) => activeDays
         ? point.windows[window]?.activeDays ?? null
         : displayValue(point.windows[window]?.[rollingMeasure(measure)] ?? null, response.unit)),
     })),
@@ -73,6 +76,8 @@ export function scoreContributionChartOptions(response: RollingDynamicsResponse 
   if (!response) return {};
   const contribution = response.scoreContributions[window];
   if (!contribution) return {};
+  const today = localCalendarDate();
+  const points = contribution.points.filter((point) => point.date < today);
   return {
     color: contribution.categories.map((category) => SCORE_CONTRIBUTION_COLORS[category]),
     tooltip: {
@@ -84,7 +89,7 @@ export function scoreContributionChartOptions(response: RollingDynamicsResponse 
     },
     legend: { bottom: 0, data: contribution.categories.map((category) => SCORE_CONTRIBUTION_LABELS[category]) },
     grid: { left: 48, right: 24, top: 28, bottom: 68, containLabel: true },
-    xAxis: { type: 'category', boundaryGap: false, data: contribution.points.map((point) => point.date), axisLabel: { hideOverlap: true } },
+    xAxis: { type: 'category', boundaryGap: false, data: points.map((point) => point.date), axisLabel: { hideOverlap: true } },
     yAxis: { type: 'value', name: 'pts/day', min: 0, splitLine: { lineStyle: { type: 'dashed' } } },
     series: contribution.categories.map((category) => ({
       name: SCORE_CONTRIBUTION_LABELS[category],
@@ -95,7 +100,7 @@ export function scoreContributionChartOptions(response: RollingDynamicsResponse 
       lineStyle: { width: 1 },
       areaStyle: { opacity: 0.9 },
       emphasis: { focus: 'series' },
-      data: contribution.points.map((point) => point.contributions[category] ?? 0),
+      data: points.map((point) => point.contributions[category] ?? 0),
     })),
   };
 }

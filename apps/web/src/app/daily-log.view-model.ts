@@ -1,7 +1,7 @@
 import type { EChartsCoreOption } from 'echarts/core';
 import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
-import { boundedAllTimeRange, QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './shared/util/analytics-query-state';
+import { boundedAllTimeRange, localCalendarDate, QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './shared/util/analytics-query-state';
 
 export { boundedAllTimeRange, QUICK_RANGE_VALUES, quickRangeDates };
 export type { QuickRange };
@@ -41,7 +41,7 @@ export function relativePastelBackground(
 }
 
 export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsCoreOption {
-  const chronological = [...rows].reverse();
+  const chronological = completedChartRows(rows).reverse();
   return {
     tooltip: { trigger: 'axis' },
     legend: { bottom: 0 },
@@ -64,8 +64,15 @@ export function dailyLogRowAtChartIndex(
   dataIndex: number,
 ): DailySummaryRow | undefined {
   return Number.isInteger(dataIndex) && dataIndex >= 0
-    ? rows[rows.length - 1 - dataIndex]
+    ? completedChartRows(rows).reverse()[dataIndex]
     : undefined;
+}
+
+// The current local day is still accumulating. Keep it in the table, while
+// chart points and click targets share precisely the same completed-day rows.
+function completedChartRows(rows: readonly DailySummaryRow[]): DailySummaryRow[] {
+  const today = localCalendarDate();
+  return rows.filter((row) => row.metric_date < today);
 }
 
 export function formatDailyCellNumber(value: unknown): string {

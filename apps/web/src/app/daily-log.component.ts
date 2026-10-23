@@ -28,7 +28,7 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
       <div class="daily-log-header">
         <div>
           <h2 id="daily-log-title">Daily Log</h2>
-          <p class="daily-log-help">Open a chart bar or table row to inspect the complete day.</p>
+          <p class="daily-log-help">The chart shows completed days. Open a chart bar or table row to inspect the complete day.</p>
         </div>
         <div class="current-average" aria-label="Current 30 day average">
           <span>Current 30d average</span>
