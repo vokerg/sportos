@@ -39,7 +39,7 @@ describe('activity timeline authorization and retained-only reads',()=>{
   it('reads pool splits through owner-bound current Garmin FIT evidence only',async()=>{
     const {service,detail}=setup({identity_key:'native:1',current_hash:'a'.repeat(64)});
     vi.spyOn(ActivitiesRepository.prototype,'get').mockResolvedValue({id,activity_type:'swim',subtype:'indoor'} as never);
-    vi.spyOn(GarminActivityResourcesRepository.prototype,'coverage').mockResolvedValue([{resourceType:'records',chunkIndex:0}] as never);
+    vi.spyOn(GarminActivityResourcesRepository.prototype,'coverage').mockResolvedValue([{resourceType:'records',chunkIndex:0},{resourceType:'sets',chunkIndex:0},{resourceType:'detail',chunkIndex:0}] as never);
     vi.spyOn(GarminActivityResourcesRepository.prototype,'expectedResources').mockResolvedValue(
       [{resourceType:'records',chunkIndex:0},{resourceType:'sets',chunkIndex:0},{resourceType:'detail',chunkIndex:0}]);
     vi.spyOn(GarminActivityResourcesRepository.prototype,'messages').mockResolvedValue([{message:'session',fields:[{name:'pool_length',value:25,units:'m'}]}] as never);
