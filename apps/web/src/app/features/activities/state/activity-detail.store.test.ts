@@ -80,6 +80,14 @@ describe('activity map state', () => {
     expect(api.fetchGarminDetail).not.toHaveBeenCalled();
     store.ngOnDestroy();
   });
+  it('never requests a GPS map for indoor pool swims but preserves it for outdoor swims',()=>{
+    const {api,store}=setup();
+    api.detail.mockReturnValueOnce(of({id:'pool',activity_type:'swim',subtype:'indoor'}));
+    store.load('pool');expect(api.map).not.toHaveBeenCalled();
+    api.detail.mockReturnValueOnce(of({id:'open',activity_type:'swim',subtype:'outdoor'}));
+    store.load('open');expect(api.map).toHaveBeenCalledWith('open');
+    store.ngOnDestroy();
+  });
   it('renders available route data and resets it on navigation to an indoor activity', () => {
     const { api, store } = setup();
     api.map.mockReturnValueOnce(of({ status: 'available', source: 'strava', resolution: 'summary',
@@ -119,6 +127,22 @@ describe('activity map state', () => {
   });
 });
 
+describe('pool lengths read workflow',()=>{
+  it('only reads retained splits after intent, cancels stale requests and never fetches providers',()=>{
+    const {api,store}=setup();
+    api.swimLengths=vi.fn(()=>of({status:'available',lengths:[]}));
+    api.detail.mockReturnValueOnce(of({id:'pool',activity_type:'swim',subtype:'indoor',garmin:{provider:'garmin'}}));
+    store.load('pool');
+    expect(api.swimLengths).not.toHaveBeenCalled();
+    store.loadSwimLengths();expect(store.swimLengthState()).toBe('loaded');
+    expect(api.swimLengths).toHaveBeenCalledWith('pool');
+    expect(api.fetchGarminDetail).not.toHaveBeenCalled();
+    const pending=new Subject<never>();api.swimLengths.mockReturnValueOnce(pending as never);
+    store.loadSwimLengths();expect(pending.observed).toBe(true);
+    store.load('other');expect(pending.observed).toBe(false);expect(store.swimLengths()).toBeNull();
+    store.loadSwimLengths();expect(api.swimLengths).toHaveBeenCalledTimes(2);
+  });
+});
 describe('activity timeline workflow', () => {
   it('reads rich telemetry only on graph intent, keeping downloads separate', () => {
     const {api,store}=setup();store.load('one');expect(api.timeline).not.toHaveBeenCalled();
