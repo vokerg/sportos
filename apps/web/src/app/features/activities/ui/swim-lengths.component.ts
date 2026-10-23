@@ -38,12 +38,13 @@ import type { SwimLengthResponse } from '../activities-api.service';
           }
           <div class="table-scroll">
             <table>
-              <thead><tr><th scope="col">#</th><th scope="col">Type</th><th scope="col">Split</th><th scope="col">Pace /100 m</th><th scope="col">Strokes</th><th scope="col">SWOLF</th><th scope="col">Stroke</th></tr></thead>
+              <thead><tr><th scope="col">#</th><th scope="col">Type</th><th scope="col">Distance</th><th scope="col">Split</th><th scope="col">Pace /100 m</th><th scope="col">Strokes</th><th scope="col">SWOLF</th><th scope="col">Stroke</th></tr></thead>
               <tbody>
                 @for (length of data.lengths; track length.row) {
                   <tr [class.rest]="length.kind === 'rest'">
                     <td>{{ length.lengthNumber ?? '—' }}</td>
                     <td>{{ length.kind === 'active' ? 'Length' : length.kind === 'rest' ? 'Rest' : 'Unclassified' }}</td>
+                    <td>{{ length.kind === 'active' ? data.poolLengthDisplay ?? '—' : '—' }}</td>
                     <td>{{ duration(length.durationS) }} @if (length.durationBasis === 'elapsed') { <small title="Timer time missing; elapsed time is shown">elapsed</small> }</td>
                     <td>{{ duration(length.paceSPer100M) }}</td>
                     <td>{{ length.strokes ?? '—' }}</td>
