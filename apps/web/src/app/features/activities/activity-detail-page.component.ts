@@ -1,4 +1,5 @@
 import { ActivityTimelineComponent } from './ui/activity-timeline.component';
+import { SwimLengthsComponent } from './ui/swim-lengths.component';
 import { ActivityMapComponent } from './ui/activity-map.component';
 import { RunningEffortsComponent } from './ui/running-efforts.component';
 import { ActivityMetricProvenanceComponent } from './ui/activity-metric-provenance.component';
@@ -13,7 +14,7 @@ import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.vi
 import { startTime, title, displayedSubtype } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityTimelineComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityTimelineComponent, SwimLengthsComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
   template: `
     <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
     @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
@@ -40,6 +41,9 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
       @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
       }
       <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
+      @if (item.activity_type === 'swim' && item.subtype !== 'outdoor') {
+        <sportos-swim-lengths [state]="store.swimLengthState()" [data]="store.swimLengths()" (load)="store.loadSwimLengths()" />
+      }
       <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
       @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
       @if (item.garminStrength; as strength) {
