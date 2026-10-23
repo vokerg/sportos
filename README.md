@@ -258,6 +258,10 @@ Open `http://localhost:4210` and sign in.
 
 For focused work, `pnpm dev:api` starts only the compiled/watch API, while
 `pnpm dev:web` and `pnpm dev:worker` remain available for separate processes.
+The combined/API/worker launchers rebuild and watch the relevant backend projects
+and restart exited runtime processes with bounded backoff. Database connections
+and worker queue scans recover from transient disconnects after wake; interrupted
+requests may still need a refresh. See [local recovery](docs/LOCAL_RECOVERY.md).
 
 ## Cockpit workflows
 

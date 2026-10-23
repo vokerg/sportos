@@ -21,14 +21,19 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => 
 const dispatchDb = createDb(requiredUrl('SPORTOS_WORKER_DATABASE_URL'));
 const dataDb = createDb(requiredUrl('SPORTOS_WORKER_DATA_DATABASE_URL'));
 const storage = new LocalUploadStorage(resolve(repoRoot, process.env.SPORTOS_UPLOAD_DIR ?? 'data/uploads'));
+const runners: Promise<void>[] = [];
 try {
-  const runners: Promise<void>[] = [
+  const provider = providerRuntime();
+  runners.push(
     ...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(dispatchDb, dataDb, storage, { workerId: `${processId}:import:${index + 1}`, leaseSeconds, pollIntervalMs }).run(controller.signal)),
     new RuleChangeRunner(dispatchDb, dataDb, { workerId: `${processId}:rules`, leaseSeconds, pollIntervalMs }).run(controller.signal),
-  ];
-  const provider = providerRuntime();
+  );
   if (provider) runners.push(new ProviderSyncRunner(dispatchDb, dataDb, provider.adapter, provider.cipher, { workerId: `${processId}:providers`, leaseSeconds, pollIntervalMs, pageSize: 200 }).run(controller.signal));
   await Promise.all(runners);
+} catch (error) {
+  controller.abort();
+  await Promise.allSettled(runners);
+  throw error;
 } finally { await Promise.all([dispatchDb.destroy(), dataDb.destroy()]); }
 
 function providerRuntime(): { adapter: StravaAdapter; cipher: CredentialCipher } | null {
