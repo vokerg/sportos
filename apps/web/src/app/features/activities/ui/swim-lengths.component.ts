@@ -1,7 +1,7 @@
 import { Component, computed, inject, input, output } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { ColorSchemeService } from '../../../core/theme/color-scheme.service';
-import { swimLengthChartOptions, swimLengthChartHeight } from '../model/swim-length-chart.models';
+import { swimLengthChartOptions, swimLengthChartHeight, swimSplitTime } from '../model/swim-length-chart.models';
 import { formatDurationClock } from '../../../shared/util/duration';
 import type { SwimLengthResponse } from '../activities-api.service';
 
@@ -29,6 +29,12 @@ import type { SwimLengthResponse } from '../activities-api.service';
           @if (data.complete === false || data.truncated) {
             <p role="alert">The retained FIT length messages are incomplete or disagree with Garmin's count. Missing lengths are not estimated.</p>
           }
+          @if (data.complete === null) {
+            <p class="muted">Garmin did not report length counts, so completeness cannot be verified.</p>
+          }
+          @if (!hasRest()) {
+            <p class="muted">No rest length messages are present in this view. Pauses outside length messages are not reconstructed as rests.</p>
+          }
           @if (data.poolLengthM === null) {
             <p class="muted">Pool length could not be verified. Split durations are shown, but per-100 m pace is unavailable.</p>
           }
@@ -45,7 +51,7 @@ import type { SwimLengthResponse } from '../activities-api.service';
                     <td>{{ length.lengthNumber ?? '—' }}</td>
                     <td>{{ length.kind === 'active' ? 'Length' : length.kind === 'rest' ? 'Rest' : 'Unclassified' }}</td>
                     <td>{{ length.kind === 'active' ? data.poolLengthDisplay ?? '—' : '—' }}</td>
-                    <td>{{ duration(length.durationS) }} @if (length.durationBasis === 'elapsed') { <small title="Timer time missing; elapsed time is shown">elapsed</small> }</td>
+                    <td>{{ splitTime(length.durationS) }} @if (length.durationBasis === 'elapsed') { <small title="Timer time missing; elapsed time is shown">elapsed</small> }</td>
                     <td>{{ duration(length.paceSPer100M) }}</td>
                     <td>{{ length.strokes ?? '—' }}</td>
                     <td>{{ length.swolf === null ? '—' : round(length.swolf) }}</td>
@@ -72,6 +78,8 @@ export class SwimLengthsComponent {
   readonly state = input<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   readonly data = input<SwimLengthResponse | null>(null);
   readonly load = output<void>();
+  readonly hasRest = computed(() => this.data()?.lengths.some(row => row.kind === 'rest') ?? false);
+  readonly splitTime = swimSplitTime;
   readonly duration = (value: number | null) => value === null ? '—' : formatDurationClock(value);
   readonly round = (value: number) => Number(value.toFixed(1));
   readonly reason = (code?: string) => ({

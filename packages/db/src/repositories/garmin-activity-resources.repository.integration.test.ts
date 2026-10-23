@@ -51,4 +51,26 @@ integration('staged Garmin resources in the separate detail database', () => {
     });
   });
 
+  it('reads only allowlisted length fields in chunk order, bounds output and isolates owners and versions', async () => {
+    const owner = randomUUID(), foreign = randomUUID();
+    const ref = { identityKey: 'native:54321', sourceHash: 'd'.repeat(64) };
+    const length = (seconds:number) => ({message:'length',fields:[
+      {name:'length_type',value:'active',units:null},
+      {name:'total_timer_time',value:seconds,units:'s'},
+      {name:'total_strokes',value:12,units:'strokes'},
+      {name:'position_lat',value:123,units:'semicircles'},
+    ]});
+    await withAccountContext(db,owner,async ctx=>{
+      const repo=new GarminActivityResourcesRepository(ctx);
+      await repo.retain(ref,{resourceType:'records',chunkIndex:1,payload:[length(28)]});
+      await repo.retain(ref,{resourceType:'records',chunkIndex:0,payload:[{message:'lap',fields:[]},length(23)]});
+      const rows=await repo.swimLengthMessages(ref);
+      expect(rows).toEqual([23,28].map(seconds=>({message:'length',fields:length(seconds).fields.slice(0,3)})));
+      expect(await repo.swimLengthMessages(ref,1)).toEqual(rows.slice(0,1));
+      expect(await repo.swimLengthMessages({...ref,sourceHash:'e'.repeat(64)})).toEqual([]);
+      await expect(repo.swimLengthMessages(ref,2002)).rejects.toThrow('Invalid swim length limit');
+    });
+    expect(await withAccountContext(db,foreign,ctx=>new GarminActivityResourcesRepository(ctx).swimLengthMessages(ref))).toEqual([]);
+  });
+
 });

@@ -25,6 +25,16 @@ describe('activity timeline authorization and retained-only reads',()=>{
   it('checks canonical visibility before auxiliary access for foreign and nonexistent identifiers',async()=>{
     const {service,detail}=setup();vi.spyOn(ActivitiesRepository.prototype,'get').mockResolvedValue(null);
     for(const source of ['strava','garmin'] as const) await expect(service.read(owner,id,source)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.swimLengths(owner,id)).rejects.toBeInstanceOf(NotFoundException);
+    expect(detail.withAccount).not.toHaveBeenCalled();
+  });
+  it('does not inspect auxiliary resources for open-water or non-swimming activities',async()=>{
+    const {service,detail}=setup();
+    const get=vi.spyOn(ActivitiesRepository.prototype,'get');
+    for(const activity of [{activity_type:'swim',subtype:'outdoor'},{activity_type:'run',subtype:'indoor'}]) {
+      get.mockResolvedValue({id,...activity} as never);
+      expect(await service.swimLengths(owner,id)).toMatchObject({reason:'not_pool_swim'});
+    }
     expect(detail.withAccount).not.toHaveBeenCalled();
   });
   it('reads only retained streams inside the same owner context and rejects stale versions',async()=>{

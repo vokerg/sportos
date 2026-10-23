@@ -98,7 +98,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         @if (store.garminState() === 'loaded' && store.garminError()) { <p role="alert">{{ store.garminError() }}</p> }
         @if (store.garmin(); as garmin) {
           <p>Retained Garmin data · {{ garmin.retainedAt }} @if (garmin.cacheStatus) { · {{ garmin.cacheStatus === 'hit' ? 'cache hit' : 'fetched from Garmin' }} }</p>
-          <h4>Garmin session and running dynamics</h4>
+          <h4>{{ item.activity_type === 'swim' ? 'Garmin swim session' : 'Garmin session and running dynamics' }}</h4>
           <dl class="metrics">@for (metric of fitMetrics(garmin.sessions[0], item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> } @empty { <p>No supported session metrics were provided.</p> }</dl>
           <details class="provider-json"><summary>Garmin laps ({{ garmin.laps.length }} shown, up to 100)</summary>
             @for (lap of garmin.laps; track $index) { <h4>Lap {{ $index + 1 }}</h4><dl class="metrics">@for (metric of fitMetrics(lap, item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl> }

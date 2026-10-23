@@ -2,6 +2,15 @@ import type { EChartsCoreOption } from 'echarts/core';
 import type { SwimLengthResponse } from '../activities-api.service';
 import { formatDurationClock } from '../../../shared/util/duration';
 
+/** Preserve decoded millisecond split precision without rounding pace first. */
+export function swimSplitTime(value: number | null): string {
+  if (value === null || !Number.isFinite(value) || value < 0) return '—';
+  const milliseconds = Math.round(value * 1000);
+  const fraction = milliseconds % 1000;
+  return formatDurationClock(Math.floor(milliseconds / 1000))
+    + (fraction ? `.${String(fraction).padStart(3, '0').replace(/0+$/, '')}` : '');
+}
+
 /** Native FIT lengths, not Garmin lap aggregates; no inferred/missing values. */
 export function swimLengthChartOptions(data: SwimLengthResponse): EChartsCoreOption | null {
   const active = data.lengths.filter(length => length.kind === 'active');
@@ -9,7 +18,7 @@ export function swimLengthChartOptions(data: SwimLengthResponse): EChartsCoreOpt
   const labels = active.map(row => String(row.lengthNumber ?? row.row));
   const metrics = [
     {key: 'pace', title:'Pace · /100 m', values:active.map(row => row.paceSPer100M), formatter:(v:number)=>formatDurationClock(v)},
-    {key: 'swolf', title:'SWOLF · timer seconds + strokes', values:active.map(row => row.swolf), formatter:(v:number)=>String(Number(v.toFixed(1)))},
+    {key: 'swolf', title:'SWOLF · seconds + strokes', values:active.map(row => row.swolf), formatter:(v:number)=>String(Number(v.toFixed(1)))},
     {key: 'strokes', title:'Strokes · per length', values:active.map(row => row.strokes), formatter:(v:number)=>String(v)},
   ].filter(metric => metric.values.some(value => value !== null));
   if (!metrics.length) return null;
@@ -22,7 +31,8 @@ export function swimLengthChartOptions(data: SwimLengthResponse): EChartsCoreOpt
       axisLabel:{show:i===metrics.length-1},name:i===metrics.length-1?'Active pool length #':'',
       nameLocation:'middle',nameGap:28})),
     yAxis: metrics.map((metric,i) => ({type:'value',gridIndex:i,scale:true,
-      inverse:metric.key==='pace',name:metric.title,nameLocation:'end',
+      inverse:metric.key==='pace',name:metric.title,nameLocation:metric.key==='pace'?'start':'end',
+      nameTextStyle:{align:'left'},splitNumber:3,
       axisLabel:{formatter:metric.key==='pace'?(v:number)=>formatDurationClock(v):(v:number)=>String(v)},
       splitLine:{show:true}})),
     dataZoom: [{type:'inside',xAxisIndex:metrics.map((_,i)=>i),filterMode:'none'},

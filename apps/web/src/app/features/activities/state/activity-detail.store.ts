@@ -91,7 +91,17 @@ export class ActivityDetailStore implements OnDestroy {
     if (this.garminState() === 'loading') return;
     this.garminState.set('loading'); this.garminError.set(''); const generation = this.generation;
     const request = fetch ? this.api.fetchGarminDetail(this.id, refresh) : this.api.garminDetail(this.id);
-    this.requests.set('garmin', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.garmin.set(detail); this.garminState.set('loaded'); this.refreshCoverage(); if (fetch) { this.refreshActivity(); this.loadMap(); } }, error: error => { if (generation === this.generation) { this.garminState.set(missing(error)); this.garminError.set(message(error, 'Could not load Garmin detail. Retry after checking your local login.')); if(fetch) this.refreshActivity(); } } }));
+    this.requests.set('garmin', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.garmin.set(detail); this.garminState.set('loaded'); this.refreshCoverage(); if (fetch) { this.invalidateGarminCharts(); this.refreshActivity(); this.loadMap(); } }, error: error => { if (generation === this.generation) { this.garminState.set(missing(error)); this.garminError.set(message(error, 'Could not load Garmin detail. Retry after checking your local login.')); if(fetch) this.refreshActivity(); } } }));
+  }
+  private invalidateGarminCharts() {
+    // A successful Fetch/Refresh may publish a new immutable source version.
+    // Cancel older reads, then require explicit chart reloads from that version.
+    this.requests.get('swimLengths')?.unsubscribe();
+    this.swimLengths.set(null); this.swimLengthState.set('idle');
+    if (this.timelineSource() === 'garmin') {
+      this.requests.get('timeline')?.unsubscribe(); this.timelineRequest++;
+      this.timelineData.set(null); this.timelineState.set('idle');
+    }
   }
   reprocessEfforts() {
     if(this.effortState()==='loading' || this.activity()?.activity_type!=='run') return;

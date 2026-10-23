@@ -579,7 +579,7 @@ is bounded to 3,000 points (bucket extrema for complete sections, missing marker
 for incomplete sections). Simplification is labelled; retained originals remain
 unchanged. API/auxiliary failures are isolated to the graph with a retry control.
 
-## Swimming detail (draft swim UX PR)
+## Swimming detail (#172, draft PR #171)
 
 Indoor pool swims do not render or request GPS route maps; outdoor/open-water swims retain normal route behavior.
 The retained telemetry graph applies swimming pace per 100 metres and distance in metres for canonical swim
@@ -590,17 +590,40 @@ are not treated as swimming telemetry.
 parameters. The API checks the canonical activity and current linked Garmin version, validates complete FIT
 resource coverage, and reads a bounded set of up to 2,001 native FIT `length` messages from the existing
 detail database. It returns at most 2,000 entries and an explicit `truncated` flag, plus pool length
-from the session when its unit is known to be metres. Missing/non-metric pool size is not guessed.
+from the session when its decoded unit is known to be metres. FIT `pool_length` is stored in metres
+even when `pool_length_unit` requests a yards display; SportOS keeps the evidenced metre value
+and per-100m pace. Unknown source units are not converted by guesswork. See Garmin's
+[pool-swim decoding guide](https://developer.garmin.com/fit/articles/cookbook/decoding_activity_files.html).
 
 The pool breakdown is opt-in, obtained only after **Show lengths**, and uses the actual FIT `length`
 messages, not Strava `laps` or Garmin `lap` aggregates. For each recorded active length it shows
 timer duration (or explicitly labelled elapsed fallback), per-100m pace when pool size is available,
-recorded strokes, and SWOLF calculated only when timer and strokes both exist. An idle length becomes
+recorded strokes, and SWOLF calculated only when a positive timer and strokes both exist. Split
+durations preserve decoded millisecond precision; pace is calculated before display rounding.
+An idle length becomes
 a rest row, not a fictitious extra 25/50 metres. Charts plot pace, SWOLF and strokes by active
 length, using gaps for missing values. Garmin-reported length counts are compared with retained
-messages and discrepancies are disclosed. This is display evidence only: original provider
+messages; both total and active counts must agree when present, and unknown classifications
+are incomplete. Missing counts leave completeness explicitly unverified. No rest rows are
+invented from the difference between session elapsed and timer durations. Successful explicit
+Garmin Fetch/Refresh cancels pending chart reads and clears prior Garmin charts; reloads remain
+opt-in. This is display evidence only: original provider
 metrics, canonical distance, provider matching and official scoring are unchanged.
 
-Local verification is still required against an actual Garmin pool-swim FIT bundle, especially
-for the example swim of 2026-10-21. Manual distance correction is a separate, explicitly audited
-canonical-fact workflow and must not be implemented by editing raw FIT or Strava payloads.
+Local verification for #172 decoded the original retained FIT with CRC checking and inspected
+the corresponding current-version detail resources. The example contains one session, one
+aggregate lap, 41 active lengths in a verified 25 m pool, no idle lengths, and 1,100 heart-rate
+records. All active split durations, strokes, calculated per-100m pace and SWOLF were checked
+against retained fields; the calculated mean SWOLF agrees with the device at its displayed
+precision. The per-second Garmin chart correctly offers heart rate only: this recording has
+no supported speed/distance samples, and length pace is shown separately.
+
+The 41 recorded lengths account for the provider total, rather than fractional distance rounding.
+Compared with the maintainer's confirmed 40-length swim, there is one extra recorded active
+length; evidence does not identify which one to exclude. All recorded lengths stay visible.
+Desktop and 390 px mobile charts were checked locally. Owner/missing-identifier parity and
+foreign detail-resource denial were verified using non-owner runtime connections. Explicit
+cached Fetch left canonical activity, daily facts, ledger and snapshot rows unchanged.
+Private raw data and screenshots remain outside GitHub and committed fixtures use synthetic
+values with the verified decoder field names/units. Manual distance correction belongs to
+#173, a separate audited canonical/scoring workflow; never edit original FIT/Strava payloads.

@@ -82,8 +82,12 @@ describe('activity map state', () => {
   });
   it('never requests a GPS map for indoor pool swims but preserves it for outdoor swims',()=>{
     const {api,store}=setup();
-    api.detail.mockReturnValueOnce(of({id:'pool',activity_type:'swim',subtype:'indoor'}) as never);
+    api.detail.mockReturnValue(of({id:'pool',activity_type:'swim',subtype:'indoor',providerDetail:{provider:'strava'}}) as never);
     store.load('pool');expect(api.map).not.toHaveBeenCalled();
+    store.loadMap(); store.garminDetail(true); store.strava(true);
+    expect(api.fetchGarminDetail).toHaveBeenCalledTimes(1);
+    expect(api.fetchProviderDetail).toHaveBeenCalledTimes(1);
+    expect(api.map).not.toHaveBeenCalled();
     api.detail.mockReturnValueOnce(of({id:'open',activity_type:'swim',subtype:'outdoor'}) as never);
     store.load('open');expect(api.map).toHaveBeenCalledWith('open');
     store.ngOnDestroy();
@@ -128,6 +132,21 @@ describe('activity map state', () => {
 });
 
 describe('pool lengths read workflow',()=>{
+  it('cancels old split reads and clears Garmin charts after explicit Fetch/Refresh without automatically reloading them',()=>{
+    const {api,store}=setup();
+    api.detail.mockReturnValue(of({id:'pool',activity_type:'swim',subtype:'indoor',garmin:{provider:'garmin'}}) as never);
+    store.load('pool'); store.loadTimeline('garmin');
+    const pending=new Subject<never>(); api.swimLengths.mockReturnValueOnce(pending as never);
+    store.loadSwimLengths(); store.loadSwimLengths(); expect(api.swimLengths).toHaveBeenCalledTimes(1);
+    store.garminDetail(true,true);
+    expect(pending.observed).toBe(false);
+    pending.next({status:'available',lengths:[{}]} as never);
+    expect(store.swimLengths()).toBeNull(); expect(store.swimLengthState()).toBe('idle');
+    expect(store.timelineData()).toBeNull(); expect(store.timelineState()).toBe('idle');
+    expect(api.timeline).toHaveBeenCalledTimes(1); expect(api.swimLengths).toHaveBeenCalledTimes(1);
+    expect(api.map).not.toHaveBeenCalled();
+    store.loadSwimLengths(); expect(store.swimLengthState()).toBe('loaded');
+  });
   it('only reads retained splits after intent, cancels stale requests and never fetches providers',()=>{
     const {api,store}=setup();
     api.detail.mockReturnValueOnce(of({id:'pool',activity_type:'swim',subtype:'indoor',garmin:{provider:'garmin'}}) as never);

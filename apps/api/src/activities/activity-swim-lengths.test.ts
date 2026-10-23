@@ -32,4 +32,36 @@ describe('Garmin FIT pool length evidence', () => {
     expect(parseSwimLengths(session(),[])).toEqual(unavailableSwimLengths('no_length_messages'));
     expect(parseSwimLengths(null,[active(20,17)])).toEqual(unavailableSwimLengths('missing_session'));
   });
+  it('requires agreement with both session counts and classifies unknown lengths as incomplete', () => {
+    const wrongActiveCount = [active(20,17),length(field('length_type','idle')),length(field('length_type','idle'))];
+    expect(parseSwimLengths(session(),wrongActiveCount).complete).toBe(false);
+    expect(parseSwimLengths(session(),[active(20,17),active(25,18),length(field('length_type','unknown'))]).complete).toBe(false);
+    expect(parseSwimLengths({message:'session',fields:[]},[active(20,17)]).complete).toBeNull();
+  });
+  it('accepts the locally verified decoder shape with synthetic fractional timings and native strokes', () => {
+    // Field names/units/decoder metadata verified locally; values are invented.
+    // Never copy personal FIT records, timestamps or device identifiers here.
+    const native = (name:string,value:unknown,units:string|null=null) =>
+      ({name,value,units,definition:0,developerIndex:null,rawValue:value});
+    const r = parseSwimLengths({message:'session',fields:[native('pool_length',25,'m'),
+      native('pool_length_unit','metric'),native('num_lengths',2,'lengths'),native('num_active_lengths',2,'lengths')]},
+      [23.625,28.125].map((seconds,i)=>({message:'length',fields:[
+        native('length_type','active'),native('total_timer_time',seconds,'s'),native('total_elapsed_time',seconds,'s'),
+        native('total_strokes',12+i,'strokes'),native('swim_stroke','freestyle','swim_stroke')]})));
+    expect(r).toMatchObject({complete:true,poolLengthM:25});
+    expect(r.lengths.map(row=>[row.durationS,row.paceSPer100M,row.strokes,row.swolf,row.stroke]))
+      .toEqual([[23.625,94.5,12,35.625,'freestyle'],[28.125,112.5,13,41.125,'freestyle']]);
+  });
+  it('keeps decoded pool metres even when the display preference is yards', () => {
+    const r = parseSwimLengths({message:'session',fields:[field('pool_length',22.86,'m'),field('pool_length_unit','statute')]},[active(30,15)]);
+    expect(r.poolLengthM).toBe(22.86);
+    expect(r.lengths[0]?.paceSPer100M).toBeCloseTo(131.2336);
+  });
+  it('rejects conflicting native fields and does not use developer fields or invalid units', () => {
+    const r = parseSwimLengths(session(),[length(field('length_type','active'),
+      field('total_timer_time',20,'s'),field('total_timer_time',30,'s'),
+      {...field('total_elapsed_time',21,'s'),developerIndex:0},field('total_strokes',15,'counts'))]);
+    expect(r.lengths[0]).toMatchObject({durationS:null,strokes:null,paceSPer100M:null,swolf:null});
+    expect(parseSwimLengths(session(),[active(0,12)]).lengths[0]?.swolf).toBeNull();
+  });
 });

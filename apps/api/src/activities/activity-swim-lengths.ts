@@ -33,9 +33,13 @@ function isObject(raw: unknown): raw is Record<string, unknown> {
 function fields(raw: unknown): Map<string, { value: unknown; units: unknown }> {
   if (!isObject(raw) || !Array.isArray(raw.fields)) return new Map();
   const mapped = new Map<string, { value: unknown; units: unknown }>();
+  const seen = new Set<string>();
   for (const field of raw.fields) {
-    if (!isObject(field) || typeof field.name !== 'string' || mapped.has(field.name) ||
+    if (!isObject(field) || typeof field.name !== 'string' ||
       (field.developerIndex !== null && field.developerIndex !== undefined)) continue;
+    // Conflicting native fields have no deterministic interpretation.
+    if (seen.has(field.name)) { mapped.delete(field.name); continue; }
+    seen.add(field.name);
     mapped.set(field.name, { value: field.value, units: field.units });
   }
   return mapped;
@@ -80,13 +84,16 @@ export function parseSwimLengths(session: unknown, raw: unknown[], truncated = f
       paceSPer100M, strokes,
       // FIT length SWOLF is split seconds + strokes. Only calculate when the
       // active timer and native total strokes are both present.
-      swolf: kind === 'active' && timer !== null && strokes !== null ? timer + strokes : null,
+      swolf: kind === 'active' && timer !== null && timer > 0 && strokes !== null ? timer + strokes : null,
       stroke: typeof strokeType === 'string' && /^[a-z_]{1,32}$/.test(strokeType) ? strokeType.replaceAll('_', ' ') : null});
   }
   if (!lengths.length) return unavailableSwimLengths('no_length_messages');
-  const complete = truncated ? false
-    : expectedLengths !== null ? expectedLengths === lengths.length
-    : expectedActiveLengths !== null ? expectedActiveLengths === active : null;
+  // Both counts matter: total count agreement cannot hide a missing active
+  // length replaced by an idle or unrecognized message.
+  const mismatched = (expectedLengths !== null && expectedLengths !== lengths.length)
+    || (expectedActiveLengths !== null && expectedActiveLengths !== active);
+  const complete = truncated || mismatched || lengths.some(row => row.kind === 'unknown') ? false
+    : expectedLengths !== null || expectedActiveLengths !== null ? true : null;
   return { status: 'available', poolLengthM,
     poolLengthDisplay: poolLengthM === null ? null : `${Number(poolLengthM.toFixed(2))} m`,
     expectedLengths, expectedActiveLengths, complete, truncated, lengths };
