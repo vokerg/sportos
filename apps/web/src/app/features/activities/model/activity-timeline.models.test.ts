@@ -21,6 +21,8 @@ describe('activity timeline chart model',()=>{
     expect(options.series).toHaveLength(1);expect(options.series[0].id).toBe('power');expect(options.series[0].yAxisIndex).toBe(0);
   });
   it('formats durations and pace and explains unavailable data without inventing numbers',()=>{
+    const swimPace = {...data.metrics[0]!, unit:'min/100m'};
+    expect(timelineValue(1.5,swimPace)).toBe('1:30 /100m');
     expect(timelineTime(3601)).toBe('1:00:01');expect(timelineValue(4.5,data.metrics[0]!)).toBe('4:30 /km');
     expect(timelineValue(null,data.metrics[1]!)).toBe('—');expect(timelineValue(0,data.metrics[1]!)).toBe('0 W');
     expect(timelineReason('stale')).toContain('older activity version');expect(timelineReason('unknown')).toContain('No supported');
