@@ -11,8 +11,11 @@ export class ActivityTimelineService {
   /** Optional pool lengths: read-only FIT evidence, never writes canonical distance. */
   async swimLengths(owner: string, id: string) {
     const refs = await this.primary.withAccount(owner, async db => {
-      const activity = await new ActivitiesRepository(db).get(id);
-      if (!activity) throw new NotFoundException('Activity was not found.');
+      const detail = await new ActivitiesRepository(db).get(id);
+      if (!detail) throw new NotFoundException('Activity was not found.');
+      // ActivitiesRepository selects public columns dynamically; its inferred
+      // type misses these guaranteed fields until the repository is typed.
+      const activity = detail as typeof detail & {activity_type: string; subtype: string | null};
       if (activity.activity_type !== 'swim' || activity.subtype === 'outdoor')
         return {pool: false, garmin: null};
       const garmin = await db.selectFrom('garmin_activity_identities')
@@ -38,8 +41,11 @@ export class ActivityTimelineService {
   }
   async read(owner: string, id: string, source: TimelineSource) {
     const refs = await this.primary.withAccount(owner, async db => {
-      const activity = await new ActivitiesRepository(db).get(id);
-      if (!activity) throw new NotFoundException('Activity was not found.');
+      const detail = await new ActivitiesRepository(db).get(id);
+      if (!detail) throw new NotFoundException('Activity was not found.');
+      // ActivitiesRepository selects public columns dynamically; its inferred
+      // type misses these guaranteed fields until the repository is typed.
+      const activity = detail as typeof detail & {activity_type: string; subtype: string | null};
       const linkage = source === 'strava'
         ? { strava: await new ActivityProviderResourcesRepository(db).getProviderReference(id), garmin: undefined }
         : { strava: null, garmin: await db.selectFrom('garmin_activity_identities').select(['identity_key','current_hash']).where('activity_id','=',id).executeTakeFirst() };
