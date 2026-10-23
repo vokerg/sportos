@@ -7,6 +7,13 @@ import {
   type CanonicalPerformanceExportRow,
   type ExportProvenance,
 } from '@sportos/shared';
+import {
+  distanceCorrectionPublicExpression,
+  effectiveDistanceExpression,
+  effectivePaceExpression,
+  effectiveSpeedExpression,
+  type ActivityDistanceCorrectionPublic,
+} from './activity-distance-corrections.repository.js';
 import type { Kysely } from 'kysely';
 import type { ActivitiesTable, Database, PerformanceEventsTable } from '../schema.js';
 import type { DailyScoreStatus } from '../repository-contracts.js';
@@ -63,6 +70,7 @@ interface ActivityExportDbRow extends ProvenanceColumns {
   avgPaceSPerKm: number | null;
   effortPoints: number | null;
   notes: string | null;
+  distanceCorrection: ActivityDistanceCorrectionPublic | null;
 }
 
 interface PerformanceExportDbRow extends ProvenanceColumns {
@@ -162,7 +170,7 @@ export class CanonicalExportRepository {
         'activity.subtype as subtype',
         'activity.source as source',
         'activity.source_activity_id as sourceActivityId',
-        'activity.distance_m as distanceM',
+        effectiveDistanceExpression('activity').as('distanceM'),
         'activity.duration_s as durationS',
         'activity.moving_time_s as movingTimeS',
         'activity.steps as steps',
@@ -170,10 +178,11 @@ export class CanonicalExportRepository {
         'activity.avg_hr as avgHr',
         'activity.max_hr as maxHr',
         'activity.elevation_gain_m as elevationGainM',
-        'activity.avg_speed_mps as avgSpeedMps',
-        'activity.avg_pace_s_per_km as avgPaceSPerKm',
+        effectiveSpeedExpression('activity').as('avgSpeedMps'),
+        effectivePaceExpression('activity').as('avgPaceSPerKm'),
         'activity.effort_points as effortPoints',
         'activity.notes as notes',
+        distanceCorrectionPublicExpression('activity').as('distanceCorrection'),
         'source_record.id as sourceRecordId',
         'source_record.row_hash as sourceRecordHash',
         'source_record.source as sourceRecordSource',
@@ -272,6 +281,7 @@ function mapActivityRow(row: ActivityExportDbRow): CanonicalActivityExportRow {
     avgPaceSPerKm: nullableNumber(row.avgPaceSPerKm),
     effortPoints: nullableNumber(row.effortPoints),
     notes: row.notes,
+    distanceCorrection: row.distanceCorrection,
     provenance: mapProvenance(row, row.source),
   };
 }

@@ -246,6 +246,13 @@ uses km/h. Swimming distance stays in metres; other distances use metres below
 1 km and kilometres thereafter. HR/power/cadence/counts use whole units;
 dynamics and provider indices retain their relevant decimal precision.
 
+For an audited indoor-swim distance correction, the effective distance is the
+selected activity value for read/scoring projections while the immutable
+canonical/provider distance remains available as correction provenance. Average pace/speed are recalculated from the effective
+distance and moving (or explicitly fallback elapsed) time; duration and all
+provider-native swim metrics remain unchanged. Metric comparison provenance is
+labelled `Manual correction`.
+
 For runs only, the UI combines general `average_cadence` rpm observations
 (cycles/strides per minute ×2) with explicit running cadence already projected
 as steps/min. Explicit Garmin running subfields take precedence over generic

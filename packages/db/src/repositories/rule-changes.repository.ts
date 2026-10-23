@@ -3,6 +3,7 @@ import { sql, type Kysely } from 'kysely';
 import type { Activity, Database, Json, ScoringRuleChange, ScoringRuleRow } from '../schema.js';
 import { DailyRepository, stepsCalculationFromSnapshot, workoutCalculationFromSnapshot } from './daily.repository.js';
 import { attachWorkoutCalculation, attachStepsCalculation } from './daily-scoring.repository.js';
+import { ActivityDistanceCorrectionsRepository, effectiveDistanceValue, effectivePaceValue, effectiveSpeedValue } from './activity-distance-corrections.repository.js';
 
 export type RuleChangeStatus = ScoringRuleChange['status'];
 
@@ -127,13 +128,25 @@ export class RuleChangesRepository {
     if (dailyRows.length === 0) return [];
 
     const dates = dailyRows.map((row) => dateString(row.metric_date));
-    const activities = await this.db
+    const rawActivities = await this.db
       .selectFrom('activities')
       .selectAll()
       .where('activity_date', 'in', dates)
       .orderBy('activity_date', 'asc')
       .orderBy('id', 'asc')
       .execute();
+    const corrections = await new ActivityDistanceCorrectionsRepository(this.db)
+      .currentForActivities(rawActivities.map((row) => row.id));
+    const activities = rawActivities.map((row) => {
+      const correction = corrections.get(row.id);
+      const distanceM = effectiveDistanceValue(row.distance_m, correction);
+      return {
+        ...row,
+        distance_m: distanceM,
+        avg_speed_mps: effectiveSpeedValue(row.avg_speed_mps, distanceM, row.moving_time_s, row.duration_s, correction),
+        avg_pace_s_per_km: effectivePaceValue(row.avg_pace_s_per_km, distanceM, row.moving_time_s, row.duration_s, correction),
+      };
+    });
     const byDate = new Map<string, ActivityFact[]>();
     for (const row of activities) {
       const activity = toActivityFact(row);
@@ -441,13 +454,25 @@ export class RuleChangesRepository {
         .orderBy('dm.metric_date', 'asc')
         .execute();
       const dates = dailyRows.map((row) => dateString(row.metric_date));
-      const activityRows = dates.length === 0 ? [] : await transaction
+      const rawActivityRows = dates.length === 0 ? [] : await transaction
         .selectFrom('activities')
         .selectAll()
         .where('activity_date', 'in', dates)
         .orderBy('activity_date', 'asc')
         .orderBy('id', 'asc')
         .execute();
+      const corrections = await new ActivityDistanceCorrectionsRepository(transaction)
+        .currentForActivities(rawActivityRows.map((row) => row.id));
+      const activityRows = rawActivityRows.map((row) => {
+        const correction = corrections.get(row.id);
+        const distanceM = effectiveDistanceValue(row.distance_m, correction);
+        return {
+          ...row,
+          distance_m: distanceM,
+          avg_speed_mps: effectiveSpeedValue(row.avg_speed_mps, distanceM, row.moving_time_s, row.duration_s, correction),
+          avg_pace_s_per_km: effectivePaceValue(row.avg_pace_s_per_km, distanceM, row.moving_time_s, row.duration_s, correction),
+        };
+      });
       const activitiesByDate = new Map<string, ActivityFact[]>();
       for (const row of activityRows) {
         const activity = toActivityFact(row);

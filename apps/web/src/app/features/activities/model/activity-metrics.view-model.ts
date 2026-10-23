@@ -42,7 +42,7 @@ export function formatMetric(value: number, key: string, unit: string, sport: st
   return `${number(value, digits)} ${unit}`;
 }
 export function sourceLabel(source: string): string {
-  return ({ strava: 'Strava', garmin: 'Garmin', manual: 'Manual', my_sport_xlsx: 'My Sport workbook', run_db_xlsx: 'Run DB workbook', google_sheets: 'Google Sheets', fit: 'FIT' } as Record<string, string>)[source] ?? source;
+  return ({ strava: 'Strava', garmin: 'Garmin', manual: 'Manual', manual_correction: 'Manual correction', my_sport_xlsx: 'My Sport workbook', run_db_xlsx: 'Run DB workbook', google_sheets: 'Google Sheets', fit: 'FIT' } as Record<string, string>)[source] ?? source;
 }
 function valid(value: number, unit: string): boolean {
   return Number.isFinite(value) && (value >= 0 || unit === 'C') && (!['bpm', 's/km'].includes(unit) || value > 0);
@@ -116,8 +116,8 @@ function valuesFor(metric: ActivityMetricComparison, sport: string): MetricValue
       rows.push(row); observations.set(row, [c.value]);
     }
   }
-  const rank = (r: MetricValueView) => r.sources.includes('Strava') ? 0 : r.sources.includes('Garmin') ? 1 : 2;
-  return rows.sort((a,b) => rank(a) - rank(b)).map(r => ({ ...r, sources: r.sources.sort((a,b) => a === 'Strava' ? -1 : b === 'Strava' ? 1 : 0), text: formatMetric(r.value, metric.key, metric.unit, sport) }));
+  const rank = (r: MetricValueView) => r.sources.includes('Manual correction') ? 0 : r.sources.includes('Strava') ? 1 : r.sources.includes('Garmin') ? 2 : 3;
+  return rows.sort((a,b) => rank(a) - rank(b)).map(r => ({ ...r, sources: r.sources.sort((a,b) => a === 'Manual correction' ? -1 : b === 'Manual correction' ? 1 : a === 'Strava' ? -1 : b === 'Strava' ? 1 : 0), text: formatMetric(r.value, metric.key, metric.unit, sport) }));
 }
 export function comparisonGroups(metrics: readonly ActivityMetricComparison[], sport: string): MetricGroupView[] {
   const rows = runningCadence(runningPace(metrics, sport), sport).map(m => ({ key: m.key, label: sport === 'bike' && m.key === 'average_cadence' ? 'Average cycling cadence' : m.label, values: valuesFor(m, sport) }));

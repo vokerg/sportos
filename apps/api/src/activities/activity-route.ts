@@ -1,7 +1,7 @@
 /** Read-only display geometry from retained Strava compact source evidence. */
 export type ActivityRouteResponse =
   | { status: 'available'; source: 'strava' | 'garmin'; resolution: 'summary' | 'streams' | 'detail' | 'fit'; geometry: { type: 'LineString'; coordinates: [number, number][] } | { type: 'MultiLineString'; coordinates: [number, number][][] }; bounds: [number, number, number, number]; pointCount: number }
-  | { status: 'unavailable'; reason: 'no_gps' | 'summary_polyline_missing' | 'invalid_geometry' };
+  | { status: 'unavailable'; reason: 'no_gps' | 'summary_polyline_missing' | 'invalid_geometry' | 'indoor_pool_swim' };
 
 const MAX_ENCODED_LENGTH = 30_000;
 const MAX_POINTS = 5_000;

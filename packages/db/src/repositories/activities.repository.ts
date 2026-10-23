@@ -3,6 +3,12 @@ import { RunningEffortsRepository } from './running-efforts.repository.js';
 import { runClassification, displaySubtype } from './run-classification.js';
 import { ActivityMetricsRepository } from './activity-metrics.repository.js';
 import { GarminStrengthRepository } from './garmin-strength.repository.js';
+import {
+  distanceCorrectionPublicExpression,
+  effectiveDistanceExpression,
+  effectivePaceExpression,
+  effectiveSpeedExpression,
+} from './activity-distance-corrections.repository.js';
 import { sql, type Kysely } from 'kysely';
 import type { Activity, Database } from '../schema.js';
 
@@ -27,8 +33,8 @@ const historicalSummary = (alias: string) => sql<boolean>`coalesce((${sql.ref(`$
 
 const publicColumns = [
   'id', 'source', 'source_activity_id', 'activity_date', 'start_time', 'activity_type', 'subtype',
-  'distance_m', 'duration_s', 'moving_time_s', 'steps', 'calories', 'avg_hr', 'max_hr',
-  'elevation_gain_m', 'avg_speed_mps', 'avg_pace_s_per_km', 'effort_points', 'notes',
+  'duration_s', 'moving_time_s', 'steps', 'calories', 'avg_hr', 'max_hr', 'elevation_gain_m',
+  'effort_points', 'notes',
 ] as const;
 
 function serialize(row: Record<string, unknown>) {
@@ -52,21 +58,26 @@ export class ActivitiesRepository {
     if (input.activityType) filtered = filtered.where('activity_type', '=', input.activityType);
     if (input.source) filtered = filtered.where('source', '=', input.source);
     if (input.subtype) filtered = filtered.where(hasGarmin ? displaySubtype('activities') : sql.ref('activities.subtype'), '=', input.subtype);
-    if (input.minDistanceM !== undefined) filtered = filtered.where('distance_m', '>=', input.minDistanceM);
-    if (input.paceUnderSPerKm !== undefined) filtered = filtered.where('avg_pace_s_per_km', '<', input.paceUnderSPerKm);
-    if (input.minAvgSpeedMps !== undefined) filtered = filtered.where('avg_speed_mps', '>=', input.minAvgSpeedMps);
-    if (input.swimPaceUnderSPer100m !== undefined) filtered = filtered.where('avg_pace_s_per_km', '<', input.swimPaceUnderSPer100m * 10);
+    if (input.minDistanceM !== undefined) filtered = filtered.where(sql<boolean>`${effectiveDistanceExpression('activities')} >= ${input.minDistanceM}`);
+    if (input.paceUnderSPerKm !== undefined) filtered = filtered.where(sql<boolean>`${effectivePaceExpression('activities')} < ${input.paceUnderSPerKm}`);
+    if (input.minAvgSpeedMps !== undefined) filtered = filtered.where(sql<boolean>`${effectiveSpeedExpression('activities')} >= ${input.minAvgSpeedMps}`);
+    if (input.swimPaceUnderSPer100m !== undefined) filtered = filtered.where(sql<boolean>`${effectivePaceExpression('activities')} < ${input.swimPaceUnderSPer100m * 10}`);
+    const distance = effectiveDistanceExpression('activities');
+    const pace = effectivePaceExpression('activities');
     const [rows, summary] = await Promise.all([
-      filtered.select(publicColumns).select(historicalSummary('activities').as('historicalSummary')).select((hasGarmin ? runClassification('activities') : sql<null>`null`).as('runClassification')).select((hasGarmin ? garminLink('activities') : sql<null>`null`).as('garmin'))
+      filtered.select(publicColumns).select([
+        distance.as('distance_m'), effectiveSpeedExpression('activities').as('avg_speed_mps'), pace.as('avg_pace_s_per_km'),
+        distanceCorrectionPublicExpression('activities').as('distanceCorrection'),
+      ]).select(historicalSummary('activities').as('historicalSummary')).select((hasGarmin ? runClassification('activities') : sql<null>`null`).as('runClassification')).select((hasGarmin ? garminLink('activities') : sql<null>`null`).as('garmin'))
         .orderBy('activity_date', 'desc').orderBy('start_time', 'desc').orderBy('id', 'desc')
         .limit(input.limit).offset(input.offset).execute(),
       filtered.select((eb) => [
         eb.fn.countAll<string>().as('count'),
         eb.fn.sum<string>('duration_s').as('duration_s'),
-        eb.fn.sum<string>('distance_m').as('distance_m'),
-        eb.fn.avg<string>('distance_m').as('avg_distance_m'),
+        sql<string>`sum(${distance})`.as('distance_m'),
+        sql<string>`avg(${distance})`.as('avg_distance_m'),
         input.activityType === 'run'
-          ? sql<string>`sum(case when distance_m > 0 and coalesce(avg_pace_s_per_km, coalesce(moving_time_s, duration_s) / nullif(distance_m / 1000, 0)) is not null then coalesce(avg_pace_s_per_km, coalesce(moving_time_s, duration_s) / nullif(distance_m / 1000, 0)) * distance_m else 0 end) / nullif(sum(case when distance_m > 0 and coalesce(avg_pace_s_per_km, coalesce(moving_time_s, duration_s) / nullif(distance_m / 1000, 0)) is not null then distance_m else 0 end), 0)`.as('avg_pace_s_per_km')
+          ? sql<string>`sum(case when ${distance} > 0 and coalesce(${pace}, coalesce(moving_time_s, duration_s) / nullif(${distance} / 1000.0, 0)) is not null then coalesce(${pace}, coalesce(moving_time_s, duration_s) / nullif(${distance} / 1000.0, 0)) * ${distance} else 0 end) / nullif(sum(case when ${distance} > 0 and coalesce(${pace}, coalesce(moving_time_s, duration_s) / nullif(${distance} / 1000.0, 0)) is not null then ${distance} else 0 end), 0)`.as('avg_pace_s_per_km')
           : sql<null>`null`.as('avg_pace_s_per_km'),
       ]).executeTakeFirstOrThrow(),
     ]);
@@ -97,6 +108,12 @@ export class ActivitiesRepository {
         .onRef('providerConnection.owner_id', '=', 'providerLink.owner_id')
         .onRef('providerConnection.id', '=', 'providerLink.connection_id'))
       .select(publicColumns.map((column) => `activity.${column}` as const))
+      .select([
+        effectiveDistanceExpression('activity').as('distance_m'),
+        effectiveSpeedExpression('activity').as('avg_speed_mps'),
+        effectivePaceExpression('activity').as('avg_pace_s_per_km'),
+        distanceCorrectionPublicExpression('activity').as('distanceCorrection'),
+      ])
       .select(historicalSummary('activity').as('historicalSummary'))
       .select((hasGarmin ? runClassification('activity') : sql<null>`null`).as('runClassification'))
       .select((hasGarmin ? garminLink('activity') : sql<null>`null`).as('garmin'))

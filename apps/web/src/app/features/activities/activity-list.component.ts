@@ -16,7 +16,7 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
             @let values = compactActivityMetrics(activity);
             <tr [attr.data-sport]="activity.activity_type">
               <td>{{ activity.activity_date }} @if (startTime(activity.start_time); as time) { <span class="muted">{{ time }}</span> }</td>
-              <th scope="row"><a [routerLink]="['/activity', activity.id]">{{ title(activity) }} @if (activity.historicalSummary) { <span class="muted">· Historical Excel summary</span> } @if (displayedSubtype(activity)) { <span class="muted" [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</span> } @if (activity.source === 'strava' && activity.notes) { <span class="row-name" [title]="activity.notes">{{ activity.notes }}</span> }</a></th>
+              <th scope="row"><a [routerLink]="['/activity', activity.id]">{{ title(activity) }} @if (activity.historicalSummary) { <span class="muted">· Historical Excel summary</span> } @if (displayedSubtype(activity)) { <span class="muted" [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</span> } @if (activity.distanceCorrection) { <span class="correction-badge">Manual correction</span> } @if (activity.source === 'strava' && activity.notes) { <span class="row-name" [title]="activity.notes">{{ activity.notes }}</span> }</a></th>
               <td class="number">{{ values.distance }}</td><td class="number">{{ values.paceOrSpeed }}</td>
               <td class="number" [title]="values.time?.label ?? 'Time unavailable'" [attr.aria-label]="values.time ? values.time.label + ': ' + values.time.value : 'Time unavailable'">{{ values.time?.value ?? '—' }}</td>
               <td class="number">{{ values.heartRate }}</td><td class="number">{{ values.elevation }}</td>
@@ -29,7 +29,7 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
     <div class="activity-list">
       @for (activity of activities(); track activity.id) {
         <a class="card activity" [attr.data-sport]="activity.activity_type" [routerLink]="['/activity', activity.id]">
-          <div class="heading"><strong>{{ title(activity) }} @if (activity.historicalSummary) { <span class="muted">· Historical Excel summary</span> } @if (displayedSubtype(activity)) { <small [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</small> }</strong><span>{{ activity.activity_date }} @if (startTime(activity.start_time)) { · {{ startTime(activity.start_time) }} }</span></div>
+          <div class="heading"><strong>{{ title(activity) }} @if (activity.historicalSummary) { <span class="muted">· Historical Excel summary</span> } @if (displayedSubtype(activity)) { <small [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</small> } @if (activity.distanceCorrection) { <span class="correction-badge">Manual correction</span> }</strong><span>{{ activity.activity_date }} @if (startTime(activity.start_time)) { · {{ startTime(activity.start_time) }} }</span></div>
           @if (activity.source === 'strava' && activity.notes) { <div class="description">{{ activity.notes }}</div> }
           <sportos-provider-metric-status [statuses]="activity.providerMetrics ?? []" />
           <div class="metrics highlights">@for (metric of listMetricHighlights(activity); track metric.label) { <span><b>{{ metric.value }}</b><small>{{ metric.label }}</small></span> }</div>
@@ -49,7 +49,7 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
     tbody th { font-weight: 600; } tbody tr:last-child :is(th, td) { border-bottom: 0; }
     tbody tr:hover { background: var(--accent-surface); } tbody a { display: flex; align-items: center; gap: 6px; color: var(--sport-run); text-decoration: none; }
     tr[data-sport=bike] a { color: var(--sport-bike); } tr[data-sport=swim] a { color: var(--sport-swim); }
-    .muted, .row-name { color: var(--text-muted); font-weight: 400; }.muted { margin-left: 4px; }
+    .muted, .row-name { color: var(--text-muted); font-weight: 400; }.muted { margin-left: 4px; }.correction-badge { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 10px; background: var(--accent-surface); color: var(--text-secondary); font-size: 11px; font-weight: 650; white-space: nowrap; }
     .row-name { display: inline-block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
     .number { font-variant-numeric: tabular-nums; }
     .activity-list { display: grid; gap: 10px; }

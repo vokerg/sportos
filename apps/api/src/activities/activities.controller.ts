@@ -2,13 +2,23 @@ import { stravaSummaryRoute, type ActivityRouteResponse } from './activity-route
 import { ActivityRouteProjectionService } from './activity-route-projection.service.js';
 import { RunningEffortsService } from './running-efforts.service.js';
 import { ActivityMetricsService } from './activity-metrics.service.js';
-import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Post, Query } from '@nestjs/common';
-import { ACTIVITY_SOURCES, ACTIVITY_TYPES, ActivitiesRepository, LEGACY_ACCOUNT_ID, type ActivitiesQuery } from '@sportos/db';
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  ACTIVITY_SOURCES,
+  ACTIVITY_TYPES,
+  ActivitiesRepository,
+  ActivityDistanceCorrectionConflictError,
+  ActivityDistanceCorrectionNoChangeError,
+  ActivityDistanceCorrectionUnsupportedError,
+  LEGACY_ACCOUNT_ID,
+  type ActivitiesQuery,
+} from '@sportos/db';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { DbProvider } from '../db.provider.js';
 import { assertUuid, parseBoundedInteger, parseDateRange } from '../query-validation.js';
 import { ActivityProviderDetailService } from './activity-provider-detail.service.js';
+import { ActivityDistanceCorrectionService } from './activity-distance-correction.service.js';
 
 function boundedPositive(value: string | undefined, name: string, max: number): number | undefined {
   if (value === undefined) return undefined;
@@ -69,6 +79,7 @@ export class ActivitiesController {
     private readonly metrics?: ActivityMetricsService,
     private readonly efforts?: RunningEffortsService,
     private readonly routes?: ActivityRouteProjectionService,
+    private readonly distanceCorrections?: ActivityDistanceCorrectionService,
   ) {}
 
   @Get()
@@ -83,6 +94,46 @@ export class ActivitiesController {
     const activity = await this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID, (db) => new ActivitiesRepository(db).get(activityId));
     if (!activity) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
     return activity;
+  }
+
+  @Put(':activityId/distance-correction')
+  async saveDistanceCorrection(
+    @Param('activityId') activityId: string,
+    @Body() body: unknown,
+    @CurrentAccount() account?: AuthenticatedAccount,
+  ) {
+    assertUuid(activityId, 'INVALID_ACTIVITY_ID');
+    const input = parseDistanceCorrectionBody(body);
+    try {
+      const result = await this.distanceCorrections!.save(
+        account?.id ?? LEGACY_ACCOUNT_ID,
+        activityId,
+        input.effectiveDistanceM,
+        input.reason,
+        input.expectedRevision,
+      );
+      if (!result) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
+      return { activityId, ...result };
+    } catch (error) {
+      throw mapDistanceCorrectionError(error);
+    }
+  }
+
+  @Delete(':activityId/distance-correction')
+  async resetDistanceCorrection(
+    @Param('activityId') activityId: string,
+    @Body() body: unknown,
+    @CurrentAccount() account?: AuthenticatedAccount,
+  ) {
+    assertUuid(activityId, 'INVALID_ACTIVITY_ID');
+    const expectedRevision = parseExpectedCorrectionRevision(body, 'reset');
+    try {
+      const result = await this.distanceCorrections!.reset(account?.id ?? LEGACY_ACCOUNT_ID, activityId, expectedRevision);
+      if (!result) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
+      return { activityId, ...result };
+    } catch (error) {
+      throw mapDistanceCorrectionError(error);
+    }
   }
 
   @Get(':activityId/provider-detail')
@@ -146,4 +197,66 @@ export class ActivitiesController {
     if (!source) throw new NotFoundException({ code: 'ACTIVITY_NOT_FOUND', message: 'Activity was not found.' });
     return source;
   }
+}
+
+export interface ParsedDistanceCorrectionBody {
+  effectiveDistanceM: number;
+  reason: string;
+  expectedRevision: number | null;
+}
+
+export function parseDistanceCorrectionBody(raw: unknown): ParsedDistanceCorrectionBody {
+  const body = requireCorrectionObject(raw, 'save');
+  const allowed = new Set(['effectiveDistanceM', 'reason', 'expectedRevision']);
+  if (Object.keys(body).some((key) => !allowed.has(key))) invalidCorrectionBody('Unsupported distance correction field.');
+  if (typeof body.effectiveDistanceM !== 'number' || !Number.isFinite(body.effectiveDistanceM)
+    || body.effectiveDistanceM <= 0 || body.effectiveDistanceM > 1_000_000
+    || Math.abs(body.effectiveDistanceM * 100 - Math.round(body.effectiveDistanceM * 100)) > 1e-7) {
+    invalidCorrectionBody('effectiveDistanceM must be a positive number with at most two decimal places and at most 1000000.');
+  }
+  if (typeof body.reason !== 'string' || body.reason.trim().length < 1 || body.reason.trim().length > 500) {
+    invalidCorrectionBody('reason must contain 1 through 500 non-whitespace characters.');
+  }
+  return {
+    effectiveDistanceM: body.effectiveDistanceM,
+    reason: body.reason.trim(),
+    expectedRevision: parseExpectedCorrectionRevision(body, 'save'),
+  };
+}
+
+function parseExpectedCorrectionRevision(raw: unknown, operation: 'save' | 'reset'): number | null {
+  if (raw === undefined || raw === null) return null;
+  const body = requireCorrectionObject(raw, operation);
+  if (operation === 'reset' && Object.keys(body).some((key) => key !== 'expectedRevision')) {
+    invalidCorrectionBody('Unsupported distance correction field.');
+  }
+  const value = body.expectedRevision;
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    invalidCorrectionBody('expectedRevision must be a non-negative integer or null.');
+  }
+  return value;
+}
+
+function requireCorrectionObject(raw: unknown, operation: 'save' | 'reset'): Record<string, unknown> {
+  if (raw === undefined || raw === null) {
+    if (operation === 'reset') return {};
+    invalidCorrectionBody('A distance correction body is required.');
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) invalidCorrectionBody('Distance correction body must be an object.');
+  return raw as Record<string, unknown>;
+}
+
+function invalidCorrectionBody(message: string): never {
+  throw new BadRequestException({ code: 'INVALID_ACTIVITY_DISTANCE_CORRECTION', message });
+}
+
+function mapDistanceCorrectionError(error: unknown): never {
+  if (error instanceof ActivityDistanceCorrectionConflictError) {
+    throw new ConflictException({ code: error.code, message: error.message });
+  }
+  if (error instanceof ActivityDistanceCorrectionUnsupportedError || error instanceof ActivityDistanceCorrectionNoChangeError) {
+    throw new BadRequestException({ code: error.code, message: error.message });
+  }
+  throw error;
 }

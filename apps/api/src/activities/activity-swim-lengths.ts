@@ -19,6 +19,9 @@ export interface SwimLengths {
   poolLengthDisplay: string | null;
   expectedLengths: number | null;
   expectedActiveLengths: number | null;
+  recordedDistanceM?: number | null;
+  effectiveDistanceM?: number | null;
+  effectiveActiveLengths?: number | null;
   complete: boolean | null;
   truncated: boolean;
   lengths: SwimLength[];

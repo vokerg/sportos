@@ -133,17 +133,24 @@ export class DailyScoringRepository {
   }
 
   async recalculateFromActivities(metricDate: string) {
-    return this.db.transaction().execute(async (transaction) => {
-      await lockActivityReconciliation(transaction);
-      await lockDailyScore(transaction, metricDate);
+    return this.db.transaction().execute((transaction) =>
+      new DailyScoringRepository(transaction).recalculateFromActivitiesInTransaction(metricDate));
+  }
 
-      const daily = await transaction
+  /** Run a recalculation inside an existing owner-scoped transaction. Activity
+   * distance corrections use this path so the effective fact, score snapshot
+   * and ledger replacement commit atomically with the correction. */
+  async recalculateFromActivitiesInTransaction(metricDate: string, trigger: 'manual_recalculation' | 'activity_distance_correction' = 'manual_recalculation') {
+      await lockActivityReconciliation(this.db);
+      await lockDailyScore(this.db, metricDate);
+
+      const daily = await this.db
         .selectFrom('daily_metrics')
         .selectAll()
         .where('metric_date', '=', metricDate)
         .forUpdate()
         .executeTakeFirst();
-      const dailyRepository = new DailyRepository(transaction);
+      const dailyRepository = new DailyRepository(this.db);
       const activityRows = await dailyRepository.listActivitiesForDates([metricDate]);
       const activities = activityRows.map(toActivityFact);
       const sourceActivities = activities.filter((activity) => activity.source !== 'manual' && activity.activityType !== 'walk');
@@ -153,13 +160,13 @@ export class DailyScoringRepository {
       const garminSteps = csvEvidence?.steps ?? null;
       const access = await sql<{ days: boolean; strength: boolean }>`select
         has_table_privilege(current_user, 'garmin_day_heads', 'SELECT') as days,
-        has_table_privilege(current_user, 'garmin_strength_summaries', 'SELECT') as strength`.execute(transaction);
-      const dayRows = access.rows[0]?.days ? await new GarminDayRepository(transaction).read(metricDate) : [];
+        has_table_privilege(current_user, 'garmin_strength_summaries', 'SELECT') as strength`.execute(this.db);
+      const dayRows = access.rows[0]?.days ? await new GarminDayRepository(this.db).read(metricDate) : [];
       const connect = dayRows.find(row => row.category === 'summary' && row.availability === 'available');
       const connectValue = jsonRecord(connect?.projection_json).steps;
       const connectSteps = typeof connectValue === 'number' && Number.isSafeInteger(connectValue) && connectValue >= 0 ? connectValue : null;
       const snapshotFacts = daily?.score_snapshot_id
-        ? (await transaction
+          ? (await this.db
           .selectFrom('daily_score_snapshots')
           .select('facts_json')
           .where('id', '=', daily.score_snapshot_id)
@@ -189,7 +196,7 @@ export class DailyScoringRepository {
         stepsCalculation.sourceRecordId = csvEvidence.sourceRecordId;
         stepsCalculation.retainedAt = csvEvidence.retainedAt;
       }
-      const summaries = access.rows[0]?.strength ? await new GarminStrengthRepository(transaction).forDate(metricDate) : [];
+      const summaries = access.rows[0]?.strength ? await new GarminStrengthRepository(this.db).forDate(metricDate) : [];
       const discovery = dayRows.find(row => row.category === 'activities');
       const projection = jsonRecord(discovery?.projection_json);
       const failures = jsonRecord(discovery?.attempt_json).failures;
@@ -207,7 +214,7 @@ export class DailyScoringRepository {
       }
       if (Array.isArray(projection.identities) && projection.identities.length) {
         const ids = projection.identities.filter((item): item is string => typeof item === 'string' && !(Array.isArray(excluded) && excluded.includes(item)));
-        const discovered = ids.length ? await transaction.selectFrom('garmin_activity_identities').select(['identity_key','activity_type','activity_id'])
+        const discovered = ids.length ? await this.db.selectFrom('garmin_activity_identities').select(['identity_key','activity_type','activity_id'])
           .where('identity_key', 'in', ids).limit(21).execute() : [];
         if (discovered.length !== ids.length || discovered.some(item => item.activity_type === 'workout' &&
           (!item.activity_id || !summaries.some(summary => summary.activityId === item.activity_id)))) {
@@ -232,20 +239,19 @@ export class DailyScoringRepository {
       const score = attachWorkoutCalculation(attachStepsCalculation(scoreDay(
         { ...facts, excelAllPoints: undefined, excelRowHash: undefined },
         scoringActivities,
-        await new ScoringRepository(transaction).listEnabledRules(),
+        await new ScoringRepository(this.db).listEnabledRules(),
       ), stepsCalculation), workoutCalculation);
 
       await dailyRepository.persistDailyScore(
         facts,
         score,
         daily?.source_record_id ?? undefined,
-        { scoreStatus: 'calculated', trigger: 'manual_recalculation' },
+        { scoreStatus: 'calculated', trigger },
       );
 
       const result = await dailyRepository.getDailyScoreBreakdown(metricDate);
       if (!result) throw new Error(`Daily score disappeared while recalculating ${metricDate}.`);
       return result;
-    });
   }
 }
 

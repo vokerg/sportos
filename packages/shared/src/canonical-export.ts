@@ -10,6 +10,14 @@ export const ExportDateSchema = z.string().refine(isRealIsoDate, {
 export const ExportTimestampSchema = z.string().datetime({ offset: true });
 
 export const ExportProvenanceStatusSchema = z.enum(['available', 'missing', 'unsupported']);
+export const ExportDistanceCorrectionSchema = z.object({
+  effectiveDistanceM: z.number().positive().max(1_000_000),
+  recordedDistanceM: z.number().positive().max(1_000_000),
+  recordedSource: z.enum(['manual', 'my_sport_xlsx', 'run_db_xlsx', 'google_sheets', 'strava', 'garmin', 'fit']),
+  reason: z.string().min(1).max(500),
+  revision: z.number().int().positive(),
+  updatedAt: ExportTimestampSchema,
+}).strict();
 
 export const ExportProvenanceSchema = z.object({
   status: ExportProvenanceStatusSchema,
@@ -89,6 +97,7 @@ export const CanonicalActivityExportRowSchema = z.object({
   avgPaceSPerKm: z.number().nonnegative().nullable(),
   effortPoints: z.number().int().nullable(),
   notes: z.string().nullable(),
+  distanceCorrection: ExportDistanceCorrectionSchema.nullable().optional(),
   provenance: ExportProvenanceSchema,
 }).strict();
 

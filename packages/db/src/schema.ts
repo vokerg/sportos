@@ -207,7 +207,41 @@ export interface DailyScoreSnapshotsTable {
   facts_json: Json;
   ledger_json: Json;
   source_record_id: string | null;
-  trigger: 'workbook_import' | 'manual_edit' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration';
+  trigger: 'workbook_import' | 'manual_edit' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration' | 'activity_distance_correction';
+  created_at: GeneratedTimestamp;
+}
+
+export interface ActivityDistanceCorrectionsTable {
+  owner_id: OwnerId;
+  activity_id: string;
+  effective_distance_m: number;
+  recorded_distance_m: number;
+  recorded_source: ActivitiesTable['source'];
+  recorded_source_activity_id: string | null;
+  recorded_source_record_id: string | null;
+  recorded_source_hash: string | null;
+  reason: string;
+  revision: number;
+  actor_account_id: string;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface ActivityDistanceCorrectionHistoryTable {
+  id: Generated<string>;
+  owner_id: OwnerId;
+  activity_id: string;
+  action: 'save' | 'reset';
+  effective_distance_m: number | null;
+  previous_effective_distance_m: number | null;
+  recorded_distance_m: number | null;
+  recorded_source: ActivitiesTable['source'] | null;
+  recorded_source_activity_id: string | null;
+  recorded_source_record_id: string | null;
+  recorded_source_hash: string | null;
+  reason: string;
+  revision: number;
+  actor_account_id: string;
   created_at: GeneratedTimestamp;
 }
 
@@ -417,6 +451,8 @@ export interface ProviderWebhookEventsTable {
 }
 
 export interface Database {
+  activity_distance_corrections: ActivityDistanceCorrectionsTable;
+  activity_distance_correction_history: ActivityDistanceCorrectionHistoryTable;
   activity_route_projections: ActivityRouteProjectionsTable;
   running_effort_projections: RunningEffortProjectionsTable;
   running_effort_values: RunningEffortValuesTable;

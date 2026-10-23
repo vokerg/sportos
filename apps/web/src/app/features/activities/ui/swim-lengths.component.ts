@@ -25,6 +25,9 @@ import type { SwimLengthResponse } from '../activities-api.service';
           <p class="muted">Pool size: <strong>{{ data.poolLengthDisplay ?? 'Unknown' }}</strong>
             · {{ data.lengths.length }} recorded length/rest messages
             @if (data.expectedActiveLengths !== null) { · {{ data.expectedActiveLengths }} active lengths reported by Garmin }
+            @if (data.effectiveActiveLengths !== null && data.effectiveActiveLengths !== undefined && data.expectedActiveLengths !== null && data.effectiveActiveLengths !== data.expectedActiveLengths) {
+              · {{ data.effectiveActiveLengths }} effective length equivalent at the corrected distance
+            }
           </p>
           @if (data.complete === false || data.truncated) {
             <p role="alert">The retained FIT length messages are incomplete or disagree with Garmin's count. Missing lengths are not estimated.</p>

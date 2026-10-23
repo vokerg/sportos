@@ -77,8 +77,19 @@ export class ActivityMetricsRepository {
       const canonicalValue = typeof canonicalRaw === 'number' || typeof canonicalRaw === 'string' ? Number(canonicalRaw) : null;
       const authority = d.canonicalColumn !== undefined;
       const provider = d.priority.find(p=>winners.has(p)); const winner = provider ? winners.get(provider) : undefined;
-      const selected: MetricComparison['selected'] = authority ? typeof canonicalValue === 'number' && Number.isFinite(canonicalValue) ? {value:canonicalValue,source:activity.source,reason:'canonical_authority'} : null
+      const correction = activity.distanceCorrection && typeof activity.distanceCorrection === 'object'
+        ? activity.distanceCorrection as { effectiveDistanceM?: unknown }
+        : null;
+      const effectiveDistance = Number(correction?.effectiveDistanceM);
+      const timedSeconds = Number(activity.moving_time_s ?? activity.duration_s);
+      const correctedDistance = correction && Number.isFinite(effectiveDistance) && effectiveDistance > 0;
+      const correctedSpeed = correctedDistance && Number.isFinite(timedSeconds) && timedSeconds > 0 ? effectiveDistance / timedSeconds : null;
+      const correctedPace = correctedSpeed && correctedSpeed > 0 ? 1000 / correctedSpeed : null;
+      let selected: MetricComparison['selected'] = authority ? typeof canonicalValue === 'number' && Number.isFinite(canonicalValue) ? {value:canonicalValue,source:activity.source,reason:'canonical_authority'} : null
         : winner && provider ? {value:winner.value,source:provider,reason:'provider_priority'} : null;
+      if (correctedDistance && d.key === 'distance') selected = { value: effectiveDistance, source: 'manual_correction', reason: 'canonical_authority' };
+      if (correctedSpeed !== null && d.key === 'average_speed') selected = { value: correctedSpeed, source: 'manual_correction', reason: 'canonical_authority' };
+      if (correctedPace !== null && d.key === 'average_pace') selected = { value: correctedPace, source: 'manual_correction', reason: 'canonical_authority' };
       if (!matches.length && !selected) return [];
       return [{key:d.key,label:d.label,unit:d.unit,selected,candidates:matches.map(r=>({provider:r.provider,value:r.value,sourceKind:r.source_kind,sourceField:r.source_field,sourceUnit:r.source_unit,origin:r.origin,
         selectedWithinProvider:winners.get(r.provider)?.sourceField===r.source_field && winners.get(r.provider)?.sourceKind===r.source_kind,projectionId:r.projection_id,projectedAt:r.projected_at.toISOString()}))}];

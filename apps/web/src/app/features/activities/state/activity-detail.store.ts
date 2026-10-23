@@ -26,16 +26,18 @@ export class ActivityDetailStore implements OnDestroy {
   readonly providerError = signal('');
   readonly garminState = signal<LoadState>('idle'); readonly garmin = signal<GarminDetail | null>(null); readonly garminError = signal('');
   readonly resourceState = signal<LoadState>('idle'); readonly resourceJson = signal<string | null>(null);
+  readonly distanceCorrectionState = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  readonly distanceCorrectionError = signal('');
   private requests = new Map<string, Subscription>(); private id = ''; private generation = 0;
   constructor(private readonly api: ActivitiesApiService) {}
   ngOnDestroy() { this.cancel(); }
   private cancel() { this.generation++; for (const request of this.requests.values()) request.unsubscribe(); this.requests.clear(); }
   load(id: string, options: { coverage?: boolean } = {}) {
-    this.cancel(); this.swimLengthState.set('idle'); this.swimLengths.set(null); this.timelineRequest++; this.timelineState.set('idle'); this.timelineData.set(null); this.timelineSource.set('strava'); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false);
+    this.cancel(); this.swimLengthState.set('idle'); this.swimLengths.set(null); this.timelineRequest++; this.timelineState.set('idle'); this.timelineData.set(null); this.timelineSource.set('strava'); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false); this.distanceCorrectionState.set('idle'); this.distanceCorrectionError.set('');
     this.sourceState.set('idle'); this.sourceJson.set(null); this.providerState.set('idle'); this.providerDetail.set(null); this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerError.set('');
     this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
     const generation = this.generation;
-    this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); if (activity.activity_type === 'swim' && activity.garmin) this.timelineSource.set('garmin'); this.state.set('loaded'); if (options.coverage !== false) this.refreshCoverage(); if (activity.activity_type !== 'swim' || activity.subtype !== 'indoor') this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
+    this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); if (activity.activity_type === 'swim' && activity.garmin) this.timelineSource.set('garmin'); this.state.set('loaded'); if (options.coverage !== false) this.refreshCoverage(); if (activity.activity_type === 'swim' && activity.subtype === 'indoor') { this.mapState.set('unavailable'); this.mapReason.set('indoor_pool_swim'); } else this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
   }
   loadTimeline(source: TimelineSource = this.timelineSource()) {
     if (!this.activity() || (this.timelineState() === 'loading' && source === this.timelineSource())) return;
@@ -111,13 +113,40 @@ export class ActivityDetailStore implements OnDestroy {
   reprocessMetrics() {
     if(this.metricState()==='loading') return;
     this.metricState.set('loading');this.metricError.set(''); const generation=this.generation;
-    this.requests.set('metrics',this.api.reprocessMetrics(this.id).subscribe({next:()=>{if(generation!==this.generation)return;this.metricState.set('loaded');this.refreshActivity();},error:()=>{if(generation===this.generation){this.metricState.set('error');this.metricError.set('Could not normalize retained metrics. Evidence is safe; try again.');this.refreshActivity();}}}));
+    this.requests.set('metrics',this.api.reprocessMetrics(this.id).subscribe({next:()=>{if(generation!==this.generation)return;this.metricState.set('loaded');this.refreshActivity();},error:()=>{if(generation===this.generation){this.metricState.set('error');this.metricError.set('Could not rebuild derived metrics. Evidence is safe; try again.');this.refreshActivity();}}}));
   }
   private refreshActivity() {
     this.requests.get('activity')?.unsubscribe(); const generation = this.generation;
     this.requests.set('activity', this.api.detail(this.id).subscribe({ next: activity => {
       if (generation === this.generation) this.activity.set(activity);
     }, error: () => { if (generation === this.generation) this.metricError.set('Retained data is safe, but the activity metrics could not refresh. Reload the activity to view them.'); } }));
+  }
+  clearDistanceCorrectionState() { this.distanceCorrectionState.set('idle'); this.distanceCorrectionError.set(''); }
+  saveDistanceCorrection(effectiveDistanceM: number, reason: string) {
+    const activity = this.activity();
+    if (!activity || activity.activity_type !== 'swim' || activity.subtype !== 'indoor' || this.distanceCorrectionState() === 'saving') return;
+    this.distanceCorrectionState.set('saving'); this.distanceCorrectionError.set('');
+    const generation = this.generation;
+    this.requests.get('distanceCorrection')?.unsubscribe();
+    this.requests.set('distanceCorrection', this.api.saveDistanceCorrection(this.id, effectiveDistanceM, reason, activity.distanceCorrection?.revision ?? null).subscribe({
+      next: () => { if (generation !== this.generation) return; this.distanceCorrectionState.set('saved'); this.invalidateCorrectedSwimViews(); this.refreshActivity(); },
+      error: error => { if (generation !== this.generation) return; this.distanceCorrectionState.set('error'); this.distanceCorrectionError.set(message(error, 'Could not save the distance correction. Reload and try again.')); },
+    }));
+  }
+  resetDistanceCorrection() {
+    const activity = this.activity();
+    if (!activity || activity.activity_type !== 'swim' || activity.subtype !== 'indoor' || this.distanceCorrectionState() === 'saving') return;
+    this.distanceCorrectionState.set('saving'); this.distanceCorrectionError.set('');
+    const generation = this.generation;
+    this.requests.get('distanceCorrection')?.unsubscribe();
+    this.requests.set('distanceCorrection', this.api.resetDistanceCorrection(this.id, activity.distanceCorrection?.revision ?? null).subscribe({
+      next: () => { if (generation !== this.generation) return; this.distanceCorrectionState.set('saved'); this.invalidateCorrectedSwimViews(); this.refreshActivity(); },
+      error: error => { if (generation !== this.generation) return; this.distanceCorrectionState.set('error'); this.distanceCorrectionError.set(message(error, 'Could not reset the distance correction. Reload and try again.')); },
+    }));
+  }
+  private invalidateCorrectedSwimViews() {
+    this.requests.get('swimLengths')?.unsubscribe();
+    this.swimLengths.set(null); this.swimLengthState.set('idle');
   }
   resource(type: string, chunk: number) {
     this.requests.get('resource')?.unsubscribe(); this.resourceState.set('loading'); this.resourceJson.set(null); const generation = this.generation;
