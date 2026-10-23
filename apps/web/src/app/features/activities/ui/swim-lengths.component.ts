@@ -18,7 +18,7 @@ import type { SwimLengthResponse } from '../activities-api.service';
       </div>
       @if (state() === 'error') { <p role="alert">Could not read retained pool lengths. Try again.</p> }
       @else if (state() === 'loading') { <p role="status">Reading retained Garmin lengths…</p> }
-      @else if (state() === 'loaded' && data(); as data) {
+      @else if (state() === 'loaded') { @if (data(); as data) {
         @if (data.status === 'unavailable') {
           <p class="muted">{{ reason(data.reason) }}</p>
         } @else {
@@ -56,7 +56,7 @@ import type { SwimLengthResponse } from '../activities-api.service';
           </div>
           <p class="muted note">Pace uses the recorded split time and pool size. SWOLF is calculated as active timer seconds + recorded strokes; it is not a separate device observation. An unknown or resting length is not counted as distance. These values do not override activity totals or scoring.</p>
         }
-      } @else { <p class="muted">Load a length-by-length breakdown when Garmin rich data is retained.</p> }
+      } } @else { <p class="muted">Load a length-by-length breakdown when Garmin rich data is retained.</p> }
       <p class="muted note">If missing, use Fetch Garmin detail under Provider data below, then reload lengths.</p>
     </section>
   `,
