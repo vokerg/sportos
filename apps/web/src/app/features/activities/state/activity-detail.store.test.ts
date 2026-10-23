@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActivityDetailStore } from './activity-detail.store';
 const coverage = { strava: { state: 'cached' }, garmin: { state: 'cached', linked: true, fetchEnabled: true } };
 function setup() {
-  const api = { timeline: vi.fn(() => of({source:'strava',status:'available',metrics:[],durationS:1,sampleCount:2,simplified:false})), map: vi.fn(() => of({status: 'unavailable', reason: 'no_gps'})), reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), sourceJson: vi.fn(), garminResource: vi.fn(() => of({ payload: [] })) };
+  const api = { timeline: vi.fn(() => of({source:'strava',status:'available',metrics:[],durationS:1,sampleCount:2,simplified:false})), map: vi.fn(() => of({status: 'unavailable', reason: 'no_gps'})), reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), sourceJson: vi.fn(), swimLengths: vi.fn(() => of({status:'available',lengths:[]})), garminResource: vi.fn(() => of({ payload: [] })) };
   return { api, store: new ActivityDetailStore(api as never) };
 }
 describe('ActivityDetailStore', () => {
@@ -82,9 +82,9 @@ describe('activity map state', () => {
   });
   it('never requests a GPS map for indoor pool swims but preserves it for outdoor swims',()=>{
     const {api,store}=setup();
-    api.detail.mockReturnValueOnce(of({id:'pool',activity_type:'swim',subtype:'indoor'}));
+    api.detail.mockReturnValueOnce(of({id:'pool',activity_type:'swim',subtype:'indoor'}) as never);
     store.load('pool');expect(api.map).not.toHaveBeenCalled();
-    api.detail.mockReturnValueOnce(of({id:'open',activity_type:'swim',subtype:'outdoor'}));
+    api.detail.mockReturnValueOnce(of({id:'open',activity_type:'swim',subtype:'outdoor'}) as never);
     store.load('open');expect(api.map).toHaveBeenCalledWith('open');
     store.ngOnDestroy();
   });
@@ -130,8 +130,7 @@ describe('activity map state', () => {
 describe('pool lengths read workflow',()=>{
   it('only reads retained splits after intent, cancels stale requests and never fetches providers',()=>{
     const {api,store}=setup();
-    api.swimLengths=vi.fn(()=>of({status:'available',lengths:[]}));
-    api.detail.mockReturnValueOnce(of({id:'pool',activity_type:'swim',subtype:'indoor',garmin:{provider:'garmin'}}));
+    api.detail.mockReturnValueOnce(of({id:'pool',activity_type:'swim',subtype:'indoor',garmin:{provider:'garmin'}}) as never);
     store.load('pool');
     expect(api.swimLengths).not.toHaveBeenCalled();
     store.loadSwimLengths();expect(store.swimLengthState()).toBe('loaded');
