@@ -40,10 +40,10 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
       }
       @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
       }
-      <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
       @if (item.activity_type === 'swim' && item.subtype !== 'outdoor') {
         <sportos-swim-lengths [state]="store.swimLengthState()" [data]="store.swimLengths()" (load)="store.loadSwimLengths()" />
       }
+      <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
       <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
       @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
       @if (item.garminStrength; as strength) {
