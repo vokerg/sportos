@@ -7,6 +7,12 @@ import { ActivityTimelineService } from './activity-timeline.service.js';
 @Controller('activities')
 export class ActivityTimelineController {
   constructor(private readonly timeline: ActivityTimelineService) {}
+  @Get(':activityId/swim-lengths')
+  swimLengths(@Param('activityId') id: string, @Query() query: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) {
+    assertUuid(id, 'INVALID_ACTIVITY_ID');
+    if (Object.keys(query).length) throw new BadRequestException('Swim lengths accept no query parameters.');
+    return this.timeline.swimLengths(account?.id ?? LEGACY_ACCOUNT_ID, id);
+  }
   @Get(':activityId/timeline')
   read(@Param('activityId') id: string, @Query() query: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) {
     assertUuid(id, 'INVALID_ACTIVITY_ID');

@@ -68,6 +68,17 @@ export interface ActivityMapUnavailable {
 }
 export type ActivityMapResponse = ActivityMapAvailable | ActivityMapUnavailable;
 
+export interface SwimLengthRow {
+  row: number; lengthNumber: number | null; kind: 'active' | 'rest' | 'unknown';
+  durationS: number | null; durationBasis: 'timer' | 'elapsed' | null;
+  paceSPer100M: number | null; strokes: number | null; swolf: number | null; stroke: string | null;
+}
+export interface SwimLengthResponse {
+  status: 'available' | 'unavailable'; reason?: string;
+  poolLengthM: number | null; poolLengthDisplay: string | null;
+  expectedLengths: number | null; expectedActiveLengths: number | null;
+  complete: boolean | null; truncated: boolean; lengths: SwimLengthRow[];
+}
 export interface ActivitySourceJson {
   sourceRecordId: string;
   sourceRecordSource: string;
@@ -126,6 +137,10 @@ export class ActivitiesApiService {
 
   timeline(id: string, source: TimelineSource) {
     return this.http.get<ActivityTimeline>(`${this.apiBase}/activities/${encodeURIComponent(id)}/timeline`, { params: { source } });
+  }
+
+  swimLengths(id: string) {
+    return this.http.get<SwimLengthResponse>(`${this.apiBase}/activities/${encodeURIComponent(id)}/swim-lengths`);
   }
 
   reprocessMap(id:string) { return this.http.post(`${this.apiBase}/activities/${encodeURIComponent(id)}/map/reprocess`,{}); }

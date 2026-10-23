@@ -75,6 +75,24 @@ export class GarminActivityResourcesRepository {
     return rows.rows.map(row => row.message);
   }
 
+  /** Return only allowlisted native FIT length fields for pool splits.
+   * A +1 sentinel lets the caller report truncation rather than silently claim a full swim. */
+  async swimLengthMessages(reference: GarminResourceReference, limit = 2001) {
+    validate(reference);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 2001) throw new Error('Invalid swim length limit.');
+    const rows = await sql<{ message: Json }>`select jsonb_build_object('message', value->'message', 'fields',
+      (select coalesce(jsonb_agg(field), '[]'::jsonb)
+       from jsonb_array_elements(case when jsonb_typeof(value->'fields')='array' then value->'fields' else '[]'::jsonb end) as field
+       where field->>'name' in ('length_type','total_timer_time','total_elapsed_time','total_strokes','swim_stroke'))) as message
+      from garmin_activity_resources r cross join lateral jsonb_array_elements(
+        case when jsonb_typeof(r.payload_json)='array' then r.payload_json else '[]'::jsonb end)
+        with ordinality as m(value, position)
+      where r.identity_key=${reference.identityKey} and r.source_hash=${reference.sourceHash}
+        and r.resource_type='records' and value->>'message'='length'
+      order by r.chunk_index, position limit ${limit}`.execute(this.db);
+    return rows.rows.map(row => row.message);
+  }
+
   async read(reference: GarminResourceReference, resourceType: GarminResourceWrite['resourceType'], chunkIndex = 0) {
     validate(reference);
     const row = await this.db.selectFrom('garmin_activity_resources').select('payload_json')

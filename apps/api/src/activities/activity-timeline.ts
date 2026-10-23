@@ -27,11 +27,11 @@ const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFi
 export function unavailableTimeline(source: TimelineSource, reason: string): ActivityTimeline {
   return { source, status: 'unavailable', reason, durationS: 0, sampleCount: 0, simplified: false, metrics: [] };
 }
-function value(key: string, x: unknown): number | null {
+function value(key: string, x: unknown, swimming: boolean): number | null {
   if (!finite(x)) return null;
-  if (key === 'pace') return x > 0 && x <= 100 ? 1000 / x / 60 : null;
+  if (key === 'pace') return x > 0 && x <= 100 ? (swimming ? 100 : 1000) / x / 60 : null;
   if (key === 'speed') return x >= 0 && x <= 100 ? x * 3.6 : null;
-  if (key === 'distance') return x >= 0 && x <= 10_000_000 ? x / 1000 : null;
+  if (key === 'distance') return x >= 0 && x <= 10_000_000 ? (swimming ? x : x / 1000) : null;
   if (key === 'heartRate') return x > 0 && x <= 300 ? x : null;
   if (key === 'power') return x >= 0 && x <= 5000 ? x : null;
   if (key === 'cadence') return x >= 0 && x <= 300 ? x : null;
@@ -63,27 +63,28 @@ export function simplify(points: TimelineMetric['points']): TimelineMetric['poin
   }
   return result;
 }
-function finish(source: TimelineSource, times: number[], values: Record<string, unknown[]>): ActivityTimeline {
+function finish(source: TimelineSource, times: number[], values: Record<string, unknown[]>, swimming = false): ActivityTimeline {
   if (!times.length || times.length > MAX_TIMELINE_SAMPLES) return unavailableTimeline(source, 'sample_limit_or_missing');
   if (times.some((t, i) => !finite(t) || t < 0 || t > MAX_DURATION || (i > 0 && t <= times[i - 1]!))) return unavailableTimeline(source, 'invalid_timeline');
   const metrics: TimelineMetric[] = [];
   let simplified = false;
   for (const [key, label, unit] of definitions) {
+    if (swimming && ['power','cadence','speed','elevation','groundContact','verticalOscillation'].includes(key)) continue;
     const data = values[key];
     if (!data || data.length !== times.length) continue;
     const points: TimelineMetric['points'] = [];
     for (let i = 0; i < times.length; i++) {
       if (i && times[i]! - times[i - 1]! > 30) points.push([times[i - 1]! + 0.001, null]);
-      points.push([times[i]!, value(key, data[i])]);
+      points.push([times[i]!, value(key, data[i], swimming)]);
     }
     if (!points.some(p => p[1] !== null)) continue;
     const reduced = simplify(points); simplified ||= reduced.length < points.length;
-    metrics.push({key, label, unit, points: reduced});
+    metrics.push({key, label: swimming && key === 'pace' ? 'Swim pace' : label, unit: swimming && key === 'pace' ? 'min/100m' : swimming && key === 'distance' ? 'm' : unit, points: reduced});
   }
   if (!metrics.length) return unavailableTimeline(source, 'no_supported_metrics');
   return { source, status: 'available', durationS: times[times.length - 1]!, sampleCount: times.length, simplified, metrics };
 }
-export function stravaTimeline(payload: unknown): ActivityTimeline {
+export function stravaTimeline(payload: unknown, swimming = false): ActivityTimeline {
   const streams = object(payload) ?? (Array.isArray(payload) ? Object.fromEntries(payload.flatMap(s => {
     const item = object(s); return typeof item?.type === 'string' ? [[item.type, item]] : [];
   })) : {});
@@ -97,9 +98,9 @@ export function stravaTimeline(payload: unknown): ActivityTimeline {
     if (stream && Array.isArray(stream.data) && stream.data.length === times.length
       && ['series_type','resolution','original_size'].every(field => stream[field] === timeStream?.[field])) values[key] = stream.data;
   }
-  return finish('strava', times, values);
+  return finish('strava', times, values, swimming);
 }
-export function garminTimeline(messages: unknown[]): ActivityTimeline {
+export function garminTimeline(messages: unknown[], swimming = false): ActivityTimeline {
   if (messages.length > MAX_TIMELINE_SAMPLES) return unavailableTimeline('garmin', 'sample_limit_or_missing');
   const times: number[] = [], values: Record<string, unknown[]> = Object.fromEntries(definitions.map(([key]) => [key, []]));
   let start: number | undefined;
@@ -127,5 +128,5 @@ export function garminTimeline(messages: unknown[]): ActivityTimeline {
     const row: Record<string, unknown> = { pace:speed, speed, heartRate:read('heart_rate','bpm'), power:read('power','watts'), cadence:read('cadence','rpm'), elevation:read('enhanced_altitude','m') ?? read('altitude','m'), temperature:read('temperature','C'), distance:read('distance','m'), groundContact:read('stance_time','ms'), verticalOscillation:read('vertical_oscillation','mm') };
     for (const [key] of definitions) values[key]!.push(row[key]);
   }
-  return finish('garmin', times, values);
+  return finish('garmin', times, values, swimming);
 }

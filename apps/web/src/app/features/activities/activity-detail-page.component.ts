@@ -1,4 +1,5 @@
 import { ActivityTimelineComponent } from './ui/activity-timeline.component';
+import { SwimLengthsComponent } from './ui/swim-lengths.component';
 import { ActivityMapComponent } from './ui/activity-map.component';
 import { RunningEffortsComponent } from './ui/running-efforts.component';
 import { ActivityMetricProvenanceComponent } from './ui/activity-metric-provenance.component';
@@ -13,7 +14,7 @@ import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.vi
 import { startTime, title, displayedSubtype } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityTimelineComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityTimelineComponent, SwimLengthsComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
   template: `
     <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
     @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
@@ -27,6 +28,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
       </sportos-activity-metric-comparison>
       @if (item.historicalSummary) { <p class="card">Historical Excel reconstruction: a daily run summary. The number of sessions, device, start time and GPS route are unknown. A historical time is shown only when an exact full-distance record supports it; its pause basis is unspecified.</p> }
       @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
+      @if (item.activity_type !== 'swim' || item.subtype !== 'indoor') {
       @if (store.mapState() === 'loading') { <section class="card map-status" role="status">Loading activity route…</section> }
       @else if (store.mapState() === 'available' && store.mapData()) {
         <sportos-activity-map [route]="store.mapData()!" [activityId]="item.id" />
@@ -37,7 +39,11 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         </section>
       }
       @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
-      <sportos-activity-timeline [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
+      }
+      @if (item.activity_type === 'swim' && item.subtype !== 'outdoor') {
+        <sportos-swim-lengths [state]="store.swimLengthState()" [data]="store.swimLengths()" (load)="store.loadSwimLengths()" />
+      }
+      <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
       <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
       @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
       @if (item.garminStrength; as strength) {
@@ -92,7 +98,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         @if (store.garminState() === 'loaded' && store.garminError()) { <p role="alert">{{ store.garminError() }}</p> }
         @if (store.garmin(); as garmin) {
           <p>Retained Garmin data · {{ garmin.retainedAt }} @if (garmin.cacheStatus) { · {{ garmin.cacheStatus === 'hit' ? 'cache hit' : 'fetched from Garmin' }} }</p>
-          <h4>Garmin session and running dynamics</h4>
+          <h4>{{ item.activity_type === 'swim' ? 'Garmin swim session' : 'Garmin session and running dynamics' }}</h4>
           <dl class="metrics">@for (metric of fitMetrics(garmin.sessions[0], item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> } @empty { <p>No supported session metrics were provided.</p> }</dl>
           <details class="provider-json"><summary>Garmin laps ({{ garmin.laps.length }} shown, up to 100)</summary>
             @for (lap of garmin.laps; track $index) { <h4>Lap {{ $index + 1 }}</h4><dl class="metrics">@for (metric of fitMetrics(lap, item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl> }

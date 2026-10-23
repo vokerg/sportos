@@ -11,7 +11,7 @@ export function timelineTime(seconds: number) {
 }
 export function timelineValue(value: unknown, metric: TimelineMetric) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
-  return metric.key === 'pace' ? `${timelineTime(value * 60)} /km` : `${Number(value.toFixed(metric.key === 'distance' ? 2 : 1))} ${metric.unit}`;
+  return metric.key === 'pace' ? `${timelineTime(value * 60)} /${metric.unit === 'min/100m' ? '100m' : 'km'}` : `${Number(value.toFixed(metric.key === 'distance' && metric.unit === 'km' ? 2 : metric.key === 'distance' ? 0 : 1))} ${metric.unit}`;
 }
 const colors = ['#2563eb','#e44763','#8756cf','#159888','#c18420','#667085','#d25c31','#3a869c','#bd5798','#677434'];
 export function timelineOptions(data: ActivityTimeline, metrics: TimelineMetric[]): EChartsCoreOption {

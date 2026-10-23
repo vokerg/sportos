@@ -32,6 +32,12 @@ describe('retained activity timelines',()=>{
     expect(garminTimeline([record(0),record(0)])).toMatchObject({status:'unavailable',reason:'invalid_timeline'});
     expect(garminTimeline([record(0,[field('power',1,'watts'),field('power',2,'watts')])]).reason).toBe('invalid_timeline');
   });
+  it('uses per-100m swim pace and metres without reusing running units',()=>{
+    const r = stravaTimeline({time:stream([0,1,2]),velocity_smooth:stream([1,1.25,0]),distance:stream([0,25,50]),watts:stream([200,201,202])},true);
+    expect(r.metrics.find(m=>m.key==='pace')).toMatchObject({label:'Swim pace',unit:'min/100m',points:[[0,100/60],[1,80/60],[2,null]]});
+    expect(r.metrics.find(m=>m.key==='distance')).toMatchObject({unit:'m',points:[[0,0],[1,25],[2,50]]});
+    expect(r.metrics.some(m=>m.key==='power')).toBe(false);
+  });
   it('bounds display size, preserves extrema without gaps, and retains missing markers when simplified',()=>{
     const points:[number,number|null][]=Array.from({length:10000},(_,i)=>[i,100]);
     points[123]=[123,999]; points[456]=[456,-1];
