@@ -1,123 +1,172 @@
-import type { ActivityTimeline, TimelineSource } from '../model/activity-timeline.models';
-import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, OnDestroy, signal } from '@angular/core';
+import { ActivityTimelineComponent } from './ui/activity-timeline.component';
+import { SwimLengthsComponent } from './ui/swim-lengths.component';
+import { ActivityMapComponent } from './ui/activity-map.component';
+import { RunningEffortsComponent } from './ui/running-efforts.component';
+import { ActivityMetricProvenanceComponent } from './ui/activity-metric-provenance.component';
+import { ProviderMetricStatusComponent } from './ui/provider-metric-status.component';
+import { ActivityMetricComparisonComponent } from './ui/activity-metric-comparison.component';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { ActivitiesApiService, type ActivityDetail, type ActivityMapAvailable, type ActivityMapResponse, type ActivityProviderDetailResponse, type EnrichmentStatus, type GarminDetail, type SwimLengthResponse } from '../activities-api.service';
-type LoadState = 'idle' | 'loading' | 'loaded' | 'missing' | 'error';
+import { ActivitiesApiService } from './activities-api.service';
+import { ActivityDetailStore } from './state/activity-detail.store';
+import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.view-model';
+import { startTime, title, displayedSubtype } from './activity.view-model';
 
-@Injectable()
-export class ActivityDetailStore implements OnDestroy {
-  readonly timelineState = signal<'idle'|'loading'|'loaded'|'error'>('idle');
-  readonly timelineSource = signal<TimelineSource>('strava');
-  readonly timelineData = signal<ActivityTimeline|null>(null);
-  private timelineRequest = 0;
-  readonly swimLengthState = signal<'idle'|'loading'|'loaded'|'error'>('idle');
-  readonly swimLengths = signal<SwimLengthResponse|null>(null);
-  readonly mapState = signal<'idle' | 'loading' | 'available' | 'unavailable' | 'error'>('idle');
-  readonly mapData = signal<ActivityMapAvailable | null>(null);
-  readonly mapReason = signal<string | null>(null);
-  readonly effortState=signal<LoadState>('idle'); readonly effortError=signal('');
-  readonly metricState=signal<LoadState>('idle'); readonly metricError=signal('');
-  readonly state = signal<LoadState>('loading'); readonly activity = signal<ActivityDetail | null>(null);
-  readonly coverage = signal<EnrichmentStatus | null>(null); readonly coverageError = signal(false);
-  readonly sourceState = signal<LoadState>('idle'); readonly sourceJson = signal<string | null>(null);
-  readonly providerState = signal<LoadState>('idle'); readonly providerDetail = signal<ActivityProviderDetailResponse | null>(null);
-  readonly providerJson = signal<string | null>(null); readonly providerFetchedAt = signal<string | null>(null); readonly providerCacheStatus = signal<'hit' | 'miss' | null>(null);
-  readonly providerError = signal('');
-  readonly garminState = signal<LoadState>('idle'); readonly garmin = signal<GarminDetail | null>(null); readonly garminError = signal('');
-  readonly resourceState = signal<LoadState>('idle'); readonly resourceJson = signal<string | null>(null);
-  private requests = new Map<string, Subscription>(); private id = ''; private generation = 0;
-  constructor(private readonly api: ActivitiesApiService) {}
-  ngOnDestroy() { this.cancel(); }
-  private cancel() { this.generation++; for (const request of this.requests.values()) request.unsubscribe(); this.requests.clear(); }
-  load(id: string, options: { coverage?: boolean } = {}) {
-    this.cancel(); this.swimLengthState.set('idle'); this.swimLengths.set(null); this.timelineRequest++; this.timelineState.set('idle'); this.timelineData.set(null); this.timelineSource.set('strava'); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false);
-    this.sourceState.set('idle'); this.sourceJson.set(null); this.providerState.set('idle'); this.providerDetail.set(null); this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerError.set('');
-    this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
-    const generation = this.generation;
-    this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); if (activity.activity_type === 'swim' && activity.garmin) this.timelineSource.set('garmin'); this.state.set('loaded'); if (options.coverage !== false) this.refreshCoverage(); if (activity.activity_type !== 'swim' || activity.subtype === 'outdoor') this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
-  }
-  loadTimeline(source: TimelineSource = this.timelineSource()) {
-    if (!this.activity() || (this.timelineState() === 'loading' && source === this.timelineSource())) return;
-    this.requests.get('timeline')?.unsubscribe();
-    this.timelineSource.set(source); this.timelineData.set(null); this.timelineState.set('loading');
-    const generation = this.generation, request = ++this.timelineRequest;
-    this.requests.set('timeline', this.api.timeline(this.id, source).subscribe({
-      next: data => { if (generation === this.generation && request === this.timelineRequest) { this.timelineData.set(data); this.timelineState.set('loaded'); } },
-      error: () => { if (generation === this.generation && request === this.timelineRequest) this.timelineState.set('error'); },
-    }));
-  }
-  loadSwimLengths() {
-    const activity = this.activity();
-    if (!activity || activity.activity_type !== 'swim' || activity.subtype === 'outdoor' || this.swimLengthState() === 'loading') return;
-    this.swimLengthState.set('loading'); this.swimLengths.set(null);
-    const generation = this.generation;
-    this.requests.get('swimLengths')?.unsubscribe();
-    this.requests.set('swimLengths', this.api.swimLengths(this.id).subscribe({
-      next: data => { if (generation === this.generation) { this.swimLengths.set(data); this.swimLengthState.set('loaded'); } },
-      error: () => { if (generation === this.generation) this.swimLengthState.set('error'); },
-    }));
-  }
-  loadMap() {
-    if (!this.activity() || (this.activity()!.activity_type === 'swim' && this.activity()!.subtype !== 'outdoor')) return;
-    this.requests.get('map')?.unsubscribe();
-    this.mapState.set('loading'); this.mapData.set(null); this.mapReason.set(null);
-    const generation = this.generation;
-    this.requests.set('map', this.api.map(this.id).subscribe({
-      next: (response: ActivityMapResponse) => {
-        if (generation !== this.generation) return;
-        if (response.status === 'available') {
-          this.mapData.set(response);
-          this.mapState.set('available');
-        } else {
-          this.mapReason.set(response.reason);
-          this.mapState.set('unavailable');
+@Component({
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityTimelineComponent, SwimLengthsComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
+  template: `
+    <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
+    @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
+    @else if (state() === 'error') { <section class="card" role="alert">Could not load this activity. <button type="button" (click)="load()">Try again</button></section> }
+    @else if (state() === 'missing') { <section class="card">Activity not found.</section> }
+    @else { @if (activity(); as item) {
+      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="summary">
+      <header><h1>{{ title(item) }} @if (displayedSubtype(item)) { <small [attr.title]="item.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(item) }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
+        @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
+      </header>
+      </sportos-activity-metric-comparison>
+      @if (item.historicalSummary) { <p class="card">Historical Excel reconstruction: a daily run summary. The number of sessions, device, start time and GPS route are unknown. A historical time is shown only when an exact full-distance record supports it; its pause basis is unspecified.</p> }
+      @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
+      @if (item.activity_type !== 'swim' || item.subtype !== 'indoor') {
+      @if (store.mapState() === 'loading') { <section class="card map-status" role="status">Loading activity route…</section> }
+      @else if (store.mapState() === 'available' && store.mapData()) {
+        <sportos-activity-map [route]="store.mapData()!" [activityId]="item.id" />
+      }
+      @else if (store.mapState() === 'unavailable') {
+        <section class="card map-status" aria-label="Activity route unavailable">
+          <p>{{ store.mapReason() === 'invalid_geometry' ? 'The retained GPS route is invalid.' : store.mapReason() === 'summary_polyline_missing' ? 'No Strava summary GPS route was retained for this activity.' : 'No GPS route is available for this activity.' }}</p>
+        </section>
+      }
+      @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
+      }
+      <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
+      @if (item.activity_type === 'swim' && item.subtype !== 'outdoor') {
+        <sportos-swim-lengths [state]="store.swimLengthState()" [data]="store.swimLengths()" (load)="store.loadSwimLengths()" />
+      }
+      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
+      @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
+      @if (item.garminStrength; as strength) {
+        <section class="card" aria-label="Garmin strength summary"><h2>Garmin strength sets</h2>
+          <dl class="metrics"><div><dt>Working sets</dt><dd>{{ strength.workingSets }}</dd></div>
+            <div><dt>Recorded set entries</dt><dd>{{ strength.totalRecordedSets }}</dd></div>
+            <div><dt>Exercises with labels</dt><dd>{{ strength.exerciseCount }}</dd></div>
+            <div><dt>Warm-up sets</dt><dd>{{ strength.warmupSets }}</dd></div>
+            <div><dt>Rest markers</dt><dd>{{ strength.restMarkers }}</dd></div>
+            <div><dt>Unknown sets</dt><dd>{{ strength.unknownSets }}</dd></div></dl>
+          <p>Policy v{{ strength.policyVersion }} · source updated {{ strength.sourceUpdatedAt }}</p>
+          @if (!strength.complete) { <p>Incomplete set classification. Existing workout points are preserved during recalculation.</p> }
+          @for (exercise of strength.exercises; track exercise.name) { <p>{{ exercise.name }} · {{ exercise.workingSets }} working sets</p> }
+        </section>
+      }
+      @if (item.notes && item.source !== 'strava') { <section class="card notes-card"><h2>Notes</h2><p class="notes">{{ item.notes }}</p></section> }
+      <section class="card provider-detail" aria-label="Provider data">
+        <h2>Provider data</h2>
+        <sportos-provider-metric-status [statuses]="item.providerMetrics ?? []" [expanded]="true" />
+        @if (item.providerDetail || item.garmin) {
+          <button type="button" [disabled]="store.metricState() === 'loading'" (click)="store.reprocessMetrics()">{{ store.metricState() === 'loading' ? 'Normalizing retained data…' : 'Normalize retained data' }}</button>
+          <p>This processes retained activity metrics without contacting either provider.</p>
         }
-      },
-      error: () => { if (generation === this.generation) this.mapState.set('error'); },
-    }));
-  }
-  refreshCoverage() {
-    this.requests.get('coverage')?.unsubscribe(); const generation = this.generation;
-    this.requests.set('coverage', this.api.enrichment(this.id).subscribe({ next: status => { if (generation === this.generation) { this.coverage.set(status); this.coverageError.set(false); } }, error: () => { if (generation === this.generation) this.coverageError.set(true); } }));
-  }
-  strava(fetch = false, refresh = false) {
-    if (this.providerState() === 'loading' || !this.activity()?.providerDetail) return;
-    this.providerState.set('loading'); this.providerError.set(''); const generation = this.generation;
-    const request = fetch ? this.api.fetchProviderDetail(this.id, refresh) : this.api.providerDetail(this.id);
-    this.requests.set('strava', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.providerDetail.set(detail); this.providerJson.set(JSON.stringify(detail.resources, null, 2)); this.providerFetchedAt.set(new Date(detail.fetchedAt).toLocaleString()); this.providerCacheStatus.set(detail.cacheStatus); this.providerState.set('loaded'); this.refreshCoverage(); if(fetch) { this.refreshActivity(); this.loadMap(); } }, error: error => { if (generation === this.generation) { this.providerState.set(missing(error)); this.providerError.set(message(error, 'Could not load Strava detail. You can retry or reconnect Strava.')); if(fetch) this.refreshActivity(); } } }));
-  }
-  garminDetail(fetch = false, refresh = false) {
-    if (this.garminState() === 'loading') return;
-    this.garminState.set('loading'); this.garminError.set(''); const generation = this.generation;
-    const request = fetch ? this.api.fetchGarminDetail(this.id, refresh) : this.api.garminDetail(this.id);
-    this.requests.set('garmin', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.garmin.set(detail); this.garminState.set('loaded'); this.refreshCoverage(); if (fetch) { this.refreshActivity(); this.loadMap(); } }, error: error => { if (generation === this.generation) { this.garminState.set(missing(error)); this.garminError.set(message(error, 'Could not load Garmin detail. Retry after checking your local login.')); if(fetch) this.refreshActivity(); } } }));
-  }
-  reprocessEfforts() {
-    if(this.effortState()==='loading' || this.activity()?.activity_type!=='run') return;
-    this.effortState.set('loading'); this.effortError.set(''); const generation=this.generation;
-    this.requests.set('efforts',this.api.reprocessEfforts(this.id).subscribe({next:()=>{if(generation!==this.generation)return;this.effortState.set('loaded');this.refreshActivity();},error:()=>{if(generation===this.generation){this.effortState.set('error');this.effortError.set('Could not calculate retained efforts. Evidence is safe; try again.');this.refreshActivity();}}}));
-  }
-  reprocessMetrics() {
-    if(this.metricState()==='loading') return;
-    this.metricState.set('loading');this.metricError.set(''); const generation=this.generation;
-    this.requests.set('metrics',this.api.reprocessMetrics(this.id).subscribe({next:()=>{if(generation!==this.generation)return;this.metricState.set('loaded');this.refreshActivity();},error:()=>{if(generation===this.generation){this.metricState.set('error');this.metricError.set('Could not normalize retained metrics. Evidence is safe; try again.');this.refreshActivity();}}}));
-  }
-  private refreshActivity() {
-    this.requests.get('activity')?.unsubscribe(); const generation = this.generation;
-    this.requests.set('activity', this.api.detail(this.id).subscribe({ next: activity => {
-      if (generation === this.generation) this.activity.set(activity);
-    }, error: () => { if (generation === this.generation) this.metricError.set('Retained data is safe, but the activity metrics could not refresh. Reload the activity to view them.'); } }));
-  }
-  resource(type: string, chunk: number) {
-    this.requests.get('resource')?.unsubscribe(); this.resourceState.set('loading'); this.resourceJson.set(null); const generation = this.generation;
-    this.requests.set('resource', this.api.garminResource(this.id, type, chunk).subscribe({ next: data => { if (generation === this.generation) { this.resourceJson.set(JSON.stringify(data.payload, null, 2)); this.resourceState.set('loaded'); } }, error: error => { if (generation === this.generation) this.resourceState.set(missing(error)); } }));
-  }
-  source() {
-    if (!this.activity()?.provenance.sourceRecordId || this.sourceState() === 'loading') return;
-    this.sourceState.set('loading'); const generation = this.generation;
-    this.requests.set('source', this.api.sourceJson(this.id).subscribe({ next: data => { if (generation === this.generation) { this.sourceJson.set(JSON.stringify(data.rawJson, null, 2)); this.sourceState.set('loaded'); } }, error: error => { if (generation === this.generation) this.sourceState.set(missing(error)); } }));
-  }
+        @if (store.metricError()) { <p role="alert">{{ store.metricError() }}</p> }
+        <p>Fetch downloads detail for this activity. View reads retained data. Canonical activity facts and scores stay unchanged.</p>
+        @if (store.coverageError()) { <p role="alert">Could not check retained data. <button type="button" (click)="store.refreshCoverage()">Check again</button></p> }
+        @else if (!store.coverage()) { <p role="status">Checking retained data…</p> }
+        @if (item.providerDetail?.provider === 'strava') {
+          <div class="provider-heading"><h3>Strava</h3><span class="badge">Summary present</span><span class="badge">{{ store.coverage()?.strava?.state === 'cached' ? 'Detail bundle retained' : store.coverage()?.strava?.state === 'stale' ? 'Detail needs refresh' : 'Full detail not fetched' }}</span></div>
+          <div class="provider-actions">
+            <button type="button" [disabled]="providerState() === 'loading' || !store.coverage()" (click)="store.strava(true)">{{ providerState() === 'loading' ? 'Loading Strava…' : 'Fetch Strava detail' }}</button>
+            <button type="button" [disabled]="providerState() === 'loading' || store.coverage()?.strava?.state !== 'cached'" (click)="store.strava()">View Strava data</button>
+            @if (store.coverage()?.strava?.state === 'cached' || store.coverage()?.strava?.state === 'stale') { <button type="button" [disabled]="providerState() === 'loading'" (click)="store.strava(true, true)">Refresh from Strava</button> }
+          </div>
+          @if (providerState() === 'loading') { <p role="status">Loading detailed activity, streams, laps and zones…</p> }
+          @if (providerState() === 'error' || providerState() === 'missing') { <p role="alert">{{ store.providerError() }}</p> }
+          @if (providerState() === 'loaded') {
+            <p>Retained Strava data · {{ providerCacheStatus() === 'hit' ? 'cache hit' : 'fetched from Strava' }} · {{ providerFetchedAt() }}</p>
+            <dl class="metrics">@for (metric of stravaMetrics(store.providerDetail()?.resources?.['detail']?.payload); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl>
+            <details class="provider-json"><summary>Strava detail, streams, laps and zones (advanced)</summary><pre>{{ providerJson() }}</pre></details>
+          }
+        }
+        <div class="provider-heading"><h3>Garmin</h3><span class="badge">{{ store.coverage()?.garmin?.state === 'cached' ? 'Rich data retained' : store.coverage()?.garmin?.linked ? 'Linked · detail missing' : 'Not linked' }}</span></div>
+        <div class="provider-actions">
+          <button type="button" [disabled]="store.garminState() === 'loading' || !store.coverage() || (!store.coverage()?.garmin?.fetchEnabled && store.coverage()?.garmin?.state !== 'cached')" (click)="store.garminDetail(true)">{{ store.garminState() === 'loading' ? 'Loading Garmin…' : 'Fetch Garmin detail' }}</button>
+          <button type="button" [disabled]="store.garminState() === 'loading' || store.coverage()?.garmin?.state !== 'cached'" (click)="store.garminDetail()">View Garmin data</button>
+          @if (store.coverage()?.garmin?.linked && store.coverage()?.garmin?.fetchEnabled) { <button type="button" [disabled]="store.garminState() === 'loading'" (click)="store.garminDetail(true, true)">Refresh from Garmin</button> }
+        </div>
+        @if (store.coverage() && !store.coverage()?.garmin?.fetchEnabled) { <p>New Garmin downloads require the local desktop helper. Retained Garmin data can still be viewed.</p> }
+        @if (store.garminState() === 'loading') { <p role="status">Checking retained data and fetching only if needed…</p> }
+        @if (store.garminState() === 'error' || store.garminState() === 'missing') { <p role="alert">{{ store.garminError() }}</p> }
+        @if (store.garminState() === 'loaded' && store.garminError()) { <p role="alert">{{ store.garminError() }}</p> }
+        @if (store.garmin(); as garmin) {
+          <p>Retained Garmin data · {{ garmin.retainedAt }} @if (garmin.cacheStatus) { · {{ garmin.cacheStatus === 'hit' ? 'cache hit' : 'fetched from Garmin' }} }</p>
+          <h4>Garmin session and running dynamics</h4>
+          <dl class="metrics">@for (metric of fitMetrics(garmin.sessions[0], item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> } @empty { <p>No supported session metrics were provided.</p> }</dl>
+          <details class="provider-json"><summary>Garmin laps ({{ garmin.laps.length }} shown, up to 100)</summary>
+            @for (lap of garmin.laps; track $index) { <h4>Lap {{ $index + 1 }}</h4><dl class="metrics">@for (metric of fitMetrics(lap, item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl> }
+          </details>
+          <details class="provider-json"><summary>Garmin exercise sets</summary>
+            @for (set of exerciseSetRows(garmin.sets); track $index) { <h4>Set {{ $index + 1 }}</h4><dl class="metrics">@for (field of set; track field.label) { <div><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></div> }</dl> } @empty { <p>No exercise sets were provided.</p> }
+            <details><summary>Exercise set JSON (advanced)</summary><pre>{{ setsJson() }}</pre></details>
+          </details>
+          <details class="provider-json"><summary>Garmin retained source records (advanced)</summary>
+            <p>Read one retained resource at a time. These may include GPS and other private telemetry.</p>
+            <label>Resource <select [value]="resourceIndex()" (change)="resourceIndex.set(+$any($event.target).value)">@for (resource of garmin.resources; track $index) { <option [value]="$index">{{ resource.resourceType }} · part {{ resource.chunkIndex + 1 }}</option> }</select></label>
+            <button type="button" [disabled]="store.resourceState() === 'loading'" (click)="viewResource()">View retained resource</button>
+            @if (store.resourceState() === 'loading') { <p role="status">Loading retained resource…</p> }
+            @if (store.resourceState() === 'error' || store.resourceState() === 'missing') { <p role="alert">Could not read this resource. Try again.</p> }
+            @if (store.resourceState() === 'loaded') { <pre>{{ store.resourceJson() }}</pre> }
+          </details>
+        }
+      </section>
+      <details class="card provenance"><summary>Source and provenance</summary><dl>
+        <div><dt>Source</dt><dd>{{ item.source }}</dd></div>
+        @if (item.source_activity_id) { <div><dt>Source activity ID</dt><dd>{{ item.source_activity_id }}</dd></div> }
+        <div><dt>Canonical activity ID</dt><dd>{{ item.id }}</dd></div>
+        @if (item.provenance.sourceRecordId) { <div><dt>Source record ID</dt><dd>{{ item.provenance.sourceRecordId }}</dd></div> }
+        @if (item.provenance.sourceRecordSource) { <div><dt>Source record type</dt><dd>{{ item.provenance.sourceRecordSource }}</dd></div> }
+      </dl><sportos-activity-metric-provenance [metrics]="item.metricComparisons ?? []" /></details>
+      @if (item.provenance.sourceRecordId) {
+        <details class="card source-json" (toggle)="onSourceToggle($event)">
+          <summary>Raw source JSON (advanced)</summary>
+          <p>Retained source data for this activity. It may include location and other private details.</p>
+          @if (sourceState() === 'loading') { <p role="status">Loading source JSON…</p> }
+          @else if (sourceState() === 'error') { <p role="alert">Could not load source JSON. <button type="button" (click)="loadSourceJson()">Try again</button></p> }
+          @else if (sourceState() === 'missing') { <p>Source JSON is unavailable.</p> }
+          @else if (sourceState() === 'loaded') { <pre>{{ sourceJson() }}</pre> }
+        </details>
+      }
+    } }
+  `,
+  styles: [`
+    .map-status{margin:16px 0;padding:12px 18px;color:var(--text-muted)}.map-status p{margin:0}.map-status button{margin-left:8px}
+    .provider-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }.provider-heading h3 { margin: 0 4px 0 0; }.badge { font-size: 12px; border-radius: 16px; padding: 4px 9px; background: var(--accent-surface); color: var(--text-secondary); }.provider-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; } button:disabled { opacity: .55; cursor: default; } select { max-width: 100%; margin: 8px; }.metrics dt { text-transform: capitalize; }
+    .breadcrumb { margin-bottom: 18px; color: var(--text-muted); }.breadcrumb a { color: var(--link); }
+    header { margin-bottom: 18px; } h1 { margin: 4px 0; } h1 small { font-size: 18px; font-weight: 500; color: var(--text-muted); }
+    header p { margin: 0; color: var(--text-muted); text-transform: capitalize; }.source-name { margin-top: 10px; color: var(--text-secondary); font-size: 16px; text-transform: none; }.page-kicker { color: var(--link); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 18px; }
+    dt { color: var(--text-muted); font-size: 12px; } dd { margin: 3px 0 0; font-weight: 700; overflow-wrap: anywhere; }
+    .notes-card { margin-top: 12px; }.notes { white-space: pre-wrap; }.provider-detail { margin-top: 16px; }.provider-detail h2 { margin-top: 0; font-size: 17px; }.provider-detail p { color: var(--text-muted); }.provider-json summary { cursor: pointer; font-weight: 700; }.provider-json pre { max-height: 620px; overflow: auto; padding: 16px; border-radius: 8px; background: var(--code-background); color: var(--code-text); font-size: 12px; line-height: 1.5; white-space: pre; }.provenance { margin-top: 16px; }.provenance summary { cursor: pointer; font-weight: 700; }
+    .provenance dl { display: grid; gap: 10px; }
+    .source-json { margin-top: 12px; }.source-json summary { cursor: pointer; font-weight: 700; }
+    .source-json p { color: var(--text-muted); }.source-json pre { max-height: 520px; overflow: auto; padding: 16px; border-radius: 8px; background: var(--code-background); color: var(--code-text); font-size: 12px; line-height: 1.5; white-space: pre; }
+  `],
+})
+export class ActivityDetailPageComponent implements OnInit, OnDestroy {
+  readonly startTime = startTime;
+  readonly displayedSubtype = displayedSubtype; readonly title = title;
+  readonly exerciseSetRows = exerciseSetRows; readonly fitMetrics = fitMetrics; readonly stravaMetrics = stravaMetrics;
+  readonly resourceIndex = signal(0);
+  private id = ''; private routeSubscription?: Subscription;
+  constructor(private readonly api: ActivitiesApiService, private readonly route: ActivatedRoute, readonly store: ActivityDetailStore = new ActivityDetailStore(api)) {}
+  get state() { return this.store.state; } get activity() { return this.store.activity; }
+  get sourceState() { return this.store.sourceState; } get sourceJson() { return this.store.sourceJson; }
+  get providerState() { return this.store.providerState; } get providerJson() { return this.store.providerJson; }
+  get providerFetchedAt() { return this.store.providerFetchedAt; } get providerCacheStatus() { return this.store.providerCacheStatus; }
+  ngOnInit(): void { this.routeSubscription = this.route.paramMap.subscribe(params => { this.id = params.get('id') ?? ''; this.resourceIndex.set(0); this.load(); }); }
+  ngOnDestroy(): void { this.routeSubscription?.unsubscribe(); this.store.ngOnDestroy(); }
+  load(): void { this.store.load(this.id); }
+  loadProviderDetail(): void { this.store.strava(true); }
+  onSourceToggle(event: Event): void { if ((event.target as HTMLDetailsElement).open && this.sourceState() === 'idle') this.loadSourceJson(); }
+  loadSourceJson(): void { this.store.source(); }
+  setsJson(): string { return JSON.stringify(this.store.garmin()?.sets, null, 2) ?? 'null'; }
+  viewResource(): void { const resource = this.store.garmin()?.resources[this.resourceIndex()]; if (resource) this.store.resource(resource.resourceType, resource.chunkIndex); }
 }
-function missing(error: unknown): LoadState { return error instanceof HttpErrorResponse && error.status === 404 ? 'missing' : 'error'; }
-function message(error: unknown, fallback: string) { return error instanceof HttpErrorResponse && typeof error.error?.message === 'string' ? error.error.message.slice(0, 300) : fallback; }
