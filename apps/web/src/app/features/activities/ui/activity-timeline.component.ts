@@ -6,7 +6,7 @@ import { timelineOptions, timelineReason, type ActivityTimeline, type TimelineSo
   selector:'sportos-activity-timeline', standalone:true, imports:[NgxEchartsDirective],
   template:`
     <section class="card timeline" aria-labelledby="activity-timeline-title">
-      <div class="heading"><div><h2 id="activity-timeline-title">Activity graph</h2><p>Pace, heart rate, power and recorded metrics over time.</p></div>
+      <div class="heading"><div><h2 id="activity-timeline-title">{{ sport() === 'swim' ? 'Swim telemetry' : 'Activity graph' }}</h2><p>{{ sport() === 'swim' ? 'Swim pace per 100 m, heart rate and recorded pool metrics over time.' : 'Pace, heart rate, power and recorded metrics over time.' }}</p></div>
         <div class="source-switch" role="group" aria-label="Graph data source">
           @for (provider of sources; track provider) {
             <button type="button" [attr.aria-pressed]="source() === provider" [class.active]="source() === provider" (click)="selectSource(provider)">{{ provider === 'strava' ? 'Strava' : 'Garmin' }}</button>
@@ -29,7 +29,7 @@ import { timelineOptions, timelineReason, type ActivityTimeline, type TimelineSo
             <div echarts [theme]="colorScheme.chartTheme()" class="chart" [style.height.px]="visible().length * 170 + 65" [options]="options()" [notMerge]="true" role="img" [attr.aria-label]="source() + ' activity metrics by elapsed time. Scroll to zoom; drag the slider to select a time range.'"></div>
           } @else { <p class="empty">Choose a metric to display.</p> }
           <p class="hint">Scroll to zoom · use the slider to explore · hover to inspect. Gaps are left open. @if (data.simplified) { Display simplified from {{ data.sampleCount }} recorded samples; original data is retained. }</p>
-          <p class="hint">Only recorded metrics are offered. Cadence uses the provider's recorded rpm without conversion to steps/min. Sources have independent timelines; pace uses recorded speed, not corrected summary distance.</p>
+          <p class="hint">Only recorded metrics are offered. @if (sport() === 'swim') { Pool lengths, stroke counts and SWOLF are shown separately from per-second telemetry when retained. } @else { Cadence uses the provider's recorded rpm without conversion to steps/min. } Sources have independent timelines; pace uses recorded speed, not corrected summary distance.</p>
         }
         <button class="reload" type="button" (click)="load.emit(source())">Reload retained graph</button>
       }
@@ -41,6 +41,7 @@ import { timelineOptions, timelineReason, type ActivityTimeline, type TimelineSo
 export class ActivityTimelineComponent {
   readonly colorScheme = inject(ColorSchemeService);
   readonly sources: TimelineSource[] = ['strava','garmin'];
+  readonly sport = input<string>('run');
   readonly source = input<TimelineSource>('strava');
   readonly state = input<'idle'|'loading'|'loaded'|'error'>('idle');
   readonly data = input<ActivityTimeline|null>(null);
@@ -49,7 +50,7 @@ export class ActivityTimelineComponent {
   readonly selected = computed(() => {
     if (this.chosen()) return this.chosen()!;
     const keys = this.data()?.metrics.map(m=>m.key) ?? [];
-    const defaults = keys.filter(k=>['pace','heartRate','power'].includes(k));
+    const defaults = keys.filter(k=> (this.sport() === 'swim' ? ['pace','heartRate','distance'] : ['pace','heartRate','power']).includes(k));
     return defaults.length ? defaults : keys.slice(0,3);
   });
   readonly visible = computed(() => this.data()?.metrics.filter(m=>this.selected().includes(m.key)) ?? []);
