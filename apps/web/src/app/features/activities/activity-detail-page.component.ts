@@ -27,6 +27,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
       </sportos-activity-metric-comparison>
       @if (item.historicalSummary) { <p class="card">Historical Excel reconstruction: a daily run summary. The number of sessions, device, start time and GPS route are unknown. A historical time is shown only when an exact full-distance record supports it; its pause basis is unspecified.</p> }
       @if (item.activity_type === 'walk') { <p>Retained in activity history. This walk does not contribute activity points; walking steps remain in the all-day step total.</p> }
+      @if (item.activity_type !== 'swim' || item.subtype === 'outdoor') {
       @if (store.mapState() === 'loading') { <section class="card map-status" role="status">Loading activity route…</section> }
       @else if (store.mapState() === 'available' && store.mapData()) {
         <sportos-activity-map [route]="store.mapData()!" [activityId]="item.id" />
@@ -37,7 +38,8 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         </section>
       }
       @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
-      <sportos-activity-timeline [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
+      }
+      <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
       <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
       @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
       @if (item.garminStrength; as strength) {
