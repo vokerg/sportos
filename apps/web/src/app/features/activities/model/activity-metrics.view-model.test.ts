@@ -85,6 +85,14 @@ describe('activity metrics display', () => {
     const m = metric('distance','m',10000,11000); m.selected = null;
     expect(values(m).map(v => [v.sources,v.fallback,v.authoritative])).toEqual([[['Strava'],false,false],[['Garmin'],true,false]]);
   });
+  it('puts an audited manual correction ahead of conflicting provider observations', () => {
+    const m = metric('distance', 'm', 1000, 1025);
+    m.selected = { value: 1000, source: 'manual_correction', reason: 'canonical_authority' };
+    m.candidates = m.candidates.map(candidate => ({ ...candidate, value: 1025 }));
+    expect(values(m, 'swim').map(value => [value.value, value.sources, value.authoritative])).toEqual([
+      [1000, ['Manual correction'], true], [1025, ['Strava', 'Garmin'], false],
+    ]);
+  });
   it('retains recorded zero and excludes alternatives and nonfinite selections', () => {
     const m = metric('calories','kcal',0,0); m.selected!.value = Infinity;
     m.candidates.push({...m.candidates[0],value:999,selectedWithinProvider:false});

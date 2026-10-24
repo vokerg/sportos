@@ -7,6 +7,8 @@ import { decodeStoredRoute, projectGarminRoute, projectStravaRoute,
  ROUTE_ALGORITHM_VERSION, type ProjectedRoute } from './activity-route-projection.js';
 type RouteRefs = {
  summary: Awaited<ReturnType<ActivitiesRepository['getStravaRouteEvidence']>>;
+  activityType: string;
+  activitySubtype: string | null;
  strava: Awaited<ReturnType<ActivityProviderResourcesRepository['getProviderReference']>>;
  garmin: {identity_key:string;current_hash:string}|undefined;
  stravaLinked: boolean;
@@ -17,6 +19,8 @@ export class ActivityRouteProjectionService {
  constructor(private readonly primary:DbProvider,private readonly detail:ActivityDetailDbProvider){}
  private async references(owner:string,id:string):Promise<RouteRefs> {
   return this.primary.withAccount(owner,async db=>{
+   const activity=await db.selectFrom('activities').select(['activity_type','subtype']).where('id','=',id).executeTakeFirst();
+   if(!activity)throw new NotFoundException({code:'ACTIVITY_NOT_FOUND',message:'Activity was not found.'});
    const summary=await new ActivitiesRepository(db).getStravaRouteEvidence(id);
    if(!summary)throw new NotFoundException({code:'ACTIVITY_NOT_FOUND',message:'Activity was not found.'});
    // A linked Strava identity can exist without a trustworthy summary; do not
@@ -29,11 +33,12 @@ export class ActivityRouteProjectionService {
    const strava=summary.linked?await new ActivityProviderResourcesRepository(db).getProviderReference(id):null;
    const garmin=await db.selectFrom('garmin_activity_identities')
     .select(['identity_key','current_hash']).where('activity_id','=',id).executeTakeFirst();
-   return {summary,strava,garmin,stravaLinked};
+   return {summary,activityType:activity.activity_type,activitySubtype:activity.subtype,strava,garmin,stravaLinked};
   });
  }
  async read(owner:string,id:string):Promise<ActivityRouteResponse> {
   const ref=await this.references(owner,id);
+  if(ref.activityType==='swim'&&ref.activitySubtype==='indoor')return {status:'unavailable',reason:'indoor_pool_swim'};
   const summary=ref.summary!.linked?stravaSummaryRoute(ref.summary!.polyline,ref.summary!.polylineType)
     :{status:'unavailable' as const,reason:'no_gps' as const};
   // The compact auxiliary projection is an optional upgrade. Missing V004,
@@ -74,6 +79,7 @@ export class ActivityRouteProjectionService {
   * publish, and the ordinary GET never reads these rich payloads. */
  async project(owner:string,id:string):Promise<{status:'projected'|'already_current'|'unavailable'|'stale';source?:string}>{
   const refs=await this.references(owner,id);
+  if(refs.activityType==='swim'&&refs.activitySubtype==='indoor')return {status:'unavailable'};
   let route:ProjectedRoute|null=null, sourceRef='',sourceVersion='',fetchedAt=new Date();
   if(refs.stravaLinked){
    if(!refs.summary!.linked)return {status:'unavailable'};

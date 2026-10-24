@@ -38,6 +38,7 @@ import { ActivitiesController } from './activities/activities.controller.js';
 import { HeatmapController } from './heatmap/heatmap.controller.js';
 import { ActivityProviderDetailService } from './activities/activity-provider-detail.service.js';
 import { ActivityRouteProjectionService } from './activities/activity-route-projection.service.js';
+import { ActivityDistanceCorrectionService } from './activities/activity-distance-correction.service.js';
 
 @Module({
   controllers: [
@@ -75,6 +76,7 @@ import { ActivityRouteProjectionService } from './activities/activity-route-proj
     DynamicsService,
     ActivityProviderDetailService,
     ActivityRouteProjectionService,
+    ActivityDistanceCorrectionService,
     ActivityMetricsService,
     ActivityEnrichmentService,
     ActivityTimelineService,

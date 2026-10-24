@@ -15,12 +15,21 @@ export class ActivityTimelineService {
       if (!detail) throw new NotFoundException('Activity was not found.');
       // ActivitiesRepository selects public columns dynamically; its inferred
       // type misses these guaranteed fields until the repository is typed.
-      const activity = detail as typeof detail & {activity_type: string; subtype: string | null};
+      const activity = detail as typeof detail & {
+        activity_type: string; subtype: string | null; distance_m: number | null;
+        distanceCorrection?: { recordedDistanceM: number } | null;
+      };
       if (activity.activity_type !== 'swim' || activity.subtype === 'outdoor')
         return {pool: false, garmin: null};
       const garmin = await db.selectFrom('garmin_activity_identities')
         .select(['identity_key','current_hash']).where('activity_id','=',id).executeTakeFirst();
-      return {pool: true, garmin};
+      const correction = activity.distanceCorrection ?? null;
+      return {
+        pool: true,
+        garmin,
+        recordedDistanceM: correction?.recordedDistanceM ?? (typeof activity.distance_m === 'number' ? activity.distance_m : null),
+        effectiveDistanceM: typeof activity.distance_m === 'number' ? activity.distance_m : null,
+      };
     });
     if (!refs.pool) return unavailableSwimLengths('not_pool_swim');
     if (!refs.garmin) return unavailableSwimLengths('not_linked');
@@ -36,7 +45,16 @@ export class ActivityTimelineService {
       const sessions = await repo.messages(ref,'session',2);
       if (sessions.length !== 1) return unavailableSwimLengths('missing_session');
       const raw = await repo.swimLengthMessages(ref,2001);
-      return parseSwimLengths(sessions[0],raw.slice(0,2000),raw.length > 2000);
+      const parsed = parseSwimLengths(sessions[0],raw.slice(0,2000),raw.length > 2000);
+      if (parsed.status !== 'available') return parsed;
+      const effectiveActiveLengths = parsed.poolLengthM && refs.effectiveDistanceM && refs.effectiveDistanceM > 0
+        ? Number((refs.effectiveDistanceM / parsed.poolLengthM).toFixed(2)) : null;
+      return {
+        ...parsed,
+        recordedDistanceM: refs.recordedDistanceM,
+        effectiveDistanceM: refs.effectiveDistanceM,
+        effectiveActiveLengths,
+      };
     });
   }
   async read(owner: string, id: string, source: TimelineSource) {

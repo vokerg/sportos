@@ -28,7 +28,7 @@ import { startTime, title } from '../activity.view-model';
       }
       @else if (store.mapState() === 'error') { <p class="status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></p> }
       @else if (store.mapState() === 'unavailable') {
-        <p class="status">{{ store.mapReason() === 'invalid_geometry' ? 'The retained GPS route is invalid.' : store.mapReason() === 'summary_polyline_missing' ? 'No Strava summary GPS route was retained for this activity.' : 'No GPS route is available for this activity.' }}</p>
+        <p class="status">{{ store.mapReason() === 'indoor_pool_swim' ? 'Indoor pool swims do not have a GPS route.' : store.mapReason() === 'invalid_geometry' ? 'The retained GPS route is invalid.' : store.mapReason() === 'summary_polyline_missing' ? 'No Strava summary GPS route was retained for this activity.' : 'No GPS route is available for this activity.' }}</p>
       }
     </section>
   `,

@@ -4,7 +4,8 @@ import { ActivitiesRepository, type Database, type Kysely } from '@sportos/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DbProvider } from '../db.provider.js';
 import type { ActivityProviderDetailService } from './activity-provider-detail.service.js';
-import { ActivitiesController, parseActivitiesQuery } from './activities.controller.js';
+import { ActivitiesController, parseActivitiesQuery, parseDistanceCorrectionBody } from './activities.controller.js';
+import { ActivityDistanceCorrectionConflictError, ActivityDistanceCorrectionNoChangeError, ActivityDistanceCorrectionUnsupportedError } from '@sportos/db';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const accountId = '22222222-2222-4222-8222-222222222222';
@@ -110,9 +111,46 @@ describe('ActivitiesController', () => {
     expect(getSourceJson).toHaveBeenCalledWith(id);
     expect(withAccount).toHaveBeenCalledWith(accountId, expect.any(Function));
   });
+
+  it('validates audited distance correction input and maps conflicts and unsupported targets', async () => {
+    expect(parseDistanceCorrectionBody({ effectiveDistanceM: 1000, reason: 'First two lengths are one', expectedRevision: null }))
+      .toEqual({ effectiveDistanceM: 1000, reason: 'First two lengths are one', expectedRevision: null });
+    for (const body of [
+      { effectiveDistanceM: 0, reason: 'x' },
+      { effectiveDistanceM: 1000.001, reason: 'x' },
+      { effectiveDistanceM: 1000, reason: '' },
+      { effectiveDistanceM: 1000, reason: 'x', ownerId: accountId },
+      { effectiveDistanceM: '1000', reason: 'x' },
+    ]) expect(() => parseDistanceCorrectionBody(body)).toThrow(BadRequestException);
+
+    const correction = {
+      save: vi.fn().mockResolvedValue({ activityDate: '2026-10-21', correction: null, changed: true, dailyRecalculated: false }),
+      reset: vi.fn(),
+    };
+    const { controller } = createController(correction);
+    await expect(controller.saveDistanceCorrection(id, { effectiveDistanceM: 1000, reason: 'First two lengths are one' }, account))
+      .resolves.toMatchObject({ activityId: id, changed: true });
+    expect(correction.save).toHaveBeenCalledWith(accountId, id, 1000, 'First two lengths are one', null);
+    correction.save.mockRejectedValueOnce(new ActivityDistanceCorrectionConflictError());
+    await expect(controller.saveDistanceCorrection(id, { effectiveDistanceM: 1000, reason: 'retry' }, account)).rejects.toMatchObject({ status: 409 });
+    correction.save.mockRejectedValueOnce(new ActivityDistanceCorrectionUnsupportedError());
+    await expect(controller.saveDistanceCorrection(id, { effectiveDistanceM: 1000, reason: 'retry' }, account)).rejects.toMatchObject({ status: 400 });
+    correction.save.mockRejectedValueOnce(new ActivityDistanceCorrectionNoChangeError());
+    await expect(controller.saveDistanceCorrection(id, { effectiveDistanceM: 1000, reason: 'retry' }, account)).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('validates reset fields and keeps missing activity responses generic', async () => {
+    expect(() => parseDistanceCorrectionBody({ effectiveDistanceM: 1000, reason: 'x', expectedRevision: -1 })).toThrow(BadRequestException);
+    const correction = { save: vi.fn(), reset: vi.fn().mockResolvedValue(null) };
+    const { controller } = createController(correction);
+    await expect(controller.resetDistanceCorrection(id, { expectedRevision: 1 }, account)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(controller.resetDistanceCorrection(id, { ownerId: accountId }, account)).rejects.toBeInstanceOf(BadRequestException);
+    expect(correction.reset).toHaveBeenCalledTimes(1);
+    expect(correction.reset).toHaveBeenCalledWith(accountId, id, 1);
+  });
 });
 
-function createController() {
+function createController(distanceCorrections?: unknown) {
   const scopedDb = {} as Kysely<Database>;
   const withAccount = vi.fn(async <T>(_accountId: string, callback: (db: Kysely<Database>) => Promise<T>) => callback(scopedDb));
   const providerDetailService = { load: vi.fn(), cached: vi.fn() };
@@ -120,6 +158,10 @@ function createController() {
     controller: new ActivitiesController(
       { withAccount } as unknown as DbProvider,
       providerDetailService as unknown as ActivityProviderDetailService,
+      undefined,
+      undefined,
+      undefined,
+      distanceCorrections as never,
     ),
     withAccount,
     providerDetailService,

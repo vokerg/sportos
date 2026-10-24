@@ -1,4 +1,12 @@
 import { runClassification } from './run-classification.js';
+import {
+  ActivityDistanceCorrectionsRepository,
+  effectiveDistanceValue,
+  effectivePaceExpression,
+  effectivePaceValue,
+  effectiveSpeedExpression,
+  effectiveSpeedValue,
+} from './activity-distance-corrections.repository.js';
 import { sql, type Kysely } from 'kysely';
 import type {
   DailyMetricFactsInput,
@@ -88,6 +96,9 @@ export interface DailyScoreBreakdownLedgerRow {
   activitySubtype: ActivitiesTable['subtype'] | null;
   runClassification?: { subtype: ActivitiesTable['subtype']; source: 'garmin' } | null;
   activityDistanceM: number | null;
+  activityEffectiveDistanceM?: number | null;
+  activityEffectiveSpeedMps?: number | null;
+  activityEffectivePaceSPerKm?: number | null;
   activityDurationS: number | null;
   activityMovingTimeS: number | null;
   activitySteps: number | null;
@@ -194,7 +205,7 @@ export class DailyRepository {
 
   async listActivitiesForDates(metricDates: string[]): Promise<ScoringActivityRow[]> {
     if (metricDates.length === 0) return [];
-    return this.db
+    const rows = await this.db
       .selectFrom('activities as activity')
       .leftJoin('source_records as source', 'source.id', 'activity.source_record_id')
       .selectAll('activity')
@@ -202,7 +213,18 @@ export class DailyRepository {
       .where('activity.activity_date', 'in', metricDates)
       .orderBy('activity.activity_date', 'asc')
       .orderBy('activity.id', 'asc')
-      .execute() as unknown as Promise<ScoringActivityRow[]>;
+      .execute() as unknown as ScoringActivityRow[];
+    const corrections = await new ActivityDistanceCorrectionsRepository(this.db).currentForActivities(rows.map(row => row.id));
+    return rows.map(row => {
+      const correction = corrections.get(row.id);
+      const distanceM = effectiveDistanceValue(row.distance_m, correction);
+      return {
+        ...row,
+        distance_m: distanceM,
+        avg_speed_mps: effectiveSpeedValue(row.avg_speed_mps, distanceM, row.moving_time_s, row.duration_s, correction),
+        avg_pace_s_per_km: effectivePaceValue(row.avg_pace_s_per_km, distanceM, row.moving_time_s, row.duration_s, correction),
+      };
+    });
   }
 
   async getGarminDailySteps(metricDate: string): Promise<number | null> {
@@ -418,6 +440,9 @@ export class DailyRepository {
       .selectFrom('score_ledger as sl')
       .leftJoin('scoring_rules as sr', 'sr.id', 'sl.rule_id')
       .leftJoin('activities as a', 'a.id', 'sl.activity_id')
+      .leftJoin('activity_distance_corrections as adc', (join) => join
+        .onRef('adc.owner_id', '=', 'a.owner_id')
+        .onRef('adc.activity_id', '=', 'a.id'))
       .leftJoin('source_records as asr', 'asr.id', 'a.source_record_id')
       .leftJoin('import_batches as aib', 'aib.id', 'asr.import_batch_id')
       .select([
@@ -453,6 +478,9 @@ export class DailyRepository {
         'a.activity_type as activityType',
         'a.subtype as activitySubtype',
         'a.distance_m as activityDistanceM',
+        'adc.effective_distance_m as activityEffectiveDistanceM',
+        effectiveSpeedExpression('a').as('activityEffectiveSpeedMps'),
+        effectivePaceExpression('a').as('activityEffectivePaceSPerKm'),
         'a.duration_s as activityDurationS',
         'a.moving_time_s as activityMovingTimeS',
         'a.steps as activitySteps',
@@ -492,6 +520,9 @@ export class DailyRepository {
       .selectFrom('activities as a')
       .leftJoin('source_records as asr', 'asr.id', 'a.source_record_id')
       .leftJoin('import_batches as aib', 'aib.id', 'asr.import_batch_id')
+      .leftJoin('activity_distance_corrections as adc', (join) => join
+        .onRef('adc.owner_id', '=', 'a.owner_id')
+        .onRef('adc.activity_id', '=', 'a.id'))
       .select([
         'a.id as activityId',
         'a.source as activitySource',
@@ -501,6 +532,9 @@ export class DailyRepository {
         'a.activity_type as activityType',
         'a.subtype as activitySubtype',
         'a.distance_m as activityDistanceM',
+        'adc.effective_distance_m as activityEffectiveDistanceM',
+        effectiveSpeedExpression('a').as('activityEffectiveSpeedMps'),
+        effectivePaceExpression('a').as('activityEffectivePaceSPerKm'),
         'a.duration_s as activityDurationS',
         'a.moving_time_s as activityMovingTimeS',
         'a.steps as activitySteps',
@@ -769,7 +803,9 @@ function mapActivity(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownActivityR
     activityType: row.activityType,
     subtype: row.activitySubtype,
     runClassification: row.runClassification ?? null,
-    distanceM: nullableDatabaseNumber(row.activityDistanceM, 'activity distance'),
+    distanceM: row.activityEffectiveDistanceM === null || row.activityEffectiveDistanceM === undefined
+      ? nullableDatabaseNumber(row.activityDistanceM, 'activity distance')
+      : nullableDatabaseNumber(row.activityEffectiveDistanceM, 'activity effective distance'),
     durationS: nullableDatabaseNumber(row.activityDurationS, 'activity duration'),
     movingTimeS: nullableDatabaseNumber(row.activityMovingTimeS, 'activity moving time'),
     steps: nullableDatabaseNumber(row.activitySteps, 'activity steps'),
@@ -777,8 +813,12 @@ function mapActivity(row: DailyScoreBreakdownLedgerRow): ScoreBreakdownActivityR
     avgHr: nullableDatabaseNumber(row.activityAvgHr, 'activity average heart rate'),
     maxHr: nullableDatabaseNumber(row.activityMaxHr, 'activity maximum heart rate'),
     elevationGainM: nullableDatabaseNumber(row.activityElevationGainM, 'activity elevation gain'),
-    avgSpeedMps: nullableDatabaseNumber(row.activityAvgSpeedMps, 'activity average speed'),
-    avgPaceSPerKm: nullableDatabaseNumber(row.activityAvgPaceSPerKm, 'activity average pace'),
+    avgSpeedMps: row.activityEffectiveSpeedMps === null || row.activityEffectiveSpeedMps === undefined
+      ? nullableDatabaseNumber(row.activityAvgSpeedMps, 'activity average speed')
+      : nullableDatabaseNumber(row.activityEffectiveSpeedMps, 'activity effective speed'),
+    avgPaceSPerKm: row.activityEffectivePaceSPerKm === null || row.activityEffectivePaceSPerKm === undefined
+      ? nullableDatabaseNumber(row.activityAvgPaceSPerKm, 'activity average pace')
+      : nullableDatabaseNumber(row.activityEffectivePaceSPerKm, 'activity effective pace'),
     effortPoints: nullableDatabaseNumber(row.activityEffortPoints, 'activity effort points'),
     notes: row.activityNotes,
     sourceRecord: mapActivitySourceRecord(row),

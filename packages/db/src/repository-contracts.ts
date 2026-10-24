@@ -3,7 +3,7 @@ import type { ActivitiesTable, Json } from './schema.js';
 
 export type { DailyScoreStatus };
 
-export type DailyScoreSnapshotTrigger = 'workbook_import' | 'manual_edit' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration';
+export type DailyScoreSnapshotTrigger = 'workbook_import' | 'manual_edit' | 'manual_recalculation' | 'rule_recomputation' | 'legacy_migration' | 'activity_distance_correction';
 
 export interface DailyRunStepCalculation {
   activityId?: string;

@@ -58,6 +58,14 @@ Confirmed run and bike subtype coefficients are application scoring semantics, n
 
 Explicit recalculation is a merge of compatible authorities rather than wholesale replacement. Canonical source activities refresh run, bike, and swim measurements. Steps and workout points resolve from manual overrides, retained Garmin evidence and conservative stored/imported fallbacks, as described below. A manual bonus override is discarded so active achievement rules become the sole bonus authority again. A saved manual distance remains when no canonical source activity exists for that activity type.
 
+Audited indoor-swim distance corrections (#173) are effective activity facts for
+calculated-day recalculation. The correction and replacement snapshot/ledger are
+written atomically with trigger `activity_distance_correction`; imported and
+manual daily rows retain their existing authority until an explicit authority
+workflow changes them. Provider distances, FIT lengths, split times, strokes and
+SWOLF remain immutable evidence, and correction-derived pace uses moving time
+with an explicit elapsed-time fallback.
+
 A component comparison is:
 
 - `exact` when the matching SportOS base-rule points equal the imported component value;

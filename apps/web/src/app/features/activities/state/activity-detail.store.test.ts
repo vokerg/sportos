@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActivityDetailStore } from './activity-detail.store';
 const coverage = { strava: { state: 'cached' }, garmin: { state: 'cached', linked: true, fetchEnabled: true } };
 function setup() {
-  const api = { timeline: vi.fn(() => of({source:'strava',status:'available',metrics:[],durationS:1,sampleCount:2,simplified:false})), map: vi.fn(() => of({status: 'unavailable', reason: 'no_gps'})), reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), sourceJson: vi.fn(), swimLengths: vi.fn(() => of({status:'available',lengths:[]})), garminResource: vi.fn(() => of({ payload: [] })) };
+  const api = { timeline: vi.fn(() => of({source:'strava',status:'available',metrics:[],durationS:1,sampleCount:2,simplified:false})), map: vi.fn(() => of({status: 'unavailable', reason: 'no_gps'})), reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), saveDistanceCorrection: vi.fn(() => of({})), resetDistanceCorrection: vi.fn(() => of({})), sourceJson: vi.fn(), swimLengths: vi.fn(() => of({status:'available',lengths:[]})), garminResource: vi.fn(() => of({ payload: [] })) };
   return { api, store: new ActivityDetailStore(api as never) };
 }
 describe('ActivityDetailStore', () => {
@@ -14,6 +14,26 @@ describe('ActivityDetailStore', () => {
     expect(api.enrichment).toHaveBeenCalledWith('one');
     for (const method of [api.providerDetail, api.fetchProviderDetail, api.garminDetail, api.fetchGarminDetail, api.sourceJson]) expect(method).not.toHaveBeenCalled();
     expect(store.providerState()).toBe('idle'); expect(store.garminState()).toBe('idle');
+  });
+  it('saves and resets only indoor swim corrections with the current optimistic revision', () => {
+    const { api, store } = setup();
+    api.detail.mockReturnValue(of({ id: 'pool', activity_type: 'swim', subtype: 'indoor', distance_m: 1025, distanceCorrection: { revision: 3, reason: 'extra length' }, providerDetail: null, provenance: { sourceRecordId: 'record' } }) as never);
+    store.load('pool');
+    store.saveDistanceCorrection(1000, 'First two rounds are one');
+    expect(api.saveDistanceCorrection).toHaveBeenCalledWith('pool', 1000, 'First two rounds are one', 3);
+    expect(store.distanceCorrectionState()).toBe('saved');
+    store.resetDistanceCorrection();
+    expect(api.resetDistanceCorrection).toHaveBeenCalledWith('pool', 3);
+    expect(store.distanceCorrectionState()).toBe('saved');
+  });
+  it('keeps correction conflicts visible and cancels a stale mutation on navigation', () => {
+    const { api, store } = setup();
+    api.detail.mockReturnValue(of({ id: 'pool', activity_type: 'swim', subtype: 'indoor', distance_m: 1025, providerDetail: null, provenance: { sourceRecordId: 'record' } }) as never);
+    const pending = new Subject<never>(); api.saveDistanceCorrection.mockReturnValue(pending as never);
+    store.load('pool'); store.saveDistanceCorrection(1000, 'extra length');
+    expect(store.distanceCorrectionState()).toBe('saving');
+    store.load('other'); pending.next({} as never);
+    expect(pending.observed).toBe(false); expect(store.distanceCorrectionState()).toBe('idle');
   });
   it('distinguishes cached reads, explicit downloads and explicit refreshes for both providers', () => {
     const { api, store } = setup(); store.load('one'); store.strava(); store.strava(true, true); store.garminDetail(); store.garminDetail(true, true);
@@ -83,7 +103,7 @@ describe('activity map state', () => {
   it('never requests a GPS map for indoor pool swims but preserves it for outdoor swims',()=>{
     const {api,store}=setup();
     api.detail.mockReturnValue(of({id:'pool',activity_type:'swim',subtype:'indoor',providerDetail:{provider:'strava'}}) as never);
-    store.load('pool');expect(api.map).not.toHaveBeenCalled();
+    store.load('pool');expect(api.map).not.toHaveBeenCalled(); expect(store.mapState()).toBe('unavailable'); expect(store.mapReason()).toBe('indoor_pool_swim');
     store.loadMap(); store.garminDetail(true); store.strava(true);
     expect(api.fetchGarminDetail).toHaveBeenCalledTimes(1);
     expect(api.fetchProviderDetail).toHaveBeenCalledTimes(1);

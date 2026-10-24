@@ -5,6 +5,7 @@ import { RunningEffortsComponent } from './ui/running-efforts.component';
 import { ActivityMetricProvenanceComponent } from './ui/activity-metric-provenance.component';
 import { ProviderMetricStatusComponent } from './ui/provider-metric-status.component';
 import { ActivityMetricComparisonComponent } from './ui/activity-metric-comparison.component';
+import { ActivityTypeIconComponent } from '../../shared/ui/activity-type-icon.component';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -14,7 +15,7 @@ import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.vi
 import { startTime, title, displayedSubtype } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityTimelineComponent, SwimLengthsComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent], providers: [ActivityDetailStore],
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityTimelineComponent, SwimLengthsComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent, ActivityTypeIconComponent], providers: [ActivityDetailStore],
   template: `
     <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
     @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
@@ -22,7 +23,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
     @else if (state() === 'missing') { <section class="card">Activity not found.</section> }
     @else { @if (activity(); as item) {
       <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="summary">
-      <header><h1>{{ title(item) }} @if (displayedSubtype(item)) { <small [attr.title]="item.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(item) }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
+      <header><h1><sportos-activity-type-icon [activityType]="item.activity_type" [attr.data-sport]="item.activity_type" />{{ title(item) }} @if (displayedSubtype(item)) { <small [attr.title]="item.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(item) }}</small> }</h1><p>{{ item.activity_date }} @if (startTime(item.start_time)) { · {{ startTime(item.start_time) }} } · {{ item.source.replaceAll('_', ' ') }}</p>
         @if (item.source === 'strava' && item.notes) { <p class="source-name">{{ item.notes }}</p> }
       </header>
       </sportos-activity-metric-comparison>
@@ -35,16 +36,46 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
       }
       @else if (store.mapState() === 'unavailable') {
         <section class="card map-status" aria-label="Activity route unavailable">
-          <p>{{ store.mapReason() === 'invalid_geometry' ? 'The retained GPS route is invalid.' : store.mapReason() === 'summary_polyline_missing' ? 'No Strava summary GPS route was retained for this activity.' : 'No GPS route is available for this activity.' }}</p>
+          <p>{{ store.mapReason() === 'indoor_pool_swim' ? 'Indoor pool swims do not have a GPS route.' : store.mapReason() === 'invalid_geometry' ? 'The retained GPS route is invalid.' : store.mapReason() === 'summary_polyline_missing' ? 'No Strava summary GPS route was retained for this activity.' : 'No GPS route is available for this activity.' }}</p>
         </section>
       }
       @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
       }
       @if (item.activity_type === 'swim' && item.subtype !== 'outdoor') {
-        <sportos-swim-lengths [state]="store.swimLengthState()" [data]="store.swimLengths()" (load)="store.loadSwimLengths()" />
+        <sportos-swim-lengths
+          [state]="store.swimLengthState()"
+          [data]="store.swimLengths()"
+          [timelineState]="store.timelineState()"
+          [timelineSource]="store.timelineSource()"
+          [timelineData]="store.timelineData()"
+          (load)="store.loadSwimLengths()"
+          (timelineLoad)="store.loadTimeline($event)"
+        />
+      } @else {
+        <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
       }
-      <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
       <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
+      @if (item.activity_type === 'swim' && item.subtype === 'indoor') {
+        <section class="card distance-correction" aria-label="Swim distance correction">
+          <div class="correction-heading"><h2>Distance correction</h2>@if (item.distanceCorrection) { <span class="badge">Manual correction</span> }</div>
+          <p class="correction-summary"><strong>{{ formatDistance(item.distance_m) }}</strong> effective distance</p>
+          @if (item.distanceCorrection; as correction) {
+            <p class="muted">Recorded {{ correction.recordedSource.replaceAll('_', ' ') }} distance: {{ formatDistance(correction.recordedDistanceM) }} · {{ correction.reason }}</p>
+          } @else { <p class="muted">Recorded provider distance. Individual lengths and rest periods remain unchanged.</p> }
+          @if (editingDistance() && store.distanceCorrectionState() !== 'saved') {
+            <form class="correction-form" (submit)="saveDistanceEdit($event)">
+              <label>Effective distance (m)<input inputmode="decimal" type="number" min="0.01" max="1000000" step="0.01" [value]="distanceDraft()" (input)="distanceDraft.set($any($event.target).value)" /></label>
+              <label>Reason<input type="text" maxlength="500" [value]="distanceReason()" (input)="distanceReason.set($any($event.target).value)" /></label>
+              @if (distanceFormError()) { <p class="form-error" role="alert">{{ distanceFormError() }}</p> }
+              <div class="provider-actions"><button type="submit" [disabled]="store.distanceCorrectionState() === 'saving'">{{ store.distanceCorrectionState() === 'saving' ? 'Saving…' : 'Save distance' }}</button><button type="button" [disabled]="store.distanceCorrectionState() === 'saving'" (click)="cancelDistanceEdit()">Cancel</button></div>
+            </form>
+          } @else {
+            <div class="provider-actions"><button type="button" (click)="beginDistanceEdit(item)">Edit distance</button>@if (item.distanceCorrection) { <button type="button" [disabled]="store.distanceCorrectionState() === 'saving'" (click)="resetDistanceEdit()">{{ store.distanceCorrectionState() === 'saving' ? 'Resetting…' : 'Reset to recorded' }}</button> }</div>
+          }
+          @if (store.distanceCorrectionState() === 'error') { <p class="form-error" role="alert">{{ store.distanceCorrectionError() }}</p> }
+          @if (store.distanceCorrectionState() === 'saved') { <p class="save-status" role="status">Distance correction saved. Daily scoring was updated only if this date was calculated.</p> }
+        </section>
+      }
       @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
       @if (item.garminStrength; as strength) {
         <section class="card" aria-label="Garmin strength summary"><h2>Garmin strength sets</h2>
@@ -64,8 +95,8 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         <h2>Provider data</h2>
         <sportos-provider-metric-status [statuses]="item.providerMetrics ?? []" [expanded]="true" />
         @if (item.providerDetail || item.garmin) {
-          <button type="button" [disabled]="store.metricState() === 'loading'" (click)="store.reprocessMetrics()">{{ store.metricState() === 'loading' ? 'Normalizing retained data…' : 'Normalize retained data' }}</button>
-          <p>This processes retained activity metrics without contacting either provider.</p>
+          <button type="button" [disabled]="store.metricState() === 'loading'" (click)="store.reprocessMetrics()">{{ store.metricState() === 'loading' ? 'Rebuilding derived metrics…' : 'Rebuild derived metrics' }}</button>
+          <p>This replays already-retained FIT/Strava detail into comparison metrics. It does not contact a provider or change canonical distance, raw records, or scores.</p>
         }
         @if (store.metricError()) { <p role="alert">{{ store.metricError() }}</p> }
         <p>Fetch downloads detail for this activity. View reads retained data. Canonical activity facts and scores stay unchanged.</p>
@@ -140,7 +171,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
     .map-status{margin:16px 0;padding:12px 18px;color:var(--text-muted)}.map-status p{margin:0}.map-status button{margin-left:8px}
     .provider-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }.provider-heading h3 { margin: 0 4px 0 0; }.badge { font-size: 12px; border-radius: 16px; padding: 4px 9px; background: var(--accent-surface); color: var(--text-secondary); }.provider-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; } button:disabled { opacity: .55; cursor: default; } select { max-width: 100%; margin: 8px; }.metrics dt { text-transform: capitalize; }
     .breadcrumb { margin-bottom: 18px; color: var(--text-muted); }.breadcrumb a { color: var(--link); }
-    header { margin-bottom: 18px; } h1 { margin: 4px 0; } h1 small { font-size: 18px; font-weight: 500; color: var(--text-muted); }
+    header { margin-bottom: 18px; } h1 { display:flex; align-items:center; gap:10px; margin: 4px 0; } h1 sportos-activity-type-icon { --activity-icon-size: 30px; } h1 sportos-activity-type-icon[data-sport=bike] { --activity-icon-color: var(--sport-bike); } h1 sportos-activity-type-icon[data-sport=swim] { --activity-icon-color: var(--sport-swim); } h1 small { font-size: 18px; font-weight: 500; color: var(--text-muted); }
     header p { margin: 0; color: var(--text-muted); text-transform: capitalize; }.source-name { margin-top: 10px; color: var(--text-secondary); font-size: 16px; text-transform: none; }.page-kicker { color: var(--link); font-size: 11px; font-weight: 800; text-transform: uppercase; }
     .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 18px; }
     dt { color: var(--text-muted); font-size: 12px; } dd { margin: 3px 0 0; font-weight: 700; overflow-wrap: anywhere; }
@@ -148,6 +179,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
     .provenance dl { display: grid; gap: 10px; }
     .source-json { margin-top: 12px; }.source-json summary { cursor: pointer; font-weight: 700; }
     .source-json p { color: var(--text-muted); }.source-json pre { max-height: 520px; overflow: auto; padding: 16px; border-radius: 8px; background: var(--code-background); color: var(--code-text); font-size: 12px; line-height: 1.5; white-space: pre; }
+    .distance-correction { margin-top: 16px; }.correction-heading { display: flex; align-items: center; gap: 8px; }.correction-heading h2 { margin: 0; font-size: 17px; }.correction-summary { font-size: 18px; margin-bottom: 4px; }.distance-correction .muted { color: var(--text-muted); }.correction-form { display: grid; gap: 12px; max-width: 460px; margin-top: 12px; }.correction-form label { display: grid; gap: 5px; color: var(--text-secondary); font-size: 13px; }.correction-form input { min-height: 36px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: inherit; font: inherit; }.form-error { color: var(--danger, #b42318); }.save-status { color: var(--text-secondary); }
   `],
 })
 export class ActivityDetailPageComponent implements OnInit, OnDestroy {
@@ -155,6 +187,10 @@ export class ActivityDetailPageComponent implements OnInit, OnDestroy {
   readonly displayedSubtype = displayedSubtype; readonly title = title;
   readonly exerciseSetRows = exerciseSetRows; readonly fitMetrics = fitMetrics; readonly stravaMetrics = stravaMetrics;
   readonly resourceIndex = signal(0);
+  readonly editingDistance = signal(false);
+  readonly distanceDraft = signal('');
+  readonly distanceReason = signal('');
+  readonly distanceFormError = signal('');
   private id = ''; private routeSubscription?: Subscription;
   constructor(private readonly api: ActivitiesApiService, private readonly route: ActivatedRoute, readonly store: ActivityDetailStore = new ActivityDetailStore(api)) {}
   get state() { return this.store.state; } get activity() { return this.store.activity; }
@@ -163,7 +199,24 @@ export class ActivityDetailPageComponent implements OnInit, OnDestroy {
   get providerFetchedAt() { return this.store.providerFetchedAt; } get providerCacheStatus() { return this.store.providerCacheStatus; }
   ngOnInit(): void { this.routeSubscription = this.route.paramMap.subscribe(params => { this.id = params.get('id') ?? ''; this.resourceIndex.set(0); this.load(); }); }
   ngOnDestroy(): void { this.routeSubscription?.unsubscribe(); this.store.ngOnDestroy(); }
-  load(): void { this.store.load(this.id); }
+  load(): void { this.editingDistance.set(false); this.distanceFormError.set(''); this.store.load(this.id); }
+  beginDistanceEdit(item: { distance_m: number | null; distanceCorrection?: { reason: string } | null }): void {
+    this.editingDistance.set(true); this.distanceDraft.set(item.distance_m === null ? '' : String(item.distance_m));
+    this.distanceReason.set(item.distanceCorrection?.reason ?? ''); this.distanceFormError.set(''); this.store.clearDistanceCorrectionState();
+  }
+  cancelDistanceEdit(): void { this.editingDistance.set(false); this.distanceFormError.set(''); this.store.clearDistanceCorrectionState(); }
+  saveDistanceEdit(event: Event): void {
+    event.preventDefault();
+    const value = Number(this.distanceDraft());
+    const reason = this.distanceReason().trim();
+    if (!Number.isFinite(value) || value <= 0 || value > 1_000_000 || Math.abs(value * 100 - Math.round(value * 100)) > 1e-7) {
+      this.distanceFormError.set('Enter a positive distance with at most two decimal places.'); return;
+    }
+    if (!reason || reason.length > 500) { this.distanceFormError.set('Enter a reason between 1 and 500 characters.'); return; }
+    this.distanceFormError.set(''); this.store.saveDistanceCorrection(value, reason);
+  }
+  resetDistanceEdit(): void { this.editingDistance.set(false); this.distanceFormError.set(''); this.store.resetDistanceCorrection(); }
+  formatDistance(value: number | null): string { return value === null || !Number.isFinite(value) ? 'Unavailable' : `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} m`; }
   loadProviderDetail(): void { this.store.strava(true); }
   onSourceToggle(event: Event): void { if ((event.target as HTMLDetailsElement).open && this.sourceState() === 'idle') this.loadSourceJson(); }
   loadSourceJson(): void { this.store.source(); }

@@ -2,21 +2,23 @@ import { Component, computed, inject, input, output } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { ColorSchemeService } from '../../../core/theme/color-scheme.service';
 import { swimLengthChartOptions, swimLengthChartHeight, swimSplitTime } from '../model/swim-length-chart.models';
+import type { ActivityTimeline, TimelineSource } from '../model/activity-timeline.models';
+import { ActivityTimelineComponent } from './activity-timeline.component';
 import { formatDurationClock } from '../../../shared/util/duration';
 import type { SwimLengthResponse } from '../activities-api.service';
 
 @Component({
-  selector: 'sportos-swim-lengths', standalone: true, imports: [NgxEchartsDirective],
+  selector: 'sportos-swim-lengths', standalone: true, imports: [NgxEchartsDirective, ActivityTimelineComponent],
   template: `
-    <section class="card swim-lengths" aria-labelledby="swim-lengths-title">
+    <section class="card swim-stats" aria-labelledby="swim-stats-title">
       <div class="heading">
-        <div><h2 id="swim-lengths-title">Pool lengths</h2>
-          <p>Individual lengths from the linked Garmin FIT recording, not Strava laps.</p></div>
+        <div><h2 id="swim-stats-title">Swim stats</h2>
+          <p>Recorded splits, strokes, SWOLF and retained telemetry from the linked Garmin FIT recording.</p></div>
         <button type="button" [disabled]="state() === 'loading'" (click)="load.emit()">
-          {{ state() === 'idle' ? 'Show lengths' : state() === 'loading' ? 'Loading…' : 'Reload lengths' }}
+          {{ state() === 'idle' ? 'Load stats' : state() === 'loading' ? 'Loading…' : 'Reload stats' }}
         </button>
       </div>
-      @if (state() === 'error') { <p role="alert">Could not read retained pool lengths. Try again.</p> }
+      @if (state() === 'error') { <p role="alert">Could not read retained swim stats. Try again.</p> }
       @else if (state() === 'loading') { <p role="status">Reading retained Garmin lengths…</p> }
       @else if (state() === 'loaded') { @if (data(); as data) {
         @if (data.status === 'unavailable') {
@@ -25,6 +27,9 @@ import type { SwimLengthResponse } from '../activities-api.service';
           <p class="muted">Pool size: <strong>{{ data.poolLengthDisplay ?? 'Unknown' }}</strong>
             · {{ data.lengths.length }} recorded length/rest messages
             @if (data.expectedActiveLengths !== null) { · {{ data.expectedActiveLengths }} active lengths reported by Garmin }
+            @if (data.effectiveActiveLengths !== null && data.effectiveActiveLengths !== undefined && data.expectedActiveLengths !== null && data.effectiveActiveLengths !== data.expectedActiveLengths) {
+              · {{ data.effectiveActiveLengths }} effective length equivalent at the corrected distance
+            }
           </p>
           @if (data.complete === false || data.truncated) {
             <p role="alert">The retained FIT length messages are incomplete or disagree with Garmin's count. Missing lengths are not estimated.</p>
@@ -63,12 +68,20 @@ import type { SwimLengthResponse } from '../activities-api.service';
           </div>
           <p class="muted note">Pace uses the recorded split time and pool size. SWOLF is calculated as active timer seconds + recorded strokes; it is not a separate device observation. An unknown or resting length is not counted as distance. These values do not override activity totals or scoring.</p>
         }
-      } } @else { <p class="muted">Load a length-by-length breakdown when Garmin rich data is retained.</p> }
+      } } @else { <p class="muted">Load the length-by-length breakdown when Garmin rich data is retained.</p> }
       <p class="muted note">If missing, use Fetch Garmin detail under Provider data below, then reload lengths.</p>
+      <sportos-activity-timeline
+        [sport]="'swim'"
+        [source]="timelineSource()"
+        [state]="timelineState()"
+        [data]="timelineData()"
+        [embedded]="true"
+        (load)="timelineLoad.emit($event)"
+      />
     </section>
   `,
   styles: [`
-    :host{display:block;margin:16px 0}.swim-lengths{overflow:hidden}.heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}.heading h2{margin:0;font-size:19px}.heading p{margin:6px 0;color:var(--text-muted);font-size:13px}.muted{color:var(--text-muted)}.note{font-size:12px;line-height:1.6}.chart{width:100%;min-width:0;margin:16px 0}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;font-variant-numeric:tabular-nums}th,td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}th{font-size:12px;color:var(--text-muted)}.rest{color:var(--text-muted)}small{font-size:10px;color:var(--text-muted)}
+    :host{display:block;margin:16px 0}.swim-stats{overflow:hidden}.heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}.heading h2{margin:0;font-size:19px}.heading p{margin:6px 0;color:var(--text-muted);font-size:13px}.muted{color:var(--text-muted)}.note{font-size:12px;line-height:1.6}.chart{width:100%;min-width:0;margin:16px 0}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;font-variant-numeric:tabular-nums}th,td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}th{font-size:12px;color:var(--text-muted)}.rest{color:var(--text-muted)}small{font-size:10px;color:var(--text-muted)}
   `]
 })
 export class SwimLengthsComponent {
@@ -77,7 +90,11 @@ export class SwimLengthsComponent {
   readonly chartHeight = computed(() => this.data()?.status === 'available' ? swimLengthChartHeight(this.data()!) : 0);
   readonly state = input<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   readonly data = input<SwimLengthResponse | null>(null);
+  readonly timelineState = input<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+  readonly timelineSource = input<TimelineSource>('garmin');
+  readonly timelineData = input<ActivityTimeline | null>(null);
   readonly load = output<void>();
+  readonly timelineLoad = output<TimelineSource>();
   readonly hasRest = computed(() => this.data()?.lengths.some(row => row.kind === 'rest') ?? false);
   readonly splitTime = swimSplitTime;
   readonly duration = (value: number | null) => value === null ? '—' : formatDurationClock(value);

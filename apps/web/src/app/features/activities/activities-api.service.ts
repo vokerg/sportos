@@ -8,6 +8,14 @@ import { SPORTOS_API_BASE } from '../../core/config/api-base';
 export type ActivityType = 'steps' | 'walk' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
 export type ActivitySubtype = 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown';
 export type ActivitySource = 'manual' | 'my_sport_xlsx' | 'run_db_xlsx' | 'google_sheets' | 'strava' | 'garmin' | 'fit';
+export interface ActivityDistanceCorrection {
+  effectiveDistanceM: number;
+  recordedDistanceM: number;
+  recordedSource: ActivitySource;
+  reason: string;
+  revision: number;
+  updatedAt: string;
+}
 export interface Activity {
   historicalSummary?: boolean;
   runClassification?: { subtype: ActivitySubtype; source: 'garmin' } | null;
@@ -31,6 +39,7 @@ export interface Activity {
   avg_pace_s_per_km: number | null;
   effort_points: number | null;
   notes: string | null;
+  distanceCorrection?: ActivityDistanceCorrection | null;
 }
 export interface ActivityDetail extends Activity {
   bestEfforts?: RunningEfforts | null;
@@ -77,6 +86,7 @@ export interface SwimLengthResponse {
   status: 'available' | 'unavailable'; reason?: string;
   poolLengthM: number | null; poolLengthDisplay: string | null;
   expectedLengths: number | null; expectedActiveLengths: number | null;
+  recordedDistanceM?: number | null; effectiveDistanceM?: number | null; effectiveActiveLengths?: number | null;
   complete: boolean | null; truncated: boolean; lengths: SwimLengthRow[];
 }
 export interface ActivitySourceJson {
@@ -114,6 +124,13 @@ export interface GarminDetail {
   sessions: FitMessage[]; laps: FitMessage[]; sets: unknown;
   resources: { resourceType: string; chunkIndex: number }[];
 }
+export interface ActivityDistanceCorrectionResponse {
+  activityId: string;
+  activityDate: string;
+  correction: ActivityDistanceCorrection | null;
+  changed: boolean;
+  dailyRecalculated: boolean;
+}
 
 @Injectable({ providedIn: 'root' })
 export class ActivitiesApiService {
@@ -129,6 +146,20 @@ export class ActivitiesApiService {
 
   detail(id: string) {
     return this.http.get<ActivityDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}`);
+  }
+
+  saveDistanceCorrection(id: string, effectiveDistanceM: number, reason: string, expectedRevision: number | null) {
+    return this.http.put<ActivityDistanceCorrectionResponse>(
+      `${this.apiBase}/activities/${encodeURIComponent(id)}/distance-correction`,
+      { effectiveDistanceM, reason, expectedRevision },
+    );
+  }
+
+  resetDistanceCorrection(id: string, expectedRevision: number | null) {
+    return this.http.delete<ActivityDistanceCorrectionResponse>(
+      `${this.apiBase}/activities/${encodeURIComponent(id)}/distance-correction`,
+      { body: { expectedRevision } },
+    );
   }
 
   map(id: string) {

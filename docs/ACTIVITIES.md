@@ -627,3 +627,29 @@ cached Fetch left canonical activity, daily facts, ledger and snapshot rows unch
 Private raw data and screenshots remain outside GitHub and committed fixtures use synthetic
 values with the verified decoder field names/units. Manual distance correction belongs to
 #173, a separate audited canonical/scoring workflow; never edit original FIT/Strava payloads.
+
+## Audited indoor-swim distance corrections (#173)
+
+Pool swims expose an authenticated `PUT /activities/:activityId/distance-correction`
+mutation with a bounded positive metre value, a required reason, and an optional optimistic
+revision. `DELETE` resets the effective value to the current recorded canonical distance.
+Only indoor swim activities with a positive recorded distance are eligible. The current
+owner-scoped projection stores the effective value, the first recorded source activity/
+record/hash snapshot, actor, timestamps and revision; an append-only history records every
+save and reset. Current and history rows are RLS-protected and provider/source rows are never
+updated. A later provider refresh therefore leaves the override in place until the user
+resets it.
+
+Activity detail, list summaries, distance filters, swim pace, and canonical activity exports
+use the effective value. When a correction exists, average speed and pace are explicitly
+recalculated from the effective distance and the recorded moving time (elapsed time only when
+moving time is unavailable), and metric comparison provenance is `Manual correction`. Duration,
+strokes, SWOLF, pool size, split times and native length messages remain provider evidence.
+The swim-length view continues to show all recorded messages; when pool size is known it also
+shows the effective length equivalent, so a 1,000 m correction in a 25 m pool is displayed as
+41 recorded active lengths versus 40 effective lengths without deleting or excluding a length.
+
+If the affected date is `calculated`, the correction and replacement daily snapshot/ledger are
+committed in one owner transaction with trigger `activity_distance_correction`. `manual` and
+`imported` daily rows retain their existing authority and are not silently rewritten; they can
+still be changed through their explicit authority workflows. Reset follows the same rules.
