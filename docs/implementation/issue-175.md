@@ -38,3 +38,45 @@ visible delimiter, producing text such as `indoorMorning Swim`. Add a textual
 middle-dot separator before the name; this changes presentation only and does
 not alter source notes or canonical activity data. Row dividers and separators
 remain static. No documentation mismatch was found.
+
+Daily trend readability and score-composition review: inspected
+`apps/web/src/app/daily-log.view-model.ts`,
+`apps/web/src/app/daily-log.view-model.test.ts`,
+`apps/web/src/app/daily-log-trend.component.ts`,
+`apps/web/src/app/daily-log.component.ts`,
+`apps/web/src/app/features/daily/state/daily-log.store.ts`,
+`apps/web/src/app/features/daily/data-access/daily-api.service.ts`,
+`apps/web/src/app/features/daily/model/daily.models.ts`,
+`apps/web/src/app/rolling-dynamics.view-model.ts`,
+`apps/web/src/app/features/dynamics/model/dynamics.models.ts`,
+`apps/api/src/daily/daily.service.ts`,
+`apps/api/src/dynamics/dynamics.contracts.ts`,
+`apps/api/src/dynamics/dynamics.contracts.test.ts`,
+`packages/db/src/repositories/dynamics.repository.ts`,
+`packages/db/src/repositories/dynamics.repository.test.ts`,
+`packages/db/src/repositories/cockpit.repository.ts`, and migrations V112/V118
+that define `v_daily_summary`.
+
+The Daily Log and Dynamics average plots use different scales: the Daily Log
+shares its axis with daily totals up to about 70,000, while Dynamics shows the
+average on a 0–40,000 scale. Their calculations also differ when dates are
+missing: Daily Log's stored `avg_30d` averages the last 30 persisted rows;
+Dynamics averages across 30 calendar dates. Preserve those existing values,
+give the Daily Log average its own labeled axis, and increase chart height
+slightly. Stack the official score-ledger contributions in each daily bar and
+place unsupported or unreconciled points in an `Unattributed` segment so the
+components sum to the official daily total. This is presentation-only; no score,
+source, or stored daily average data changes.
+
+Implementation review: the Daily Summary now returns owner-scoped ledger totals
+per date. Unsupported activity types and imported rows that cannot be decomposed
+remain visible as `Unattributed`; any difference from the official total is
+added to that segment. The chart stacks only nonzero components, retains a
+separate total line, uses distinct left/right point scales, is slightly taller,
+and has animation disabled. The contribution category contract also carries
+`Unattributed` through Dynamics. Existing average values and date-window rules
+are unchanged.
+
+Validation for this follow-up: web, API, database and shared-package typechecks,
+the web production build, and `git diff --check` passed. Focused Vitest tests and
+live browser verification were not run for this follow-up.

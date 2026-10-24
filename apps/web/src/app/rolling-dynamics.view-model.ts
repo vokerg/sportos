@@ -34,11 +34,11 @@ const WINDOW_COLORS: Record<RollingWindow, string> = {
 };
 
 export const SCORE_CONTRIBUTION_LABELS: Record<ScoreContributionCategory, string> = {
-  steps: 'Steps', run: 'Run', bike: 'Bike', swim: 'Swim', workout: 'Workout', rowing: 'Rowing', sup: 'SUP', hiit: 'HIIT', bonus: 'Bonus',
+  steps: 'Steps', run: 'Run', bike: 'Bike', swim: 'Swim', workout: 'Workout', rowing: 'Rowing', sup: 'SUP', hiit: 'HIIT', bonus: 'Bonus', unattributed: 'Unattributed',
 };
 
 const SCORE_CONTRIBUTION_COLORS: Record<ScoreContributionCategory, string> = {
-  steps: '#60a5fa', run: '#2563eb', bike: '#1e3a8a', swim: '#7dd3fc', workout: '#8b5cf6', rowing: '#14b8a6', sup: '#22c55e', hiit: '#f97316', bonus: '#ec4899',
+  steps: '#60a5fa', run: '#2563eb', bike: '#1e3a8a', swim: '#7dd3fc', workout: '#8b5cf6', rowing: '#14b8a6', sup: '#22c55e', hiit: '#f97316', bonus: '#ec4899', unattributed: '#94a3b8',
 };
 
 export function rollingDynamicsChartOptions(

@@ -15,11 +15,11 @@ import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-
       [options]="chartOptions()"
       (chartClick)="handleChartClick($event)"
       role="img"
-      aria-label="Daily total and 30 day average trend. Select a bar to open that day.">
+      aria-label="Stacked daily score contributions with total points and a 30 day average on a separate scale. Select a bar to open that day.">
     </div>
   `,
   styles: [`
-    .daily-chart { width: 100%; height: min(44vh, 560px); min-height: 360px; }
+    .daily-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }
   `],
 })
 export class DailyLogTrendComponent {
