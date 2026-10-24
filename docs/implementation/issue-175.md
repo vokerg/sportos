@@ -26,3 +26,15 @@ and heart-rate charts and the split table in the current dark theme. Garmin
 parsing uses sanitized fixtures; this example has no linked Garmin counterpart.
 No backend, schema, migration or scoring changes require database validation.
 Private live source payloads/screenshots are not committed.
+
+Additional activity-list polish: inspected
+`apps/web/src/app/features/activities/activity-list.component.ts`,
+`apps/web/src/app/features/activities/activity-list.component.test.ts`,
+`apps/web/src/app/features/activities/activities-page.component.ts`,
+`apps/web/src/app/features/activities/activity.view-model.ts`, and
+`apps/web/src/app/shared/util/activity-subtype.ts`.
+The compact row put Strava's activity name beside its type/subtype with no
+visible delimiter, producing text such as `indoorMorning Swim`. Add a textual
+middle-dot separator before the name; this changes presentation only and does
+not alter source notes or canonical activity data. Row dividers and separators
+remain static. No documentation mismatch was found.
