@@ -201,3 +201,23 @@ describe('activity timeline workflow', () => {
     store.loadTimeline('garmin');expect(store.timelineState()).toBe('loaded');
   });
 });
+
+describe('running lap workflow', () => {
+  it('loads retained data explicitly, suppresses repeated clicks and cancels on navigation', () => {
+    const {api,store}=setup(); store.load('one');
+    const pending=new Subject<never>(); api.providerDetail.mockReturnValueOnce(pending as never);
+    store.loadRunLaps();store.loadRunLaps();expect(api.providerDetail).toHaveBeenCalledTimes(1);
+    expect(store.runLapState()).toBe('loading');
+    store.loadRunLaps('garmin');expect(store.runLapSource()).toBe('garmin');
+    expect(api.garminDetail).toHaveBeenCalledWith('one');expect(store.runLapState()).toBe('loaded');
+    expect(api.fetchProviderDetail).not.toHaveBeenCalled();expect(api.fetchGarminDetail).not.toHaveBeenCalled();
+    store.load('two');expect(pending.observed).toBe(false);expect(store.runLapSource()).toBe('strava');expect(store.runLapData().rows).toEqual([]);
+  });
+  it('shows read errors, retries and refuses lap reads for other sports',()=>{
+    const {api,store}=setup();store.load('one');api.providerDetail.mockReturnValueOnce(throwError(()=>new Error('offline')));
+    store.loadRunLaps();expect(store.runLapState()).toBe('error');store.loadRunLaps();expect(store.runLapState()).toBe('loaded');
+    store.activity.update(a=>a?{...a,activity_type:'swim'}:null);store.loadRunLaps('garmin');expect(api.garminDetail).not.toHaveBeenCalled();
+    const pending=new Subject<never>();store.activity.update(a=>a?{...a,activity_type:'run'}:null);api.garminDetail.mockReturnValueOnce(pending as never);
+    store.loadRunLaps('garmin');store.ngOnDestroy();expect(pending.observed).toBe(false);
+  });
+});

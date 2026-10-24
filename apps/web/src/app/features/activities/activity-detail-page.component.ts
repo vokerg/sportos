@@ -1,3 +1,4 @@
+import { RunLapsComponent } from './ui/run-laps.component';
 import { ActivityTimelineComponent } from './ui/activity-timeline.component';
 import { SwimLengthsComponent } from './ui/swim-lengths.component';
 import { ActivityMapComponent } from './ui/activity-map.component';
@@ -15,7 +16,7 @@ import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.vi
 import { startTime, title, displayedSubtype } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-detail-page', standalone: true, imports: [RouterLink, ActivityTimelineComponent, SwimLengthsComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent, ActivityTypeIconComponent], providers: [ActivityDetailStore],
+  selector: 'sportos-activity-detail-page', standalone: true, imports: [RunLapsComponent, RouterLink, ActivityTimelineComponent, SwimLengthsComponent, ActivityMapComponent, RunningEffortsComponent, ProviderMetricStatusComponent, ActivityMetricComparisonComponent, ActivityMetricProvenanceComponent, ActivityTypeIconComponent], providers: [ActivityDetailStore],
   template: `
     <nav class="breadcrumb"><a routerLink="/activities">Activities</a> › Activity</nav>
     @if (state() === 'loading') { <section class="card" role="status">Loading activity…</section> }
@@ -76,6 +77,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
           @if (store.distanceCorrectionState() === 'saved') { <p class="save-status" role="status">Distance correction saved. Daily scoring was updated only if this date was calculated.</p> }
         </section>
       }
+      @if (item.activity_type === 'run') { <sportos-run-laps [source]="store.runLapSource()" [state]="store.runLapState()" [data]="store.runLapData()" (load)="store.loadRunLaps($event)" /> }
       @if (item.activity_type === 'run') { <sportos-running-efforts [data]="item.bestEfforts ?? null" [loading]="store.effortState() === 'loading'" [error]="store.effortError()" (reprocess)="store.reprocessEfforts()" /> }
       @if (item.garminStrength; as strength) {
         <section class="card" aria-label="Garmin strength summary"><h2>Garmin strength sets</h2>

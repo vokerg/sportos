@@ -17,3 +17,12 @@ load actions and existing cancellation/repeated-click protection. The view expos
 source-specific distance, timer/moving or elapsed duration, derived pace and heart
 rate. It does not infer equal-kilometre splits, download provider data, rewrite
 canonical metrics or change scoring. Unverified Garmin completeness is explicit.
+
+Validation: focused run-lap parser/chart, activity-detail store and existing swim
+chart tests passed. Web typecheck, production build, architecture scan/regression
+checks and diff whitespace checks passed. Browser validation on the requested
+local page confirmed explicit loading of retained laps, synchronized pace
+and heart-rate charts and the split table in the current dark theme. Garmin
+parsing uses sanitized fixtures; this example has no linked Garmin counterpart.
+No backend, schema, migration or scoring changes require database validation.
+Private live source payloads/screenshots are not committed.
