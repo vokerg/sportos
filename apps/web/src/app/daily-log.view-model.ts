@@ -41,7 +41,8 @@ export function relativePastelBackground(
 }
 
 export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsCoreOption {
-  const chronological = completedChartRows(rows).reverse();
+  const today = localCalendarDate();
+  const chronological = chartRows(rows, today).reverse();
   const compositions = chronological.map(dailyScoreComposition);
   const visibleComponents = DAILY_SCORE_COMPONENTS.filter((component) =>
     compositions.some((composition) => composition[component.key] !== 0),
@@ -64,8 +65,12 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
     grid: { left: 66, right: 24, top: 38, bottom: 72, containLabel: true },
     xAxis: {
       type: 'category',
-      data: chronological.map((row) => formatDate(row.metric_date)),
-      axisLabel: { hideOverlap: true },
+      data: chronological.map((row) => row.metric_date === today
+        ? `${formatDate(row.metric_date)} (Incomplete)` : formatDate(row.metric_date)),
+      axisLabel: {
+        hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
+        formatter: (value: string) => value.replace(' (Incomplete)', '\nIncomplete'),
+      },
     },
     yAxis: {
       type: 'value',
@@ -142,15 +147,13 @@ export function dailyLogRowAtChartIndex(
   dataIndex: number,
 ): DailySummaryRow | undefined {
   return Number.isInteger(dataIndex) && dataIndex >= 0
-    ? completedChartRows(rows).reverse()[dataIndex]
+    ? chartRows(rows).reverse()[dataIndex]
     : undefined;
 }
 
-// The current local day is still accumulating. Keep it in the table, while
-// chart points and click targets share precisely the same completed-day rows.
-function completedChartRows(rows: readonly DailySummaryRow[]): DailySummaryRow[] {
-  const today = localCalendarDate();
-  return rows.filter((row) => row.metric_date < today);
+// Chart points and click targets include today and share the same date cutoff.
+function chartRows(rows: readonly DailySummaryRow[], today = localCalendarDate()): DailySummaryRow[] {
+  return rows.filter((row) => row.metric_date <= today);
 }
 
 export function formatDailyCellNumber(value: unknown): string {

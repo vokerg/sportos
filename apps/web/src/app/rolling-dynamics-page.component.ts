@@ -75,7 +75,7 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
         }
       </div></fieldset>
       @if (selectionMessage()) { <p class="selection-message" role="alert">{{ selectionMessage() }}</p> }
-      <p class="semantics">Charts exclude today because the day is incomplete. Each point uses that date and the preceding N−1 calendar days. Values expire on the exact day they leave the window. Active days counts dates where the selected activity is greater than zero. Coverage reports persisted daily rows; incomplete coverage can understate an avg/day or active-day count.</p>
+      <p class="semantics">Charts include today, marked Incomplete while Garmin and Strava data may still arrive. Choose an earlier end date for completed days only. Each point uses that date and the preceding N−1 calendar days. Values expire on the exact day they leave the window. Active days counts dates where the selected activity is greater than zero. Coverage reports persisted daily rows; incomplete coverage can understate an avg/day or active-day count.</p>
     </section>
 
     @if (state() === 'loading') {

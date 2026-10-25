@@ -64,7 +64,7 @@ describe('daily log view model', () => {
     expect(dailyLogRowAtChartIndex(rows, -1)).toBeUndefined();
   });
 
-  it('omits today and future days from both chart series and bar navigation', () => {
+  it('includes and labels today in every series and bar navigation, excluding future days', () => {
     vi.useFakeTimers();
     // Local midnight is deliberate: the cutoff must follow the browser day.
     vi.setSystemTime(new Date(2026, 0, 31, 0, 15));
@@ -72,18 +72,33 @@ describe('daily log view model', () => {
       const rows = ['2026-02-01', '2026-01-31', '2026-01-30', '2026-01-29']
         .map((metric_date, index) => ({ ...row, metric_date, total_points: index, avg_30d: index * 10 }));
       const options = dailyLogChartOptions(rows) as Record<string, any>;
-      expect(options.xAxis.data).toEqual(['2026-01-29', '2026-01-30'].map((date) => formatDate(date)));
-      expect(options.series.map((series: any) => series.data)).toEqual([[3, 2], [30, 20]]);
+      expect(options.xAxis.data).toEqual([
+        formatDate('2026-01-29'), formatDate('2026-01-30'), `${formatDate('2026-01-31')} (Incomplete)`,
+      ]);
+      expect(options.xAxis.axisLabel).toMatchObject({ showMaxLabel: true, alignMaxLabel: 'right' });
+      expect(options.xAxis.axisLabel.formatter(options.xAxis.data.at(-1))).toBe(`${formatDate('2026-01-31')}\nIncomplete`);
+      expect(options.series.map((series: any) => series.data)).toEqual([[3, 2, 1], [30, 20, 10]]);
       expect(Array.isArray(options.yAxis)).toBe(false);
       expect(options.series.filter((series: any) => series.type === 'line').map((series: any) => series.name)).toEqual(['30d average']);
       expect(options.series.every((series: any) => series.yAxisIndex === 0)).toBe(true);
       expect(dailyLogRowAtChartIndex(rows, 0)?.metric_date).toBe('2026-01-29');
       expect(dailyLogRowAtChartIndex(rows, 1)?.metric_date).toBe('2026-01-30');
-      expect(dailyLogRowAtChartIndex(rows, 2)).toBeUndefined();
+      expect(dailyLogRowAtChartIndex(rows, 2)?.metric_date).toBe('2026-01-31');
+      expect(dailyLogRowAtChartIndex(rows, 3)).toBeUndefined();
       expect(rows).toHaveLength(4);
-      const todayOnly = rows.slice(0, 2);
-      expect((dailyLogChartOptions(todayOnly).xAxis as { data: string[] }).data).toEqual([]);
-      expect(dailyLogRowAtChartIndex(todayOnly, 0)).toBeUndefined();
+      const todayOnly = rows.slice(1, 2);
+      expect((dailyLogChartOptions(todayOnly).xAxis as { data: string[] }).data).toEqual([`${formatDate('2026-01-31')} (Incomplete)`]);
+      expect(dailyLogRowAtChartIndex(todayOnly, 0)?.metric_date).toBe('2026-01-31');
+      const futureOnly = rows.slice(0, 1);
+      expect((dailyLogChartOptions(futureOnly).xAxis as { data: string[] }).data).toEqual([]);
+      expect(dailyLogRowAtChartIndex(futureOnly, 0)).toBeUndefined();
+      const historicalOnly = rows.slice(2);
+      expect((dailyLogChartOptions(historicalOnly).xAxis as { data: string[] }).data).toEqual([
+        formatDate('2026-01-29'), formatDate('2026-01-30'),
+      ]);
+
+      vi.setSystemTime(new Date(2026, 1, 1, 0, 15));
+      expect((dailyLogChartOptions(todayOnly).xAxis as { data: string[] }).data).toEqual([formatDate('2026-01-31')]);
     } finally { vi.useRealTimers(); }
   });
 

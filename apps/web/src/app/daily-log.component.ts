@@ -28,7 +28,7 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
       <div class="daily-log-header">
         <div>
           <h2 id="daily-log-title">Daily Log</h2>
-          <p class="daily-log-help">Bars show each completed day’s total, split by score contribution; any remainder is Unattributed. The line shows the 30d average on the same points scale. Open a bar or table row to inspect the complete day.</p>
+          <p class="daily-log-help">Bars show each day’s total, split by score contribution; any remainder is Unattributed. The line shows the 30d average on the same points scale. Today is included and marked Incomplete while Garmin and Strava data may still arrive. Choose an earlier end date for completed days only. Open a bar or table row to inspect the day.</p>
         </div>
         <div class="current-average" aria-label="Current 30 day average">
           <span>Current 30d average</span>

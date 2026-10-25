@@ -263,8 +263,9 @@ and restart exited runtime processes with bounded backoff. Database connections
 and worker queue scans recover from transient disconnects after wake; interrupted
 requests may still need a refresh. See [local recovery](docs/LOCAL_RECOVERY.md).
 
-Daily and Dynamics charts show completed local calendar days, excluding today
-and future dates. Today remains available in daily records and tables.
+Daily and Dynamics charts include today and mark it Incomplete while Garmin and
+Strava data may still arrive. Future dates are excluded. Use the date pickers to
+choose an earlier end date when only completed calendar days are wanted.
 
 ## Cockpit workflows
 
