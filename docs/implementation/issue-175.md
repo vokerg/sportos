@@ -99,3 +99,11 @@ keep Unattributed neutral and the average line distinct. No category, value or
 chart interaction changes are required.
 Palette validation: all 12 existing Daily Log/Rolling Dynamics view-model tests,
 web typecheck and whitespace checks passed. No new tests were added for colors.
+
+Height/hover follow-up: inspected the Daily Log chart options, trend component,
+existing chart tests and shared chart theme. The full-height hover rectangle is
+the axis shadow pointer, not an extra score contribution. Remove that pointer
+while retaining the full day tooltip, keep emphasis local to the hovered segment,
+increase chart height, and use a muted red average line against the blue bars.
+Height/hover validation: six existing chart tests, web typecheck, production
+build and whitespace checks passed. Live browser verification was not run.

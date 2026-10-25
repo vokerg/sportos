@@ -19,7 +19,7 @@ import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-
     </div>
   `,
   styles: [`
-    .daily-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }
+    .daily-chart { width: 100%; height: min(64vh, 760px); min-height: 480px; }
   `],
 })
 export class DailyLogTrendComponent {

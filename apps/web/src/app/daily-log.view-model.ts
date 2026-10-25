@@ -51,10 +51,10 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
   );
   return {
     animation: false,
-    color: [...visibleComponents.map((component) => component.color), '#84cc16'],
+    color: [...visibleComponents.map((component) => component.color), '#dc5b62'],
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'shadow' },
+      axisPointer: { type: 'none' },
       valueFormatter: (value: unknown) => {
         const points = Number(value);
         return Number.isFinite(points) ? `${points.toLocaleString(undefined, { maximumFractionDigits: 1 })} pts` : '—';
@@ -83,7 +83,7 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
         yAxisIndex: 0,
         barMaxWidth: 24,
         itemStyle: { color: component.color },
-        emphasis: { focus: 'series' },
+        emphasis: { focus: 'none' },
         data: compositions.map((composition) => composition[component.key]),
       })),
       {
@@ -91,8 +91,8 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
         type: 'line',
         yAxisIndex: 0,
         showSymbol: false,
-        lineStyle: { width: 2, color: '#84cc16' },
-        itemStyle: { color: '#84cc16' },
+        lineStyle: { width: 2, color: '#dc5b62' },
+        itemStyle: { color: '#dc5b62' },
         data: chronological.map((row) => Math.round(row.avg_30d ?? 0)),
       },
     ],
