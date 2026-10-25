@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "SportOS Native Fixture",
+    "slug": "sportos-native-fixture",
+    "scheme": "sportos-native-fixture",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false
+    }
+  }
+}
