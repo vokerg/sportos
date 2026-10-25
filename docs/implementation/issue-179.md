@@ -80,5 +80,4 @@ also inspected and updated for provisional dates and existing retained scoring.
 
 No personal databases, private provider payloads or live Garmin downloads were
 used. Live browser/provider verification and the unrelated full repository matrix
-were not run. PR #180 remains a draft pending review/authorized merge; #179 stays
-open until then.
+were not run. Delivery and merge status are tracked in PR #180 and issue #179.
