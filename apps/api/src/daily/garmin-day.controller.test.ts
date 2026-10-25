@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GarminDayController } from './garmin-day.controller.js';
 const account = { id: '11111111-1111-4111-8111-111111111111', displayName: 'Test', email: null };
 function setup() {
@@ -6,6 +6,16 @@ function setup() {
   return { service, controller: new GarminDayController(service as never) };
 }
 describe('Garmin day request boundary', () => {
+  afterEach(() => vi.useRealTimers());
+  it('accepts today through the authenticated existing workflow but rejects tomorrow at local midnight', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 25, 0, 5));
+    const { service, controller } = setup();
+    await controller.fetch('2026-10-25', { refresh: true }, account);
+    expect(service.fetch).toHaveBeenCalledWith(account, '2026-10-25', true, expect.any(AbortSignal));
+    await expect(controller.fetch('2026-10-26', {}, account)).rejects.toMatchObject({ status: 400 });
+    expect(service.fetch).toHaveBeenCalledTimes(1);
+  });
   it('GET selects only retained data and derives owner from account', () => {
     const { service, controller } = setup(); controller.read('2026-03-29', account);
     expect(service.read).toHaveBeenCalledWith(account.id,'2026-03-29'); expect(service.fetch).not.toHaveBeenCalled();

@@ -3,8 +3,10 @@
 ## Explicit Connect day fetch
 
 [Garmin day evidence](GARMIN_DAY_FETCH.md) provides a user-initiated local helper
-flow for one completed date. It retains Connect data separately from this CSV
-procedure and does not feed step recalculation or change official scores. Use its
+flow for today or an earlier date. Today's evidence remains provisional until
+checked after the day ends. It retains Connect data separately from this CSV
+procedure; Fetch itself never changes official scores, while explicit Recalculate
+can consume retained Connect steps. Use its
 Fetch/View/Refresh controls for this flow; the historical browser/CSV instructions
 below describe the separate CSV evidence path.
 

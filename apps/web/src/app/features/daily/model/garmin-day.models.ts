@@ -16,6 +16,7 @@ export interface GarminDayCategoryEvidence {
 export interface GarminDay {
   date: string; origin: 'garmin_connect'; evidenceOnly: true; fetchEnabled: boolean;
   state: 'missing' | 'partial' | 'current'; result: 'cached' | 'fetched' | null; categories: GarminDayCategoryEvidence[];
+  completeness: 'in_progress' | 'refresh_required' | 'complete';
 }
 export const GARMIN_CATEGORY_LABELS: Record<GarminDayCategory, string> = {
   summary: 'Movement and energy', weight: 'Body measurements', sleep: 'Sleep', heart_rate: 'Heart rate',

@@ -16,12 +16,18 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
       <p class="muted">Fetch and Refresh check Garmin for the latest day data, including later watch uploads. Use Recalculate to update daily totals and score.</p>
       @if (store.loading()) { <p role="status">Reading retained coverage…</p> }
       @if (store.data(); as day) {
-        <p role="status">{{ day.state === 'missing' ? 'Not fetched' : day.state === 'partial' ? 'Some data needs another attempt' : 'Saved day data' }}
+        <p role="status">{{ day.state === 'missing' ? 'Not fetched' : day.completeness === 'in_progress' ? 'Incomplete — day in progress' : day.completeness === 'refresh_required' ? 'Incomplete — refresh required' : day.state === 'partial' ? 'Some data needs another attempt' : 'Saved day data' }}
           
           @if (store.fetching()) { · Updating from Garmin… This can take a few minutes. }
           @else if (day.result === 'fetched' && day.state === 'current') { · Latest day data checked. Use Recalculate to update daily totals and score. }
+          @else if (day.result === 'fetched' && day.completeness !== 'complete') { · Update attempted; this day remains incomplete. Previous saved evidence is kept. }
           @else if (day.result === 'fetched') { · Update attempted; some data is still unavailable. Previous saved evidence is kept. }
           @else if (day.result === 'cached') { · Saved data reused; use Refresh from Garmin to check for updates. }</p>
+        @if (day.completeness === 'in_progress') {
+          <p role="status">Today's evidence is provisional, even when every category has data. Refresh from Garmin after the day ends and your watch has synced, then use Recalculate to update daily totals and score.</p>
+        } @else if (day.completeness === 'refresh_required') {
+          <p role="status">This day needs a check after it has ended. Refresh from Garmin after your watch has synced, then use Recalculate. Saved evidence remains available.</p>
+        }
         <div class="actions">
           @if (showPrimaryAction()) { <ng-container [ngTemplateOutlet]="primaryAction" /> }
           <button type="button" (click)="store.view()" [disabled]="day.state === 'missing'">{{ store.expanded() ? 'Hide metrics' : 'Show metrics' }}</button>

@@ -49,6 +49,36 @@ integration('Garmin day provenance and RLS',()=>{
     expect(await withAccountContext(primary,owner,db=>new GarminDayRepository(db).hasUncoveredStravaActivities('2026-03-28',[]))).toBe(false);
     expect((await withAccountContext(primary,owner,db=>db.selectFrom('activities').select('id').where('id','=',activity).executeTakeFirst()))?.id).toBe(activity);
   });
+  it('confirms unchanged provisional content after the day ends without rewriting versions, and preserves the check on failure', async () => {
+    const provisionalDate = '2026-10-25', beforeEnd = new Date(2026, 9, 25, 23, 59), afterEnd = new Date(2026, 9, 26, 0, 5);
+    const publish = (attemptedAt: Date, state: 'available' | 'failed') => withAccountContext(primary, owner, db => new GarminDayRepository(db).publish(provisionalDate, {
+      category: 'summary', state, attemptedAt,
+      ...(state === 'available' ? { version: { hash, availability: 'available' as const, projection: { steps: 123 } } } : {}),
+    }));
+    const read = () => withAccountContext(primary, owner, db => new GarminDayRepository(db).read(provisionalDate));
+    await publish(beforeEnd, 'available');
+    const first = (await read())[0]!;
+    expect(first.attempt_json).toMatchObject({ checkedAt: beforeEnd.toISOString() });
+    await publish(afterEnd, 'failed');
+    expect((await read())[0]?.attempt_json).toMatchObject({ checkedAt: beforeEnd.toISOString() });
+    const confirmedAt = new Date(afterEnd.getTime() + 1000);
+    await publish(confirmedAt, 'available');
+    const confirmed = (await read())[0]!;
+    expect(confirmed).toMatchObject({ version_id: first.version_id, retrieved_at: first.retrieved_at, attempt_json: { checkedAt: confirmedAt.toISOString() } });
+    await publish(new Date(confirmedAt.getTime() + 1000), 'failed');
+    expect((await read())[0]?.attempt_json).toMatchObject({ checkedAt: confirmedAt.toISOString() });
+    expect(await withAccountContext(primary, foreign, db => new GarminDayRepository(db).read(provisionalDate))).toEqual([]);
+    expect(await withAccountContext(primary, owner, db => db.selectFrom('garmin_day_versions').select('id').where('calendar_date', '=', provisionalDate).execute())).toHaveLength(1);
+    await withAccountContext(primary, owner, db => new GarminDayRepository(db).publish(provisionalDate, {
+      category: 'hrv', state: 'unsupported', attemptedAt: beforeEnd,
+    }));
+    await withAccountContext(primary, owner, db => new GarminDayRepository(db).publish(provisionalDate, {
+      category: 'hrv', state: 'unsupported', attemptedAt: afterEnd,
+    }));
+    expect((await read()).find(row => row.category === 'hrv')).toMatchObject({
+      version_id: null, attempt_json: { checkedAt: afterEnd.toISOString() },
+    });
+  });
   it('isolates reads, same-owner heads and immutable raw/provenance',async()=>{
     expect(await withAccountContext(primary,foreign,db=>new GarminDayRepository(db).read(date))).toEqual([]);
     expect(await withAccountContext(detail,foreign,db=>new GarminDayResourcesRepository(db).read(date,'summary',hash))).toBeUndefined();
