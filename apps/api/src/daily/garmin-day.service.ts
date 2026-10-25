@@ -10,6 +10,7 @@ import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
 import { UploadStorage } from '../storage/upload-storage.js';
 import { projectGarminDay, publicGarminPayload, hasGarminDayEvidence, nonScoringGarminDayIdentities } from './garmin-day-projection.js';
+import { garminDayCheckedAfterEnd, garminLocalDate } from './garmin-day-completeness.js';
 const retryable = (state: string) => ['failed','authentication_required','rate_limited'].includes(state);
 type CategoryResult = { category: GarminDayCategory; state: GarminDayState; sourceHash?: string; byteSize?: number };
 
@@ -51,9 +52,12 @@ export class GarminDayService {
         retainedAt: row?.retrieved_at?.toISOString() ?? null, attemptedAt: row?.attempted_at.toISOString() ?? null,
         evidence: projection, resourceAvailable: Boolean(row?.source_hash) });
     }
-    const partial = uncoveredStravaActivities || rows.some(row => retryable(row.state));
+    const now = new Date();
+    const needsCheck = rows.length < GARMIN_DAY_CATEGORIES.length || rows.some(row => !garminDayCheckedAfterEnd(date, row, now));
+    const completeness = date >= garminLocalDate(now) ? 'in_progress' : needsCheck ? 'refresh_required' : 'complete';
+    const partial = completeness !== 'complete' || uncoveredStravaActivities || rows.some(row => retryable(row.state));
     return { date, origin: 'garmin_connect', evidenceOnly: true, fetchEnabled: this.enrichment.localEnabled(owner),
-      state: !rows.length ? 'missing' : partial || rows.length < 8 ? 'partial' : 'current', result: result ?? null, categories };
+      state: !rows.length ? 'missing' : partial ? 'partial' : 'current', completeness, result: result ?? null, categories };
   }
 
   async resource(owner: string, date: string, category: GarminDayCategory) {
@@ -81,7 +85,7 @@ export class GarminDayService {
       const requested: GarminDayCategory[] = [];
       for (const category of GARMIN_DAY_CATEGORIES) {
         const row = rows.find(item => item.category === category);
-        let complete = Boolean(row && !retryable(row.state));
+        let complete = Boolean(row && !retryable(row.state) && garminDayCheckedAfterEnd(date, row));
         if (complete && row?.source_hash) complete = Boolean(await this.detail.withAccount(account.id, db => new GarminDayResourcesRepository(db).read(date, category, row.source_hash!)));
         if (complete && category === 'activities' && row?.projection_json && typeof row.projection_json === 'object' && !Array.isArray(row.projection_json) && Array.isArray(row.projection_json.identities)) {
           for (const key of row.projection_json.identities) {
@@ -101,19 +105,21 @@ export class GarminDayService {
       if (!requested.length) return this.read(account.id, date, 'cached');
       if (!this.enrichment.localEnabled(account.id)) throw new ServiceUnavailableException({ code: 'GARMIN_LOCAL_FETCH_DISABLED', message: 'Garmin downloads require the enabled local desktop helper. Retained evidence can still be viewed.' });
       this.checkCancelled(cancellation.signal);
+      // A request begun before midnight remains provisional even if retention
+      // finishes tomorrow. All categories belong to this one check.
+      const attemptedAt = new Date();
       let results: CategoryResult[];
       try {
         const raw = await this.enrichment.bridge({ operation: 'day', date, categories: requested }, cancellation.signal);
         results = parseDayBundle(raw, date, requested);
       } catch (error) {
         const state = errorState(error);
-        for (const category of requested) await this.publish(account.id, date, { category, state, attemptedAt: new Date() });
+        for (const category of requested) await this.publish(account.id, date, { category, state, attemptedAt });
         if (cancellation.signal.aborted) throw error;
         return this.read(account.id, date, 'fetched');
       }
       for (const entry of results) {
         this.checkCancelled(cancellation.signal);
-        const attemptedAt = new Date();
         if (!entry.sourceHash) {
           await this.publish(account.id, date, { category: entry.category, state: entry.state, attemptedAt });
           continue;

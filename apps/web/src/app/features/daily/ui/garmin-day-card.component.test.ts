@@ -57,7 +57,7 @@ describe('Garmin day evidence card',()=>{
 
 function renderDay(state: 'missing' | 'current' | 'partial', result?: 'cached' | 'fetched') {
   const day = {date: '2026-03-29', origin: 'garmin_connect', evidenceOnly: true,
-    fetchEnabled: true, state, result: result ?? null, categories: []};
+    fetchEnabled: true, state, completeness: 'complete', result: result ?? null, categories: []};
   const api = {read: vi.fn(() => of(day)), fetch: vi.fn(() => of({...day, state: 'current', result: 'fetched'}))};
   const store = new GarminDayStore(api as never);
   TestBed.configureTestingModule({imports: [GarminDayCardComponent]});
@@ -89,6 +89,24 @@ it('explains cached and incomplete results without claiming a successful update'
   fixture.detectChanges();
   expect(fixture.nativeElement.textContent).toContain('Update attempted; some data is still unavailable');
   expect(fixture.nativeElement.textContent).not.toContain('Latest day data checked');
+});
+
+it('shows full current-day evidence as provisional and keeps refresh available after the day ends', () => {
+  const { fixture, store, api } = renderDay('partial', 'fetched');
+  store.data.update(day => ({ ...day!, completeness: 'in_progress' }));
+  fixture.detectChanges();
+  expect(fixture.nativeElement.textContent).toContain('Incomplete — day in progress');
+  expect(fixture.nativeElement.textContent).toContain('even when every category has data');
+  expect(fixture.nativeElement.textContent).toContain('then use Recalculate');
+  expect(fixture.nativeElement.textContent).not.toContain('Latest day data checked');
+  store.data.update(day => ({ ...day!, completeness: 'refresh_required', result: null }));
+  fixture.detectChanges();
+  expect(fixture.nativeElement.textContent).toContain('Incomplete — refresh required');
+  expect(api.fetch).not.toHaveBeenCalled();
+  const button = [...fixture.nativeElement.querySelectorAll('button')].find(item => item.textContent?.trim() === 'Refresh from Garmin') as HTMLButtonElement;
+  expect(button.disabled).toBe(false);
+  button.click();
+  expect(api.fetch).toHaveBeenCalledExactlyOnceWith('2026-03-29', true);
 });
 
 it('disables both refresh controls while an update is running', () => {

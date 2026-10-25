@@ -8,6 +8,15 @@ from fetch_day import fetch_day, day_activities, calendar_date
 from extract_activity import ExtractionError, read_json
 
 class DayTests(unittest.TestCase):
+    def test_today_fetches_all_categories_without_becoming_a_future_date(self):
+        today = dt.date.today().isoformat()
+        with tempfile.TemporaryDirectory(dir='/private/tmp' if Path('/private/tmp').is_dir() else None) as directory, patch('fetch_day.DEFAULT_HOME', Path(directory)):
+            result = fetch_day(self.client(), today)
+            self.assertEqual(result['date'], today)
+            self.assertEqual(len(result['categories']), 8)
+            self.assertEqual(result['categories'][0]['state'], 'available')
+            self.assertTrue(all(item['state'] in ('available', 'not_recorded') for item in result['categories']))
+
     def test_walking_is_selected_for_extraction_with_normal_bounds(self):
         walk = {'activityId': 124, 'startTimeLocal': '2026-03-29 09:00:00', 'activityType': {'typeKey': 'walking'}}
         strength = {'activityId': 123, 'startTimeLocal': '2026-03-29 10:00:00', 'activityType': {'typeKey': 'strength_training'}}
@@ -90,7 +99,8 @@ class DayTests(unittest.TestCase):
         rows = [{'activityId': x+1, 'startTimeLocal': '2026-03-29 10:00:00'} for x in range(100)]
         result = day_activities(self.client(connectapi=lambda *a,**kw:rows), dt.date(2026,3,29))
         self.assertFalse(result['complete']); self.assertEqual(len(result['items']),20)
-        for value in ['2026-02-30','2026-3-29','2026-03-29T00:00:00Z',dt.date.today().isoformat()]:
+        self.assertEqual(calendar_date(dt.date.today().isoformat()), dt.date.today())
+        for value in ['2026-02-30','2026-3-29','2026-03-29T00:00:00Z',(dt.date.today() + dt.timedelta(days=1)).isoformat()]:
             with self.assertRaises(ExtractionError): calendar_date(value)
         with self.assertRaises(ExtractionError): fetch_day(self.client(),'2026-03-29',['summary','summary'])
         with tempfile.TemporaryDirectory(dir='/private/tmp' if Path('/private/tmp').is_dir() else None) as directory, patch('fetch_day.DEFAULT_HOME', Path(directory)):

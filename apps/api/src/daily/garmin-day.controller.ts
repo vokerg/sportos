@@ -3,6 +3,7 @@ import { GARMIN_DAY_CATEGORIES, LEGACY_ACCOUNT_ID, isIsoDate, type GarminDayCate
 import { CurrentAccount } from '../auth/current-account.decorator.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { GarminDayService } from './garmin-day.service.js';
+import { garminLocalDate } from './garmin-day-completeness.js';
 function date(value: string) {
   if (!isIsoDate(value)) throw new BadRequestException('Date must be a real YYYY-MM-DD calendar date.');
   return value;
@@ -27,9 +28,8 @@ export class GarminDayController {
     date(value);
     const body = raw ?? {};
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => key !== 'refresh') || ('refresh' in body && typeof body.refresh !== 'boolean')) throw new BadRequestException('Invalid Garmin day fetch request.');
-    // Conservative server-local gate plus helper-local validation. No UTC date coercion.
-    const today = new Date(); const localDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    if (value >= localDate) throw new BadRequestException('Select a completed Garmin calendar date.');
+    // The local helper validates the same calendar boundary before login.
+    if (value > garminLocalDate()) throw new BadRequestException('Select today or an earlier Garmin calendar date.');
     const cancellation = new AbortController(); const abort = () => cancellation.abort();
     request?.on('aborted', abort); response?.on('close', abort);
     try { return await this.garmin.fetch(account ?? { id: LEGACY_ACCOUNT_ID } as AuthenticatedAccount, value, 'refresh' in body && body.refresh === true, cancellation.signal); }

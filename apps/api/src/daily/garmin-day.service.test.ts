@@ -18,7 +18,42 @@ function setup(enabled=true) {
 }
 const bundle=(changes: Record<string,unknown>={})=>({schema:'sportos.garmin-day.v1',date,categories:GARMIN_DAY_CATEGORIES.map(category=>({category,state:'unsupported',...changes}))});
 describe('Garmin day workflow',()=>{
-  afterEach(()=>vi.restoreAllMocks());
+  afterEach(()=>{vi.restoreAllMocks();vi.useRealTimers();});
+  it('keeps a fully populated current day provisional and requires all categories again after midnight', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const beforeEnd = new Date(2026, 2, 29, 23, 59), afterEnd = new Date(2026, 2, 30, 0, 5);
+    vi.setSystemTime(beforeEnd);
+    const { service, rows, enrichment } = setup();
+    const retained = GARMIN_DAY_CATEGORIES.map(category => ({ category, state: 'available', source_hash: hash,
+      projection_json: category === 'activities' ? { identities: [], complete: true } : { steps: 123 },
+      attempt_json: { checkedAt: beforeEnd.toISOString() }, attempted_at: beforeEnd, retrieved_at: beforeEnd, availability: 'available' }));
+    rows.mockResolvedValue(retained as never);
+    expect(await service.read(account.id, date)).toMatchObject({ state: 'partial', completeness: 'in_progress' });
+    vi.setSystemTime(afterEnd);
+    expect(await service.read(account.id, date)).toMatchObject({ state: 'partial', completeness: 'refresh_required' });
+    expect(enrichment.bridge).not.toHaveBeenCalled();
+    enrichment.bridge.mockResolvedValue(bundle());
+    await service.fetch(account, date, false);
+    expect(enrichment.bridge).toHaveBeenCalledWith({ operation: 'day', date, categories: [...GARMIN_DAY_CATEGORIES] }, expect.any(AbortSignal));
+    // A successful recheck can have the same immutable content/retrieval time.
+    rows.mockResolvedValue(retained.map(row => ({ ...row, attempt_json: { checkedAt: afterEnd.toISOString() } })) as never);
+    expect(await service.read(account.id, date)).toMatchObject({ state: 'current', completeness: 'complete' });
+    expect((await service.fetch(account, date, false)).result).toBe('cached');
+    expect(enrichment.bridge).toHaveBeenCalledTimes(1);
+  });
+  it('uses the start of the provider check when a fetch spans midnight', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const started = new Date(2026, 2, 29, 23, 59);
+    vi.setSystemTime(started);
+    const { service, enrichment, publish } = setup();
+    enrichment.bridge.mockImplementation(async () => {
+      vi.setSystemTime(new Date(2026, 2, 30, 0, 5));
+      return bundle();
+    });
+    await service.fetch(account, date, false);
+    expect(publish).toHaveBeenCalledTimes(8);
+    for (const [, input] of publish.mock.calls) expect(input.attemptedAt).toEqual(started);
+  });
   it('GET is compact, owner-scoped, private and never calls the bridge/detail database',async()=>{
     const {service,primary,detail,enrichment,rows}=setup();
     rows.mockResolvedValue([{category:'summary',state:'available',source_hash:hash,projection_json:{steps:123},retrieved_at:new Date('2026-03-30'),attempted_at:new Date('2026-03-30'),availability:'available'}] as never);

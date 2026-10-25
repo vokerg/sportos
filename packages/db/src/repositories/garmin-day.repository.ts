@@ -39,10 +39,19 @@ export class GarminDayRepository {
     if (Buffer.byteLength(JSON.stringify(input.version?.projection ?? {})) > 60000 || Buffer.byteLength(JSON.stringify(input.attempt ?? {})) > 8000) throw new Error('Garmin projection exceeds bounds.');
     return this.db.transaction().execute(async tx => {
       await sql`select pg_advisory_xact_lock(hashtextextended(sportos_current_account_id()::text || ':garmin-day:' || ${date}, 0))`.execute(tx);
-      const current = await tx.selectFrom('garmin_day_heads').select(['version_id','attempted_at'])
+      const current = await tx.selectFrom('garmin_day_heads').select(['version_id','attempted_at','attempt_json'])
         .where('calendar_date','=',date).where('category','=',input.category).executeTakeFirst();
       // An older concurrent request cannot replace a newer published attempt.
       if (current && current.attempted_at > input.attemptedAt) return;
+      const previousAttempt = current?.attempt_json;
+      const previousCheck = previousAttempt && typeof previousAttempt === 'object' && !Array.isArray(previousAttempt)
+        ? previousAttempt.checkedAt : undefined;
+      // A successful check can confirm identical bytes without modifying an
+      // immutable version. Failed attempts must never finalize earlier evidence.
+      const checkedAt = ['failed', 'authentication_required', 'rate_limited'].includes(input.state)
+        ? previousCheck : input.attemptedAt.toISOString();
+      const attempt: Json = { ...(input.attempt && typeof input.attempt === 'object' && !Array.isArray(input.attempt) ? input.attempt : {}),
+        ...(typeof checkedAt === 'string' ? { checkedAt } : {}) };
       let versionId = current?.version_id ?? null;
       if (input.version) {
         const version = input.version;
@@ -59,9 +68,9 @@ export class GarminDayRepository {
         }
       }
       await tx.insertInto('garmin_day_heads').values({ calendar_date: date, category: input.category, version_id: versionId,
-        state: input.state, attempt_json: json(input.attempt ?? {}), attempted_at: input.attemptedAt,
+        state: input.state, attempt_json: json(attempt), attempted_at: input.attemptedAt,
       }).onConflict(oc => oc.columns(['owner_id','calendar_date','category']).doUpdateSet({ version_id: versionId,
-        state: input.state, attempt_json: json(input.attempt ?? {}), attempted_at: input.attemptedAt })).execute();
+        state: input.state, attempt_json: json(attempt), attempted_at: input.attemptedAt })).execute();
     });
   }
 }

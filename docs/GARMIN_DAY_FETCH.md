@@ -5,7 +5,7 @@ recalculation, Strava refresh, Garmin Fetch, and manual entry. The Garmin metric
 and secondary Show/Hide and Refresh controls stay below the overview and activity
 list. Main actions remain visible across the Overview, Score, and Sources tabs.
 
-On `/daily/:date`, **Fetch Garmin day** retains evidence for one completed
+On `/daily/:date`, **Fetch Garmin day** retains evidence for today or an earlier
 Garmin calendar date. It never recalculates, replaces manual/workbook authority,
 changes Strava canonical activity metrics, or writes official scores, ledger
 contributions or score snapshots. Page navigation and **Show metrics** make no Garmin requests.
@@ -65,8 +65,39 @@ that date plus one day on either side, then selects `startTimeLocal` on the
 requested date. `startTimeGMT` remains UTC matching metadata. Missing/invalid
 local dates or full discovery pages produce incomplete coverage, never an
 invented UTC offset. DST does not require converting date-only values to UTC.
-The server and helper conservatively reject their current local date or future
-dates; an incomplete day must wait until it has finished.
+The server and workstation helper accept their current local date and reject
+future dates. They use the workstation's configured timezone, which must agree
+with the intended Garmin calendar; no browser-supplied timezone or UTC offset is
+inferred.
+
+## Provisional current-day evidence (#179)
+
+Today's evidence is marked **Incomplete — day in progress**, even when all
+eight categories contain data. Fetch, inspection, activity reconciliation and
+explicit Recalculate remain available through the existing controls. Today's
+totals can still change with later watch uploads.
+
+After midnight, evidence checked during that day remains **Incomplete — refresh
+required**. Once the watch has synced, choose **Refresh from Garmin**, then
+**Recalculate** to update daily totals and score. Merely opening the page or
+crossing midnight does not download or recalculate anything. Reloading retained
+coverage reflects the new calendar status; there is no midnight polling timer.
+
+The API exposes `completeness` as `in_progress`, `refresh_required`, or `complete`,
+independently of individual category availability/errors. A populated provisional
+day has overall `state: partial`. Even cache-aware `refresh: false` checks all
+categories whose last successful check began before the day ended. Confirmed
+categories can be reused while failed categories are retried independently.
+Unsupported, private and not-recorded outcomes also need a post-day check.
+
+Successful check timestamps live in owner-scoped head attempt metadata, allowing
+unchanged bytes to be confirmed without replacing immutable source versions.
+Failed attempts preserve the last successful check and prior evidence. A request
+started before midnight stays provisional even if processing finishes after it.
+Legacy evidence falls back to its immutable retrieval timestamp (or a successful
+versionless unsupported attempt). A post-day check establishes calendar coverage;
+later watch uploads may still require another explicit Refresh/Recalculate.
+Completed-day chart cutoffs and official score authority are unchanged.
 
 ## Supported categories and fields
 

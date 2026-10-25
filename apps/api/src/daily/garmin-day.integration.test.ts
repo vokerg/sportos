@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { createDb, sql, GarminDayRepository, GarminActivityResourcesRepository, withAccountContext, type Database, type Kysely, type Json } from '@sportos/db';
+import { createDb, sql, DailyScoringRepository, GarminDayRepository, GarminActivityResourcesRepository, withAccountContext, type Database, type Kysely, type Json } from '@sportos/db';
 import { GarminDayService } from './garmin-day.service.js';
 import { GarminLocalIngestService } from '../activities/garmin-local-ingest.service.js';
 const primaryUrl=process.env.SPORTOS_OWNER_TEST_DATABASE_URL,detailUrl=process.env.SPORTOS_ACTIVITY_DETAIL_TEST_DATABASE_URL;
@@ -62,5 +62,42 @@ integration('one-day evidence through real non-owner retention and reconciliatio
     expect(await withAccountContext(db,owner,ctx=>ctx.selectFrom('garmin_day_versions').selectAll().execute())).toHaveLength(9);
     expect(await official()).toEqual(before);
     expect((await withAccountContext(db,owner,ctx=>new GarminDayRepository(ctx).read(date))).find(c=>c.category==='summary')?.projection_json).toMatchObject({steps:12346});
+  });
+  it('keeps a populated day provisional, then refreshes and explicitly recalculates late evidence without automatic score writes', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const provisionalDate = '2026-10-25';
+      vi.setSystemTime(new Date(2026, 9, 25, 22));
+      let steps = 123;
+      const provider = (database: Kysely<Database>) => ({ withAccount: <T>(id: string, callback: (ctx: Kysely<Database>) => Promise<T>) => withAccountContext(database, id, callback) });
+      const bridge = vi.fn(async request => ({ schema: 'sportos.garmin-day.v1', date: provisionalDate,
+        categories: request.categories.map((category: string) => category === 'summary'
+          ? { category, state: 'available', sourceHash: createHash('sha256').update(String(steps)).digest('hex'), byteSize: 100 }
+          : { category, state: 'unsupported' }) }));
+      const service = new GarminDayService(provider(db) as never, provider(detailDb) as never, {} as never, { localEnabled: () => true, bridge } as never);
+      vi.spyOn(service, 'localPayload').mockImplementation(async () => ({ calendarDate: provisionalDate, totalSteps: steps }));
+      const account = { id: owner, displayName: 'Synthetic', email: null };
+      const currentScore = () => withAccountContext(db, owner, ctx => ctx.selectFrom('daily_metrics').selectAll().where('metric_date', '=', provisionalDate).executeTakeFirst());
+      const recalculate = () => withAccountContext(db, owner, ctx => new DailyScoringRepository(ctx).recalculateFromActivities(provisionalDate));
+      expect(await service.fetch(account, provisionalDate, false)).toMatchObject({ state: 'partial', completeness: 'in_progress' });
+      expect(await currentScore()).toBeUndefined();
+      expect((await recalculate()).facts.steps).toBe(123);
+      expect(bridge).toHaveBeenCalledTimes(1);
+      const provisionalScore = await currentScore();
+      vi.setSystemTime(new Date(2026, 9, 26, 8));
+      expect(await service.read(owner, provisionalDate)).toMatchObject({ state: 'partial', completeness: 'refresh_required' });
+      expect(bridge).toHaveBeenCalledTimes(1);
+      steps = 456;
+      expect(await service.fetch(account, provisionalDate, false)).toMatchObject({ state: 'current', completeness: 'complete' });
+      expect(await currentScore()).toEqual(provisionalScore);
+      expect((await recalculate()).facts.steps).toBe(456);
+      expect(bridge).toHaveBeenCalledTimes(2);
+      const snapshots = await withAccountContext(db, owner, ctx => ctx.selectFrom('daily_score_snapshots').select('facts_json').where('metric_date', '=', provisionalDate).execute());
+      expect(snapshots).toHaveLength(2);
+      expect(snapshots).toEqual(expect.arrayContaining([
+        expect.objectContaining({ facts_json: expect.objectContaining({ steps: 123 }) }),
+        expect.objectContaining({ facts_json: expect.objectContaining({ steps: 456 }) }),
+      ]));
+    } finally { vi.useRealTimers(); }
   });
 });

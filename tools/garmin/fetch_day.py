@@ -1,4 +1,4 @@
-"""Fixed completed-day evidence reads through the existing bounded local transport."""
+"""Fixed day evidence reads through the existing bounded local transport."""
 import datetime as dt
 import json
 from extract_activity import (DEFAULT_HOME, MAX_JSON, ExtractionError, activity_id,
@@ -15,8 +15,8 @@ def calendar_date(value):
         date = dt.date.fromisoformat(value)
     except ValueError:
         raise ExtractionError('INVALID_GARMIN_DATE') from None
-    if date.isoformat() != value or date >= dt.date.today():
-        raise ExtractionError('GARMIN_COMPLETED_DATE_REQUIRED')
+    if date.isoformat() != value or date > dt.date.today():
+        raise ExtractionError('GARMIN_FUTURE_DATE_NOT_ALLOWED')
     return date
 
 
