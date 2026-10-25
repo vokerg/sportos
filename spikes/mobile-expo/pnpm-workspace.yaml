@@ -1,0 +1,4 @@
+# Intentional nested pnpm project for the disposable #186 integration spike.
+# Do not add this probe to the root apps/* workspace or production build.
+packages:
+  - "."
