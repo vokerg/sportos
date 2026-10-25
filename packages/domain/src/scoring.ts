@@ -245,7 +245,9 @@ export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule,
     if (points === 0) return null;
     const multiplierExplanation = rule.pointsMultiplier === 'completed_5k_blocks' || rule.pointsMultiplier === 'rounded_5k_blocks'
       ? `; ${multiplierEvaluation.value} completed 5 km block${multiplierEvaluation.value === 1 ? '' : 's'} × ${configuredPoints} = ${points}`
-      : rule.pointsMultiplier === 'completed_1k_blocks'
+      : rule.pointsMultiplier === 'completed_10k_blocks'
+        ? `; ${multiplierEvaluation.value} completed 10 km block${multiplierEvaluation.value === 1 ? '' : 's'} × ${configuredPoints} = ${points}`
+        : rule.pointsMultiplier === 'completed_1k_blocks'
         ? `; ${multiplierEvaluation.value} completed km × ${configuredPoints} = ${points}`
         : `; +${points}`;
     return {
@@ -289,6 +291,10 @@ function achievementPointsMultiplier(
   rule: ScoringRule,
 ): { value: number; inputValue?: number; roundingPolicy?: string } {
   if (!rule.pointsMultiplier) return { value: 1 };
+  if (rule.pointsMultiplier === 'completed_10k_blocks') {
+    const distanceM = activity.distanceM ?? 0;
+    return { value: Number.isFinite(distanceM) && Number.isFinite(activity.avgSpeedMps) && distanceM > 0 ? Math.floor(distanceM / 10_000) : 0, inputValue: distanceM };
+  }
   if (rule.pointsMultiplier === 'completed_1k_blocks') {
     const distanceM = activity.distanceM ?? 0;
     return { value: Number.isFinite(distanceM) && distanceM > 0 ? Math.floor(distanceM / 1000) : 0, inputValue: distanceM };

@@ -195,12 +195,19 @@ export function validateRuleProposal(input: RuleProposal): RuleProposal {
     if (proposal.pointsMultiplier !== undefined
       && proposal.pointsMultiplier !== 'completed_5k_blocks'
       && proposal.pointsMultiplier !== 'rounded_5k_blocks'
-      && proposal.pointsMultiplier !== 'completed_1k_blocks') {
+      && proposal.pointsMultiplier !== 'completed_1k_blocks'
+      && proposal.pointsMultiplier !== 'completed_10k_blocks') {
       issues.push({ field: 'pointsMultiplier', code: 'INVALID_POINTS_MULTIPLIER', message: 'Achievement points multiplier is not supported.' });
     }
     if ((proposal.pointsMultiplier === 'completed_5k_blocks' || proposal.pointsMultiplier === 'rounded_5k_blocks')
       && (proposal.activityType !== 'run' || proposal.metric !== 'pace_s_per_km' || !proposal.achievementGroup)) {
       issues.push({ field: 'pointsMultiplier', code: 'INVALID_BLOCK_MULTIPLIER', message: 'Completed 5 km block multiplication requires a grouped run pace achievement.' });
+    }
+    if (proposal.pointsMultiplier === 'completed_10k_blocks'
+      && (proposal.activityType !== 'bike' || proposal.metric !== 'avg_speed_kmh'
+        || proposal.code !== 'bike.10k.easy.bonus' || proposal.thresholdOperator !== 'gte'
+        || proposal.achievementGroup)) {
+      issues.push({ field: 'pointsMultiplier', code: 'INVALID_BIKE_MULTIPLIER', message: 'Completed 10 km multiplication requires the ungrouped bike speed achievement with an inclusive gte threshold.' });
     }
     if (proposal.pointsMultiplier === 'completed_1k_blocks'
       && (proposal.activityType !== 'swim' || proposal.metric !== 'moving_pace_s_per_km'

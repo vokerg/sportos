@@ -62,7 +62,11 @@ export function describeScoringRule(rule: ScoringRule): RuleGuide {
   if (isPace) guide.notes.push(rule.metric === 'moving_pace_s_per_km'
     ? 'Pace uses moving time divided by distance. Missing moving time earns no bonus.'
     : 'Pace uses elapsed time divided by distance, including stops.');
-  if (rule.pointsMultiplier === 'completed_1k_blocks') {
+  if (rule.pointsMultiplier === 'completed_10k_blocks') {
+    guide.award = `+${points} per completed 10 km`;
+    guide.notes.push('Count whole 10 km blocks within each ride. Distance is not rounded.');
+    guide.example = `30 km completes three 10 km blocks: 3 × ${points} = ${number((rule.points ?? 0) * 3)} bonus points.`;
+  } else if (rule.pointsMultiplier === 'completed_1k_blocks') {
     guide.award = `+${points} per completed km`;
     guide.notes.push('Count whole kilometres within each swim. Distance and pace are not rounded for eligibility.');
     guide.example = `2 completed km × ${points} tier points = ${number((rule.points ?? 0) * 2)} bonus points.`;

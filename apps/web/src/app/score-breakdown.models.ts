@@ -93,7 +93,7 @@ export interface ScoreBreakdownRule {
   thresholdUnit: string | null;
   configuredPoints: number | null;
   achievementGroup: string | null;
-  pointsMultiplier: 'completed_5k_blocks' | 'rounded_5k_blocks' | 'completed_1k_blocks' | null;
+  pointsMultiplier: 'completed_5k_blocks' | 'rounded_5k_blocks' | 'completed_1k_blocks' | 'completed_10k_blocks' | null;
   validFrom: string;
   validTo: string | null;
   priority: number;
