@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DYNAMICS_METRICS, type RollingDynamicsResponse } from './features/dynamics/model/dynamics.models';
+import { DYNAMICS_METRICS, ROLLING_WINDOWS, type RollingDynamicsResponse } from './features/dynamics/model/dynamics.models';
 import { buildRollingAggregateRows, formatRollingValue, rollingDynamicsChartOptions, scoreContributionChartOptions } from './rolling-dynamics.view-model';
 
 const response: RollingDynamicsResponse = {
@@ -48,14 +48,15 @@ describe('rolling dynamics view model', () => {
     expect(options.tooltip.valueFormatter(10.25)).toBe('10 pts/day');
   });
 
-  it('excludes the incomplete local day from every metric, measure, window and contribution series', () => {
+  it('includes and labels today for every metric, measure, window and contribution series, excluding future days', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 0, 31, 0, 15));
     try {
       const data = {
         ...response,
+        windows: [...ROLLING_WINDOWS],
         points: [...response.points, { ...response.points[1]!, date: '2026-02-01' }],
-        scoreContributions: Object.fromEntries(response.windows.map((window) => [window, {
+        scoreContributions: Object.fromEntries(ROLLING_WINDOWS.map((window) => [window, {
           ...response.scoreContributions[30]!,
           windowDays: window,
           points: [...response.scoreContributions[30]!.points, {
@@ -66,19 +67,34 @@ describe('rolling dynamics view model', () => {
       for (const metric of DYNAMICS_METRICS) {
         for (const measure of ['total', 'recordedDayAverage', 'activeDays'] as const) {
           const options = rollingDynamicsChartOptions({ ...data, metric }, measure) as Record<string, any>;
-          expect(options.xAxis.data).toEqual(['2026-01-30']);
-          expect(options.series.every((series: any) => series.data.length === 1)).toBe(true);
+          expect(options.xAxis.data).toEqual(['2026-01-30', '2026-01-31 (Incomplete)']);
+          expect(options.xAxis.axisLabel).toMatchObject({ showMaxLabel: true, alignMaxLabel: 'right' });
+          expect(options.series).toHaveLength(ROLLING_WINDOWS.length);
+          expect(options.series.every((series: any) => series.data.length === 2)).toBe(true);
         }
       }
-      for (const window of response.windows) {
+      for (const window of ROLLING_WINDOWS) {
         const options = scoreContributionChartOptions(data, window) as Record<string, any>;
-        expect(options.xAxis.data).toEqual(['2026-01-30']);
-        expect(options.series.map((series: any) => series.data)).toEqual([[10], [2]]);
+        expect(options.xAxis.data).toEqual(['2026-01-30', '2026-01-31 (Incomplete)']);
+        expect(options.xAxis.axisLabel).toMatchObject({ showMaxLabel: true, alignMaxLabel: 'right' });
+        expect(options.series.map((series: any) => series.data)).toEqual([[10, 8], [2, 3]]);
       }
+      const totals = rollingDynamicsChartOptions(data, 'total') as Record<string, any>;
+      expect(totals.series[data.windows.indexOf(30)].data).toEqual([42.195, 0]);
       expect(data.points).toHaveLength(3);
       expect(response.points).toHaveLength(2);
-      const todayOnly = { ...data, points: data.points.slice(1) };
-      expect((rollingDynamicsChartOptions(todayOnly, 'total') as Record<string, any>).xAxis.data).toEqual([]);
+      const todayOnly = { ...data, points: data.points.slice(1, 2) };
+      expect((rollingDynamicsChartOptions(todayOnly, 'total') as Record<string, any>).xAxis.data).toEqual(['2026-01-31 (Incomplete)']);
+      const futureOnly = { ...data, points: data.points.slice(2) };
+      expect((rollingDynamicsChartOptions(futureOnly, 'total') as Record<string, any>).xAxis.data).toEqual([]);
+      const historicalOnly = { ...data, points: data.points.slice(0, 1) };
+      expect((rollingDynamicsChartOptions(historicalOnly, 'total') as Record<string, any>).xAxis.data).toEqual(['2026-01-30']);
+
+      vi.setSystemTime(new Date(2026, 1, 1, 0, 15));
+      expect((rollingDynamicsChartOptions(todayOnly, 'total') as Record<string, any>).xAxis.data).toEqual(['2026-01-31']);
+      expect((scoreContributionChartOptions(data) as Record<string, any>).xAxis.data).toEqual([
+        '2026-01-30', '2026-01-31', '2026-02-01 (Incomplete)',
+      ]);
     } finally { vi.useRealTimers(); }
   });
 

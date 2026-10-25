@@ -27,6 +27,13 @@ Historical workbook columns such as `A10`, `A20d`, `30(All)`, `A60d`, `A365`, an
 
 Every requested calendar date produces a point, even when that date has no daily row. A trailing N-day point includes the selected date and the preceding N−1 calendar dates. Therefore, an activity enters the window on its activity date and expires exactly N days later. For example, a marathon on January 1 contributes to the 30-day value through January 30 and drops out on January 31.
 
+Daily and Dynamics charts, including score contributions, display today when it
+falls within the selected range. Its date is marked `Incomplete` in the chart
+and tooltip because Garmin and Strava data can still arrive. This browser-local
+calendar label is separate from persisted-row coverage and Garmin evidence
+completion; it does not assert that older provider evidence is complete. Future
+dates remain excluded. Select an earlier end date for completed calendar days only.
+
 Each window returns its rolling total, average per calendar day, recorded-day coverage, fixed window length, and completeness. Calendar-day average always divides by N. Missing canonical dates are not labelled as zero: incomplete coverage is returned and highlighted because the total and average may be understated. A persisted zero remains a recorded zero.
 
 The Dynamics page also shows a selected-cycle daily aggregate table with calendar-day averages for run, swim, bike, steps, official points, bonus/power points, and workout/training points. It renders one table for every selected trailing window. Official score contribution charts use the same selected windows, so a 30-day contribution view is shown whenever 30 days is selected. The initial window selection is 30 days.
