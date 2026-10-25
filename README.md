@@ -2,7 +2,7 @@
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V139, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V141, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
 
 ## What SportOS can do
 
@@ -51,6 +51,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Recompute affected scores atomically through audited background jobs.
 - Reconcile persisted score totals against deterministic domain calculations.
 - Award the highest qualifying universal run-pace tier per activity, using favourable 0.1 km and 0.1 min/km eligibility rounding and multiplying by rounded completed 5 km blocks.
+- Award 1,000 cycling bonus points per completed 10 km in each qualifying ride, retaining the 20 km/h target with its 0.1 km/h tolerance.
 - Multiply the highest qualifying moving-pace swim tier by each completed kilometre in that swim.
 - Export bounded, versioned `sportos.canonical-export.v3` JSON from one repeatable-read snapshot, including each daily score's authority status.
 - Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.

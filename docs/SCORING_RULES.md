@@ -11,7 +11,7 @@ This document is the semantic contract for the enabled MVP-0 scoring rules. The 
 - Achievement rules award their configured integer points only after every threshold and auxiliary condition passes.
 - Achievement rules sharing an `achievementGroup` are mutually exclusive for one activity: only the qualifying rule with the highest configured points applies.
 - The active universal run pace ladder uses `rounded_5k_blocks` with favourable eligibility rounding: distance is rounded to the nearest 0.1 km and overall elapsed pace to the nearest 0.1 min/km. A rounded pace on a tier boundary qualifies. Awarded points are `floor(rounded activity distance meters / 5,000) × tier points`. Raw and rounded inputs are retained in the ledger; separate activities are never combined. Historical V115 `completed_5k_blocks` versions retain their original strict, unrounded semantics.
-- The active bike achievement uses a bounded 0.1 km/h tolerance around its 20 km/h target: one ride of at least 10 km qualifies at `>= 19.9 km/h`. This is an explicit threshold tolerance, not unbounded display rounding.
+- The active bike achievement uses a bounded 0.1 km/h tolerance around its 20 km/h target: one ride of at least 10 km qualifies at `>= 19.9 km/h` and earns `floor(distanceM / 10,000) × 1,000` bonus points. Distance is not rounded and separate rides never combine. This is an explicit threshold tolerance, not unbounded display rounding.
 - Rules are active when `validFrom <= metricDate <= validTo`; a missing `validTo` means no configured end date. Both boundaries are inclusive.
 - Rule evaluation order is deterministic: ascending `priority`, then ascending rule `code`.
 - Coefficient and ordinary manual-point rules are base contributions. Achievement rules and rules whose activity type is `bonus` are bonus contributions.
@@ -37,7 +37,7 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | 91 | `swim.1k.sub19m30.bonus` | Bonus | +3,000 points per completed swim km | moving pace strictly `< 1,170 s/km` (19:30/km); distance `>= 1,000 m` | Replaces lower tier for the same swim. |
 | 92 | `swim.1k.sub19.bonus` | Bonus | +4,000 points per completed swim km | moving pace strictly `< 1,140 s/km` (19:00/km); distance `>= 1,000 m` | Replaces lower tiers for the same swim. |
 | 93 | `swim.1k.sub18m30.bonus` | Bonus | +5,000 points per completed swim km | moving pace strictly `< 1,110 s/km` (18:30/km); distance `>= 1,000 m` | Highest tier; no further tier. V139 multiplies tier points by completed kilometres. |
-| 100 | `bike.10k.easy.bonus` | Bonus | +1,000 points | one activity: distance `>= 10,000 m`; average speed `>= 19.9 km/h` | The 0.1 km/h tolerance makes the 20 km/h target favourable at the boundary. Provider average speed is stored in m/s and converted to km/h for the threshold. |
+| 100 | `bike.10k.easy.bonus` | Bonus | +1,000 per completed 10 km | one activity: distance `>= 10,000 m`; average speed `>= 19.9 km/h` | The 0.1 km/h tolerance makes the 20 km/h target favourable at the boundary. Provider average speed is stored in m/s and converted to km/h for the threshold. |
 
 The base swim rule counts every canonical swim distance in meters, including
 outdoor swims and swims shorter than 1,000 m. For example, 400 m earns 3,000
@@ -324,3 +324,30 @@ editing or activation controls. `GET /rules` includes deterministic domain-owned
 `guide` text for each version; default run/bike rates reuse authoritative subtype
 coefficients rather than presenting the configured generic fallback as universal.
 Historical rule definitions and the backend audited publication API remain intact.
+
+## Cycling bonus per completed 10 km (#183)
+
+V141 replaces the standard flat cycling bonus with an immutable
+`completed_10k_blocks` version. Each qualifying ride earns
+`floor(canonical distanceM / 10000) × 1000` bonus points at an average speed
+of at least 19.9 km/h (the existing 20 km/h target with 0.1 km/h tolerance).
+30 km and 30.7 km earn 3,000; 29,999.9 m earns 2,000. Two 15 km rides earn
+1,000 each. Distances are not rounded or pooled across sessions. Missing or
+nonfinite speed/distance earns no bonus. Cycling base points are unchanged.
+
+The ledger records exact canonical distance, speed, block count, configured
+points, awarded points and rule UUID. Proposal and database validation restrict
+this multiplier to the ungrouped `bike.10k.easy.bonus` speed achievement with
+an inclusive `gte` threshold. Historical flat rule UUIDs retain their original
+semantics. New accounts receive the versioned catalog.
+
+Publication and non-imported score replacement are one Flyway transaction.
+Only standard enabled rule definitions are replaced; customized families keep
+their authority. Effective ranges, unrelated contributions, base scores,
+canonical facts, imported scores and all historical snapshots are preserved.
+Affected calculated/manual days receive a complete new snapshot, retaining
+existing fact/provenance metadata. Running and swimming calculations are unchanged.
+
+Disposable upgrade validation uses `scripts/bike-blocks-upgrade-fixture.sql`
+after V140 and `scripts/verify-bike-blocks-upgrade.sql` after V141. These files
+contain synthetic data only and must never be run against a personal database.

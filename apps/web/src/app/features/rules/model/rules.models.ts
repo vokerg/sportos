@@ -1,7 +1,7 @@
 export type ActivityType = 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus';
 export type RuleKind = 'coefficient' | 'achievement' | 'manual_points';
 export type ThresholdOperator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'exists';
-export type PointsMultiplier = 'completed_5k_blocks' | 'rounded_5k_blocks' | 'completed_1k_blocks';
+export type PointsMultiplier = 'completed_5k_blocks' | 'rounded_5k_blocks' | 'completed_1k_blocks' | 'completed_10k_blocks';
 
 /** Descriptive application output; the browser never calculates scores. */
 export interface RuleGuide {
