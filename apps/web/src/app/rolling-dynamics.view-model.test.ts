@@ -69,6 +69,7 @@ describe('rolling dynamics view model', () => {
           const options = rollingDynamicsChartOptions({ ...data, metric }, measure) as Record<string, any>;
           expect(options.xAxis.data).toEqual(['2026-01-30', '2026-01-31 (Incomplete)']);
           expect(options.xAxis.axisLabel).toMatchObject({ showMaxLabel: true, alignMaxLabel: 'right' });
+          expect(options.xAxis.axisLabel.formatter(options.xAxis.data.at(-1))).toBe('2026-01-31\nIncomplete');
           expect(options.series).toHaveLength(ROLLING_WINDOWS.length);
           expect(options.series.every((series: any) => series.data.length === 2)).toBe(true);
         }

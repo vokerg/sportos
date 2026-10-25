@@ -61,7 +61,10 @@ export function rollingDynamicsChartOptions(
     xAxis: {
       type: 'category',
       data: points.map((point) => point.date === today ? `${point.date} (Incomplete)` : point.date),
-      axisLabel: { hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right' },
+      axisLabel: {
+        hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
+        formatter: (value: string) => value.replace(' (Incomplete)', '\nIncomplete'),
+      },
     },
     yAxis: { type: 'value', name: unit },
     series: response.windows.map((window) => ({
@@ -96,7 +99,10 @@ export function scoreContributionChartOptions(response: RollingDynamicsResponse 
     xAxis: {
       type: 'category', boundaryGap: false,
       data: points.map((point) => point.date === today ? `${point.date} (Incomplete)` : point.date),
-      axisLabel: { hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right' },
+      axisLabel: {
+        hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
+        formatter: (value: string) => value.replace(' (Incomplete)', '\nIncomplete'),
+      },
     },
     yAxis: { type: 'value', name: 'pts/day', min: 0, splitLine: { lineStyle: { type: 'dashed' } } },
     series: contribution.categories.map((category) => ({

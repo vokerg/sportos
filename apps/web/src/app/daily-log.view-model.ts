@@ -67,7 +67,10 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
       type: 'category',
       data: chronological.map((row) => row.metric_date === today
         ? `${formatDate(row.metric_date)} (Incomplete)` : formatDate(row.metric_date)),
-      axisLabel: { hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right' },
+      axisLabel: {
+        hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
+        formatter: (value: string) => value.replace(' (Incomplete)', '\nIncomplete'),
+      },
     },
     yAxis: {
       type: 'value',

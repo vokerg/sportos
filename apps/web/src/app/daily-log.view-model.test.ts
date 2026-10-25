@@ -76,6 +76,7 @@ describe('daily log view model', () => {
         formatDate('2026-01-29'), formatDate('2026-01-30'), `${formatDate('2026-01-31')} (Incomplete)`,
       ]);
       expect(options.xAxis.axisLabel).toMatchObject({ showMaxLabel: true, alignMaxLabel: 'right' });
+      expect(options.xAxis.axisLabel.formatter(options.xAxis.data.at(-1))).toBe(`${formatDate('2026-01-31')}\nIncomplete`);
       expect(options.series.map((series: any) => series.data)).toEqual([[3, 2, 1], [30, 20, 10]]);
       expect(Array.isArray(options.yAxis)).toBe(false);
       expect(options.series.filter((series: any) => series.type === 'line').map((series: any) => series.name)).toEqual(['30d average']);
