@@ -248,8 +248,8 @@ export function scoreActivityWithRule(activity: ActivityFact, rule: ScoringRule,
       : rule.pointsMultiplier === 'completed_10k_blocks'
         ? `; ${multiplierEvaluation.value} completed 10 km block${multiplierEvaluation.value === 1 ? '' : 's'} × ${configuredPoints} = ${points}`
         : rule.pointsMultiplier === 'completed_1k_blocks'
-        ? `; ${multiplierEvaluation.value} completed km × ${configuredPoints} = ${points}`
-        : `; +${points}`;
+          ? `; ${multiplierEvaluation.value} completed km × ${configuredPoints} = ${points}`
+          : `; +${points}`;
     return {
       metricDate,
       activityId: activity.id,
