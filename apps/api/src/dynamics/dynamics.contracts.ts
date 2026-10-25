@@ -6,7 +6,7 @@ export type DynamicsGranularity = 'daily' | 'weekly' | 'monthly';
 export type DistanceMetric = 'run' | 'bike' | 'swim';
 export const ROLLING_WINDOWS = [7, 20, 30, 60, 365] as const;
 export type RollingWindow = typeof ROLLING_WINDOWS[number];
-export const SCORE_CONTRIBUTION_CATEGORIES = ['steps', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'bonus'] as const;
+export const SCORE_CONTRIBUTION_CATEGORIES = ['steps', 'run', 'bike', 'swim', 'workout', 'rowing', 'sup', 'hiit', 'bonus', 'unattributed'] as const;
 export type ScoreContributionCategory = typeof SCORE_CONTRIBUTION_CATEGORIES[number];
 
 export interface DynamicsQuery {

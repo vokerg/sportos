@@ -1,12 +1,23 @@
+import { runLaps, type LapSource } from '../model/run-laps.models';
 import type { ActivityTimeline, TimelineSource } from '../model/activity-timeline.models';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, OnDestroy, signal } from '@angular/core';
+import { Injectable, OnDestroy, computed, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ActivitiesApiService, type ActivityDetail, type ActivityMapAvailable, type ActivityMapResponse, type ActivityProviderDetailResponse, type EnrichmentStatus, type GarminDetail, type SwimLengthResponse } from '../activities-api.service';
 type LoadState = 'idle' | 'loading' | 'loaded' | 'missing' | 'error';
 
 @Injectable()
 export class ActivityDetailStore implements OnDestroy {
+  readonly runLapSource = signal<LapSource>('strava');
+  readonly runLapState = computed(() => this.runLapSource() === 'strava'
+    ? this.activity() && !this.activity()?.providerDetail ? 'missing' : this.providerState()
+    : this.garminState());
+  readonly runLapData = computed(() => runLaps(this.runLapSource(), this.providerDetail(), this.garmin()));
+  loadRunLaps(source: LapSource = this.runLapSource()) {
+    if (this.activity()?.activity_type !== 'run') return;
+    this.runLapSource.set(source);
+    if (source === 'strava') this.strava(); else this.garminDetail();
+  }
   readonly timelineState = signal<'idle'|'loading'|'loaded'|'error'>('idle');
   readonly timelineSource = signal<TimelineSource>('strava');
   readonly timelineData = signal<ActivityTimeline|null>(null);
@@ -33,7 +44,7 @@ export class ActivityDetailStore implements OnDestroy {
   ngOnDestroy() { this.cancel(); }
   private cancel() { this.generation++; for (const request of this.requests.values()) request.unsubscribe(); this.requests.clear(); }
   load(id: string, options: { coverage?: boolean } = {}) {
-    this.cancel(); this.swimLengthState.set('idle'); this.swimLengths.set(null); this.timelineRequest++; this.timelineState.set('idle'); this.timelineData.set(null); this.timelineSource.set('strava'); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false); this.distanceCorrectionState.set('idle'); this.distanceCorrectionError.set('');
+    this.cancel(); this.runLapSource.set('strava'); this.swimLengthState.set('idle'); this.swimLengths.set(null); this.timelineRequest++; this.timelineState.set('idle'); this.timelineData.set(null); this.timelineSource.set('strava'); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false); this.distanceCorrectionState.set('idle'); this.distanceCorrectionError.set('');
     this.sourceState.set('idle'); this.sourceJson.set(null); this.providerState.set('idle'); this.providerDetail.set(null); this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerError.set('');
     this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
     const generation = this.generation;

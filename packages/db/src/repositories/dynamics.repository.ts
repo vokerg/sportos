@@ -14,11 +14,18 @@ export interface DynamicsDailyRow {
 
 export interface ScoreContributionRow {
   metricDate: string;
-  activityType: ActivitiesTable['activity_type'];
+  activityType: ScoreContributionActivityType;
   points: number;
 }
 
-const IMPORTED_SCORE_COLUMNS: Record<string, ActivitiesTable['activity_type']> = {
+export type ScoreContributionActivityType = Exclude<ActivitiesTable['activity_type'], 'walk'> | 'unattributed';
+
+export interface ScoreContributionOptions {
+  /** Keep an otherwise inspectable imported total available to summary views. */
+  importedFallback?: 'unattributed';
+}
+
+const IMPORTED_SCORE_COLUMNS: Record<string, Exclude<ActivitiesTable['activity_type'], 'walk'>> = {
   steps: 'steps',
   run_to_s: 'run',
   bike_to_s: 'bike',
@@ -62,7 +69,11 @@ export class DynamicsRepository {
     }));
   }
 
-  async listScoreContributions(from: string, to: string): Promise<ScoreContributionRow[]> {
+  async listScoreContributions(
+    from: string,
+    to: string,
+    options: ScoreContributionOptions = {},
+  ): Promise<ScoreContributionRow[]> {
     const rows = await this.db
       .selectFrom('score_ledger as sl')
       .leftJoin('scoring_rules as sr', 'sr.id', 'sl.rule_id')
@@ -91,9 +102,17 @@ export class DynamicsRepository {
       const metricDate = isoDate(row.metricDate);
       const activityType = scoreContributionActivityType(row.ruleKind, row.ruleActivityType, row.activityType);
       const points = numeric(row.points);
-      const contributions = activityType
-        ? [{ metricDate, activityType, points }]
-        : importedScoreContributionRows(metricDate, points, row.sourceRaw);
+      let contributions: ScoreContributionRow[];
+      if (activityType) {
+        contributions = [{ metricDate, activityType, points }];
+      } else {
+        try {
+          contributions = importedScoreContributionRows(metricDate, points, row.sourceRaw);
+        } catch (error) {
+          if (options.importedFallback !== 'unattributed' || !(error instanceof TypeError)) throw error;
+          contributions = [{ metricDate, activityType: 'unattributed', points }];
+        }
+      }
       for (const contribution of contributions) {
         const key = `${metricDate}:${contribution.activityType}`;
         const existing = totals.get(key);
@@ -109,8 +128,10 @@ export function scoreContributionActivityType(
   ruleKind: 'coefficient' | 'achievement' | 'manual_points' | null,
   ruleActivityType: ActivitiesTable['activity_type'] | null,
   activityType: ActivitiesTable['activity_type'] | null,
-): ActivitiesTable['activity_type'] | null {
-  return ruleKind === 'achievement' ? 'bonus' : ruleActivityType ?? activityType;
+): ScoreContributionActivityType | null {
+  const selected = ruleKind === 'achievement' ? 'bonus' : ruleActivityType ?? activityType;
+  if (selected === null) return null;
+  return selected === 'walk' ? 'unattributed' : selected;
 }
 
 export function importedScoreContributionRows(metricDate: string, ledgerPoints: number, sourceRaw: Json | null): ScoreContributionRow[] {
@@ -123,7 +144,7 @@ export function importedScoreContributionRows(metricDate: string, ledgerPoints: 
     throw new TypeError(`Imported score ledger for ${metricDate} has no retained workbook cells.`);
   }
 
-  const totals = new Map<ActivitiesTable['activity_type'], number>();
+  const totals = new Map<Exclude<ActivitiesTable['activity_type'], 'walk'>, number>();
   headers.forEach((header, index) => {
     const activityType = IMPORTED_SCORE_COLUMNS[workbookKey(header)];
     if (!activityType) return;

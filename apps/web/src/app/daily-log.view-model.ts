@@ -1,5 +1,5 @@
 import type { EChartsCoreOption } from 'echarts/core';
-import type { DailySummaryRow } from './features/daily/model/daily.models';
+import type { DailyScoreContributionCategory, DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
 import { boundedAllTimeRange, localCalendarDate, QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './shared/util/analytics-query-state';
 
@@ -42,21 +42,99 @@ export function relativePastelBackground(
 
 export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsCoreOption {
   const chronological = completedChartRows(rows).reverse();
+  const compositions = chronological.map(dailyScoreComposition);
+  const visibleComponents = DAILY_SCORE_COMPONENTS.filter((component) =>
+    compositions.some((composition) => composition[component.key] !== 0),
+  );
+  const hasNegativeContribution = compositions.some((composition) =>
+    DAILY_SCORE_COMPONENTS.some((component) => composition[component.key] < 0),
+  );
   return {
-    tooltip: { trigger: 'axis' },
-    legend: { bottom: 0 },
-    grid: { left: 45, right: 20, top: 20, bottom: 55 },
+    animation: false,
+    color: [...visibleComponents.map((component) => component.color), '#dc5b62'],
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'none' },
+      valueFormatter: (value: unknown) => {
+        const points = Number(value);
+        return Number.isFinite(points) ? `${points.toLocaleString(undefined, { maximumFractionDigits: 1 })} pts` : '—';
+      },
+    },
+    legend: { type: 'scroll', bottom: 0 },
+    grid: { left: 66, right: 24, top: 38, bottom: 72, containLabel: true },
     xAxis: {
       type: 'category',
       data: chronological.map((row) => formatDate(row.metric_date)),
       axisLabel: { hideOverlap: true },
     },
-    yAxis: { type: 'value' },
+    yAxis: {
+      type: 'value',
+      name: 'Points',
+      min: hasNegativeContribution ? undefined : 0,
+      nameLocation: 'middle',
+      nameGap: 48,
+    },
     series: [
-      { name: 'Total points', type: 'bar', cursor: 'pointer', data: chronological.map((row) => row.total_points) },
-      { name: '30d average', type: 'line', data: chronological.map((row) => Math.round(row.avg_30d ?? 0)) },
+      ...visibleComponents.map((component) => ({
+        name: component.label,
+        type: 'bar' as const,
+        stack: 'daily-total',
+        cursor: 'pointer',
+        yAxisIndex: 0,
+        barMaxWidth: 24,
+        itemStyle: { color: component.color },
+        emphasis: { focus: 'none' },
+        data: compositions.map((composition) => composition[component.key]),
+      })),
+      {
+        name: '30d average',
+        type: 'line',
+        yAxisIndex: 0,
+        showSymbol: false,
+        lineStyle: { width: 2, color: '#dc5b62' },
+        itemStyle: { color: '#dc5b62' },
+        data: chronological.map((row) => Math.round(row.avg_30d ?? 0)),
+      },
     ],
   };
+}
+
+const DAILY_SCORE_COMPONENTS: ReadonlyArray<{
+  key: DailyScoreContributionCategory;
+  label: string;
+  color: string;
+}> = [
+  { key: 'steps', label: 'Steps', color: '#60a5fa' },
+  { key: 'run', label: 'Run', color: '#2563eb' },
+  { key: 'bike', label: 'Bike', color: '#1e3a8a' },
+  { key: 'swim', label: 'Swim', color: '#93c5fd' },
+  { key: 'workout', label: 'Workout', color: '#547bb5' },
+  { key: 'rowing', label: 'Rowing', color: '#3b82f6' },
+  { key: 'sup', label: 'SUP', color: '#bfdbfe' },
+  { key: 'hiit', label: 'HIIT', color: '#43618d' },
+  { key: 'bonus', label: 'Bonus', color: '#a9bfdf' },
+  { key: 'unattributed', label: 'Unattributed', color: '#94a3b8' },
+];
+
+function dailyScoreComposition(row: DailySummaryRow): Record<DailyScoreContributionCategory, number> {
+  const composition = Object.fromEntries(
+    DAILY_SCORE_COMPONENTS.map((component) => [component.key, 0]),
+  ) as Record<DailyScoreContributionCategory, number>;
+  for (const [rawCategory, rawPoints] of Object.entries(row.score_contributions ?? {})) {
+    const points = Number(rawPoints);
+    if (!Number.isFinite(points)) continue;
+    const category = isDailyScoreContributionCategory(rawCategory) ? rawCategory : 'unattributed';
+    composition[category] += points;
+  }
+
+  const attributedTotal = DAILY_SCORE_COMPONENTS.reduce((sum, component) => sum + composition[component.key], 0);
+  const officialTotal = Number(row.total_points);
+  if (Number.isFinite(officialTotal)) composition.unattributed += officialTotal - attributedTotal;
+  return composition;
+}
+
+function isDailyScoreContributionCategory(value: string): value is DailyScoreContributionCategory {
+  return DAILY_SCORE_COMPONENTS.some((component) => component.key === value);
 }
 
 export function dailyLogRowAtChartIndex(

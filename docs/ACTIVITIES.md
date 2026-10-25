@@ -653,3 +653,23 @@ If the affected date is `calculated`, the correction and replacement daily snaps
 committed in one owner transaction with trigger `activity_distance_correction`. `manual` and
 `imported` daily rows retain their existing authority and are not silently rewritten; they can
 still be changed through their explicit authority workflows. Reset follows the same rules.
+
+## Running lap inspection (#175)
+
+Run detail includes **Run laps**, with explicit Strava/Garmin source controls and
+Load/Reload. It reads existing owner-scoped retained-detail endpoints only; page
+navigation never loads lap resources or downloads provider data. Fetch missing
+resources with the existing provider controls first.
+
+The view preserves recorded lap order and distance, including short/recovery
+laps, and shows split time, time basis, elapsed time, derived pace per kilometre
+and average heart rate. Pace and heart rate use separate synchronized chart axes
+with shared zoom. Pace uses each lap's moving time (Strava) or timer time (Garmin),
+falling back to explicitly labelled elapsed time only when absent. Zero distance
+or zero duration has no pace; missing/invalid metrics stay gaps. Native Garmin
+fields require recognized units and exclude developer/conflicting fields.
+
+Strava display is capped at 1,000 laps; Garmin overview is capped at 100 and does
+not claim verified completeness. Reaching either bound displays a warning.
+Provider lap distances stay independent of corrected canonical distances; no
+splits are reconstructed and no activity, score or source records are changed.

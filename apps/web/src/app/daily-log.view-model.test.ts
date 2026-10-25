@@ -74,6 +74,9 @@ describe('daily log view model', () => {
       const options = dailyLogChartOptions(rows) as Record<string, any>;
       expect(options.xAxis.data).toEqual(['2026-01-29', '2026-01-30'].map((date) => formatDate(date)));
       expect(options.series.map((series: any) => series.data)).toEqual([[3, 2], [30, 20]]);
+      expect(Array.isArray(options.yAxis)).toBe(false);
+      expect(options.series.filter((series: any) => series.type === 'line').map((series: any) => series.name)).toEqual(['30d average']);
+      expect(options.series.every((series: any) => series.yAxisIndex === 0)).toBe(true);
       expect(dailyLogRowAtChartIndex(rows, 0)?.metric_date).toBe('2026-01-29');
       expect(dailyLogRowAtChartIndex(rows, 1)?.metric_date).toBe('2026-01-30');
       expect(dailyLogRowAtChartIndex(rows, 2)).toBeUndefined();

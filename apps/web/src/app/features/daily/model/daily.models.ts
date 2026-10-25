@@ -4,8 +4,12 @@ export interface DateRangeQuery {
   limit?: number;
 }
 
+export type DailyScoreContributionCategory =
+  | 'steps' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit' | 'bonus' | 'unattributed';
+
 export interface DailySummaryRow {
   providerSources?: { strava: boolean; garmin: boolean };
+  score_contributions?: Partial<Record<DailyScoreContributionCategory, number>>;
   metric_date: string;
   steps: number;
   run_m: number;
