@@ -15,7 +15,7 @@ import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-
       [options]="chartOptions()"
       (chartClick)="handleChartClick($event)"
       role="img"
-      aria-label="Stacked daily score contributions with total points and a 30 day average on a separate scale. Select a bar to open that day.">
+      aria-label="Stacked daily score contributions and a 30 day average on the same points scale. Select a bar to open that day.">
     </div>
   `,
   styles: [`

@@ -51,7 +51,7 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
   );
   return {
     animation: false,
-    color: [...visibleComponents.map((component) => component.color), '#475569', '#84cc16'],
+    color: [...visibleComponents.map((component) => component.color), '#84cc16'],
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
@@ -61,30 +61,19 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
       },
     },
     legend: { type: 'scroll', bottom: 0 },
-    grid: { left: 66, right: 72, top: 38, bottom: 72, containLabel: true },
+    grid: { left: 66, right: 24, top: 38, bottom: 72, containLabel: true },
     xAxis: {
       type: 'category',
       data: chronological.map((row) => formatDate(row.metric_date)),
       axisLabel: { hideOverlap: true },
     },
-    yAxis: [
-      {
-        type: 'value',
-        name: 'Daily total (points)',
-        min: hasNegativeContribution ? undefined : 0,
-        nameLocation: 'middle',
-        nameGap: 48,
-      },
-      {
-        type: 'value',
-        name: '30d average (points)',
-        min: 0,
-        position: 'right',
-        nameLocation: 'middle',
-        nameGap: 48,
-        splitLine: { show: false },
-      },
-    ],
+    yAxis: {
+      type: 'value',
+      name: 'Points',
+      min: hasNegativeContribution ? undefined : 0,
+      nameLocation: 'middle',
+      nameGap: 48,
+    },
     series: [
       ...visibleComponents.map((component) => ({
         name: component.label,
@@ -98,19 +87,12 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
         data: compositions.map((composition) => composition[component.key]),
       })),
       {
-        name: 'Total points',
+        name: '30d average',
         type: 'line',
         yAxisIndex: 0,
         showSymbol: false,
-        lineStyle: { width: 1.5, type: 'dashed' },
-        data: chronological.map((row) => row.total_points),
-      },
-      {
-        name: '30d average',
-        type: 'line',
-        yAxisIndex: 1,
-        showSymbol: false,
-        lineStyle: { width: 2 },
+        lineStyle: { width: 2, color: '#84cc16' },
+        itemStyle: { color: '#84cc16' },
         data: chronological.map((row) => Math.round(row.avg_30d ?? 0)),
       },
     ],

@@ -62,7 +62,7 @@ shares its axis with daily totals up to about 70,000, while Dynamics shows the
 average on a 0–40,000 scale. Their calculations also differ when dates are
 missing: Daily Log's stored `avg_30d` averages the last 30 persisted rows;
 Dynamics averages across 30 calendar dates. Preserve those existing values,
-give the Daily Log average its own labeled axis, and increase chart height
+use one shared points axis for bars and average, and increase chart height
 slightly. Stack the official score-ledger contributions in each daily bar and
 place unsupported or unreconciled points in an `Unattributed` segment so the
 components sum to the official daily total. This is presentation-only; no score,
@@ -71,12 +71,23 @@ source, or stored daily average data changes.
 Implementation review: the Daily Summary now returns owner-scoped ledger totals
 per date. Unsupported activity types and imported rows that cannot be decomposed
 remain visible as `Unattributed`; any difference from the official total is
-added to that segment. The chart stacks only nonzero components, retains a
-separate total line, uses distinct left/right point scales, is slightly taller,
-and has animation disabled. The contribution category contract also carries
+added to that segment. The chart stacks only nonzero components, uses one shared points scale for
+bars and the average, is slightly taller, and has animation disabled. The
+initial separate average axis made the average appear above larger daily
+totals, so it was removed after visual feedback, along with the redundant
+line connecting bar tops. The contribution category contract also carries
 `Unattributed` through Dynamics. Existing average values and date-window rules
 are unchanged.
 
 Validation for this follow-up: web, API, database and shared-package typechecks,
 the web production build, and `git diff --check` passed. Focused Vitest tests and
 live browser verification were not run for this follow-up.
+
+Shared-axis correction: re-inspected the Daily Log chart view model, its tests,
+trend component, page help and this implementation note. Bars and the sole
+average line now share axis 0; the total-points connector series is removed.
+The average has an explicit contrasting color. Existing chart tests check that
+there is one points axis and exactly one line series.
+Validation for the shared-axis correction: all six Daily Log view-model tests,
+web typecheck, production build and whitespace checks passed. Live browser
+verification was not run.
