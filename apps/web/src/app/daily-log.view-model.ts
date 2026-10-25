@@ -107,12 +107,12 @@ const DAILY_SCORE_COMPONENTS: ReadonlyArray<{
   { key: 'steps', label: 'Steps', color: '#60a5fa' },
   { key: 'run', label: 'Run', color: '#2563eb' },
   { key: 'bike', label: 'Bike', color: '#1e3a8a' },
-  { key: 'swim', label: 'Swim', color: '#7dd3fc' },
-  { key: 'workout', label: 'Workout', color: '#8b5cf6' },
-  { key: 'rowing', label: 'Rowing', color: '#14b8a6' },
-  { key: 'sup', label: 'SUP', color: '#22c55e' },
-  { key: 'hiit', label: 'HIIT', color: '#f97316' },
-  { key: 'bonus', label: 'Bonus', color: '#ec4899' },
+  { key: 'swim', label: 'Swim', color: '#93c5fd' },
+  { key: 'workout', label: 'Workout', color: '#547bb5' },
+  { key: 'rowing', label: 'Rowing', color: '#3b82f6' },
+  { key: 'sup', label: 'SUP', color: '#bfdbfe' },
+  { key: 'hiit', label: 'HIIT', color: '#43618d' },
+  { key: 'bonus', label: 'Bonus', color: '#a9bfdf' },
   { key: 'unattributed', label: 'Unattributed', color: '#94a3b8' },
 ];
 

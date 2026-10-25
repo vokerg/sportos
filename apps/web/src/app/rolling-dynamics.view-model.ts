@@ -38,7 +38,7 @@ export const SCORE_CONTRIBUTION_LABELS: Record<ScoreContributionCategory, string
 };
 
 const SCORE_CONTRIBUTION_COLORS: Record<ScoreContributionCategory, string> = {
-  steps: '#60a5fa', run: '#2563eb', bike: '#1e3a8a', swim: '#7dd3fc', workout: '#8b5cf6', rowing: '#14b8a6', sup: '#22c55e', hiit: '#f97316', bonus: '#ec4899', unattributed: '#94a3b8',
+  steps: '#60a5fa', run: '#2563eb', bike: '#1e3a8a', swim: '#93c5fd', workout: '#547bb5', rowing: '#3b82f6', sup: '#bfdbfe', hiit: '#43618d', bonus: '#a9bfdf', unattributed: '#94a3b8',
 };
 
 export function rollingDynamicsChartOptions(

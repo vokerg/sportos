@@ -91,3 +91,11 @@ there is one points axis and exactly one line series.
 Validation for the shared-axis correction: all six Daily Log view-model tests,
 web typecheck, production build and whitespace checks passed. Live browser
 verification was not run.
+
+Palette follow-up: inspected Daily Log and Rolling Dynamics contribution chart
+view models, their existing tests and the current PR description. Use matching
+blue shades for every score contribution, including workout, HIIT and bonus;
+keep Unattributed neutral and the average line distinct. No category, value or
+chart interaction changes are required.
+Palette validation: all 12 existing Daily Log/Rolling Dynamics view-model tests,
+web typecheck and whitespace checks passed. No new tests were added for colors.
