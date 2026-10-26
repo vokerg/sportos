@@ -37,7 +37,8 @@ pnpm install --no-frozen-lockfile
 pnpm test
 pnpm typecheck
 pnpm dlx expo-doctor@latest
-pnpm ios
+pnpm ios             # Expo Go smoke check (does not test native prebuild)
+pnpm exec expo run:ios  # Actual SDK 57/Xcode local native build + launch
 ```
 
 The nested workspace creates a local lockfile which is ignored because this
@@ -46,7 +47,7 @@ root workspace lockfile and verify `pnpm install --frozen-lockfile`.
 
 Expected interactive checks:
 
-1. iOS simulator launches a screen explicitly labelled a fixture.
+1. iOS simulator launches a screen explicitly labelled a fixture from the local `expo run:ios` development build. Check UIKit scene lifecycle on Xcode 27.
 2. Tap **Load synthetic activities**; it displays two non-private records and
    a conspicuous `SOURCE: FIXTURE ONLY` label.
 3. Tap **Test anonymous denial**; no activity remains visible and the expected
