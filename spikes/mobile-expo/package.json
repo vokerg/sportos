@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "expo": "~57.0.17",
+    "expo": "~57.0.23",
+    "expo-build-properties": "~57.0.20",
     "react": "19.2.3",
     "react-native": "0.86.3"
   },
