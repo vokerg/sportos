@@ -13,7 +13,7 @@ Angular/Render/Vercel workflows or root TypeScript project references.
 
 ## What it demonstrates
 
-- A React Native/Expo entrypoint, system light/dark colors, accessible native
+- A React Native/Expo entrypoint, safe-area context, system light/dark colors, accessible native
   controls, synthetic activity cards and simple native metric bars.
 - A small explicit `fixtureSession`-gated **mock read** returning a synthetic run
   and pool swim; anonymous/other-owner requests fail and read results are copied.
