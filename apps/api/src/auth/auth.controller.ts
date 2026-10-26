@@ -63,6 +63,32 @@ export class AuthController {
     return { account: result.session.account, expiresAt: result.session.expiresAt };
   }
 
+
+  @Post('mobile/start')
+  @PublicRoute()
+  startMobile(
+    @Body() input: unknown,
+    @Headers('origin') origin: string | undefined,
+  ) {
+    return this.auth.startMobileSignIn(input, origin);
+  }
+
+  @Post('mobile/approve')
+  approveMobile(@Body() input: unknown, @Req() request: AuthenticatedRequest) {
+    if (!request.authSession) throw new Error('Missing authenticated session.');
+    return this.auth.approveMobileSignIn(input, request.authSession, request.authTransport);
+  }
+
+  @Post('mobile/exchange')
+  @PublicRoute()
+  exchangeMobile(
+    @Body() input: unknown,
+    @Headers('origin') origin: string | undefined,
+    @Headers('user-agent') userAgent: string | undefined,
+  ) {
+    return this.auth.exchangeMobileSignIn(input, origin, userAgent);
+  }
+
   @Get('session')
   session(@Req() request: AuthenticatedRequest) {
     return {
@@ -78,7 +104,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: ResponseLike,
   ) {
     if (request.authSession && !this.auth.isDevelopmentMode()) await this.auth.revokeSession(request.authSession.id);
-    response.setHeader('Set-Cookie', this.auth.clearCookieHeaders());
+    if (request.authTransport !== 'bearer') response.setHeader('Set-Cookie', this.auth.clearCookieHeaders());
     return { signedOut: true };
   }
 }
