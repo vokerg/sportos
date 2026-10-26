@@ -7,6 +7,12 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "plugins": [
+      [
+        "expo-build-properties",
+        { "ios": { "enableSceneSupport": true } }
+      ]
+    ],
     "ios": {
       "supportsTablet": false
     }
