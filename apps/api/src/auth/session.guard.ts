@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from './auth.service.js';
-import type { AuthenticatedRequest } from './auth.models.js';
+import type { AuthenticatedRequest, AuthenticatedSession } from './auth.models.js';
 import { PUBLIC_ROUTE_KEY } from './public.decorator.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
