@@ -26,13 +26,17 @@ in `apps/mobile`. The real `GET /activities` requires a server session;
 
 ## Local Codex validation (deferred to epic verification)
 
-Requires macOS with the active Xcode and iOS Simulator, Node 22.22.0 and pnpm 9.12.0.
+Requires macOS with Xcode 26.4+ and iOS Simulator, Node 22.22.0 and
+pnpm 9.12.0. SDK 57's Xcode 27 compatibility requires `expo@57.0.23+`
+and `expo-build-properties@57.0.20+` with scene support enabled in `app.json`.
+See [Expo scene lifecycle guidance](https://github.com/expo/fyi/blob/main/ios-scene-lifecycle.md).
 
 ```sh
 cd spikes/mobile-expo
 pnpm install --no-frozen-lockfile
 pnpm test
 pnpm typecheck
+pnpm dlx expo-doctor@latest
 pnpm ios
 ```
 
