@@ -2,6 +2,11 @@ import type { Routes } from '@angular/router';
 
 export const APP_ROUTES: Routes = [
   {
+    path: 'mobile-connect',
+    loadComponent: () => import('./mobile-connect.component').then((module) => module.MobileConnectComponent),
+    title: 'Connect iPhone · SportOS',
+  },
+  {
     path: 'overview',
     loadComponent: () => import('./overview-page.component').then((module) => module.OverviewPageComponent),
     title: 'Overview · SportOS',
