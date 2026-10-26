@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   useColorScheme,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { fixtureSession, readFixtureActivities } from './src/fixture-api.js';
 
 type FixtureResult = Awaited<ReturnType<typeof readFixtureActivities>>;
@@ -37,7 +37,8 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
+    <SafeAreaProvider>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.eyebrow, { color: colors.accent }]}>SPORTOS · iOS SPIKE #186</Text>
         <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>
@@ -118,7 +119,8 @@ export default function App() {
           verification is deferred to local Codex.
         </Text>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
