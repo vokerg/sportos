@@ -106,6 +106,43 @@ describe('MobileApiClient', () => {
     expect(get()).toBeNull();
   });
 
+  it('revokes a stored session even before the app has restored it', async () => {
+    const { store, set, get } = fixture();
+    set(token);
+    const fetcher = vi.fn(async (_url: string, opts: RequestInit) => {
+      expect(opts.headers).toHaveProperty('Authorization', `Bearer ${token}`);
+      return json({ signedOut: true });
+    });
+    const api = new MobileApiClient('https://api.example', store, fetcher as unknown as typeof fetch);
+    expect(await api.signOut()).toBe('revoked');
+    expect(get()).toBeNull();
+  });
+
+  it('never resurrects a Keychain token if sign-out races with code exchange', async () => {
+    const { store, get } = fixture();
+    let releaseWrite!: () => void;
+    let reachedWrite!: () => void;
+    const blockedWrite = new Promise<void>((resolve) => { releaseWrite = resolve; });
+    const writing = new Promise<void>((resolve) => { reachedWrite = resolve; });
+    const initialWrite = store.write;
+    store.write = async (newToken) => {
+      reachedWrite();
+      await blockedWrite;
+      await initialWrite(newToken);
+    };
+    const fetcher = vi.fn(async () => json({ ...session, token }));
+    const api = new MobileApiClient('https://api.example', store, fetcher as unknown as typeof fetch);
+    const completion = api.finishSignIn(
+      'sportos://auth/callback?code=' + 'c'.repeat(43) + '&state=' + 's'.repeat(43),
+      's'.repeat(43), 'v'.repeat(64),
+    );
+    await writing;
+    expect(await api.signOut()).toBe('local-only');
+    releaseWrite();
+    await expect(completion).rejects.toMatchObject({ kind: 'unauthorized' });
+    expect(get()).toBeNull();
+  });
+
   it('does not leak raw API errors into the UI', async () => {
     const { store, set } = fixture();
     set(token);
