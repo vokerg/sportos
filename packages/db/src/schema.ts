@@ -47,6 +47,17 @@ export interface AuthSessionsTable {
   created_at: GeneratedTimestamp;
 }
 
+export interface MobileAuthRequestsTable {
+  request_hash: string;
+  code_challenge: string;
+  state: string;
+  approved_account_id: string | null;
+  code_hash: string | null;
+  approved_at: Timestamp | null;
+  expires_at: Timestamp;
+  created_at: GeneratedTimestamp;
+}
+
 export interface AuthTransactionsTable {
   state_hash: string;
   code_verifier: string;
@@ -474,6 +485,7 @@ export interface Database {
   external_identities: ExternalIdentitiesTable;
   auth_sessions: AuthSessionsTable;
   auth_transactions: AuthTransactionsTable;
+  mobile_auth_requests: MobileAuthRequestsTable;
   uploaded_files: UploadedFilesTable;
   import_batches: ImportBatchesTable;
   import_jobs: ImportJobsTable;

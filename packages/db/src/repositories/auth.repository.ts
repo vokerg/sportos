@@ -69,6 +69,53 @@ export class AuthRepository {
     });
   }
 
+
+  // Control-plane table: only sportos_app can read/write; the mobile requester
+  // cannot select an owner. Browser approval supplies the verified account.
+  async createMobileAuthRequest(input: {
+    requestHash: string; codeChallenge: string; state: string; expiresAt: Date;
+  }): Promise<void> {
+    await this.db.deleteFrom('mobile_auth_requests').where('expires_at', '<=', new Date()).execute();
+    await this.db.insertInto('mobile_auth_requests').values({
+      request_hash: input.requestHash,
+      code_challenge: input.codeChallenge,
+      state: input.state,
+      approved_account_id: null,
+      code_hash: null,
+      approved_at: null,
+      expires_at: input.expiresAt,
+    }).execute();
+  }
+
+  async approveMobileAuthRequest(input: {
+    requestHash: string; accountId: string; codeHash: string;
+  }): Promise<string | null> {
+    const row = await this.db.updateTable('mobile_auth_requests').set({
+      approved_account_id: input.accountId,
+      code_hash: input.codeHash,
+      approved_at: new Date(),
+    }).where('request_hash', '=', input.requestHash)
+      .where('approved_at', 'is', null)
+      .where('expires_at', '>', new Date())
+      .returning('state').executeTakeFirst();
+    return row?.state ?? null;
+  }
+
+  async consumeMobileAuthRequest(input: {
+    codeHash: string; state: string; codeChallenge: string;
+  }): Promise<string | null> {
+    // A single atomic DELETE prevents concurrent exchanges or replay. A wrong
+    // PKCE verifier cannot claim the code even if a custom URL was intercepted.
+    const row = await this.db.deleteFrom('mobile_auth_requests')
+      .where('code_hash', '=', input.codeHash)
+      .where('state', '=', input.state)
+      .where('code_challenge', '=', input.codeChallenge)
+      .where('approved_account_id', 'is not', null)
+      .where('expires_at', '>', new Date())
+      .returning('approved_account_id').executeTakeFirst();
+    return row?.approved_account_id ?? null;
+  }
+
   async provisionExternalIdentity(input: ExternalIdentityInput): Promise<Account> {
     return this.db.transaction().execute(async (transaction) => {
       await sql`select pg_advisory_xact_lock(${IDENTITY_PROVISION_LOCK})`.execute(transaction);
