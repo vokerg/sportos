@@ -52,7 +52,7 @@ The isolated `spikes/mobile-expo` prototype mounts a native React Native screen 
 
 ## Local Codex handoff (run at epic verification, not claimed now)
 
-1. On macOS with Node 22.22.0, pnpm 9.12.0, current Xcode and iOS Simulator: `cd spikes/mobile-expo && pnpm install --no-frozen-lockfile && pnpm exec expo start --ios`. The fixture should render, load a simulated authorized activity summary, reject anonymous access and show the fixture label. No signing identity required for simulator.
+1. On macOS with Node 22.22.0, pnpm 9.12.0, current Xcode and iOS Simulator: `cd spikes/mobile-expo && pnpm install --no-frozen-lockfile && pnpm exec expo run:ios` (actual local iOS build and launch; `expo start --ios` / Expo Go alone does **not** prove prebuild/Xcode compatibility). The fixture should render, load a simulated authorized activity summary, reject anonymous access and show the fixture label. No signing identity required for simulator.
 2. Run `pnpm dlx expo-doctor@latest` and `pnpm typecheck` within the spike; investigate Expo SDK/React Native version compatibility and Metro resolution. This directory is intentionally not installed by root `pnpm install`.
 3. For #188, generate/update root `pnpm-lock.yaml` atomically with the new `apps/mobile/package.json`. Prove frozen install and no Angular/API build effect. Native development-build checks require Mac toolchain; real device and TestFlight signing remain human-controlled (#195).
 4. For #187, use **test/fixture accounts**, not private production tokens/data; verify native HTTPS API requests, login handoff, expiry, revocation, error and cross-account cases. Do not borrow a browser session manually as a product strategy.
