@@ -61,6 +61,50 @@ describe('SessionGuard', () => {
     await expect(new SessionGuard(reflector, auth).canActivate(context(req))).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('authorizes only explicit mobile bearer tokens and does not require ambient CSRF', async () => {
+    const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
+    const auth = {
+      isDevelopmentMode: vi.fn().mockReturnValue(false),
+      authenticate: vi.fn().mockResolvedValue(session),
+      verifyCsrf: vi.fn(),
+    } as unknown as AuthService;
+    const req = request('POST');
+    req.headers.authorization = 'Bearer smo_' + 'A'.repeat(64);
+    await expect(new SessionGuard(reflector, auth).canActivate(context(req))).resolves.toBe(true);
+    expect(req.authTransport).toBe('bearer');
+    expect(req.account).toEqual(session.account);
+    expect(auth.authenticate).toHaveBeenCalledWith('smo_' + 'A'.repeat(64), 'mobile');
+    expect(auth.verifyCsrf).not.toHaveBeenCalled();
+  });
+
+  it('fails closed for malformed bearer, browser-token substitution, and mixed cookie+bearer credentials', async () => {
+    const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
+    const auth = {
+      isDevelopmentMode: vi.fn().mockReturnValue(false), authenticate: vi.fn(),
+    } as unknown as AuthService;
+    for (const authorization of ['Bearer browser-token', 'Basic abc', 'Bearer smo_bad', 'Bearer smo_' + 'A'.repeat(64) + ', Bearer x']) {
+      const req = request('GET');
+      req.headers.authorization = authorization;
+      await expect(new SessionGuard(reflector, auth).canActivate(context(req))).rejects.toBeInstanceOf(UnauthorizedException);
+    }
+    const mixed = request('POST', 'sportos_session=cookie');
+    mixed.headers.authorization = 'Bearer smo_' + 'A'.repeat(64);
+    await expect(new SessionGuard(reflector, auth).canActivate(context(mixed))).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(auth.authenticate).not.toHaveBeenCalled();
+  });
+
+  it('refuses revoked or expired bearer sessions without falling back to a cookie', async () => {
+    const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
+    const auth = {
+      isDevelopmentMode: vi.fn().mockReturnValue(false),
+      authenticate: vi.fn().mockResolvedValue(null),
+    } as unknown as AuthService;
+    const req = request('DELETE');
+    req.headers.authorization = 'Bearer smo_' + 'A'.repeat(64);
+    await expect(new SessionGuard(reflector, auth).canActivate(context(req))).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(req.account).toBeUndefined();
+  });
+
   it('allows a mutation only when csrf validation succeeds', async () => {
     const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
     const auth = {

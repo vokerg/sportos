@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { ForbiddenException, HttpException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import {
   AuthRepository,
   ExternalIdentityClaimError,
@@ -239,9 +239,9 @@ export class AuthService {
 
   async approveMobileSignIn(input: unknown, session: AuthenticatedSession, transport: 'cookie' | 'bearer' | undefined) {
     if (transport !== 'cookie') throw new ForbiddenException('Browser confirmation is required.');
-    const value = strictObject(input, ['requestId']);
+    const value = strictObject(input, ['requestId'], true);
     if (!isRandomUrlToken(value.requestId, 43, 43)) {
-      throw new UnauthorizedException('Mobile sign-in is unavailable or expired.');
+      throw new BadRequestException('Mobile sign-in is unavailable or expired.');
     }
     const code = randomToken(32);
     const state = await this.repository.approveMobileAuthRequest({
@@ -249,7 +249,7 @@ export class AuthService {
       accountId: session.account.id,
       codeHash: sha256(code),
     });
-    if (!state) throw new UnauthorizedException('Mobile sign-in is unavailable or expired.');
+    if (!state) throw new BadRequestException('Mobile sign-in is unavailable or expired.');
     // Fixed app scheme; only one-time code + state enter the URL, never the bearer token.
     // #188 must register exactly this scheme in its Expo configuration.
     const url = new URL('sportos://auth/callback');
@@ -440,11 +440,12 @@ function boundedSeconds(value: string | undefined, fallback: number, minimum: nu
   return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
 }
 
-function strictObject(value: unknown, keys: string[]): Record<string, string> {
+function strictObject(value: unknown, keys: string[], browser = false): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)
     || Object.keys(value).length !== keys.length
     || Object.keys(value).some((key) => !keys.includes(key))
     || Object.values(value).some((field) => typeof field !== 'string')) {
+    if (browser) throw new BadRequestException('Invalid mobile sign-in request.');
     throw new UnauthorizedException('Invalid mobile sign-in request.');
   }
   return value as Record<string, string>;
