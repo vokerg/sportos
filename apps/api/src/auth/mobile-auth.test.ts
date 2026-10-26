@@ -83,6 +83,8 @@ describe('PKCE-approved mobile sign-in', () => {
     await expect(auth.exchangeMobileSignIn({ code: 'c'.repeat(43), state, codeVerifier: verifier, accountId: LEGACY_ACCOUNT_ID }, undefined)).rejects.toBeInstanceOf(UnauthorizedException);
     vi.mocked(AuthRepository.prototype.consumeMobileAuthRequest).mockResolvedValueOnce(null);
     await expect(auth.exchangeMobileSignIn({ code: 'c'.repeat(43), state, codeVerifier: verifier }, undefined)).rejects.toBeInstanceOf(UnauthorizedException);
+    vi.mocked(AuthRepository.prototype.consumeMobileAuthRequest).mockResolvedValueOnce('00000000-0000-4000-8000-000000000002');
+    await expect(auth.exchangeMobileSignIn({ code: 'c'.repeat(43), state, codeVerifier: verifier }, undefined)).rejects.toBeInstanceOf(UnauthorizedException);
     vi.mocked(AuthRepository.prototype.getAccount).mockResolvedValue(undefined);
     await expect(auth.exchangeMobileSignIn({ code: 'c'.repeat(43), state, codeVerifier: verifier }, undefined)).rejects.toBeInstanceOf(UnauthorizedException);
   });
