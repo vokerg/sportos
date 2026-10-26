@@ -271,6 +271,9 @@ export class AuthService {
       codeHash: sha256(code), state, codeChallenge,
     });
     if (!accountId) throw new UnauthorizedException('Mobile sign-in is invalid or expired.');
+    if (this.loginMode() === 'single-user' && accountId !== LEGACY_ACCOUNT_ID) {
+      throw new UnauthorizedException('Mobile sign-in is invalid or expired.');
+    }
     const account = await this.repository.getAccount(accountId);
     if (!account || account.status !== 'active') {
       throw new UnauthorizedException('Mobile sign-in is invalid or expired.');
