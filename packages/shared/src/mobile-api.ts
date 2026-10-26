@@ -45,6 +45,7 @@ export class MobileApiClient {
   private token: string | null = null;
   private readonly base: string;
   private readonly pending = new Set<AbortController>();
+  private generation = 0;
 
   constructor(
     baseUrl: string,
@@ -78,21 +79,29 @@ export class MobileApiClient {
       || !RANDOM_TOKEN.test(url.searchParams.get('code') ?? '')) {
       throw new MobileApiError('invalid');
     }
+    const generation = this.generation;
     const response = await this.request<{ token: string } & MobileSession>('/auth/mobile/exchange', {
       method: 'POST',
       body: { code: url.searchParams.get('code'), state: expectedState, codeVerifier },
       public: true,
     });
     if (!MOBILE_TOKEN.test(response.token)) throw new MobileApiError('invalid');
+    if (generation !== this.generation) throw new MobileApiError('unauthorized');
     // A new mobile token is persisted only in secure storage.
     await this.store.write(response.token);
+    if (generation !== this.generation) {
+      // Sign-out may have happened while Keychain persisted the new value.
+      await this.store.remove();
+      throw new MobileApiError('unauthorized');
+    }
     this.token = response.token;
     return { account: response.account, expiresAt: response.expiresAt, absoluteExpiresAt: response.absoluteExpiresAt };
   }
 
   async restore(): Promise<MobileSession | null> {
+    const generation = this.generation;
     const token = await this.store.read();
-    if (!token) return null;
+    if (generation !== this.generation || !token) return null;
     if (!MOBILE_TOKEN.test(token)) {
       await this.clear();
       return null;
@@ -116,10 +125,12 @@ export class MobileApiClient {
   }
 
   async signOut(): Promise<'revoked' | 'local-only'> {
-    const current = this.token;
+    const generation = this.generation;
+    const current = this.token ?? await this.store.read();
+    if (generation !== this.generation) return 'local-only';
     // Clearing local access is mandatory even when the network is unavailable.
     await this.clear();
-    if (!current) return 'local-only';
+    if (!current || !MOBILE_TOKEN.test(current)) return 'local-only';
     try {
       const response = await this.fetcher(`${this.base}/auth/logout`, {
         method: 'POST',
@@ -134,6 +145,7 @@ export class MobileApiClient {
   }
 
   private async clear(): Promise<void> {
+    this.generation += 1;
     this.token = null;
     for (const controller of this.pending) controller.abort();
     this.pending.clear();
