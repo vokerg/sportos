@@ -68,3 +68,44 @@ export function safeActivityType(value) {
     hiit: 'HIIT', bonus: 'Bonus' };
   return names[value] ?? 'Activity';
 }
+
+/** Whitelist the only daily-detail fields allowed in native component state. */
+export function projectDetail(raw) {
+  return {
+    date: raw.date,
+    recomputedAt: raw.recomputedAt,
+    status: raw.scoreStatus,
+    score: {
+      appTotal: raw.score.appTotal,
+      baseTotal: raw.score.baseTotal,
+      bonusPoints: raw.score.bonusPoints,
+      ledgerTotal: raw.score.ledgerTotal,
+      excelTotal: raw.score.excelTotal,
+      delta: raw.score.delta,
+    },
+    facts: {
+      steps: raw.facts.steps, runM: raw.facts.runM, bikeM: raw.facts.bikeM,
+      swimM: raw.facts.swimM, workoutPoints: raw.facts.workoutPoints,
+      ...(raw.facts.stepsCalculation ? { stepsCalculation: {
+        source: raw.facts.stepsCalculation.source,
+        resolvedSteps: raw.facts.stepsCalculation.resolvedSteps,
+        ...(raw.facts.stepsCalculation.garminSource
+          ? { garminSource: raw.facts.stepsCalculation.garminSource } : {}),
+      } } : {}),
+      ...(raw.facts.workoutCalculation ? { workoutCalculation: {
+        source: raw.facts.workoutCalculation.source,
+        resolvedPoints: raw.facts.workoutCalculation.resolvedPoints,
+        ...(raw.facts.workoutCalculation.workingSets === undefined ? {}
+          : { workingSets: raw.facts.workoutCalculation.workingSets }),
+      } } : {}),
+    },
+    ledger: raw.ledger.map(item => ({
+      id: item.id,
+      name: item.rule?.name ?? 'Unspecified contribution',
+      type: item.rule?.activityType ?? null,
+      points: item.points,
+    })),
+    activityCount: raw.activities.length,
+    sourceTypes: [...new Set(raw.activities.map(a => a.source))],
+  };
+}

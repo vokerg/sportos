@@ -1,6 +1,6 @@
-# SportOS iPhone app — issue #188
+# SportOS iPhone app — issues #188–#189
 
-React Native + Expo SDK 57 + TypeScript, maintained alongside the independent Angular UI. It consumes the existing NestJS API and `packages/shared/src/mobile-api.ts` mobile auth contract (#187), never Angular components, owner-supplied identifiers, browser cookies or provider credentials. Screens other than authenticated scaffolding remain explicit feature placeholders for #189–#193; no invented training results.
+React Native + Expo SDK 57 + TypeScript, maintained alongside the independent Angular UI. It consumes the existing NestJS API and `packages/shared/src/mobile-api.ts` mobile auth contract (#187), never Angular components, owner-supplied identifiers, browser cookies or provider credentials. Home and Daily read persisted server scores and canonical activity previews from #189; Activities, Run Lab and analytics are still explicit placeholders for #190–#193. No invented training results.
 
 ## Installation and environment
 
@@ -35,6 +35,15 @@ For local simulator-only backend testing, `EXPO_PUBLIC_ALLOW_INSECURE_LOCALHOST=
 ## Navigation and presentation
 
 Five root destinations: Home, Daily, Activities, Run Lab, More; native nested-stack About and future Activity Detail. Dark/light system theme, safe-area support, scalable text, >44pt touch areas and accessibility labels are built in. Reusable Card, Action, Metric, SourceBadge, StatusPanel, DateStepper and MiniBars primitives keep date-only strings in local-calendar time and render metric units as metres/km, duration and pace. The chart is presentation-only; server-derived scores remain authoritative.
+
+## Native Home and Daily (#189)
+
+- Home reads \`GET /daily/summary?limit=14&to=<local YYYY-MM-DD>\` and a bounded 30-day \`GET /activities\` recap. The most recent persisted score is explicitly dated and never relabelled as today's when today's row is absent. Current-day rows are marked incomplete. Category contributions come from the API, including negative and unattributed values.
+- Daily reads recent saved days with cursor-style date-only pagination (\`to=<oldest date minus one day>\`), permits stepping through exact local-calendar days, and opens nested \`DailyDetail\` for a persisted row only. Detail reads \`GET /daily/:date/score-breakdown\` after confirming a saved summary row, and whitelists only numeric scores, facts, source classifications and ledger metadata into React state. Full import/source records are never logged, rendered or cached.
+- Every request uses \`SessionProvider.read\` with server-derived ownership; 401 purges the mobile session. Focus changes, selection changes and history paging reject stale results. There is no API mutation, implicit provider download, new local scoring algorithm, cached score or offline queue.
+- Missing days are not zero days; manually edited and workbook-imported scores retain their own status and source authority. Historical score and rule-ledger differences are not silently reconciled by the phone. Activity feed/detail remains #190; full encrypted/offline lifecycle belongs to #194.
+
+**Local Codex acceptance (deferred to epic QA):** Run \`pnpm --filter @sportos/mobile test\`, mobile typecheck, and iOS simulator layout/navigation checks, then compare saved scores/facts/ledger and date-only responses against the browser for zero/negative/manual/imported/empty days, DST and timezone changes, delayed responses, logout/401 and network errors. Also check VoiceOver/dynamic type and API/GitHub CI parity. No simulator, native build, live session/Neon or full-suite verification was run by this remote implementation agent.
 
 ## Local Codex acceptance (deferred to epic QA)
 

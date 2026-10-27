@@ -61,3 +61,15 @@ export interface ActivityListPreview {
   items: ActivityPreview[];
   summary: { count: number };
 }
+
+/** No backend raw import metadata, source records or provider details are retained here. */
+export interface MobileDayDetail {
+  date: string;
+  recomputedAt: string;
+  status: ScoreAuthority;
+  score: DailyBreakdown['score'];
+  facts: DailyBreakdown['facts'];
+  ledger: Array<{ id: string; name: string; type: string | null; points: number }>;
+  activityCount: number;
+  sourceTypes: string[];
+}

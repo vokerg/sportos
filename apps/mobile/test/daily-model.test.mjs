@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   dailySummaryPath, scoreBreakdownPath, formatPoints, scoreAuthority,
-  contributionRows, mergeDays, todayCoverage, sourceNames, safeActivityType,
+  contributionRows, mergeDays, todayCoverage, sourceNames, safeActivityType, projectDetail,
 } from '../src/daily/model.mjs';
 
 test('date-only daily requests use exact local dates, not UTC timestamps', () => {
@@ -38,4 +38,45 @@ test('history pagination dedupes by calendar date and retains latest fetched row
   assert.equal(todayCoverage('2026-10-26', '2026-10-27').includes('Latest persisted'), true);
   assert.equal(sourceNames({ strava: false, garmin: false }), 'No linked provider evidence reported');
   assert.equal(safeActivityType('walk'), 'Walk');
+});
+
+test('day detail only retains allowed fields, leaves imported/manual official totals intact', () => {
+  const privateSource = { rawJson: { accountId: 'fixture-secret' }, filename: 'fixture-private.xlsx' };
+  const raw = {
+    date: '2026-10-27', recomputedAt: '2026-10-27T10:00:00Z', scoreStatus: 'manual',
+    score: { appTotal: -12, baseTotal: -7, bonusPoints: -5, ledgerTotal: 0,
+      excelTotal: 30, delta: -42, privateSource },
+    facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0,
+      stepsCalculation: { source: 'manual', resolvedSteps: 0, sourceRecordId: 'secret' } },
+    ledger: [{ id: 'l1', points: -5, reason: 'sensitive', rule: { name: 'Penalty', activityType: 'bonus',
+      description: 'private rule' }, activity: { id: 'a1', notes: 'secret notes' } }],
+    activities: [{ id: 'a1', activityType: 'run', source: 'strava', sourceRecord: privateSource }],
+    sourceRecords: [privateSource], sourceRecord: privateSource, garminObservations: [privateSource],
+  };
+  const result = projectDetail(raw);
+  assert.equal(result.status, 'manual');
+  assert.equal(result.score.appTotal, -12);
+  assert.equal(result.score.ledgerTotal, 0);
+  assert.equal(result.facts.steps, 0);
+  assert.deepEqual(result.ledger, [{ id: 'l1', name: 'Penalty', type: 'bonus', points: -5 }]);
+  assert.equal(result.activityCount, 1);
+  const json = JSON.stringify(result);
+  assert.equal(json.includes('fixture-secret'), false);
+  assert.equal(json.includes('fixture-private'), false);
+  assert.equal(json.includes('sensitive'), false);
+  assert.equal(json.includes('sourceRecordId'), false);
+  assert.equal(Object.hasOwn(result.score, 'privateSource'), false);
+});
+test('missing and imported day presentation is honest', () => {
+  assert.deepEqual(mergeDays([], []), []);
+  assert.equal(scoreAuthority('imported'), 'Imported score');
+  const row = projectDetail({
+    date: '2026-10-26', recomputedAt: '2026-10-26T00:00:00Z',
+    scoreStatus: 'imported',
+    score: { appTotal: 500, baseTotal: 500, bonusPoints: 0, ledgerTotal: 0, excelTotal: 500, delta: 0 },
+    facts: { steps: 1000, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0 },
+    ledger: [], activities: [],
+  });
+  assert.equal(row.score.appTotal, 500);
+  assert.deepEqual(row.ledger, []);
 });

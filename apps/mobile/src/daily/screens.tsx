@@ -9,8 +9,8 @@ import type { MainTabs, RootStack } from '../navigation/routes';
 import { Action, Body, Card, DateStepper, formatDistance, Metric, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { isCalendarDate, localToday, shiftCalendarDate } from '../ui/format.mjs';
 import { useSportosTheme } from '../ui/theme';
-import type { DailySummary, DailyBreakdown, ActivityListPreview } from './contracts';
-import { contributionRows, dailySummaryPath, formatPoints, mergeDays, safeActivityType, scoreAuthority, scoreBreakdownPath, sourceNames, todayCoverage } from './model.mjs';
+import type { DailySummary, ActivityListPreview, MobileDayDetail } from './contracts';
+import { contributionRows, dailySummaryPath, formatPoints, mergeDays, safeActivityType, scoreAuthority, scoreBreakdownPath, projectDetail, sourceNames, todayCoverage } from './model.mjs';
 
 type LoadKind = 'loading' | 'loaded' | 'empty' | 'error' | 'offline';
 type HomeData = { days: DailySummary[]; activity: ActivityListPreview | null; activityError: boolean };
@@ -129,6 +129,7 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
   const [history, setHistory] = useState<Load<DailySummary[]>>(INITIAL);
   const [selected, setSelected] = useState<Load<DailySummary>>({ kind: 'loading', data: null });
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderError, setOlderError] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
   const generation = useRef(0);
   const today = localToday();
@@ -137,6 +138,7 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
     const current = ++generation.current;
     setHistory(INITIAL);
     setLoadingOlder(false);
+    setOlderError(false);
     void read<DailySummary[]>(dailySummaryPath({ to: today, limit: 30 }))
       .then(rows => {
         if (generation.current !== current) return;
@@ -151,7 +153,7 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
 
   useEffect(() => {
     if (history.kind === 'loading' || history.kind === 'error' || history.kind === 'offline') {
-      setSelected({ kind: 'loading', data: null });
+      setSelected({ kind: history.kind === 'loading' ? 'loading' : history.kind, data: null });
       return;
     }
     const found = history.data?.find(row => row.metric_date === date);
@@ -176,6 +178,7 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
     if (loadingOlder || !rows?.length || !hasOlder) return;
     const current = generation.current;
     setLoadingOlder(true);
+    setOlderError(false);
     const before = shiftCalendarDate(rows[rows.length - 1].metric_date, -1);
     void read<DailySummary[]>(dailySummaryPath({ to: before, limit: 30 }))
       .then(older => {
@@ -184,7 +187,7 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
         setHasOlder(older.length === 30);
       })
       .catch(() => {
-        if (generation.current === current) setHasOlder(false);
+        if (generation.current === current) setOlderError(true);
       })
       .finally(() => { if (generation.current === current) setLoadingOlder(false); });
   };
@@ -225,6 +228,7 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
         <CompactRow key={row.metric_date} title={row.metric_date}
           detail={formatPoints(row.total_points) + ' pt · ' + scoreAuthority(row.score_status)}
           onPress={() => setDate(row.metric_date)} />)}
+      {olderError ? <Body subdued>Older records could not be loaded; retry when connected.</Body> : null}
       {hasOlder && history.kind === 'loaded' ?
         <Action title={loadingOlder ? 'Loading older days…' : 'Load older days'} secondary
           disabled={loadingOlder} onPress={loadOlder} /> : null}
@@ -234,51 +238,11 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
   </Screen>;
 }
 
-type DetailView = {
-  date: string;
-  recomputedAt: string;
-  status: DailyBreakdown['scoreStatus'];
-  score: DailyBreakdown['score'];
-  facts: DailyBreakdown['facts'];
-  ledger: Array<{ id: string; name: string; type: string | null; points: number }>;
-  activityCount: number;
-  sourceTypes: string[];
-};
-function projectDetail(raw: DailyBreakdown): DetailView {
-  // Explicit allowlist: do not keep raw imported source records, notes, filenames,
-  // hashes, Garmin measurements or provider JSON in React component state.
-  return {
-    date: raw.date, recomputedAt: raw.recomputedAt, status: raw.scoreStatus,
-    score: raw.score,
-    facts: {
-      steps: raw.facts.steps, runM: raw.facts.runM, bikeM: raw.facts.bikeM,
-      swimM: raw.facts.swimM, workoutPoints: raw.facts.workoutPoints,
-      stepsCalculation: raw.facts.stepsCalculation ? {
-        source: raw.facts.stepsCalculation.source,
-        resolvedSteps: raw.facts.stepsCalculation.resolvedSteps,
-        ...(raw.facts.stepsCalculation.garminSource
-          ? { garminSource: raw.facts.stepsCalculation.garminSource } : {}),
-      } : undefined,
-      workoutCalculation: raw.facts.workoutCalculation ? {
-        source: raw.facts.workoutCalculation.source,
-        resolvedPoints: raw.facts.workoutCalculation.resolvedPoints,
-        workingSets: raw.facts.workoutCalculation.workingSets,
-      } : undefined,
-    },
-    ledger: raw.ledger.map(item => ({
-      id: item.id, name: item.rule?.name ?? 'Unspecified contribution',
-      type: item.rule?.activityType ?? null, points: item.points,
-    })),
-    activityCount: raw.activities.length,
-    sourceTypes: [...new Set(raw.activities.map(a => a.source))],
-  };
-}
-
 export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, 'DailyDetail'>) {
   const { read } = useSession();
   const date = route.params.date;
   const [revision, setRevision] = useState(0);
-  const [detail, setDetail] = useState<Load<DetailView>>(INITIAL);
+  const [detail, setDetail] = useState<Load<MobileDayDetail>>(INITIAL);
   useFocusEffect(useCallback(() => {
     let active = true;
     setDetail(INITIAL);
