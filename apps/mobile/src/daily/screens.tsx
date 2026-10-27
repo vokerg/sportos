@@ -13,7 +13,7 @@ import type { DailySummary, DailyBreakdown, ActivityListPreview, MobileDayDetail
 import { contributionRows, dailySummaryPath, formatPoints, mergeDays, safeActivityType, scoreAuthority, scoreBreakdownPath, projectDetail, sourceNames, todayCoverage } from './model.mjs';
 
 type LoadKind = 'loading' | 'loaded' | 'empty' | 'error' | 'offline';
-type HomeData = { days: DailySummary[]; activity: ActivityListPreview | null; activityError: boolean };
+type HomeData = { days: DailySummary[]; activity: ActivityListPreview | null; activityError: boolean; activityLoading: boolean };
 type Load<T> = { kind: LoadKind; data: T | null };
 const INITIAL = { kind: 'loading' as const, data: null };
 
@@ -59,6 +59,9 @@ export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'
       try {
         const days = await read<DailySummary[]>(dailySummaryPath({ limit: 14, to: today }));
         if (!active) return;
+        // Render official scores immediately; a slow activity query cannot delay the cockpit.
+        setView({ kind: days.length ? 'loaded' : 'empty',
+          data: { days, activity: null, activityError: false, activityLoading: true } });
         // Activities are a separate bounded canonical GET. Their failure must not hide official scores.
         let activity: ActivityListPreview | null = null;
         let activityError = false;
@@ -68,7 +71,7 @@ export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'
         } catch {
           activityError = true;
         }
-        if (active) setView({ kind: days.length ? 'loaded' : 'empty', data: { days, activity, activityError } });
+        if (active) setView({ kind: days.length ? 'loaded' : 'empty', data: { days, activity, activityError, activityLoading: false } });
       } catch (error) {
         if (active) setView({ kind: errorKind(error), data: null });
       }
@@ -102,7 +105,8 @@ export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'
       <Contributions row={latest} />
     </> : null}
     {view.data ? <Card title="Recent activity recap · last 30 days">
-      {view.data.activityError ? <Body subdued>Activity recap is unavailable. Score data above remains valid.</Body>
+      {view.data.activityLoading ? <StatusPanel kind="loading" message="Reading recent activity summary…" />
+        : view.data.activityError ? <Body subdued>Activity recap is unavailable. Score data above remains valid.</Body>
         : view.data.activity?.summary.count === 0 ? <Body subdued>No canonical activities recorded in this window.</Body>
         : <>
           <TextLine>{view.data.activity?.summary.count ?? 0} canonical activities in this window</TextLine>
