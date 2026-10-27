@@ -111,9 +111,9 @@ export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'
         : <>
           <TextLine>{view.data.activity?.summary.count ?? 0} canonical activities in this window</TextLine>
           {(view.data.activity?.items ?? []).map(a =>
-            <TextLine key={a.id}>{a.activity_date} · {safeActivityType(a.activity_type)}
-              {a.distance_m !== null ? ' · ' + formatDistance(a.distance_m) : ''}
-              {' · ' + a.source}</TextLine>)}
+            <CompactRow key={a.id} title={a.activity_date + ' · ' + safeActivityType(a.activity_type)}
+              detail={(a.distance_m !== null ? formatDistance(a.distance_m) + ' · ' : '') + a.source}
+              onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('ActivityDetail', { activityId: a.id })} />)}
         </>}
       <Action title="Open Activities" secondary onPress={() => navigation.navigate('Activities')} />
     </Card> : null}

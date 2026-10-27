@@ -1,4 +1,5 @@
 import React from 'react';
+import { ActivitiesScreen } from '../activities/screens';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -8,11 +9,7 @@ import type { MainTabs, RootStack } from '../navigation/routes';
 
 export { HomeScreen, DailyScreen } from '../daily/screens';
 
-export function ActivitiesScreen() {
-  return <Screen eyebrow="Canonical training" title="Activities">
-    <StatusPanel kind="comingSoon" message="The activity feed, filters and sport-specific detail screens are scheduled for #190. There is no automatic provider rich-data download on entry." />
-  </Screen>;
-}
+export { ActivitiesScreen };
 
 export function RunLabScreen() {
   return <Screen eyebrow="Your running performances" title="Run Lab">

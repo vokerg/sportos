@@ -12,6 +12,7 @@ interface SessionState {
   signIn(): Promise<void>;
   signOut(): Promise<void>;
   read<T>(path: string): Promise<T>;
+  mutate<T>(path: string, method: 'POST' | 'PUT' | 'DELETE', body?: unknown): Promise<T>;
 }
 
 const SessionContext = createContext<SessionState | null>(null);
@@ -106,8 +107,21 @@ export function SessionProvider({ client, children }: {
     }
   }, [client]);
 
-  const value = useMemo(() => ({ status, session, message, retry, signIn, signOut, read }),
-    [status, session, message, retry, signIn, signOut, read]);
+  const mutate = useCallback(async <T,>(path: string, method: 'POST' | 'PUT' | 'DELETE', body?: unknown): Promise<T> => {
+    try {
+      return await client.mutate<T>(path, method, body);
+    } catch (error) {
+      if (error instanceof MobileApiError && error.kind === 'unauthorized' && alive.current) {
+        setSession(null);
+        setStatus('signedOut');
+        setMessage('Session expired. Sign in again.');
+      }
+      throw error;
+    }
+  }, [client]);
+
+  const value = useMemo(() => ({ status, session, message, retry, signIn, signOut, read, mutate }),
+    [status, session, message, retry, signIn, signOut, read, mutate]);
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 
