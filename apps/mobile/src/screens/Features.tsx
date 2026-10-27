@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Body, Action, Card, DateStepper, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { useSession } from '../auth/SessionProvider';
@@ -55,7 +56,7 @@ export function MoreScreen({ navigation }: BottomTabScreenProps<MainTabs, 'More'
     </Card>
     <Card title="About the mobile app">
       <Body>Privacy, coverage and the mobile roadmap.</Body>
-      <Action title="About SportOS" onPress={() => navigation.getParent()?.navigate('About')} />
+      <Action title="About SportOS" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('About')} />
     </Card>
   </Screen>;
 }
