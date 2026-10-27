@@ -9,7 +9,7 @@ import type { MainTabs, RootStack } from '../navigation/routes';
 import { Action, Body, Card, DateStepper, formatDistance, Metric, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { isCalendarDate, localToday, shiftCalendarDate } from '../ui/format.mjs';
 import { useSportosTheme } from '../ui/theme';
-import type { DailySummary, ActivityListPreview, MobileDayDetail } from './contracts';
+import type { DailySummary, DailyBreakdown, ActivityListPreview, MobileDayDetail } from './contracts';
 import { contributionRows, dailySummaryPath, formatPoints, mergeDays, safeActivityType, scoreAuthority, scoreBreakdownPath, projectDetail, sourceNames, todayCoverage } from './model.mjs';
 
 type LoadKind = 'loading' | 'loaded' | 'empty' | 'error' | 'offline';
