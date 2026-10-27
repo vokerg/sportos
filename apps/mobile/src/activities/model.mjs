@@ -7,7 +7,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const STATES = ['not_linked','linked_unprocessed','linked_no_rich_data','raw_retained_unprocessed','processed','partial','failed','stale'];
 const EFFORT_STATES = ['current','unprocessed','stale','failed','not_linked'];
 const METHODS = ['summary_estimate','stream_calculated','fit_calculated'];
-const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj,key);
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const invalid = () => { throw new Error('Invalid SportOS activity response'); };
 const required = (value, max = 160) => {
@@ -155,8 +154,8 @@ export function projectActivityDetail(payload) {
     ...base, bestEfforts: efforts(payload.bestEfforts),
     metricComparisons: comparisons(payload.metricComparisons),
     garminStrength: strength(payload.garminStrength),
-    linkedStrava: payload.providerDetail?.provider === 'strava',
-    linkedGarmin: payload.garmin?.provider === 'garmin',
+    linkedStrava: base.providerMetrics.some(p => p.provider === 'strava' && p.linked) || payload.providerDetail?.provider === 'strava',
+    linkedGarmin: base.providerMetrics.some(p => p.provider === 'garmin' && p.linked) || payload.garmin?.provider === 'garmin',
     provenance: payload.provenance && object(payload.provenance)
       ? optional(payload.provenance.sourceRecordSource,80) : null,
     // Original notes can carry personal/location data; render a bounded activity name only.

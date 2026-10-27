@@ -1,6 +1,6 @@
-# SportOS iPhone app — issues #188–#189
+# SportOS iPhone app — issues #188–#190
 
-React Native + Expo SDK 57 + TypeScript, maintained alongside the independent Angular UI. It consumes the existing NestJS API and `packages/shared/src/mobile-api.ts` mobile auth contract (#187), never Angular components, owner-supplied identifiers, browser cookies or provider credentials. Home and Daily read persisted server scores and canonical activity previews from #189; Activities, Run Lab and analytics are still explicit placeholders for #190–#193. No invented training results.
+React Native + Expo SDK 57 + TypeScript, maintained alongside the independent Angular UI. It consumes the existing NestJS API and `packages/shared/src/mobile-api.ts` mobile auth contract (#187), never Angular components, owner-supplied identifiers, browser cookies or provider credentials. Home and Daily read persisted server scores and canonical activity previews from #189. Activities now supplies a paged/filterable canonical feed and sport-specific detail (#190), while Run Lab and analytics remain placeholders for #192–#193. No invented training results.
 
 ## Installation and environment
 
@@ -57,3 +57,15 @@ Five root destinations: Home, Daily, Activities, Run Lab, More; native nested-st
 ## Investigation files
 
 `AGENTS.md`, `docs/adr/0011-react-native-expo-ios.md`, `docs/AUTHENTICATION.md`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `package.json`, `tsconfig.base.json`, `.gitignore`, `.github/workflows/ci.yml`, `packages/shared/package.json`, `packages/shared/src/index.ts`, `packages/shared/src/mobile-api.ts`, `apps/api/package.json`, `apps/api/src/auth/auth.controller.ts`, `apps/api/src/auth/auth.service.ts`, `apps/web/package.json`, `apps/web/src/app/app.routes.ts`, `apps/web/src/app/web-auth.service.ts`, `spikes/mobile-expo/package.json`, `spikes/mobile-expo/App.tsx`, `spikes/mobile-expo/index.js`, `spikes/mobile-expo/app.json`, `spikes/mobile-expo/README.md`, `spikes/mobile-expo/tsconfig.json`, `spikes/mobile-expo/pnpm-workspace.yaml`; #185–#188, PRs #198–#200.
+
+## Native Activities — #190
+
+The Activities tab uses the existing owner-scoped GET /activities feed, with a 90-day/all-source default, bounded server pagination and filters for date window, sport and exact source. Selecting a row navigates to GET /activities/:id. UI projections whitelist canonical facts, distance-correction effective/recorded totals, server-selected optional metric values and provenance coverage; they discard original/source payloads and internal identifiers. A server 401 tears down the authenticated navigation as before. Stale focus/filter/paging/provider responses cannot overwrite newly selected data. There is no persistent offline activity cache.
+
+Run detail displays canonical pace, heart rate, server-computed best efforts with their exact estimated/calculated method and provider, plus **recorded** Strava/Garmin laps when the user presses View saved laps. Indoor/pool swims show recorded Garmin FIT 25/50m pool length when supplied, timer/elapsed per-length pacing, SWOLF, strokes/rest markers, count completeness, and original-vs-audited corrected distance; incomplete or missing FIT evidence never produces inferred lengths. Rides show speed/terrain and server-selected extras such as power; strength workouts show server Garmin set counts and optional explicit retained exercise sets. Walks retain canonical distance/steps and their no-separate-activity-points note. Sparse/legacy activity displays remain explicit, not invented.
+
+Activity navigation does not call upstream providers or POST endpoints. Read-only enrichment GET checks whether data is cached or linked. **View saved** uses GET on existing retained data only; **Fetch**/**Refresh** buttons perform provider POSTs only after explicit user presses. Strava Fetch is shown only when a Strava link/status supports it. Garmin Fetch is hidden unless the backend advertises the local helper as enabled. Hosted Garmin Fetch is not available without that helper. There is no native distance editing or score modification. GPS route rendering and multi-activity heatmaps remain #191; open-water swimming has no invented pool map or lengths.
+
+## #190 deferred local Codex verification
+
+After the epic implementation, local Codex should run the mobile test suite and TypeScript check, lint/Expo doctor, API and Angular regression coverage, iOS simulator and physical-iPhone checks (narrow screens, VoiceOver, chart gestures, dark mode, offline/401/logout, race conditions). Compare all five major sports against canonical browser API responses, audit FIT pool completeness/25m/50m/partial laps, route visibility (after #191), corrected swim distance and genuine provider coverage. Exercise hosted Strava View/Fetch vs blocked Garmin helper, current/stale rich-version handling, and account non-owner UUIDs. **None of these local/device/live validations was run by the remote implementation agent.**

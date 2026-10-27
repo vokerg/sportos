@@ -109,12 +109,13 @@ export function ActivitiesScreen({navigation}: BottomTabScreenProps<MainTabs,'Ac
       if (page.offset !== offset || page.items.length === 0) throw new Error('Inconsistent activity pagination');
       const ids = new Set(data.items.map(row=>row.id));
       const merged = [...data.items,...page.items.filter(row=>!ids.has(row.id))];
-      setView({kind:'loaded',data:{...page,offset:0,items:merged}});
+      // Offset tracks consumed server rows even when live insertions create duplicate IDs.
+      setView({kind:'loaded',data:{...page,offset:page.offset+page.items.length-merged.length,items:merged}});
     }).catch(() => {if(generation.current===request)setMoreError(true)})
       .finally(() => {if(generation.current===request){loadingMore.current=false;setMoreLoading(false)}});
   };
   const data = view.data;
-  const hasMore = data ? data.items.length<data.count && data.items.length>0 && data.items.length<=100000 : false;
+  const hasMore = data ? data.offset+data.items.length<data.count && data.items.length>0 && data.offset+data.items.length<=100000 : false;
   return <Screen eyebrow="Your canonical history" title="Activities">
     <Card title="Filters">
       <Filters label="Date window" items={FILTER_RANGES} value={range} onChange={v=>setRange(v as typeof range)} />
@@ -253,7 +254,7 @@ export function ActivityDetailScreen({route}:NativeStackScreenProps<RootStack,'A
         void read<unknown>(activityDetailPath(id)+'/swim-lengths').then(projectSwimLengths).then(result=>{
           if(generation.current===current)setSwim({kind:'loaded',data:result});
         }).catch(error=>{
-          if(generation.current===current)setSwim({kind:errorKind(error)==='offline'?'error':'error',data:null});
+          if(generation.current===current)setSwim({kind:'error',data:null});
         });
       }
     }).catch(error=>{if(generation.current===current)setDetail({kind:errorKind(error),data:null})});
