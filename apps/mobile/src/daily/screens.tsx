@@ -2,11 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MobileApiError } from '../../../../packages/shared/src/mobile-api';
 import { useSession } from '../auth/SessionProvider';
 import type { MainTabs, RootStack } from '../navigation/routes';
-import { Action, Body, Card, DateStepper, formatDistance, formatDuration, Metric, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
+import { Action, Body, Card, DateStepper, formatDistance, Metric, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { isCalendarDate, localToday, shiftCalendarDate } from '../ui/format.mjs';
 import { useSportosTheme } from '../ui/theme';
 import type { DailySummary, DailyBreakdown, ActivityListPreview } from './contracts';
@@ -97,7 +97,7 @@ export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'
           <Metric label="Bonus points" value={formatPoints(latest.bonus_points, true)} />
         </View>
         <Action title="Review this day" onPress={() =>
-          navigation.getParent()?.navigate('DailyDetail', { date: latest.metric_date })} />
+          navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('DailyDetail', { date: latest.metric_date })} />
       </Card>
       <Contributions row={latest} />
     </> : null}
@@ -212,7 +212,7 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
           <Metric label="Bonus" value={formatPoints(selected.data.bonus_points, true)} />
         </View>
         <Action title="Open score detail" onPress={() =>
-          navigation.getParent()?.navigate('DailyDetail', { date: selected.data!.metric_date })} />
+          navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('DailyDetail', { date: selected.data!.metric_date })} />
       </> : null}
     </Card>
     <Card title="Score history">
