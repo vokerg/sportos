@@ -104,7 +104,7 @@ export function MiniBars({ label, values }: { label: string; values: number[] })
     <Text style={[styles.metricLabel, { color: palette.muted }]}>{label}</Text>
     <View style={styles.chart}>
       {values.map((value, i) => <View key={i} style={[styles.bar, {
-        height: `${Math.max(3, value / maximum * 100)}%`,
+        height: Math.max(3, value / maximum * 92),
         backgroundColor: palette.chart,
       }]} />)}
     </View>
