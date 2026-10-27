@@ -1,0 +1,38 @@
+# Temporary, PR-scoped dependency-resolution bridge: lockfile is committed only
+# through the GitHub connector after the output is decoded. Delete before merge.
+name: mobile-lockfile-export
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/mobile-lockfile-export.yml'
+permissions:
+  contents: read
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve full pnpm workspace dependency graph (no installs or tests)
+        run: pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts
+      - name: Export resolved lockfile for connector commit
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const content = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          const b64 = Buffer.from(content, 'utf8').toString('base64');
+          console.log('SPORTOS_LOCK_START=' + Buffer.byteLength(content));
+          for (let i = 0; i < b64.length; i += 6000) {
+            console.log('SPORTOS_LOCK_BLOCK=' + b64.slice(i, i + 6000));
+          }
+          console.log('SPORTOS_LOCK_END=' + b64.length);
+          NODE
