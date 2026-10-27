@@ -130,3 +130,10 @@ test('coverage never authorizes a Garmin fetch unless server advertises it',()=>
     {strava:'cached',garmin:'linked',garminFetchEnabled:false});
   assert.throws(()=>projectEnrichment({strava:{state:'unexpected'},garmin:{state:'linked'}}));
 });
+
+test('provider names with control characters are safely normalized without exposing raw records',()=>{
+  const row=projectActivityDetail(detail('run',{notes:'My race\nAt home',owner_id:'private-account',rawJson:{token:'private'}}));
+  assert.equal(row.name,'My race At home');
+  assert.equal(row.owner_id,undefined);
+  assert.equal(row.rawJson,undefined);
+});

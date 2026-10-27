@@ -19,6 +19,7 @@ type Load<T> = { kind: Kind; data: T|null };
 type Retained<T> = { kind: 'idle'|'loading'|'loaded'|'empty'|'error'; data:T|null };
 const initial = <T,>():Load<T> => ({kind:'loading',data:null});
 const errorKind = (error: unknown): Kind => error instanceof MobileApiError && error.kind === 'network' ? 'offline' : 'error';
+const MAX_FEED_ROWS = 250;
 const FILTER_TYPES = [
   ['all','All'],['run','Runs'],['swim','Swims'],['bike','Rides'],['workout','Gym'],
   ['walk','Walks'],['rowing','Rowing'],['sup','SUP'],['hiit','HIIT'],['steps','Steps'],['bonus','Bonus'],
@@ -100,7 +101,7 @@ export function ActivitiesScreen({navigation}: BottomTabScreenProps<MainTabs,'Ac
   const retry = () => setRevision(n=>n+1);
   const more = () => {
     const data = view.data;
-    if (!data || loadingMore.current || data.offset+data.items.length>=data.count || data.items.length===0) return;
+    if (!data || loadingMore.current || data.offset+data.items.length>=data.count || data.items.length>=MAX_FEED_ROWS || data.items.length===0) return;
     const offset = data.offset+data.items.length, request = generation.current;
     if (offset > 100000) return;
     loadingMore.current=true;setMoreLoading(true);setMoreError(false);
@@ -115,7 +116,7 @@ export function ActivitiesScreen({navigation}: BottomTabScreenProps<MainTabs,'Ac
       .finally(() => {if(generation.current===request){loadingMore.current=false;setMoreLoading(false)}});
   };
   const data = view.data;
-  const hasMore = data ? data.offset+data.items.length<data.count && data.items.length>0 && data.offset+data.items.length<=100000 : false;
+  const hasMore = data ? data.offset+data.items.length<data.count && data.items.length>0 && data.items.length<MAX_FEED_ROWS && data.offset+data.items.length<=100000 : false;
   return <Screen eyebrow="Your canonical history" title="Activities">
     <Card title="Filters">
       <Filters label="Date window" items={FILTER_RANGES} value={range} onChange={v=>setRange(v as typeof range)} />
@@ -133,7 +134,9 @@ export function ActivitiesScreen({navigation}: BottomTabScreenProps<MainTabs,'Ac
         {moreError?<Body subdued>Could not load the next page; existing rows remain available.</Body>:null}
         {moreLoading?<StatusPanel kind="loading" message="Loading older activities…" />:null}
         {hasMore?<Action title="Load older activities" secondary disabled={moreLoading} onPress={more}/>:null}
-        {hasMore && data.items.length >= 100000 ? <Body subdued>Pagination limit reached; choose a narrower date range.</Body>:null}
+        {data.items.length>=MAX_FEED_ROWS && data.offset+data.items.length<data.count ?
+          <Body subdued>Showing the first 250 records to keep this screen responsive. Narrow the date or sport filter for older activities.</Body>:null}
+        {data.offset+data.items.length>100000 ? <Body subdued>API pagination limit reached; choose a narrower date range.</Body>:null}
       </Card>
       <Action title="Refresh activities" secondary onPress={retry} />
     </>:null}

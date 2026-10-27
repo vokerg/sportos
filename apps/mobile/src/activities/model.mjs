@@ -158,8 +158,9 @@ export function projectActivityDetail(payload) {
     linkedGarmin: base.providerMetrics.some(p => p.provider === 'garmin' && p.linked) || payload.garmin?.provider === 'garmin',
     provenance: payload.provenance && object(payload.provenance)
       ? optional(payload.provenance.sourceRecordSource,80) : null,
-    // Original notes can carry personal/location data; render a bounded activity name only.
-    name: base.source === 'strava' ? optional(payload.notes,120) : null,
+    // Provider activity names can contain line breaks; normalize instead of crashing detail.
+    name: base.source === 'strava' && typeof payload.notes === 'string'
+      ? payload.notes.replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,120) || null : null,
   };
 }
 export function projectEnrichment(raw) {
