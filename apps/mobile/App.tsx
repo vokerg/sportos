@@ -34,7 +34,7 @@ function Content() {
   return <>
     <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} />
     {!client ? <Screen eyebrow="Local setup required" title="Configure SportOS">
-      <StatusPanel kind="error" message="Set EXPO_PUBLIC_SPORTOS_API_URL to your HTTPS API origin in apps/mobile/.env before launching. This app does not offer a mock sign-in." />
+      <StatusPanel kind="error" message="Set EXPO_PUBLIC_SPORTOS_API_URL and EXPO_PUBLIC_SPORTOS_WEB_ORIGIN to the HTTPS API and browser-login origins in apps/mobile/.env. This app does not offer a mock sign-in." />
     </Screen> : <SessionProvider client={client}><AuthGate /></SessionProvider>}
   </>;
 }
