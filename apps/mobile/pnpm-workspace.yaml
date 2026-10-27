@@ -1,3 +1,0 @@
-# Intentionally isolated until the entire Expo dependency graph can be pinned on a network-enabled host.
-packages:
-  - '.'
