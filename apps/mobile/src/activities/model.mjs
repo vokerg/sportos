@@ -260,7 +260,7 @@ export function projectGarminSets(raw) {
   if (!Array.isArray(payload)) return [];
   return payload.slice(0,100).filter(object).map(item =>
     Object.entries(item).filter(([key,val]) => SET_FIELDS.has(key)
-      && (typeof val === 'string' && val.length <= 100 && !/[\\u0000-\\u001f\\u007f]/.test(val)
+      && (typeof val === 'string' && val.length <= 100 && !/[\u0000-\u001f\u007f]/.test(val)
         || typeof val === 'number' && Number.isFinite(val)))
       .slice(0,8).map(([name,val]) => ({ label: name.replace(/([A-Z])/g,' $1').replaceAll('_',' ').trim(), value: String(val) }))).filter(row => row.length);
 }
