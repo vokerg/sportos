@@ -78,9 +78,18 @@ export function SessionProvider({ client, children }: {
     setSession(null);
     setStatus('signedOut');
     setMessage(null);
-    const outcome = await client.signOut().catch(() => 'local-only' as const);
-    if (alive.current && outcome === 'local-only') {
-      setMessage('Signed out on this phone. Server revocation could not be confirmed offline; the remote session remains valid until it expires.');
+    try {
+      const outcome = await client.signOut();
+      if (alive.current && outcome === 'local-only') {
+        setMessage('Signed out on this phone. Server revocation could not be confirmed offline; the remote session remains valid until it expires.');
+      }
+    } catch {
+      if (alive.current) {
+        // A SecureStore failure means device credentials may still be persisted.
+        // Never claim local sign-out succeeded; keep private navigation hidden.
+        setStatus('unavailable');
+        setMessage('Could not clear the secure session on this device. Retry sign-out before handing over the phone.');
+      }
     }
   }, [client]);
 
