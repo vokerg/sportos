@@ -10,7 +10,7 @@ import { Action, Body, Card, Screen, StatusPanel } from './src/ui/primitives';
 const client = configuredClient();
 
 function AuthGate() {
-  const { status, session, message, retry, signIn } = useSession();
+  const { status, session, message, retry, signIn, signOut } = useSession();
   if (status === 'authenticated' && session) return <AppNavigation />;
   return <Screen eyebrow="SportOS iPhone" title="Your training, native">
     <Card title="Secure access">
@@ -18,6 +18,8 @@ function AuthGate() {
       {status === 'restoring' ? <StatusPanel kind="loading" message="Checking your secure session…" /> : null}
       {status === 'unavailable' ? <StatusPanel kind="offline"
         message={message ?? 'Cannot reach SportOS to check your session.'} retry={() => { void retry(); }} /> : null}
+      {status === 'unavailable' ? <Action title="Sign out on this phone" secondary
+        onPress={() => { void signOut(); }} /> : null}
       {status === 'signedOut' || status === 'signingIn' ? <>
         {message ? <StatusPanel kind="error" message={message} /> : null}
         {status === 'signingIn' ? <StatusPanel kind="loading" message="Complete approval in your browser…" /> : null}
