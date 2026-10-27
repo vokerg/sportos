@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from './auth.service.js';
-import type { AuthenticatedRequest } from './auth.models.js';
+import type { AuthenticatedRequest, AuthenticatedSession } from './auth.models.js';
 import { PUBLIC_ROUTE_KEY } from './public.decorator.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -34,8 +34,25 @@ export class SessionGuard implements CanActivate {
       return true;
     }
 
-    const cookies = parseCookies(headerValue(request.headers.cookie));
-    const session = await this.auth.authenticate(cookies.sportos_session ?? null);
+
+    // Bearer credentials are never ambient; they must not be mixed with cookies.
+    // An invalid Authorization header must not fall back to browser cookies.
+    const authorization = request.headers.authorization;
+    const cookieHeader = headerValue(request.headers.cookie);
+    const bearerAttempt = authorization !== undefined;
+    let session: AuthenticatedSession | null;
+    if (bearerAttempt) {
+      if (Array.isArray(authorization) || typeof authorization !== 'string'
+        || !/^Bearer smo_[A-Za-z0-9_-]{64}$/.test(authorization) || cookieHeader) {
+        throw new UnauthorizedException({ code: 'AUTHENTICATION_REQUIRED', message: 'Authentication is required.' });
+      }
+      session = await this.auth.authenticate(authorization.slice(7), 'mobile');
+      request.authTransport = 'bearer';
+    } else {
+      const browserToken = parseCookies(cookieHeader).sportos_session ?? null;
+      session = await this.auth.authenticate(browserToken);
+      request.authTransport = 'cookie';
+    }
     if (!session) {
       throw new UnauthorizedException({ code: 'AUTHENTICATION_REQUIRED', message: 'Authentication is required.' });
     }
@@ -43,9 +60,9 @@ export class SessionGuard implements CanActivate {
     request.account = session.account;
     request.authSession = session;
 
-    if (!SAFE_METHODS.has(String(request.method ?? '').toUpperCase())) {
+    if (request.authTransport === 'cookie' && !SAFE_METHODS.has(String(request.method ?? '').toUpperCase())) {
       const csrfHeader = headerValue(request.headers['x-sportos-csrf']);
-      if (!this.auth.verifyCsrf(session, cookies.sportos_csrf ?? null, csrfHeader)) {
+      if (!this.auth.verifyCsrf(session, parseCookies(cookieHeader).sportos_csrf ?? null, csrfHeader)) {
         throw new ForbiddenException({ code: 'CSRF_VALIDATION_FAILED', message: 'The request could not be verified.' });
       }
     }

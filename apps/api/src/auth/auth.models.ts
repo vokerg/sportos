@@ -18,4 +18,5 @@ export interface AuthenticatedRequest {
   headers: Record<string, string | string[] | undefined>;
   account?: AuthenticatedAccount;
   authSession?: AuthenticatedSession;
+  authTransport?: 'cookie' | 'bearer';
 }

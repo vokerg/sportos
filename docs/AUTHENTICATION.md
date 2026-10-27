@@ -32,6 +32,78 @@ a compromise. See [hosted deployment](DEPLOYMENT.md) for the proxy and storage s
 
 See [ADR 0005](adr/0005-authentication-and-data-ownership.md) for the accepted identity decision and threat matrix, and [ADR 0007](adr/0007-read-only-ai-analysis.md) for the analysis authorization and audit boundary.
 
+## Mobile iOS authentication (issue #187)
+
+**Transport:** The React Native client does not send browser cookies, fake an Origin
+header, store the SportOS password or select an account. The current hosted
+single-user password form remains **in the system browser** with its existing
+exact-Origin enforcement. For future OIDC mode, the existing browser login
+continues to use Authorization Code + PKCE and immutable issuer/subject identity;
+the mobile handoff begins only after the web user is authenticated.
+
+**Browser-approved handoff (five-minute, single-use, PKCE protected):**
+
+1. The native client generates a cryptographically random PKCE verifier and
+   correlation state (base64url). It submits only `codeChallenge` (S256) and
+   `state` via `POST /auth/mobile/start`, without cookies or an Origin header.
+   The API persists an opaque request digest, PKCE challenge and state in a
+   short-lived control-plane table; it returns a browser URL pointing to
+   `/mobile-connect?request=...`. The URL does not contain a session.
+2. Expo opens that URL in the **system browser** (never an embedded webview).
+   The normal browser login UI handles password or OIDC. Once authenticated,
+   the user must explicitly approve the request on `/mobile-connect`. The
+   web-only `POST /auth/mobile/approve` requires the usual session cookie,
+   session-bound CSRF header and account context; bearer approval is rejected.
+   The owner comes only from the verified browser session.
+3. Approval creates a one-time code and returns the fixed
+   `sportos://auth/callback?code=...&state=...` link. The app must register
+   this scheme in #188. Even if another app intercepts the custom scheme, the
+   one-time code cannot be exchanged without the original PKCE verifier.
+   The mobile app must verify the callback scheme, host/path, exact state and
+   query fields before calling `POST /auth/mobile/exchange` with the code,
+   state and verifier (no Origin/cookies). The request is consumed atomically
+   with an exact challenge/state/hash match; expiry, replay and unapproved
+   requests fail closed.
+4. Exchange creates a distinct opaque `smo_` bearer session with only SHA-256
+   token digest in the existing `auth_sessions` store. Mobile sessions use
+   existing idle/absolute expiry, active-account checks and server revocation.
+   The API accepts `Authorization: Bearer smo_...` without ambient CSRF,
+   rejects mixed bearer/cookie credentials, and will **not** accept mobile
+   bearer tokens in the browser cookie channel or browser tokens as bearer.
+   All normal API account/RLS rules and forbidden mutations still apply.
+
+**Native implementation boundary:** `packages/shared/src/mobile-api.ts` is a
+thin, dependency-free client contract for #188. Pass an adapter backed by iOS
+Keychain through `expo-secure-store` for `SecureSessionStore`; never ordinary
+AsyncStorage, committed app constants, browser storage, URL parameters,
+analytics or logs. Generate PKCE verifier/state with a CSPRNG; keep the pending
+verifier protected across the system-browser round-trip and clear it on finish
+or cancellation. The client rejects non-HTTPS API origins (except explicit
+local-loopback testing), requests with cookies, unexpected callback URLs and
+unsafe paths. 401 invalidates the in-memory credential and secure-store entry;
+there is no long-lived refresh token. At absolute expiry, repeat browser
+sign-in. `POST /auth/logout` with bearer revokes its session. If offline,
+local storage is still cleared, but server revocation cannot be confirmed;
+the client reports `local-only` and the session lasts only to its server expiry
+unless separately revoked. The UI must disclose this outcome.
+
+**Deployment and security:** Apply primary Flyway V142 before enabling mobile
+handoffs. The short-lived `mobile_auth_requests` table is deliberately an
+app-only auth control plane (created before any account is known), with forced
+RLS and an allow policy only for `sportos_app`; it is not general user data.
+Only fixed `SPORTOS_WEB_ORIGIN` constructs the browser URL and only the fixed
+`sportos://auth/callback` target constructs the deep link. A bounded
+per-process limiter covers start requests; the existing password attempt
+limiter is unchanged. Existing CORS keeps **only the configured web Origin**;
+there is no wildcard, new provider scope, server-side mobile credential, direct
+Neon access, automatic rich provider download or canonical scoring change.
+
+Local Codex at epic QA must verify real hosted HTTPS/proxy routing, Safari
+password and future OIDC login, Expo SecureStore wiring, lifecycle/re-auth,
+universal-link or custom-scheme interception, expiry/replay, cross-account
+authorization and device logout on simulator/iPhone. This branch adds code and
+fixture tests but claims **no on-device or production verification**.
+
 ## Runtime identities
 
 Flyway runs as the schema owner. Runtime processes must not use that superuser or table owner because PostgreSQL superusers and table owners can bypass row-level security.

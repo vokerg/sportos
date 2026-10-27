@@ -26,6 +26,16 @@ Build an iOS-first **React Native + Expo + TypeScript** client in `apps/mobile` 
 
 Security review must include negative tests for missing/invalid/replayed/expired handoffs, URL interception, unauthorized/cross-account reads, CSRF regression in web mode, bearer mutation authorization, logout/revocation and incorrect redirect/origin handling. **A device HTTP call to `/activities` with today's cookie contract is *not* evidence of mobile auth readiness.**
 
+## Implemented native authentication boundary (#187)
+
+Server implementation uses a five-minute, one-use browser-approved PKCE
+handoff and distinct revocable opaque `smo_` bearer sessions. The existing web
+password/OIDC login is the identity provider; the mobile API does not accept
+username/password directly. The browser confirmation route and mobile client
+contract are in place; `apps/mobile` (including Keychain adapter, linking and
+system-browser wiring) remains #188's responsibility. V142 migrates the
+handoff control plane. No on-device verification is claimed.
+
 ## Application / UX / libraries
 
 - #188: Expo workspace, typed feature-owned API client and session state, navigation with at most five root destinations (Home, Daily, Activities, Run Lab, More), native safe areas, system light/dark preference, dynamic type, large touch targets, semantic units, and loading/empty/error/offline states. Never ship the fixture session from the spike.

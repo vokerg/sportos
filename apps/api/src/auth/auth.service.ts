@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { ForbiddenException, HttpException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import {
   AuthRepository,
   ExternalIdentityClaimError,
@@ -41,6 +41,8 @@ export class AuthService {
   private loginWindowStarted = 0;
   private loginAttempts = 0;
   private loginInProgress = false;
+  private mobileWindowStarted = 0;
+  private mobileRequests = 0;
 
   constructor(private readonly database: DbProvider) {
     this.repository = new AuthRepository(database.db);
@@ -206,7 +208,89 @@ export class AuthService {
     return this.issueSession(account.id, account.display_name, account.email, '/', userAgent);
   }
 
-  async authenticate(sessionToken: string | null): Promise<AuthenticatedSession | null> {
+
+  async startMobileSignIn(input: unknown, origin: string | undefined) {
+    requireNativeRequest(origin);
+    const value = strictObject(input, ['codeChallenge', 'state']);
+    const codeChallenge = value.codeChallenge;
+    const state = value.state;
+    if (!isRandomUrlToken(codeChallenge, 43, 43) || !isRandomUrlToken(state, 32, 128)) {
+      throw new UnauthorizedException('Invalid mobile sign-in request.');
+    }
+    if (Date.now() - this.mobileWindowStarted >= 60_000) {
+      this.mobileWindowStarted = Date.now();
+      this.mobileRequests = 0;
+    }
+    if (++this.mobileRequests > 30) {
+      throw new HttpException('Too many sign-in requests. Try again in a minute.', 429);
+    }
+    const requestId = randomToken(32);
+    const expiresAt = new Date(Date.now() + 5 * 60_000);
+    await this.repository.createMobileAuthRequest({
+      requestHash: sha256(requestId), codeChallenge, state, expiresAt,
+    });
+    const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4210').replace(/\/$/, '');
+    return {
+      requestId,
+      authorizationUrl: `${webOrigin}/mobile-connect?request=${encodeURIComponent(requestId)}`,
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  async approveMobileSignIn(input: unknown, session: AuthenticatedSession, transport: 'cookie' | 'bearer' | undefined) {
+    if (transport !== 'cookie') throw new ForbiddenException('Browser confirmation is required.');
+    const value = strictObject(input, ['requestId'], true);
+    if (!isRandomUrlToken(value.requestId, 43, 43)) {
+      throw new BadRequestException('Mobile sign-in is unavailable or expired.');
+    }
+    const code = randomToken(32);
+    const state = await this.repository.approveMobileAuthRequest({
+      requestHash: sha256(value.requestId),
+      accountId: session.account.id,
+      codeHash: sha256(code),
+    });
+    if (!state) throw new BadRequestException('Mobile sign-in is unavailable or expired.');
+    // Fixed app scheme; only one-time code + state enter the URL, never the bearer token.
+    // #188 must register exactly this scheme in its Expo configuration.
+    const url = new URL('sportos://auth/callback');
+    url.searchParams.set('code', code);
+    url.searchParams.set('state', state);
+    return { redirectUrl: url.toString() };
+  }
+
+  async exchangeMobileSignIn(input: unknown, origin: string | undefined, userAgent?: string) {
+    requireNativeRequest(origin);
+    const value = strictObject(input, ['code', 'state', 'codeVerifier']);
+    const { code, state, codeVerifier } = value;
+    if (!isRandomUrlToken(code, 43, 43) || !isRandomUrlToken(state, 32, 128)
+      || !isRandomUrlToken(codeVerifier, 43, 128)) {
+      throw new UnauthorizedException('Mobile sign-in is invalid or expired.');
+    }
+    const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
+    const accountId = await this.repository.consumeMobileAuthRequest({
+      codeHash: sha256(code), state, codeChallenge,
+    });
+    if (!accountId) throw new UnauthorizedException('Mobile sign-in is invalid or expired.');
+    if (this.loginMode() === 'single-user' && accountId !== LEGACY_ACCOUNT_ID) {
+      throw new UnauthorizedException('Mobile sign-in is invalid or expired.');
+    }
+    const account = await this.repository.getAccount(accountId);
+    if (!account || account.status !== 'active') {
+      throw new UnauthorizedException('Mobile sign-in is invalid or expired.');
+    }
+    const result = await this.issueSession(account.id, account.display_name, account.email, '/', userAgent, 'mobile');
+    return {
+      token: result.sessionToken,
+      account: result.session.account,
+      expiresAt: result.session.expiresAt,
+      absoluteExpiresAt: result.session.absoluteExpiresAt,
+    };
+  }
+
+  async authenticate(sessionToken: string | null, transport: 'browser' | 'mobile' = 'browser'): Promise<AuthenticatedSession | null> {
+    if (transport === 'mobile' && !/^smo_[A-Za-z0-9_-]{64}$/.test(sessionToken ?? '')) return null;
+    if (transport === 'browser' && (sessionToken ?? '').startsWith('smo_')) return null;
+
     if (!sessionToken || sessionToken.length < 32 || sessionToken.length > 500) return null;
     const result = await this.repository.findActiveSession(sha256(sessionToken));
     if (!result) return null;
@@ -260,8 +344,9 @@ export class AuthService {
     email: string | null,
     returnTo: string,
     userAgent?: string,
+    transport: 'browser' | 'mobile' = 'browser',
   ): Promise<SessionIssueResult> {
-    const sessionToken = randomToken(48);
+    const sessionToken = transport === 'mobile' ? `smo_${randomToken(48)}` : randomToken(48);
     const csrfToken = randomToken(32);
     const idleSeconds = boundedSeconds(process.env.SPORTOS_SESSION_IDLE_SECONDS, 43_200, 300, 86_400);
     const absoluteSeconds = boundedSeconds(process.env.SPORTOS_SESSION_ABSOLUTE_SECONDS, 604_800, idleSeconds, 2_592_000);
@@ -356,4 +441,25 @@ function normalizeReturnTo(value: string | undefined): string {
 function boundedSeconds(value: string | undefined, fallback: number, minimum: number, maximum: number): number {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
+}
+
+function strictObject(value: unknown, keys: string[], browser = false): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).length !== keys.length
+    || Object.keys(value).some((key) => !keys.includes(key))
+    || Object.values(value).some((field) => typeof field !== 'string')) {
+    if (browser) throw new BadRequestException('Invalid mobile sign-in request.');
+    throw new UnauthorizedException('Invalid mobile sign-in request.');
+  }
+  return value as Record<string, string>;
+}
+
+function isRandomUrlToken(value: string, min: number, max: number): boolean {
+  return value.length >= min && value.length <= max && /^[A-Za-z0-9_-]+$/.test(value);
+}
+
+function requireNativeRequest(origin: string | undefined): void {
+  // This is a non-cookie JSON API. Browser fetches supply Origin, and the CORS
+  // policy does not grant cross-origin access. Native uses an explicit verifier.
+  if (origin) throw new ForbiddenException('Use the mobile application to sign in.');
 }
