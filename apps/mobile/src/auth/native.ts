@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import { MobileApiClient, MobileApiError } from '../../../../packages/shared/src/mobile-api';
 import type { MobileSession, SecureSessionStore } from '../../../../packages/shared/src/mobile-api';
+import { isExactOrigin, validAuthorizationUrl } from './url-policy.mjs';
 
 const KEY = 'sportos.mobile.session.v1';
 const REDIRECT = 'sportos://auth/callback';
@@ -18,9 +19,11 @@ export const sessionStore: SecureSessionStore = {
 
 export function configuredClient(): MobileApiClient | null {
   const origin = process.env.EXPO_PUBLIC_SPORTOS_API_URL?.trim();
-  if (!origin) return null;
+  const webOrigin = process.env.EXPO_PUBLIC_SPORTOS_WEB_ORIGIN?.trim();
+  if (!origin || !webOrigin) return null;
   // Loopback is a deliberate simulator-only exception. Never allow it in a release build.
   const insecureLocal = __DEV__ && process.env.EXPO_PUBLIC_ALLOW_INSECURE_LOCALHOST === 'true';
+  if (!isExactOrigin(origin, insecureLocal) || !isExactOrigin(webOrigin, insecureLocal)) return null;
   try {
     return new MobileApiClient(origin, sessionStore, fetch, insecureLocal);
   } catch {
@@ -59,14 +62,9 @@ async function pkcePair(): Promise<{ verifier: string; challenge: string; state:
 export async function browserSignIn(client: MobileApiClient): Promise<MobileSession | null> {
   const { verifier, challenge, state } = await pkcePair();
   const start = await client.startSignIn(challenge, state);
-  let authorization: URL;
-  try { authorization = new URL(start.authorizationUrl); } catch { throw new MobileApiError('invalid'); }
-  // The server builds this URL from the fixed web origin; refuse unexpected destinations.
-  if ((authorization.protocol !== 'https:' &&
-        !(__DEV__ && authorization.protocol === 'http:' &&
-          ['localhost', '127.0.0.1'].includes(authorization.hostname))) ||
-      authorization.username || authorization.password || authorization.hash ||
-      authorization.pathname !== '/mobile-connect' || !authorization.searchParams.get('request')) {
+  // The browser page can contain credentials. Refuse redirects outside our configured web host.
+  if (!validAuthorizationUrl(start.authorizationUrl, process.env.EXPO_PUBLIC_SPORTOS_WEB_ORIGIN,
+      __DEV__ && process.env.EXPO_PUBLIC_ALLOW_INSECURE_LOCALHOST === 'true')) {
     throw new MobileApiError('invalid');
   }
 
