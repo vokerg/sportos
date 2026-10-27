@@ -24,7 +24,8 @@ import { MobileConnectApiService } from './features/mobile-auth/data-access/mobi
         </button>
       }
       @if (approved()) {
-        <p role="status">Approved. Return to the SportOS iPhone app if it did not open automatically.</p>
+        <p role="status">Approved. Open SportOS on your iPhone to finish sign-in.</p>
+        <button type="button" (click)="openApp()">Open SportOS iPhone app</button>
       }
     </section>
   `,
@@ -40,6 +41,7 @@ export class MobileConnectComponent {
   readonly invalidRequest = signal(!/^[A-Za-z0-9_-]{43}$/.test(this.requestId));
   readonly busy = signal(false);
   readonly approved = signal(false);
+  private readonly callbackUrl = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
 
   approve(): void {
@@ -54,6 +56,7 @@ export class MobileConnectComponent {
           this.errorMessage.set('The mobile callback was rejected.');
           return;
         }
+        this.callbackUrl.set(redirectUrl);
         this.approved.set(true);
         window.location.assign(redirectUrl);
       },
@@ -64,6 +67,14 @@ export class MobileConnectComponent {
           : 'Could not approve sign-in. Please try again.');
       },
     });
+  }
+  openApp(): void {
+    const redirectUrl = this.callbackUrl();
+    if (redirectUrl && isExpectedMobileCallback(redirectUrl)) {
+      // Explicit user gesture: Safari may refuse a custom-scheme redirect
+      // initiated asynchronously after the approval HTTP request.
+      window.location.assign(redirectUrl);
+    }
   }
 }
 
