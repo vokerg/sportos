@@ -54,7 +54,10 @@ function TextRow({label,value}: {label:string;value:string}) {
 function activityInfo(row:Activity) {
   const extras = summaryMetrics(row).filter(m => ['Pace','Average speed','Average HR'].includes(m.label))
     .map(m => m.label+': '+m.value).slice(0,2);
-  return [row.activity_date,activityDistance(row),row.moving_time_s === null
+  const parsedTime = row.start_time ? new Date(row.start_time) : null;
+  const localTime = parsedTime && Number.isFinite(parsedTime.getTime())
+    ? parsedTime.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : null;
+  return [row.activity_date,localTime,activityDistance(row),row.moving_time_s === null
     ? row.duration_s === null ? null : formatDuration(row.duration_s)
     : formatDuration(row.moving_time_s),...extras].filter(Boolean).join(' · ');
 }
@@ -242,9 +245,13 @@ export function ActivityDetailScreen({route}:NativeStackScreenProps<RootStack,'A
   const [providerOp,setProviderOp] = useState<'strava'|'garmin'|null>(null);
   const [providerMessage,setProviderMessage] = useState<string|null>(null);
   const generation=useRef(0);
+  const lapRequest=useRef(0);
+  const setRequest=useRef(0);
+  const providerInFlight=useRef(false);
 
   useFocusEffect(useCallback(()=>{
     const current=++generation.current;
+    lapRequest.current++;setRequest.current++;
     setDetail(initial());setEnrichment(null);setCoverageError(false);
     setSwim({kind:'idle',data:null});setLaps({kind:'idle',data:null,source:null});
     setSets({kind:'idle',data:null});setProviderOp(null);setProviderMessage(null);
@@ -264,26 +271,27 @@ export function ActivityDetailScreen({route}:NativeStackScreenProps<RootStack,'A
         });
       }
     }).catch(error=>{if(generation.current===current)setDetail({kind:errorKind(error),data:null})});
-    return ()=>{generation.current++};
+    return ()=>{generation.current++;lapRequest.current++;setRequest.current++};
   },[id,read,revision]));
 
   const reload=()=>setRevision(v=>v+1);
   const viewLaps=(source:'strava'|'garmin')=>{
-    const current=generation.current;
+    const current=generation.current, request=++lapRequest.current;
     setLaps({kind:'loading',data:null,source});
     void read<unknown>(activityDetailPath(id)+(source==='strava'?'/provider-detail':'/garmin-detail'))
       .then(payload=>projectLaps(payload,source)).then(data=>{
-        if(generation.current===current)setLaps({kind:data.rows.length?'loaded':'empty',data,source});
-      }).catch(()=>{if(generation.current===current)setLaps({kind:'error',data:null,source})});
+        if(generation.current===current && lapRequest.current===request)setLaps({kind:data.rows.length?'loaded':'empty',data,source});
+      }).catch(()=>{if(generation.current===current && lapRequest.current===request)setLaps({kind:'error',data:null,source})});
   };
   const viewSets=()=>{
-    const current=generation.current;setSets({kind:'loading',data:null});
+    const current=generation.current, request=++setRequest.current;setSets({kind:'loading',data:null});
     void read<unknown>(activityDetailPath(id)+'/garmin-detail').then(projectGarminSets).then(rows=>{
-      if(generation.current===current)setSets({kind:rows.length?'loaded':'empty',data:rows});
-    }).catch(()=>{if(generation.current===current)setSets({kind:'error',data:null})});
+      if(generation.current===current && setRequest.current===request)setSets({kind:rows.length?'loaded':'empty',data:rows});
+    }).catch(()=>{if(generation.current===current && setRequest.current===request)setSets({kind:'error',data:null})});
   };
   const fetchDetail=(source:'strava'|'garmin',refresh:boolean)=>{
-    if(providerOp!==null) return;
+    if(providerInFlight.current) return;
+    providerInFlight.current=true;
     const current=generation.current;
     setProviderOp(source);setProviderMessage(null);
     void mutate<unknown>(activityDetailPath(id)+(source==='strava'?'/provider-detail':'/garmin-detail'),'POST',{refresh})
@@ -291,7 +299,7 @@ export function ActivityDetailScreen({route}:NativeStackScreenProps<RootStack,'A
         if(generation.current===current)reload();
       }).catch(()=>{
         if(generation.current===current)setProviderMessage('Could not fetch '+source+' detail. Check provider availability and try again.');
-      }).finally(()=>{if(generation.current===current)setProviderOp(null)});
+      }).finally(()=>{providerInFlight.current=false;if(generation.current===current)setProviderOp(null)});
   };
   const activity=detail.data;
   const safeId=validActivityId(id);

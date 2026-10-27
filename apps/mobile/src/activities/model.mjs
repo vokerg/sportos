@@ -68,9 +68,17 @@ const activity = raw => {
   if (!object(raw) || !validActivityId(raw.id)) invalid();
   const type = enumValue(raw.activity_type, TYPES);
   const source = enumValue(raw.source, SOURCES);
+  const canonicalSubtype = optional(raw.subtype, 40);
+  const garminSubtype = type === 'run' && object(raw.runClassification)
+    && raw.runClassification.source === 'garmin'
+    && ['track','treadmill','outdoor'].includes(raw.runClassification.subtype)
+    ? raw.runClassification.subtype : null;
+  // Current compact Garmin classification changes the label, never the canonical source value.
+  const subtype = type === 'run' && [null,'unknown','outdoor'].includes(canonicalSubtype)
+    ? garminSubtype ?? canonicalSubtype : canonicalSubtype;
   return {
     id: raw.id, activity_date: date(raw.activity_date), start_time: optional(raw.start_time, 64),
-    activity_type: type, subtype: optional(raw.subtype, 40), source,
+    activity_type: type, subtype, source,
     distance_m: nullable(raw.distance_m, 0, 1e8),
     duration_s: nullable(raw.duration_s, 0, 604800),
     moving_time_s: nullable(raw.moving_time_s, 0, 604800),
@@ -241,14 +249,20 @@ export function projectLaps(raw, source) {
   }
   return { rows, truncated: bounded.length > cap };
 }
+const SET_FIELDS = new Set([
+  'exerciseName','exercise_name','exerciseCategory','exercise_category','exerciseIndex',
+  'category','subCategory','setType','set_type','repetitions','reps','weight','weightKg',
+  'weight_kg','duration','durationS','duration_s','total_timer_time','total_elapsed_time',
+]);
 export function projectGarminSets(raw) {
   if (!object(raw)) invalid();
   const payload = Array.isArray(raw.sets) ? raw.sets : object(raw.sets) ? raw.sets.exerciseSets : null;
   if (!Array.isArray(payload)) return [];
   return payload.slice(0,100).filter(object).map(item =>
-    Object.entries(item).filter(([key,val]) => /^[A-Za-z_]{1,50}$/.test(key)
-      && (typeof val === 'string' || typeof val === 'number') && String(val).length <= 100)
-      .slice(0,8).map(([name,val]) => ({ label: name.replaceAll('_',' '), value: String(val) }))).filter(row => row.length);
+    Object.entries(item).filter(([key,val]) => SET_FIELDS.has(key)
+      && (typeof val === 'string' && val.length <= 100 && !/[\\u0000-\\u001f\\u007f]/.test(val)
+        || typeof val === 'number' && Number.isFinite(val)))
+      .slice(0,8).map(([name,val]) => ({ label: name.replace(/([A-Z])/g,' $1').replaceAll('_',' ').trim(), value: String(val) }))).filter(row => row.length);
 }
 export const title = type => ({
   run:'Run',walk:'Walk',bike:'Ride',swim:'Swim',workout:'Workout',steps:'Steps',

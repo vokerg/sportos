@@ -137,3 +137,18 @@ test('provider names with control characters are safely normalized without expos
   assert.equal(row.owner_id,undefined);
   assert.equal(row.rawJson,undefined);
 });
+
+test('Garmin run classification changes presentation only for unclassified runs',()=>{
+  const garmin={source:'garmin',subtype:'track'};
+  const row=projectActivityDetail(detail('run',{subtype:'outdoor',runClassification:garmin}));
+  assert.equal(row.subtype,'track');
+  assert.equal(row.source,'strava');
+  assert.equal(projectActivityDetail(detail('run',{subtype:'treadmill',runClassification:garmin})).subtype,'treadmill');
+  assert.equal(projectActivityDetail(detail('swim',{subtype:'indoor',runClassification:garmin})).subtype,'indoor');
+  assert.equal(projectActivityDetail(detail('run',{subtype:null,runClassification:{source:'garmin',subtype:'invalid'}})).subtype,null);
+});
+test('garmin exercise set projection excludes arbitrary private FIT fields and nonfinite values',()=>{
+  const rows=projectGarminSets({sets:{exerciseSets:[{exerciseName:'Squat',repetitions:12,weightKg:80,
+    rawJson:'sensitive',latitude:'55.6761',token:'secret',secret:123,weight:Infinity}]}});
+  assert.deepEqual(rows,[[{label:'exercise Name',value:'Squat'},{label:'repetitions',value:'12'},{label:'weight Kg',value:'80'}]]);
+});
