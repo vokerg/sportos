@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSportosTheme } from '../ui/theme';
 import { Screen, StatusPanel } from '../ui/primitives';
 import { HomeScreen, DailyScreen, ActivitiesScreen, RunLabScreen, MoreScreen, AboutScreen } from '../screens/Features';
+import { DailyDetailScreen } from '../daily/screens';
 import type { MainTabs, RootStack } from './routes';
 
 const Tabs = createBottomTabNavigator<MainTabs>();
@@ -62,6 +63,7 @@ export function AppNavigation() {
       <Stack.Screen name="Main" component={TabScreens} options={{ headerShown: false }} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="ActivityDetail" component={ActivityDetailPlaceholder} options={{ title: 'Activity' }} />
+      <Stack.Screen name="DailyDetail" component={DailyDetailScreen} options={{ title: 'Daily score' }} />
     </Stack.Navigator>
   </NavigationContainer>;
 }

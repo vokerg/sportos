@@ -10,4 +10,5 @@ export type RootStack = {
   Main: undefined;
   About: undefined;
   ActivityDetail: { activityId: string };
+  DailyDetail: { date: string };
 };
