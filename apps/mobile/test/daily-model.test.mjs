@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   dailySummaryPath, scoreBreakdownPath, formatPoints, scoreAuthority,
   contributionRows, mergeDays, todayCoverage, sourceNames, safeActivityType, projectDetail,
+  parseDailySummaries, projectActivityPreview,
 } from '../src/daily/model.mjs';
 
 test('date-only daily requests use exact local dates, not UTC timestamps', () => {
@@ -79,4 +80,50 @@ test('missing and imported day presentation is honest', () => {
   });
   assert.equal(row.score.appTotal, 500);
   assert.deepEqual(row.ledger, []);
+});
+
+test('summary response fails closed for malformed scores and whitelists source data', () => {
+  const row = {
+    metric_date: '2026-10-27', score_status: 'imported',
+    total_points: '0', base_points: '0', bonus_points: '-2.5', steps: 0,
+    run_m: 0, bike_m: 0, swim_m: 0, workout_points: 0,
+    avg_30d: null, score_contributions: { bonus: '-2.5' },
+    providerSources: { strava: false, garmin: true },
+    rawJson: { credential: 'private' }, ownerId: 'private',
+  };
+  const [result] = parseDailySummaries([row]);
+  assert.equal(result.total_points, 0);
+  assert.equal(result.bonus_points, -2.5);
+  assert.deepEqual(result.score_contributions, { bonus: -2.5 });
+  assert.equal(JSON.stringify(result).includes('private'), false);
+  assert.throws(() => parseDailySummaries([{ ...row, total_points: 'invalid' }]));
+  assert.throws(() => parseDailySummaries([{ ...row, score_status: 'unknown' }]));
+  assert.throws(() => parseDailySummaries({ items: [row] }));
+  assert.throws(() => parseDailySummaries([{ ...row, metric_date: '2026-02-30' }]));
+});
+test('activity recap projects a bounded safe list and rejects malformed envelopes', () => {
+  const payload = {
+    items: [{ id: 'activity1', activity_date: '2026-10-26', activity_type: 'swim',
+      source: 'strava', distance_m: 1000, duration_s: 1200,
+      providerMetrics: [{ raw: 'secret' }], notes: 'sensitive' }],
+    summary: { count: '1', privateInternalCount: 3 },
+  };
+  const result = projectActivityPreview(payload);
+  assert.equal(result.summary.count, 1);
+  assert.equal(result.items[0].distance_m, 1000);
+  assert.equal(JSON.stringify(result).includes('secret'), false);
+  assert.equal(JSON.stringify(result).includes('sensitive'), false);
+  assert.throws(() => projectActivityPreview({ items: [], summary: { count: -1 } }));
+  assert.throws(() => projectActivityPreview({ items: [null], summary: { count: 1 } }));
+});
+test('detail rejects missing or corrupted ledger rather than fabricating a score', () => {
+  const base = {
+    date: '2026-10-27', recomputedAt: '2026-10-27T10:00:00Z', scoreStatus: 'calculated',
+    score: { appTotal: 0, baseTotal: 0, bonusPoints: 0, ledgerTotal: 0, excelTotal: null, delta: null },
+    facts: { steps: 0, runM: 0, bikeM: 0, swimM: 0, workoutPoints: 0 },
+    ledger: [], activities: [],
+  };
+  assert.equal(projectDetail(base).score.appTotal, 0);
+  assert.throws(() => projectDetail({ ...base, ledger: null }));
+  assert.throws(() => projectDetail({ ...base, score: { ...base.score, appTotal: Number.NaN } }));
 });

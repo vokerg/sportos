@@ -9,8 +9,8 @@ import type { MainTabs, RootStack } from '../navigation/routes';
 import { Action, Body, Card, DateStepper, formatDistance, Metric, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { isCalendarDate, localToday, shiftCalendarDate } from '../ui/format.mjs';
 import { useSportosTheme } from '../ui/theme';
-import type { DailySummary, DailyBreakdown, ActivityListPreview, MobileDayDetail } from './contracts';
-import { contributionRows, dailySummaryPath, formatPoints, mergeDays, safeActivityType, scoreAuthority, scoreBreakdownPath, projectDetail, sourceNames, todayCoverage } from './model.mjs';
+import type { DailySummary, ActivityListPreview, MobileDayDetail } from './contracts';
+import { contributionRows, dailySummaryPath, formatPoints, mergeDays, safeActivityType, scoreAuthority, scoreBreakdownPath, projectDetail, projectActivityPreview, parseDailySummaries, sourceNames, todayCoverage } from './model.mjs';
 
 type LoadKind = 'loading' | 'loaded' | 'empty' | 'error' | 'offline';
 type HomeData = { days: DailySummary[]; activity: ActivityListPreview | null; activityError: boolean; activityLoading: boolean };
@@ -57,7 +57,7 @@ export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'
     setView(INITIAL);
     void (async () => {
       try {
-        const days = await read<DailySummary[]>(dailySummaryPath({ limit: 14, to: today }));
+        const days = parseDailySummaries(await read<unknown>(dailySummaryPath({ limit: 14, to: today })));
         if (!active) return;
         // Render official scores immediately; a slow activity query cannot delay the cockpit.
         setView({ kind: days.length ? 'loaded' : 'empty',
@@ -66,8 +66,8 @@ export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'
         let activity: ActivityListPreview | null = null;
         let activityError = false;
         try {
-          activity = await read<ActivityListPreview>('/activities?from=' + shiftCalendarDate(today, -30)
-            + '&to=' + today + '&limit=5&offset=0');
+          activity = projectActivityPreview(await read<unknown>('/activities?from=' + shiftCalendarDate(today, -30)
+            + '&to=' + today + '&limit=5&offset=0'));
         } catch {
           activityError = true;
         }
@@ -143,8 +143,9 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
     setHistory(INITIAL);
     setLoadingOlder(false);
     setOlderError(false);
-    void read<DailySummary[]>(dailySummaryPath({ to: today, limit: 30 }))
-      .then(rows => {
+    void read<unknown>(dailySummaryPath({ to: today, limit: 30 }))
+      .then(payload => {
+        const rows = parseDailySummaries(payload);
         if (generation.current !== current) return;
         setHistory({ kind: rows.length ? 'loaded' : 'empty', data: rows });
         setHasOlder(rows.length === 30);
@@ -167,8 +168,9 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
     }
     let active = true;
     setSelected({ kind: 'loading', data: null });
-    void read<DailySummary[]>(dailySummaryPath({ from: date, to: date, limit: 1 }))
-      .then(rows => {
+    void read<unknown>(dailySummaryPath({ from: date, to: date, limit: 1 }))
+      .then(payload => {
+        const rows = parseDailySummaries(payload);
         if (active) setSelected({ kind: rows.length ? 'loaded' : 'empty', data: rows[0] ?? null });
       })
       .catch(error => {
@@ -184,8 +186,9 @@ export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Dail
     setLoadingOlder(true);
     setOlderError(false);
     const before = shiftCalendarDate(rows[rows.length - 1].metric_date, -1);
-    void read<DailySummary[]>(dailySummaryPath({ to: before, limit: 30 }))
-      .then(older => {
+    void read<unknown>(dailySummaryPath({ to: before, limit: 30 }))
+      .then(payload => {
+        const older = parseDailySummaries(payload);
         if (generation.current !== current) return;
         setHistory({ kind: 'loaded', data: mergeDays(rows, older) });
         setHasOlder(older.length === 30);
@@ -256,10 +259,10 @@ export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, '
     }
     void (async () => {
       try {
-        const summary = await read<DailySummary[]>(dailySummaryPath({ from: date, to: date, limit: 1 }));
+        const summary = parseDailySummaries(await read<unknown>(dailySummaryPath({ from: date, to: date, limit: 1 })));
         if (!active) return;
         if (!summary.length) { setDetail({ kind: 'empty', data: null }); return; }
-        const raw = await read<DailyBreakdown>(scoreBreakdownPath(date));
+        const raw = await read<unknown>(scoreBreakdownPath(date));
         if (active) setDetail({ kind: 'loaded', data: projectDetail(raw) });
       } catch (error) {
         if (active) setDetail({ kind: errorKind(error), data: null });

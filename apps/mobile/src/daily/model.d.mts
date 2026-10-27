@@ -1,4 +1,4 @@
-import type { DailySummary, DailyBreakdown, MobileDayDetail, ContributionCategory, ScoreAuthority } from './contracts';
+import type { DailySummary, DailyBreakdown, MobileDayDetail, ActivityListPreview, ContributionCategory, ScoreAuthority } from './contracts';
 export declare function dailySummaryPath(options?: { from?: string; to?: string; limit?: number }): string;
 export declare function scoreBreakdownPath(date: string): string;
 export declare function formatPoints(value: number | null | undefined, signed?: boolean): string;
@@ -9,4 +9,6 @@ export declare function mergeDays(existing: DailySummary[], older: DailySummary[
 export declare function todayCoverage(date: string, today: string): string;
 export declare function sourceNames(sources?: { strava: boolean; garmin: boolean } | null): string;
 export declare function safeActivityType(value: string): string;
-export declare function projectDetail(raw: DailyBreakdown): MobileDayDetail;
+export declare function projectDetail(raw: unknown): MobileDayDetail;
+export declare function parseDailySummaries(payload: unknown): DailySummary[];
+export declare function projectActivityPreview(payload: unknown): ActivityListPreview;

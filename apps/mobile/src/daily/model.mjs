@@ -69,43 +69,144 @@ export function safeActivityType(value) {
   return names[value] ?? 'Activity';
 }
 
+
+/** Safely normalize bounded API responses; no owner/source/raw-payload fields survive. */
+const scoreStates = new Set(['imported', 'manual', 'calculated']);
+const contributionNames = Object.keys(categories);
+function object(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+function invalidResponse() {
+  throw new Error('Invalid SportOS daily response');
+}
+function number(value) {
+  // The Postgres numeric JSON codec can emit decimal text in some environments.
+  const candidate = typeof value === 'string' && /^-?\d+(?:\.\d+)?$/.test(value)
+    ? Number(value) : value;
+  if (typeof candidate !== 'number' || !Number.isFinite(candidate)) invalidResponse();
+  return candidate;
+}
+function nullableNumber(value) {
+  return value === null ? null : number(value);
+}
+function literal(value) {
+  if (typeof value !== 'string' || value.length > 200) invalidResponse();
+  return value;
+}
+function day(value) {
+  if (!isCalendarDate(value)) invalidResponse();
+  return value;
+}
+function scoreState(value) {
+  if (!scoreStates.has(value)) invalidResponse();
+  return value;
+}
+function boundedArray(value, max) {
+  if (!Array.isArray(value) || value.length > max) invalidResponse();
+  return value;
+}
+export function parseDailySummaries(payload) {
+  return boundedArray(payload, 100).map(raw => {
+    if (!object(raw)) invalidResponse();
+    let score_contributions;
+    if (raw.score_contributions !== undefined && raw.score_contributions !== null) {
+      if (!object(raw.score_contributions)) invalidResponse();
+      score_contributions = {};
+      for (const key of contributionNames) {
+        if (raw.score_contributions[key] !== undefined) {
+          score_contributions[key] = number(raw.score_contributions[key]);
+        }
+      }
+    }
+    let providerSources;
+    if (raw.providerSources !== undefined && raw.providerSources !== null) {
+      if (!object(raw.providerSources)
+        || typeof raw.providerSources.strava !== 'boolean'
+        || typeof raw.providerSources.garmin !== 'boolean') invalidResponse();
+      providerSources = {
+        strava: raw.providerSources.strava,
+        garmin: raw.providerSources.garmin,
+      };
+    }
+    return {
+      metric_date: day(raw.metric_date), score_status: scoreState(raw.score_status),
+      total_points: number(raw.total_points),
+      base_points: number(raw.base_points), bonus_points: number(raw.bonus_points),
+      steps: number(raw.steps), run_m: number(raw.run_m), bike_m: number(raw.bike_m),
+      swim_m: number(raw.swim_m), workout_points: number(raw.workout_points),
+      excel_all_points: nullableNumber(raw.excel_all_points ?? null),
+      points_delta_vs_excel: nullableNumber(raw.points_delta_vs_excel ?? null),
+      avg_30d: nullableNumber(raw.avg_30d ?? null),
+      ...(score_contributions ? { score_contributions } : {}),
+      ...(providerSources ? { providerSources } : {}),
+    };
+  });
+}
+export function projectActivityPreview(payload) {
+  if (!object(payload) || !object(payload.summary)) invalidResponse();
+  const count = number(payload.summary.count);
+  if (!Number.isSafeInteger(count) || count < 0) invalidResponse();
+  return {
+    summary: { count },
+    items: boundedArray(payload.items, 5).map(raw => {
+      if (!object(raw)) invalidResponse();
+      return {
+        id: literal(raw.id), activity_date: day(raw.activity_date),
+        activity_type: literal(raw.activity_type), source: literal(raw.source),
+        distance_m: nullableNumber(raw.distance_m),
+        duration_s: nullableNumber(raw.duration_s),
+      };
+    }),
+  };
+}
+
 /** Whitelist the only daily-detail fields allowed in native component state. */
 export function projectDetail(raw) {
-  return {
-    date: raw.date,
-    recomputedAt: raw.recomputedAt,
-    status: raw.scoreStatus,
+  if (!object(raw) || !object(raw.score) || !object(raw.facts)) invalidResponse();
+  const ledger = boundedArray(raw.ledger, 1000);
+  const activities = boundedArray(raw.activities, 1000);
+  const result = {
+    date: day(raw.date),
+    recomputedAt: literal(raw.recomputedAt),
+    status: scoreState(raw.scoreStatus),
     score: {
-      appTotal: raw.score.appTotal,
-      baseTotal: raw.score.baseTotal,
-      bonusPoints: raw.score.bonusPoints,
-      ledgerTotal: raw.score.ledgerTotal,
-      excelTotal: raw.score.excelTotal,
-      delta: raw.score.delta,
+      appTotal: number(raw.score.appTotal),
+      baseTotal: number(raw.score.baseTotal),
+      bonusPoints: number(raw.score.bonusPoints),
+      ledgerTotal: number(raw.score.ledgerTotal),
+      excelTotal: nullableNumber(raw.score.excelTotal),
+      delta: nullableNumber(raw.score.delta),
     },
     facts: {
-      steps: raw.facts.steps, runM: raw.facts.runM, bikeM: raw.facts.bikeM,
-      swimM: raw.facts.swimM, workoutPoints: raw.facts.workoutPoints,
+      steps: number(raw.facts.steps), runM: number(raw.facts.runM), bikeM: number(raw.facts.bikeM),
+      swimM: number(raw.facts.swimM), workoutPoints: number(raw.facts.workoutPoints),
       ...(raw.facts.stepsCalculation ? { stepsCalculation: {
-        source: raw.facts.stepsCalculation.source,
-        resolvedSteps: raw.facts.stepsCalculation.resolvedSteps,
+        source: literal(raw.facts.stepsCalculation.source),
+        resolvedSteps: number(raw.facts.stepsCalculation.resolvedSteps),
         ...(raw.facts.stepsCalculation.garminSource
-          ? { garminSource: raw.facts.stepsCalculation.garminSource } : {}),
+          ? { garminSource: literal(raw.facts.stepsCalculation.garminSource) } : {}),
       } } : {}),
       ...(raw.facts.workoutCalculation ? { workoutCalculation: {
-        source: raw.facts.workoutCalculation.source,
-        resolvedPoints: raw.facts.workoutCalculation.resolvedPoints,
+        source: literal(raw.facts.workoutCalculation.source),
+        resolvedPoints: number(raw.facts.workoutCalculation.resolvedPoints),
         ...(raw.facts.workoutCalculation.workingSets === undefined ? {}
-          : { workingSets: raw.facts.workoutCalculation.workingSets }),
+          : { workingSets: number(raw.facts.workoutCalculation.workingSets) }),
       } } : {}),
     },
-    ledger: raw.ledger.map(item => ({
-      id: item.id,
-      name: item.rule?.name ?? 'Unspecified contribution',
-      type: item.rule?.activityType ?? null,
-      points: item.points,
-    })),
-    activityCount: raw.activities.length,
-    sourceTypes: [...new Set(raw.activities.map(a => a.source))],
+    ledger: ledger.map(item => {
+      if (!object(item) || (item.rule != null && !object(item.rule))) invalidResponse();
+      return {
+        id: literal(item.id),
+        name: item.rule?.name == null ? 'Unspecified contribution' : literal(item.rule.name),
+        type: item.rule?.activityType == null ? null : literal(item.rule.activityType),
+        points: number(item.points),
+      };
+    }),
+    activityCount: activities.length,
+    sourceTypes: [...new Set(activities.map(item => {
+      if (!object(item)) invalidResponse();
+      return literal(item.source);
+    }))],
   };
+  return result;
 }
