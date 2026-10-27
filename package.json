@@ -17,7 +17,7 @@
     "dev:web": "pnpm --filter @sportos/web start",
     "dev:worker": "pnpm --filter @sportos/worker dev",
     "build": "tsc -b --pretty false && pnpm --filter @sportos/web build",
-    "typecheck": "tsc -b --pretty false && pnpm --filter @sportos/web typecheck",
+    "typecheck": "tsc -b --pretty false && pnpm --filter @sportos/web typecheck && pnpm --filter @sportos/mobile typecheck",
     "test": "pnpm -r test",
     "clean": "tsc -b --clean && pnpm -r exec rm -rf dist",
     "db:migrate": "node scripts/flyway.mjs migrate",
@@ -37,7 +37,10 @@
     "activities:efforts": "pnpm --filter @sportos/db build && node scripts/running-efforts-backfill.mjs",
     "performance:reconcile": "pnpm --filter @sportos/db build && node scripts/performance-reconcile.mjs",
     "performance:catchup": "pnpm --filter @sportos/db build && node scripts/performance-catchup.mjs",
-    "activities:historical": "pnpm --filter @sportos/db build && node scripts/historical-runs.mjs"
+    "activities:historical": "pnpm --filter @sportos/db build && node scripts/historical-runs.mjs",
+    "dev:mobile": "pnpm --filter @sportos/mobile start",
+    "typecheck:mobile": "pnpm --filter @sportos/mobile typecheck",
+    "test:mobile": "pnpm --filter @sportos/mobile test"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

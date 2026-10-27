@@ -45,3 +45,8 @@ __pycache__/
 # Oracle runtime files (templates remain tracked)
 deploy/docker/api.env
 deploy/docker/worker.env
+
+# Generated Expo native files (native sources are generated from app.json)
+apps/mobile/.expo/
+apps/mobile/ios/
+apps/mobile/android/

@@ -36,6 +36,26 @@ contract are in place; `apps/mobile` (including Keychain adapter, linking and
 system-browser wiring) remains #188's responsibility. V142 migrates the
 handoff control plane. No on-device verification is claimed.
 
+## Implemented iOS application foundation (#188)
+
+`apps/mobile` now lives in the root pnpm workspace, with Expo SDK 57 / React Native
+0.86, compatible navigation libraries and a committed, resolved root
+`pnpm-lock.yaml`. The dependency graph was produced with a GitHub runner
+(`pnpm install --lockfile-only --ignore-scripts`); this **does not**
+constitute a successful native simulator or physical-device build.
+
+The five-tab native shell, nested routes, native Keychain adapter, browser-only
+PKCE handoff, strict configured API/web origin validation, light/dark theme and
+accessible reusable components are implemented. Its feature pages visibly
+remain placeholders for #189–#193 rather than serving synthetic or recalculated
+scores. Browser and mobile credentials are separate. App code imports only
+`packages/shared/src/mobile-api.ts` (the pure mobile client contract); it
+does not load the package's full re-export barrel or server-specific
+dependencies. This replaces #186's disposable fixture for production work.
+Local Codex will validate the install/build and real authentication lifecycle
+during epic QA, with mobile privacy hardening in #194 and TestFlight gate #195.
+See `apps/mobile/README.md` for configuration and negative-test scenarios.
+
 ## Application / UX / libraries
 
 - #188: Expo workspace, typed feature-owned API client and session state, navigation with at most five root destinations (Home, Daily, Activities, Run Lab, More), native safe areas, system light/dark preference, dynamic type, large touch targets, semantic units, and loading/empty/error/offline states. Never ship the fixture session from the spike.
