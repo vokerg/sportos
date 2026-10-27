@@ -1,0 +1,15 @@
+import type { Activity, ActivityDetail, ActivityList, Enrichment, SwimLengths, RunLapBatch, GarminSetRows, MetricRow, EffortRow } from './contracts';
+export function validActivityId(value: unknown): value is string;
+export function activityDetailPath(id: string): string;
+export function activityListPath(options?: { range?: '30d'|'90d'|'all'; type?: string; source?: string; offset?: number; limit?: number; today?: string }): string;
+export function projectActivityList(payload: unknown): ActivityList;
+export function projectActivityDetail(payload: unknown): ActivityDetail;
+export function projectEnrichment(payload: unknown): Enrichment;
+export function projectSwimLengths(payload: unknown): SwimLengths;
+export function projectLaps(payload: unknown, source: 'strava'|'garmin'): RunLapBatch;
+export function projectGarminSets(payload: unknown): GarminSetRows;
+export function providerLabel(status: Activity['providerMetrics'][number]): string;
+export function title(type: string): string;
+export function activityDistance(activity: Activity): string;
+export function summaryMetrics(activity: Activity): MetricRow[];
+export function effortRows(providers: ActivityDetail['bestEfforts']): EffortRow[];
