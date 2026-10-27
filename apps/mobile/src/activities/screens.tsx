@@ -51,19 +51,26 @@ function TextRow({label,value}: {label:string;value:string}) {
     <Text style={[styles.rowValue,{color:palette.text}]}>{value}</Text>
   </View>;
 }
+function localActivityTime(startTime:string|null) {
+  const parsed = startTime ? new Date(startTime) : null;
+  return parsed && Number.isFinite(parsed.getTime())
+    ? parsed.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : null;
+}
+function durationLabel(row:Activity) {
+  const moving = row.activity_type !== 'swim' && row.moving_time_s !== null;
+  const seconds = moving ? row.moving_time_s : row.duration_s;
+  return seconds===null ? null : (moving?'Moving ':'Elapsed ')+formatDuration(seconds);
+}
 function activityInfo(row:Activity) {
   const extras = summaryMetrics(row).filter(m => ['Pace','Average speed','Average HR'].includes(m.label))
     .map(m => m.label+': '+m.value).slice(0,2);
-  const parsedTime = row.start_time ? new Date(row.start_time) : null;
-  const localTime = parsedTime && Number.isFinite(parsedTime.getTime())
-    ? parsedTime.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : null;
-  return [row.activity_date,localTime,activityDistance(row),row.moving_time_s === null
-    ? row.duration_s === null ? null : formatDuration(row.duration_s)
-    : formatDuration(row.moving_time_s),...extras].filter(Boolean).join(' · ');
+  return [row.activity_date,localActivityTime(row.start_time),activityDistance(row),durationLabel(row),...extras]
+    .filter(Boolean).join(' · ');
 }
 function ActivityRow({activity,onOpen}: {activity:Activity;onOpen():void}) {
   const {palette} = useSportosTheme();
-  const heading = title(activity.activity_type)+(activity.subtype ? ' · '+activity.subtype : '');
+  const heading = title(activity.activity_type)+(activity.subtype && !['outdoor','unknown'].includes(activity.subtype)
+    ? ' · '+activity.subtype : '');
   const subtitle = activityInfo(activity);
   return <Pressable accessibilityRole="button" accessibilityLabel={heading+', '+subtitle+', source '+activity.source}
     onPress={onOpen} style={[styles.activityRow,{borderColor:palette.border}]}>
@@ -310,14 +317,17 @@ export function ActivityDetailScreen({route}:NativeStackScreenProps<RootStack,'A
       retry={safeId?reload:undefined}/>:null}
     {activity?<>
       <Card title={activity.name??title(activity.activity_type)}>
-        <Body subdued>{activity.activity_date}{activity.subtype?' · '+activity.subtype:''}</Body>
+        <Body subdued>{activity.activity_date}{localActivityTime(activity.start_time)?' · '+localActivityTime(activity.start_time):''}
+          {activity.subtype && !['outdoor','unknown'].includes(activity.subtype)?' · '+activity.subtype:''}</Body>
         <SourceBadge label={'Canonical · '+activity.source.replaceAll('_',' ')}/>
         {activity.provenance?<Body subdued>Source-record class: {activity.provenance}</Body>:null}
         {activity.historicalSummary?<Body subdued>Historical workbook reconstruction; original session count, start time and GPS are unknown.</Body>:null}
         {activity.activity_type==='walk'?<Body subdued>Walking activities do not independently earn activity points; steps remain in the daily step total.</Body>:null}
         {activity.activity_type==='swim' && activity.subtype==='indoor'?
           <Body subdued>Indoor pool workout · no GPS map.</Body>
-          :<Body subdued>GPS route visualization is being added in native maps issue #191; no map or location is inferred here.</Body>}
+          :activity.activity_type==='swim' || ['run','bike','walk','rowing','sup'].includes(activity.activity_type)
+            ? <Body subdued>GPS route visualization is being added in native maps issue #191; no map or location is inferred here.</Body>
+            :null}
         {activity.distanceCorrection?<><SourceBadge label="Audited distance correction"/>
           <TextRow label="Original distance" value={activity.distanceCorrection.recordedDistanceM+' m'}/>
           <TextRow label="Effective distance" value={activity.distanceCorrection.effectiveDistanceM+' m'}/>
