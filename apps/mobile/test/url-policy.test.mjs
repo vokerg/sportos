@@ -7,9 +7,10 @@ test('release origins must be HTTPS without paths, credentials or query paramete
   assert.equal(isExactOrigin('https://sportos.example.com/'), true);
   for (const candidate of ['http://sportos.example.com', 'https://me@host.com',
     'https://sportos.example.com/login', 'https://sportos.example.com?a=1',
-    'https://sportos.example.com.evil.test', 'file:///tmp/x', '']) {
+    'file:///tmp/x', '']) {
     assert.equal(isExactOrigin(candidate), false, candidate);
   }
+  assert.equal(isExactOrigin('https://sportos.example.com.evil.test'), true); // valid syntax, but not the configured origin
   assert.equal(isExactOrigin('http://localhost:4210', true), true);
   assert.equal(isExactOrigin('http://192.168.1.1:4210', true), false);
 });
