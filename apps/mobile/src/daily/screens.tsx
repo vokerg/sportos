@@ -66,7 +66,7 @@ export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'
         let activity: ActivityListPreview | null = null;
         let activityError = false;
         try {
-          activity = projectActivityPreview(await read<unknown>('/activities?from=' + shiftCalendarDate(today, -30)
+          activity = projectActivityPreview(await read<unknown>('/activities?from=' + shiftCalendarDate(today, -29)
             + '&to=' + today + '&limit=5&offset=0'));
         } catch {
           activityError = true;
