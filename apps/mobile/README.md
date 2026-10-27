@@ -15,7 +15,7 @@ Requires Node 22.22.0, pnpm 9.12.0, macOS with Xcode 26.4+ / iOS simulator. Expo
 ```sh
 cd apps/mobile
 cp .env.example .env
-# Edit EXPO_PUBLIC_SPORTOS_API_URL to your real HTTPS API origin (without /api).
+# Edit EXPO_PUBLIC_SPORTOS_API_URL and EXPO_PUBLIC_SPORTOS_WEB_ORIGIN to their exact HTTPS origins (without /api).
 pnpm install --no-frozen-lockfile
 pnpm exec expo install --check
 pnpm doctor
@@ -31,7 +31,7 @@ Android emulator loopback requires a real reachable host for a non-loopback IP; 
 
 ## Authentication and security
 
-- Configure `EXPO_PUBLIC_SPORTOS_API_URL` to the **API origin**; no password or token belongs in Expo config. No mocked sign-in is available. API is trusted over HTTPS except explicit localhost debug.
+- Configure `EXPO_PUBLIC_SPORTOS_API_URL` and `EXPO_PUBLIC_SPORTOS_WEB_ORIGIN` to the **API and browser-login origins**, respectively; no password or token belongs in Expo config. No mocked sign-in is available. API is trusted over HTTPS except explicit localhost debug.
 - `src/auth/native.ts` generates two CSPRNG 256-bit values for PKCE verifier/state, calls `POST /auth/mobile/start` through the pure `MobileApiClient` contract at `packages/shared/src/mobile-api.ts`, and opens the server-issued `/mobile-connect` link using iOS `ASWebAuthenticationSession` (`expo-web-browser.openAuthSessionAsync`) so Safari login cookies are available. The password page and approval are **web-only** and preserve Origin/CSRF.
 - The callback scheme `sportos://auth/callback` is registered in `app.json`. The shared client verifies scheme, host, path, fields and correlation state; it exchanges the code + verifier once for a server-revocable `smo_` session. Even if another app intercepts a custom-scheme return, a code without the verifier cannot be exchanged.
 - The bearer token is held in memory and `expo-secure-store`, using `WHEN_UNLOCKED_THIS_DEVICE_ONLY`. Nothing is logged. Aborting login drops the verifier. 401 invalidates the credential; all future API calls should go through the provider's `read` wrapper to update navigation state on expiry.
