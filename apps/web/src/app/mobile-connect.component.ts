@@ -1,7 +1,6 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { SPORTOS_API_BASE } from './core/config/api-base';
+import { MobileConnectApiService } from './features/mobile-auth/data-access/mobile-connect-api.service';
 
 // The standard app shell requires an authenticated browser session before
 // rendering routes. Approval is still protected server-side by cookie + CSRF.
@@ -36,8 +35,7 @@ import { SPORTOS_API_BASE } from './core/config/api-base';
 })
 export class MobileConnectComponent {
   private readonly route = inject(ActivatedRoute);
-  private readonly http = inject(HttpClient);
-  private readonly apiBase = inject(SPORTOS_API_BASE);
+  private readonly api = inject(MobileConnectApiService);
   private readonly requestId = this.route.snapshot.queryParamMap.get('request') ?? '';
   readonly invalidRequest = signal(!/^[A-Za-z0-9_-]{43}$/.test(this.requestId));
   readonly busy = signal(false);
@@ -48,13 +46,11 @@ export class MobileConnectComponent {
     if (this.invalidRequest() || this.busy() || this.approved()) return;
     this.busy.set(true);
     this.errorMessage.set(null);
-    this.http.post<{ redirectUrl: string }>(`${this.apiBase}/auth/mobile/approve`, {
-      requestId: this.requestId,
-    }).subscribe({
+    this.api.approve(this.requestId).subscribe({
       next: ({ redirectUrl }) => {
         this.busy.set(false);
         // The API constructs a fixed deep link; never navigate to arbitrary URLs.
-        if (!/^sportos:\/\/auth\/callback\?/.test(redirectUrl)) {
+        if (!isExpectedMobileCallback(redirectUrl)) {
           this.errorMessage.set('The mobile callback was rejected.');
           return;
         }
@@ -63,10 +59,22 @@ export class MobileConnectComponent {
       },
       error: (error: unknown) => {
         this.busy.set(false);
-        this.errorMessage.set(error instanceof HttpErrorResponse && (error.status === 400 || error.status === 401)
+        this.errorMessage.set(this.api.isExpired(error)
           ? 'The request expired or was already used. Restart sign-in on your iPhone.'
           : 'Could not approve sign-in. Please try again.');
       },
     });
+  }
+}
+
+function isExpectedMobileCallback(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'sportos:' && url.hostname === 'auth' && url.pathname === '/callback'
+      && !url.hash && url.searchParams.size === 2
+      && /^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get('code') ?? '')
+      && /^[A-Za-z0-9_-]{32,128}$/.test(url.searchParams.get('state') ?? '');
+  } catch {
+    return false;
   }
 }
