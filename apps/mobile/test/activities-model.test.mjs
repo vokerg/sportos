@@ -121,7 +121,7 @@ test('ride, gym and walk present only evidenced metrics and sets',()=>{
       exercises:[{name:'Squat',workingSets:4},{name:'Bench',workingSets:4}]}}));
   assert.equal(gym.garminStrength.workingSets,8);
   const rows=projectGarminSets({sets:{exerciseSets:[{exerciseName:'squat',repetitions:12,duration:36,privateObject:{x:1}}]}});
-  assert.deepEqual(rows,[[{label:'exerciseName',value:'squat'},{label:'repetitions',value:'12'},{label:'duration',value:'36'}]]);
+  assert.deepEqual(rows,[[{label:'exercise Name',value:'squat'},{label:'repetitions',value:'12'},{label:'duration',value:'36'}]]);
   const walk=projectActivityDetail(detail('walk',{distance_m:2400,steps:3400,avg_pace_s_per_km:null}));
   assert.match(summaryMetrics(walk).find(m=>m.label==='Steps').value,/3,400/);
 });
