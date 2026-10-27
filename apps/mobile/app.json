@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "SportOS",
+    "slug": "sportos",
+    "scheme": "sportos",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sportos.mobile"
+    },
+    "android": {
+      "package": "com.sportos.mobile"
+    },
+    "experiments": {
+      "tsconfigPaths": true
+    }
+  }
+}
