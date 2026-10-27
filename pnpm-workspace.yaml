@@ -1,3 +1,4 @@
 packages:
   - "apps/*"
+  - "!apps/mobile" # Standalone Expo project pending native dependency lockfile integration (#188)
   - "packages/*"
