@@ -187,6 +187,8 @@ function SwimSplits({data}: {data:SwimLengths}) {
       <TextRow label="Original / corrected distance" value={data.recordedDistanceM+' m / '+data.effectiveDistanceM+' m'}/>:null}
     {data.truncated?<Body subdued>FIT length display is capped by the backend; not all lengths are shown.</Body>:null}
     <SplitChart label="Length pace" values={data.lengths.map(r=>r.kind==='active'?r.paceSPer100M:null)} formatter={swimPace}/>
+    <SplitChart label="SWOLF" values={data.lengths.map(r=>r.kind==='active'?r.swolf:null)} formatter={n=>String(Math.round(n))}/>
+    <SplitChart label="Strokes per length" values={data.lengths.map(r=>r.kind==='active'?r.strokes:null)} formatter={n=>String(Math.round(n))}/>
     <SplitTable rows={data.lengths} renderRow={i=>{
       const r=data.lengths[i]!;
       return <TextRow label={'#'+r.row+' · '+r.kind+(r.lengthNumber===null?'':' · length '+r.lengthNumber)}
@@ -204,6 +206,7 @@ function RunSplits({data,source}: {data:RunLapBatch;source:'strava'|'garmin'}) {
   return <Card title={(source==='strava'?'Strava':'Garmin FIT')+' recorded running laps'}>
     {data.rows.length===0?<Body subdued>No recorded laps retained for this provider.</Body>:<>
       <SplitChart label="Lap pace" values={data.rows.map(r=>r.paceSPerKm)} formatter={n=>formatDuration(n)+' /km'}/>
+      <SplitChart label="Lap heart rate" values={data.rows.map(r=>r.heartRate)} formatter={n=>Math.round(n)+' bpm'}/>
       <SplitTable rows={data.rows} renderRow={i=>{
         const r=data.rows[i]!;
         return <TextRow label={'Lap '+r.row} value={[
