@@ -1,5 +1,6 @@
-import React from 'react';
-import { StatusBar } from 'react-native';
+import React, { useEffect } from 'react';
+import { Platform, StatusBar } from 'react-native';
+import * as ScreenCapture from 'expo-screen-capture';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SessionProvider, useSession } from './src/auth/SessionProvider';
 import { configuredClient } from './src/auth/native';
@@ -15,6 +16,7 @@ function AuthGate() {
   return <Screen eyebrow="SportOS iPhone" title="Your training, native">
     <Card title="Secure access">
       <Body>Sign in using your existing SportOS account in the system browser. SportOS never asks for your password inside the iPhone app.</Body>
+      {status === 'locked' ? <StatusPanel kind="loading" message="Private data hidden while SportOS is inactive." /> : null}
       {status === 'restoring' ? <StatusPanel kind="loading" message="Checking your secure session…" /> : null}
       {status === 'unavailable' ? <StatusPanel kind="offline"
         message={message ?? 'Cannot reach SportOS to check your session.'} retry={() => { void retry(); }} /> : null}
@@ -27,7 +29,7 @@ function AuthGate() {
           disabled={status === 'signingIn'} onPress={() => { void signIn(); }} />
       </> : null}
     </Card>
-    <Body subdued>A mobile session is revocable and stored in the device Keychain. No provider or scoring data is retained in this foundation release.</Body>
+    <Body subdued>A mobile session is revocable and stored in the device Keychain. Training data is read from SportOS and is not cached on this phone.</Body>
   </Screen>;
 }
 
@@ -42,5 +44,13 @@ function Content() {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      void ScreenCapture.enableAppSwitcherProtectionAsync(1).catch(() => {});
+      return () => { void ScreenCapture.disableAppSwitcherProtectionAsync().catch(() => {}); };
+    }
+    void ScreenCapture.preventScreenCaptureAsync('sportos-private').catch(() => {});
+    return () => { void ScreenCapture.allowScreenCaptureAsync('sportos-private').catch(() => {}); };
+  }, []);
   return <SafeAreaProvider><SportosThemeProvider><Content /></SportosThemeProvider></SafeAreaProvider>;
 }

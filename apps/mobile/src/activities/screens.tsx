@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MobileApiError } from '../../../../packages/shared/src/mobile-api';
-import { useSession } from '../auth/SessionProvider';
+import { useScreenSession as useSession } from '../auth/useScreenSession';
 import type { MainTabs, RootStack } from '../navigation/routes';
 import { Action, Body, Card, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { formatDuration, localToday } from '../ui/format.mjs';

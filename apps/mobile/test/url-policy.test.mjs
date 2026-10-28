@@ -26,3 +26,11 @@ test('browser authorization URL must match exact expected web origin and one req
     assert.equal(validAuthorizationUrl(candidate, web), false, candidate);
   }
 });
+
+// Keychain must never reuse a local credential at a hosted API origin.
+test('secure session keys are scoped to normalized deployment origins', async () => {
+  const {sessionStorageKey} = await import('../src/auth/url-policy.mjs');
+  assert.notEqual(sessionStorageKey('http://localhost:3010'),sessionStorageKey('https://api.example.com'));
+  assert.equal(sessionStorageKey('https://api.example.com'),sessionStorageKey('https://api.example.com/'));
+  assert.match(sessionStorageKey('https://api.example.com'),/^[A-Za-z0-9._-]+$/);
+});

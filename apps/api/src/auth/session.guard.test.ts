@@ -14,6 +14,18 @@ const session: AuthenticatedSession = {
 };
 
 describe('SessionGuard', () => {
+  it('never bypasses native revocation or browser approval in local development mode', async () => {
+    const reflector = { getAllAndOverride: vi.fn().mockReturnValue(false) } as unknown as Reflector;
+    const auth = {
+      isDevelopmentMode: vi.fn().mockReturnValue(true), getDevelopmentSession: vi.fn(),
+      authenticate: vi.fn().mockResolvedValue(null), verifyCsrf: vi.fn(),
+    } as unknown as AuthService;
+    const bearer = request('GET'); bearer.headers.authorization = 'Bearer smo_' + 'a'.repeat(64);
+    await expect(new SessionGuard(reflector, auth).canActivate(context(bearer))).rejects.toBeInstanceOf(UnauthorizedException);
+    const approve = request('POST'); approve.url = '/auth/mobile/approve';
+    await expect(new SessionGuard(reflector, auth).canActivate(context(approve))).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(auth.getDevelopmentSession).not.toHaveBeenCalled();
+  });
   it('allows explicitly public routes without reading cookies', async () => {
     const reflector = { getAllAndOverride: vi.fn().mockReturnValue(true) } as unknown as Reflector;
     const auth = { isDevelopmentMode: vi.fn().mockReturnValue(false), authenticate: vi.fn() } as unknown as AuthService;
