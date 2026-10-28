@@ -11,11 +11,7 @@ export { HomeScreen, DailyScreen } from '../daily/screens';
 
 export { ActivitiesScreen };
 
-export function RunLabScreen() {
-  return <Screen eyebrow="Your running performances" title="Run Lab">
-    <StatusPanel kind="comingSoon" message="Measured best efforts, historical distance leaderboards, estimates and provenance will be wired to the server in #192. No times are inferred in the shell." />
-  </Screen>;
-}
+export { RunLabScreen } from '../performance/screens';
 
 export function MoreScreen({ navigation }: BottomTabScreenProps<MainTabs, 'More'>) {
   const { session, signOut } = useSession();
@@ -24,6 +20,12 @@ export function MoreScreen({ navigation }: BottomTabScreenProps<MainTabs, 'More'
       <Body>{session?.account.displayName ?? 'SportOS account'}</Body>
       <Body subdued>Session expires: {session?.absoluteExpiresAt ?? '—'}</Body>
       <Action title="Sign out of this phone" secondary onPress={() => { void signOut(); }} />
+    </Card>
+    <Card title="Training analytics">
+      <Action title="Dynamics and Monthly Stats" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Analytics')} />
+    </Card>
+    <Card title="Explore your training">
+      <Action title="Private route heatmap" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Heatmap')} />
     </Card>
     <Card title="About the mobile app">
       <Body>Privacy, coverage and the mobile roadmap.</Body>

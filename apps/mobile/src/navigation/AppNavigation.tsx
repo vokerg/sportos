@@ -7,6 +7,9 @@ import { useSportosTheme } from '../ui/theme';
 import { HomeScreen, DailyScreen, ActivitiesScreen, RunLabScreen, MoreScreen, AboutScreen } from '../screens/Features';
 import { DailyDetailScreen } from '../daily/screens';
 import { ActivityDetailScreen } from '../activities/screens';
+import { AnalyticsScreen } from '../analytics/screens';
+import { PerformanceDetailScreen } from '../performance/screens';
+import { MapScreen, HeatmapScreen } from '../maps/screens';
 import type { MainTabs, RootStack } from './routes';
 
 const Tabs = createBottomTabNavigator<MainTabs>();
@@ -55,6 +58,10 @@ export function AppNavigation() {
   return <NavigationContainer theme={navTheme}>
     <Stack.Navigator screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="Main" component={TabScreens} options={{ headerShown: false }} />
+      <Stack.Screen name="Analytics" component={AnalyticsScreen} options={{ title: 'Analytics' }} />
+      <Stack.Screen name="PerformanceDetail" component={PerformanceDetailScreen} options={{ title: 'Achievement' }} />
+      <Stack.Screen name="RouteMap" component={MapScreen} options={{ title: 'Activity route' }} />
+      <Stack.Screen name="Heatmap" component={HeatmapScreen} options={{ title: 'Private heatmap' }} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} options={{ title: 'Activity' }} />
       <Stack.Screen name="DailyDetail" component={DailyDetailScreen} options={{ title: 'Daily score' }} />
