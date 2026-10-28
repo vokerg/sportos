@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
+import { Platform, StatusBar } from 'react-native';
+import * as ScreenCapture from 'expo-screen-capture';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SessionProvider, useSession } from './src/auth/SessionProvider';
 import { configuredClient } from './src/auth/native';
@@ -16,6 +17,7 @@ function AuthGate() {
   return <Screen eyebrow="SportOS iPhone" title="Your training, native">
     <Card title="Secure access">
       <Body>Sign in using your existing SportOS account in the system browser. SportOS never asks for your password inside the iPhone app.</Body>
+      {status === 'locked' ? <StatusPanel kind="loading" message="Private data hidden while SportOS is inactive." /> : null}
       {status === 'restoring' ? <StatusPanel kind="loading" message="Checking your secure session…" /> : null}
       {status === 'unavailable' ? <StatusPanel kind="offline"
         message={message ?? 'Cannot reach SportOS to check your session.'} retry={() => { void retry(); }} /> : null}
@@ -44,5 +46,13 @@ function Content() {
 
 export default function App() {
   useEffect(() => { void SplashScreen.hideAsync().catch(() => {}); }, []);
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      void ScreenCapture.enableAppSwitcherProtectionAsync(1).catch(() => {});
+      return () => { void ScreenCapture.disableAppSwitcherProtectionAsync().catch(() => {}); };
+    }
+    void ScreenCapture.preventScreenCaptureAsync('sportos-private').catch(() => {});
+    return () => { void ScreenCapture.allowScreenCaptureAsync('sportos-private').catch(() => {}); };
+  }, []);
   return <SafeAreaProvider><SportosThemeProvider><Content /></SportosThemeProvider></SafeAreaProvider>;
 }

@@ -6,7 +6,6 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "plugins": [
       [
         "expo-build-properties",
@@ -32,7 +31,8 @@
             "backgroundColor": "#0D1A22"
           }
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "ios": {
       "supportsTablet": false,

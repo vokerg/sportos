@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MobileApiError } from '../../../../packages/shared/src/mobile-api';
-import { useSession } from '../auth/SessionProvider';
+import { useScreenSession as useSession } from '../auth/useScreenSession';
 import type { MainTabs, RootStack } from '../navigation/routes';
 import { Action, Body, Card, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { formatDuration, localToday } from '../ui/format.mjs';
@@ -245,7 +245,7 @@ function StrengthSets({rows}: {rows:GarminSetRows}) {
   </Card>;
 }
 
-export function ActivityDetailScreen({route}:NativeStackScreenProps<RootStack,'ActivityDetail'>) {
+export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<RootStack,'ActivityDetail'>) {
   const id=route.params.activityId;
   const {read,mutate}=useSession();
   const [revision,setRevision] = useState(0);
@@ -332,7 +332,7 @@ export function ActivityDetailScreen({route}:NativeStackScreenProps<RootStack,'A
         {activity.activity_type==='swim' && activity.subtype==='indoor'?
           <Body subdued>Indoor pool workout · no GPS map.</Body>
           :activity.activity_type==='swim' || ['run','bike','walk','rowing','sup'].includes(activity.activity_type)
-            ? <Body subdued>GPS route visualization is being added in native maps issue #191; no map or location is inferred here.</Body>
+            ? <Action title="View retained GPS route" onPress={()=>navigation.navigate('RouteMap',{activityId:id})}/>
             :null}
         {activity.distanceCorrection?<><SourceBadge label="Audited distance correction"/>
           <TextRow label="Original distance" value={activity.distanceCorrection.recordedDistanceM+' m'}/>

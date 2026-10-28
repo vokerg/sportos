@@ -3,19 +3,26 @@ import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import { MobileApiClient, MobileApiError } from '../../../../packages/shared/src/mobile-api';
 import type { MobileSession, SecureSessionStore } from '../../../../packages/shared/src/mobile-api';
-import { isExactOrigin, validAuthorizationUrl } from './url-policy.mjs';
+import { isExactOrigin, validAuthorizationUrl, sessionStorageKey } from './url-policy.mjs';
 
 const KEY = 'sportos.mobile.session.v1';
 const REDIRECT = 'sportos://auth/callback';
 const ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
-export const sessionStore: SecureSessionStore = {
-  read: () => SecureStore.getItemAsync(KEY),
-  write: (token) => SecureStore.setItemAsync(KEY, token, {
-    keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-  }),
-  remove: () => SecureStore.deleteItemAsync(KEY),
-};
+function sessionStore(origin: string): SecureSessionStore {
+  const key = sessionStorageKey(origin);
+  return {
+    read: async () => {
+      // The foundation's unscoped key cannot safely be sent to a new deployment.
+      await SecureStore.deleteItemAsync(KEY);
+      return SecureStore.getItemAsync(key);
+    },
+    write: (token) => SecureStore.setItemAsync(key, token, {
+      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    }),
+    remove: () => SecureStore.deleteItemAsync(key),
+  };
+}
 
 export function configuredClient(): MobileApiClient | null {
   const origin = process.env.EXPO_PUBLIC_SPORTOS_API_URL?.trim();
@@ -25,7 +32,7 @@ export function configuredClient(): MobileApiClient | null {
   const insecureLocal = __DEV__ && process.env.EXPO_PUBLIC_ALLOW_INSECURE_LOCALHOST === 'true';
   if (!isExactOrigin(origin, insecureLocal) || !isExactOrigin(webOrigin, insecureLocal)) return null;
   try {
-    return new MobileApiClient(origin, sessionStore, fetch, insecureLocal);
+    return new MobileApiClient(origin, sessionStore(origin), fetch, insecureLocal);
   } catch {
     return null;
   }
