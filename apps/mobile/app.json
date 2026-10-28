@@ -32,7 +32,8 @@
           }
         }
       ],
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      "react-native-bottom-tabs"
     ],
     "ios": {
       "supportsTablet": false,

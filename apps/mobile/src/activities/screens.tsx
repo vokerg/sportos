@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeBottomTabScreenProps } from '@bottom-tabs/react-navigation';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MobileApiError } from '../../../../packages/shared/src/mobile-api';
 import { useScreenSession as useSession } from '../auth/useScreenSession';
@@ -83,7 +83,7 @@ function ActivityRow({activity,onOpen}: {activity:Activity;onOpen():void}) {
   </Pressable>;
 }
 
-export function ActivitiesScreen({navigation}: BottomTabScreenProps<MainTabs,'Activities'>) {
+export function ActivitiesScreen({navigation}: NativeBottomTabScreenProps<MainTabs,'Activities'>) {
   const {read} = useSession();
   const [showFilters,setShowFilters] = useState(false);
   const [range,setRange] = useState<'30d'|'90d'|'all'>('90d');

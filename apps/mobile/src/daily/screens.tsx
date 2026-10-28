@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeBottomTabScreenProps } from '@bottom-tabs/react-navigation';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MobileApiError } from '../../../../packages/shared/src/mobile-api';
 import { useScreenSession as useSession } from '../auth/useScreenSession';
@@ -46,7 +46,7 @@ function Contributions({ row }: { row: DailySummary }) {
 }
 
 /** Latest persisted day, not a fabricated value for today when today's row is absent. */
-export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'>) {
+export function HomeScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 'Home'>) {
   const { read } = useSession();
   const [revision, setRevision] = useState(0);
   const [view, setView] = useState<Load<HomeData>>(INITIAL);
@@ -126,7 +126,7 @@ export function HomeScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Home'
 }
 
 /** A lightweight paged list. Selecting an arbitrary calendar date runs an exact date-only GET. */
-export function DailyScreen({ navigation }: BottomTabScreenProps<MainTabs, 'Daily'>) {
+export function DailyScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 'Daily'>) {
   const { read } = useSession();
   const [date, setDate] = useState(localToday());
   const [revision, setRevision] = useState(0);

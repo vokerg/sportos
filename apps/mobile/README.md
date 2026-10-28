@@ -45,6 +45,22 @@ ASWebAuthenticationSession may isolate local HTTP cookies from ordinary Safari;
 initialize the approval browser's own session when using the local test harness,
 or use normal HTTPS password/OIDC login. The helper is not shipped in the app/API.
 
+## System Liquid Glass navigation
+
+Like Personal Context's current tab implementation, SportOS uses pinned
+`react-native-bottom-tabs` 1.5.0 with its React Navigation adapter. The platform
+controller owns the tab bar: iOS 26 renders system Liquid Glass and SF Symbols;
+older iOS uses its standard appearance. Android uses native tabs with generated
+image templates. No custom glass panel, background override or selection pill is
+painted. Native details are pushed above the tabs; Back returns to the same tab.
+
+Screen bottom padding follows the measured native bar height, with manual scroll
+insets to avoid double adjustment. System theme, Reduce Transparency and Dynamic
+Type remain platform decisions. Rebuild the native app after changing this module;
+Expo Go and an old installed binary cannot load it. Regenerate Android icon assets
+with `node scripts/mobile-tab-icons.mjs`. Device and release gaps are tracked in
+#195 and `docs/implementation/issue-208.md`.
+
 ## Feature boundaries
 
 - Home/Daily read persisted scores, authority, contributions, history and ledgers.
