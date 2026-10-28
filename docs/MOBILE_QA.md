@@ -5,7 +5,8 @@
 2026-10-28: Xcode 26.6, iPhone 17 Pro simulator, iOS 26.5. Core native
 implementation #186–#194 is merged; simulator feature walkthrough, real PKCE
 approval, read/projection parity and revocation smoke passed. No physical-iPhone
-or TestFlight acceptance has been recorded. Native Liquid Glass follow-up is #208.
+or TestFlight acceptance has been recorded. Native Liquid Glass #208 is validated in simulator: all five direct tab touches,
+detail/back behavior, final-control clearance and light/dark appearance.
 
 | Area | Existing evidence | Remaining release check |
 | --- | --- | --- |
@@ -14,7 +15,7 @@ or TestFlight acceptance has been recorded. Native Liquid Glass follow-up is #20
 | Failures | Mounted offline/late restore/401/Keychain failure; bounded request/body cancellation and deadlines | Physical network loss, airplane mode, hosted cold start and recovery |
 | Privacy | Memory-only private records, background navigation teardown and resume revalidation; app-switcher protection configured | Actual app-switcher image/lock/unlock behavior; production system logging review |
 | Accessibility | Native labels, exact chart alternatives, light/dark and one-step text-size increase | VoiceOver reading/rotor, maximum accessibility text, Reduce Transparency/Motion, keyboard focus |
-| Build | Installed simulator development build; production Hermes export and origin/secret audit | Embedded native Release build and physical signed archive, signing/privacy/distribution signoff |
+| Build | Installed simulator development and embedded ad-hoc Release builds; origin/secret/permission audit; hosted browser handoff and cancellation | Full hosted authenticated walkthrough and physical signed archive, signing/privacy/distribution signoff |
 
 Run focused checks with pnpm. Use ignored local environment configuration from
 `apps/mobile/README.md`; never place account tokens in Expo public variables.
@@ -69,3 +70,14 @@ Apple Health #196 and widgets/notifications #197 remain intentionally deferred;
 no HealthKit categories, background delivery, new permissions, widget cache or
 lock-screen data policy is authorized by this MVP. Historical catch-up #153 and
 hosted operations also remain separate from native UI completion.
+
+## Release simulator observations
+
+The embedded Release builds both simulator architectures with the configured
+hosted HTTPS origins. Use normal local simulator ad-hoc signing for authentication
+checks: `CODE_SIGNING_ALLOWED=NO` produced Keychain failures; ad-hoc signing restored
+normal signed-out launch and system-browser handoff. This does not require or
+establish Apple Developer/device signing. Cancellation returned safely to sign-in;
+production credentials and full authenticated hosted workflows were not exercised.
+Direct and proxied hosted health returned healthy after an initial 45-second
+startup timeout. Treat retries/cold starts as an actual operator test case.
