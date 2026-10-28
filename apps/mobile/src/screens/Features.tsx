@@ -11,11 +11,7 @@ export { HomeScreen, DailyScreen } from '../daily/screens';
 
 export { ActivitiesScreen };
 
-export function RunLabScreen() {
-  return <Screen eyebrow="Your running performances" title="Run Lab">
-    <StatusPanel kind="comingSoon" message="Measured best efforts, historical distance leaderboards, estimates and provenance will be wired to the server in #192. No times are inferred in the shell." />
-  </Screen>;
-}
+export { RunLabScreen } from '../performance/screens';
 
 export function MoreScreen({ navigation }: BottomTabScreenProps<MainTabs, 'More'>) {
   const { session, signOut } = useSession();
