@@ -3,12 +3,12 @@ import {StyleSheet, View, Text} from 'react-native';
 import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Map as NativeMap, Camera, GeoJSONSource, Layer, LogManager, type StyleSpecification} from '@maplibre/maplibre-react-native';
-import {useSession} from '../auth/SessionProvider';
+import {useScreenSession as useSession} from '../auth/useScreenSession';
 import {Action, Body, Card, Screen, StatusPanel} from '../ui/primitives';
 import {useSportosTheme} from '../ui/theme';
 import {localToday, shiftCalendarDate} from '../ui/format.mjs';
 import type {RootStack} from '../navigation/routes';
-import {mapData, projectHeatmap, projectRoute, type MapRoute} from './model.mjs';
+import {mapData, projectHeatmap, projectRoute, routePath, type MapRoute} from './model.mjs';
 // Native messages can contain tile URLs/viewports. Do not forward them to telemetry/logs.
 LogManager.onLog(() => true);
 const style:StyleSpecification={version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm',paint:{'raster-saturation':-.35}}]};
@@ -34,13 +34,14 @@ function RouteCanvas({routes,heatmap}:{routes:MapRoute[];heatmap:boolean}) {
       {!heatmap?<GeoJSONSource id="ends" data={{type:'FeatureCollection',features:[
         {type:'Feature',properties:{end:false},geometry:{type:'Point',coordinates:data.start}},
         {type:'Feature',properties:{end:true},geometry:{type:'Point',coordinates:data.finish}}]}}>
-        <Layer id="end-markers" type="circle" paint={{'circle-radius':7,'circle-color':['case',['get','end'],'#be123c','#15803d'],'circle-stroke-color':'#fff','circle-stroke-width':2}}/>
+        <Layer id="end-markers" type="circle" paint={{'circle-radius':['case',['get','end'],6,9],'circle-color':['case',['get','end'],'#be123c','#15803d'],'circle-stroke-color':'#fff','circle-stroke-width':2}}/>
       </GeoJSONSource>:null}
     </NativeMap>
     {failed?<View style={{backgroundColor:palette.surface,padding:12}}><Body>Base map unavailable. Check your connection and reopen. Retained routes do not require a provider download.</Body></View>:null}
-    <Text style={{position:'absolute',bottom:8,left:8,backgroundColor:palette.surface,color:palette.text,padding:5,fontSize:12}}>
-      {heatmap?'Darker = more routes · ~0.001° cells':'Green start · red finish'}
+    <Text style={{position:'absolute',bottom:30,left:8,backgroundColor:palette.surface,color:palette.text,padding:5,fontSize:12}}>
+      {heatmap?(data.densityTruncated?'Density capped at 15,000 cells · route lines retained':'Darker = more routes · ~0.001° cells'):'Green start · red finish'}
     </Text>
+    <Text style={{position:'absolute',bottom:6,left:8,backgroundColor:palette.surface,color:palette.text,padding:4,fontSize:11}}>© OpenStreetMap contributors</Text>
   </View>;
 }
 
@@ -52,7 +53,7 @@ export function MapScreen({route}:NativeStackScreenProps<RootStack,'RouteMap'>) 
   const [revision,setRevision]=useState(0);
   useFocusEffect(useCallback(()=>{
     let active=true;setRoutes([]);setBusy(true);setMessage(null);
-    void read<unknown>(`/activities/${encodeURIComponent(route.params.activityId)}/route`).then(raw=>{
+    void read<unknown>(routePath(route.params.activityId)).then(raw=>{
       const result=projectRoute(raw);
       if(!active)return;
       if(result.status==='available')setRoutes([result]);

@@ -32,3 +32,10 @@ Validation so far: 29 mobile Node tests and mobile TypeScript pass. Tests cover
 projection privacy, malformed/oversized/out-of-range GPS, gaps, bounds, density
 route weights, pools and bounded cursors. Native simulator build and rendering
 verification are in progress. Physical-device/signing validation remains #195.
+
+Local completion evidence (2026-10-28): actual MapLibre Native route and heatmap
+rendered on iPhone 17 Pro/iOS 26.5, Xcode 26.6. Corrected the route URL to the
+existing `/activities/:id/map` contract and included it in live smoke validation.
+Attribution is visible, overlapping endpoints retain the start ring, density-cap
+truncation is disclosed and the map unmounts on blur. A fifth model regression
+covers the endpoint and route/cell budgets. No private screenshots/GPS committed.

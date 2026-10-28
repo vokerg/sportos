@@ -23,3 +23,12 @@ test('heatmap allowlists coverage and bounded cursor, never retains identities',
  assert.throws(()=>projectHeatmap({...page,nextCursor:'../private'}));
  assert.throws(()=>projectHeatmap({...page,items:Array(26).fill(route)}));
 });
+
+test('map endpoint and memory budgets stay bounded without silent density truncation',async()=>{
+ const {routePath}=await import('../src/maps/model.mjs');
+ assert.equal(routePath('00000000-0000-4000-8000-000000000001'),'/activities/00000000-0000-4000-8000-000000000001/map');
+ assert.throws(()=>routePath('../private'));
+ const routes=Array.from({length:4},(_,j)=>({...route,geometry:{type:'LineString',coordinates:Array.from({length:5000},(_,i)=>[i*.001,54+j*.1])}}));
+ const data=mapData(routes);assert.equal(data.lines.features.length,4);assert.equal(data.points,20000);assert.equal(data.density.features.length,15000);assert.equal(data.densityTruncated,true);
+ assert.throws(()=>mapData(Array(51).fill(route)));
+});
