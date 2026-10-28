@@ -18,7 +18,8 @@
       [
         "expo-secure-store",
         {
-          "configureAndroidBackup": true
+          "configureAndroidBackup": true,
+          "faceIDPermission": false
         }
       ],
       [

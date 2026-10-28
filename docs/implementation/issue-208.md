@@ -13,7 +13,20 @@ No custom translucency, bar background or selection drawing overrides the system
 Manual bottom padding uses the measured bar height; auth/detail screens don't
 reserve tab space. Session teardown and feature focus cancellation remain intact.
 
-Validation: mobile TypeScript passed. Native rebuild and runtime checks in progress.
+Validation so far: mobile TypeScript, 40 model tests and 13 native-runtime/
+mounted-lifecycle/release-config tests passed; Expo Doctor 21/21. CI passed the
+initial native-tab implementation. Debug native build installed/launched with
+zero errors and two generated-toolchain warnings. System glass bar is visible;
+Home-to-Daily navigation selects the system tab, score detail hides the bar and
+Back restores Daily. Direct coordinate interaction is temporarily unavailable in
+CUA (`noWindowsAvailable`); no direct tab-touch pass is claimed yet. Embedded
+native Release compilation and final runtime checks are in progress.
+
+Gap corrections: preview builds now use the same explicit HTTPS origin gate as
+production/local Release. Tests reject missing, HTTP, credential-bearing and
+path-bearing origins and the insecure-localhost flag. SecureStore's unused Face
+ID permission description is disabled: session access uses Keychain without
+biometric prompts. The concrete operator matrix is in `docs/MOBILE_QA.md`.
 
 Remaining gaps identified:
 - #195 requires a physical iPhone, Apple Developer team, signing and explicit
