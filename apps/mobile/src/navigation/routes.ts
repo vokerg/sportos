@@ -9,6 +9,8 @@ export type MainTabs = {
 export type RootStack = {
   Main: undefined;
   About: undefined;
+  RouteMap: { activityId: string };
+  Heatmap: undefined;
   ActivityDetail: { activityId: string };
   DailyDetail: { date: string };
 };
