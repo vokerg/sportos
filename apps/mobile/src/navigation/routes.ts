@@ -11,6 +11,7 @@ export type RootStack = {
   About: undefined;
   RouteMap: { activityId: string };
   Heatmap: undefined;
+  PerformanceDetail: {eventId:string};
   ActivityDetail: { activityId: string };
   DailyDetail: { date: string };
 };
