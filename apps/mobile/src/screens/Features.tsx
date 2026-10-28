@@ -23,6 +23,8 @@ export function MoreScreen({ navigation }: BottomTabScreenProps<MainTabs, 'More'
     </Card>
     <Card title="Explore your training">
       <Action title="Private route heatmap" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Heatmap')} />
+    <Card title="Training analytics">
+      <Action title="Dynamics and Monthly Stats" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Analytics')} />
     </Card>
     <Card title="About the mobile app">
       <Body>Privacy, coverage and the mobile roadmap.</Body>
