@@ -21,7 +21,8 @@
         {
           "configureAndroidBackup": true
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "ios": {
       "supportsTablet": false,
