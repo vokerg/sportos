@@ -21,17 +21,33 @@
           "configureAndroidBackup": true
         }
       ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#102B31",
+          "image": "./assets/icon.png",
+          "imageWidth": 160,
+          "dark": {
+            "backgroundColor": "#0D1A22"
+          }
+        }
+      ],
       "@maplibre/maplibre-react-native"
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.sportos.mobile"
+      "bundleIdentifier": "com.sportos.mobile",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.sportos.mobile"
     },
     "experiments": {
       "tsconfigPaths": true
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }
