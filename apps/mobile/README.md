@@ -106,9 +106,12 @@ checks; fresh V142 and isolated non-owner auth/RLS database checks. Individual
 implementation notes in `docs/implementation/issue-191.md` through `issue-195.md`
 separate completed observations from remaining manual scenarios.
 
-Human release checklist: approve Apple Developer team/bundle ID, signing, actual
-iPhone login/Keychain/revocation, large text/VoiceOver, maps/gestures, background
-privacy, network loss/cold starts, battery/performance, privacy/export declarations
-and distribution. Apple Health, widgets and notifications remain explicit separate
-maintainer decisions. Hosted worker/storage and historical catch-up are not implied
-by a successful native read. No TestFlight/device pass is claimed.
+Current target: owner-managed personal installation with a seven-day refresh
+cadence. TestFlight/App Store, paid Apple Developer enrollment and distribution
+administration are outside this task. AltStore may be considered later; it is not
+installed or configured here. Simulator MVP completion does not depend on those
+choices. Personal-device QA still covers login/Keychain/revocation, refresh and
+relaunch, accessibility, maps, background privacy, network loss and performance;
+see [the QA matrix](../../docs/MOBILE_QA.md). No actual-device pass is claimed.
+Apple Health/widgets/notifications and hosted worker/storage/historical catch-up
+remain separate scope decisions and limitations.

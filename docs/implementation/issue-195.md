@@ -73,3 +73,12 @@ Unsigned simulator binaries failed Keychain safely; ordinary ad-hoc signing fixe
 that test setup. Preview now shares the early production HTTPS origin gate and
 unused Face ID metadata is disabled. See MOBILE_QA.md for the current matrix and
 operator procedure. Remaining release acceptance is human-controlled.
+
+Current scope correction: the maintainer selected personal installation with a
+seven-day refresh cadence and may consider AltStore later. TestFlight/App Store,
+paid enrollment and distribution administration are removed from completion
+requirements. Earlier human-release notes above are historical scope. The owner
+handles personal installation/refresh; actual-device and refresh-cycle QA remains
+unverified and is described in MOBILE_QA.md. No account/signing settings or AltStore
+installation were changed. Inspected: current #195 body, MOBILE_QA.md, mobile
+README, ADR 0011 and this implementation history.

@@ -1,21 +1,32 @@
-# Native MVP validation and release handoff
+# Native MVP validation and personal installation
+
+## Current installation scope
+
+The maintainer chose personal installation with a seven-day refresh cadence.
+TestFlight, App Store submission, paid Apple Developer enrollment and distribution
+signoff are outside this task and do not block simulator MVP completion. The owner
+handles personal installation/refresh. AltStore is a possible later option; no
+AltStore setup, account changes or new entitlements are requested now.
+
+Physical-iPhone checks below remain useful personal-use QA, not a store-release
+gate. Their results are still unverified until exercised on the actual phone.
 
 ## Observed baseline
 
 2026-10-28: Xcode 26.6, iPhone 17 Pro simulator, iOS 26.5. Core native
 implementation #186–#194 is merged; simulator feature walkthrough, real PKCE
 approval, read/projection parity and revocation smoke passed. No physical-iPhone
-or TestFlight acceptance has been recorded. Native Liquid Glass #208 is validated in simulator: all five direct tab touches,
-detail/back behavior, final-control clearance and light/dark appearance.
+acceptance has been recorded. Native Liquid Glass #208 is validated in simulator:
+all five direct tab touches, detail/back behavior, final-control clearance and light/dark appearance.
 
-| Area | Existing evidence | Remaining release check |
+| Area | Existing evidence | Remaining personal-device check |
 | --- | --- | --- |
 | Authentication | Real browser approval/PKCE, replay denial, native reads, live logout/revocation; isolated non-owner auth/RLS tests | Physical browser handoff, Keychain across force-quit/reboot, expiry/revocation while inactive |
 | Canonical features | Home/Daily/activity/run details, retained route/heatmap, Run Lab, Dynamics/Monthly Stats in simulator | Real-device map gestures, long lists and source-specific swim/bike detail |
 | Failures | Mounted offline/late restore/401/Keychain failure; bounded request/body cancellation and deadlines | Physical network loss, airplane mode, hosted cold start and recovery |
 | Privacy | Memory-only private records, background navigation teardown and resume revalidation; app-switcher protection configured | Actual app-switcher image/lock/unlock behavior; production system logging review |
 | Accessibility | Native labels, exact chart alternatives, light/dark and one-step text-size increase | VoiceOver reading/rotor, maximum accessibility text, Reduce Transparency/Motion, keyboard focus |
-| Build | Installed simulator development and embedded ad-hoc Release builds; origin/secret/permission audit; hosted browser handoff and cancellation | Full hosted authenticated walkthrough and physical signed archive, signing/privacy/distribution signoff |
+| Build | Installed simulator development and embedded ad-hoc Release builds; origin/secret/permission audit; hosted browser handoff and cancellation | Full hosted authenticated walkthrough, personal-phone installation and refresh behavior |
 
 Run focused checks with pnpm. Use ignored local environment configuration from
 `apps/mobile/README.md`; never place account tokens in Expo public variables.
@@ -34,11 +45,11 @@ Use a maintainer-authorized device and account. Record only pass/fail, OS/build,
 and sanitized failure descriptions; no activity values, GPS, account IDs,
 screenshots containing private content, tokens or provider payloads in GitHub.
 
-1. Supply the approved Apple Developer team, signing method and intended bundle
-   ID. Review proposed `com.sportos.mobile`, version/build and entitlements before
-   device installation. Do not register or purchase anything implicitly.
+1. Use the owner-managed personal installation method and existing provisioning.
+   Keep the stable `com.sportos.mobile` identity when refreshing. Do not enroll in
+   a paid program, configure distribution or install AltStore as part of this task.
 2. Build with explicit reachable HTTPS API and web origins; insecure localhost
-   must be false. Verify the resulting archive contains the intended deployment,
+   must be false. Verify the resulting build contains the intended deployment,
    no debug credentials/local origins and no unintended permission capabilities.
 3. Install on the phone. Confirm branded launch, actual system tab bar, all five
    destinations, detail/back navigation and the last button above the bar.
@@ -56,12 +67,13 @@ screenshots containing private content, tokens or provider payloads in GitHub.
 8. Confirm canonical facts and score authority remain unchanged by browsing.
    Hosted workers/durable upload storage and historical catch-up remain separate
    limitations. Native UI availability does not establish those operations work.
-9. Review Apple privacy disclosures, encryption/export declaration and retained
-   data behavior against the actual archive/dependencies. Approve TestFlight
-   audience/submission separately. Record real-device result and signoff in #195.
+9. Exercise the owner's seven-day refresh procedure before the personal build
+   expires. Check launch, Keychain session restoration and retained server data
+   afterwards; sign in again if required. Record observed results in #195. No
+   TestFlight/App Store acceptance or public-distribution declaration is required.
 
-If acceptance fails, keep distribution stopped, reinstall the previous approved
-signed build and revoke affected sessions if necessary. App rollback does not
+If personal-device QA fails, reinstall the previous working personal
+build and revoke affected sessions if necessary. App rollback does not
 roll back server schema, retained source records or scoring rules.
 
 ## Deferred scope
