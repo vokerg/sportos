@@ -10,7 +10,11 @@ export function useScreenSession() {
     controller.current=new AbortController();
     return ()=>{controller.current?.abort();};
   },[]));
-  const read=useCallback(<T,>(path:string)=>session.read<T>(path,controller.current?.signal),[session.read]);
-  const mutate=useCallback(<T,>(path:string,method:'POST'|'PUT'|'DELETE',body?:unknown)=>session.mutate<T>(path,method,body,controller.current?.signal),[session.mutate]);
+  // The optional signal keeps feature branches compatible with the foundation;
+  // the hardened session transport consumes it for physical cancellation.
+  const readWithSignal: <T>(path:string,signal?:AbortSignal)=>Promise<T> = session.read;
+  const mutateWithSignal: <T>(path:string,method:'POST'|'PUT'|'DELETE',body?:unknown,signal?:AbortSignal)=>Promise<T> = session.mutate;
+  const read=useCallback(<T,>(path:string)=>readWithSignal<T>(path,controller.current?.signal),[readWithSignal]);
+  const mutate=useCallback(<T,>(path:string,method:'POST'|'PUT'|'DELETE',body?:unknown)=>mutateWithSignal<T>(path,method,body,controller.current?.signal),[mutateWithSignal]);
   return {...session,read,mutate};
 }

@@ -29,7 +29,7 @@ function AuthGate() {
           disabled={status === 'signingIn'} onPress={() => { void signIn(); }} />
       </> : null}
     </Card>
-    <Body subdued>A mobile session is revocable and stored in the device Keychain. No provider or scoring data is retained in this foundation release.</Body>
+    <Body subdued>A mobile session is revocable and stored in the device Keychain. Training data is read from SportOS and is not cached on this phone.</Body>
   </Screen>;
 }
 
