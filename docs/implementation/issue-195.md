@@ -43,3 +43,21 @@ retained detail/history and never start historical catch-up or provider requests
 Explicit per-activity provider actions remain server-availability gated. A rollback
 is installing the previous signed version and revoking affected server sessions;
 canonical data/schema/scoring is not migrated by installing this app.
+
+Local follow-up evidence: final branded development-client build installed/launched
+with zero errors (two generated-toolchain warnings: duplicate libc++ and the Expo
+Dev Launcher script dependency-analysis warning). Explicit splash dismissal fixes
+an observed native startup cover. Production Hermes export succeeded with explicit
+hosted HTTPS origins. All repository typecheck/tests/build passed before the last
+focused simulator fixes; focused mobile tests passed again afterwards. Live smoke
+now exercises native projections, sport details and the real `/map` route as well
+as PKCE replay/revocation. V142 fresh migration and five isolated non-owner DB tests
+passed. Native URL tests exercise the actual installed React Native polyfill.
+
+Visual observations completed: real browser approval and native Home, Daily detail,
+activity feed/run detail, GPS route and bounded heatmap. Run Lab/analytics/offline/
+large-text/manual device scenarios remain explicitly tracked until exercised.
+No private screenshots, GPS, source records, account material or tokens are committed.
+One-use browser helper defaults to port 4311; ASWebAuthenticationSession local-HTTP
+cookies can be separate from ordinary Safari. Local QA initialized the approval
+browser's own session; temporary QA UI/diagnostics were removed before commit.

@@ -20,3 +20,10 @@ Validation: mobile TypeScript and 29 Node tests pass, including four new analyti
 cases for exact dates/catalog, signed/null/zero values, server-projected coverage
 and contribution totals, privacy and SVG gap projection. Simulator/live parity
 checks follow during epic QA; physical-device acceptance is not claimed.
+
+Local follow-up: projections passed against real monthly/rolling API responses.
+Pinned SVG to SDK-required 15.15.4. Date controls collapse; numeric rows page by 50;
+rolling phone views cap at 366 days, monthly at 3,660. Source calculations remain
+unchanged. Screen requests use the shared optional cancellation adapter from #194.
+Simulator chart interaction verification remains tracked separately from source/API
+validation. No physical-device pass is claimed.

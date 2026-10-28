@@ -22,3 +22,9 @@ timing/alternatives, missing optional evidence, malformed responses and privacy.
 Native rendering, live API parity and lifecycle verification follow in epic QA.
 No backend, schema, scoring, provider or Angular changes. Physical-device release
 acceptance remains separate. No merge authorization has been requested.
+
+Local follow-up: native response projection passed against the configured real
+leaderboard. Date controls and coverage details are collapsed by default for phone
+layout. Screen requests use the shared focus-scoped cancellation adapter (physical
+transport cancellation is provided by #194). Full native Run Lab interaction
+verification remains a clearly tracked follow-up, not a claimed physical-device pass.
