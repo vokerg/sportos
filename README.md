@@ -79,6 +79,15 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Return the same generic result for foreign and nonexistent identifiers to reduce account enumeration.
 - Separate the narrow cross-account queue dispatcher from owner-scoped worker-data execution.
 
+## Local read-only athlete MCP
+
+The [athlete MCP guide](docs/ATHLETE_MCP.md) documents five bounded local stdio
+read tools and the shared versioned snapshot service. `pnpm athlete:snapshot`
+creates a private JSON snapshot and comprehensive Russian report outside all Git
+worktrees for manual IronMan handoff. An explicit trusted local account binding
+and non-owner runtime connection are required. No provider fetch, canonical write
+or automatic IronMan update occurs.
+
 ## Native iPhone client
 
 The Expo/React Native workspace in `apps/mobile` reads the same authenticated

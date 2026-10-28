@@ -41,7 +41,9 @@
     "dev:mobile": "pnpm --filter @sportos/mobile start",
     "typecheck:mobile": "pnpm --filter @sportos/mobile typecheck",
     "test:mobile": "pnpm --filter @sportos/mobile test",
-    "mobile:smoke": "tsx scripts/mobile-smoke.mts"
+    "mobile:smoke": "tsx scripts/mobile-smoke.mts",
+    "mcp": "pnpm --filter @sportos/mcp start",
+    "athlete:snapshot": "pnpm --filter @sportos/mcp snapshot"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

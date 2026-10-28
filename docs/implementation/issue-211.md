@@ -48,3 +48,61 @@ argument or perform a write. The operator configures the binding locally.
 The report is Russian; JSON uses stable English fields and explicit units.
 Private artifact filenames and sanitized validation outcomes may be recorded in
 public status; personal values, identifiers and artifact contents may not.
+
+## Implementation and review
+
+- Pure `sportos.athlete-snapshot.v1` calculations in analytics; strict executable
+  and published JSON Schema contracts; shared `AthleteReadService` for local CLI
+  and MCP. Canonical corrections and existing running leaderboards are reused.
+- New compact primary and allowlisted detail repositories; freshness/source/parser
+  checks; missing canonical HR/calories/ascent may have separately labelled
+  provider observations without filling canonical fields.
+- Official SDK v2 stdio server with exactly five tools, operator-only account
+  binding, non-owner role assertions, account context, read-only repeatable-read
+  transactions, bounds, concurrency/request limits and sanitized errors.
+- Restricted, atomic private JSON/Russian report/manifest writer outside all Git
+  worktrees. Twenty report chapters, annual/monthly/52-week tables, discipline
+  evidence and explicit interpretation limits; no external generation or writes
+  to IronMan.
+- Self-review improved repeated-bucket aggregation complexity, retained Garmin
+  lap support, FIT timer/moving distinction, optional detail failure handling,
+  current-day metadata, source-method labels and schema stability tests.
+
+Additional files inspected during implementation/review: primary migrations
+V004/V105/V105_1/V106/V108/V124/V129/V140, all primary migration scripts during
+transactional replay in a disposable PostgreSQL cluster, dedicated detail V001–V004,
+`packages/db/src/repositories/{ownership,activity-metrics,distance-leaderboard,activity-distance-corrections}.repository.integration.test.ts`,
+`apps/api/src/activities/{activity-provider-detail.service,activity-timeline,activity-swim-lengths}.ts`,
+and official MCP TypeScript SDK v2 server/client/stdio documentation and installed
+type declarations. No schema migrations or existing scoring logic changed.
+
+## Validation
+
+- `pnpm install --frozen-lockfile`: passed.
+- `pnpm typecheck`: passed, including existing API/worker/web/mobile and new MCP.
+- Analytics: 7 tests passed.
+- MCP: 13 tests passed with separate non-owner primary/detail test connections,
+  including all five tools via a real stdio subprocess and generic SDK client.
+- Existing activities, distance-correction and distance-leaderboard integrations:
+  10 tests passed against disposable non-owner runtime connections.
+- The disposable local PostgreSQL 16 cluster replayed all 51 primary migration
+  scripts transactionally through V142 and the four separate detail migrations
+  through V004. This was synthetic validation, not a migration of operator data
+  and not a new Flyway migration-engine test.
+- Real private artifact generation, executable schema validation, deterministic
+  report/JSON equality, manifest hashes, 0700/0600 permissions and independent
+  account-scoped totals/window checks were performed locally. Real-data MCP smoke
+  validation used only retained data. No athlete values or identifiers are
+  recorded here.
+
+CI adds the non-owner MCP ownership/stdio gate when its primary integration
+connection is configured. Optional detail integration requires
+`SPORTOS_ACTIVITY_DETAIL_TEST_DATABASE_URL`; it was exercised locally. The full
+worker/importer suite and frontend production bundles were not rerun: no writes,
+provider ingestion, scoring implementation or frontend code changed. Hosted MCP
+transport, remote authentication and deployment are intentionally out of scope.
+
+Private handoff basenames are `athlete-snapshot-2026-10-28.json`,
+`athlete-performance-report-2026-10-28.md` and `manifest.json`. Actual locations and
+contents remain in the private local handoff. Issue remains open pending review
+and separately authorized squash merge; no merge was performed.
