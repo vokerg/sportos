@@ -25,6 +25,9 @@ export function MoreScreen({ navigation }: BottomTabScreenProps<MainTabs, 'More'
       <Body subdued>Session expires: {session?.absoluteExpiresAt ?? '—'}</Body>
       <Action title="Sign out of this phone" secondary onPress={() => { void signOut(); }} />
     </Card>
+    <Card title="Training analytics">
+      <Action title="Dynamics and Monthly Stats" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Analytics')} />
+    </Card>
     <Card title="About the mobile app">
       <Body>Privacy, coverage and the mobile roadmap.</Body>
       <Action title="About SportOS" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('About')} />
