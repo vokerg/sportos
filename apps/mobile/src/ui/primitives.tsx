@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { BottomTabBarHeightContext } from 'react-native-bottom-tabs';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSportosTheme } from './theme';
@@ -10,9 +11,13 @@ export function Screen({ title, eyebrow, children, nested = false }: {
   title: string; eyebrow?: string; children: React.ReactNode; nested?: boolean;
 }) {
   const { palette } = useSportosTheme();
+  const tabBarHeight = useContext(BottomTabBarHeightContext);
+  const bottomPadding = !nested && tabBarHeight !== undefined ? Math.max(tabBarHeight, 80) + 24 : 42;
   return <SafeAreaView edges={nested ? ['left', 'right', 'bottom'] : ['top', 'left', 'right']}
     style={{ flex: 1, backgroundColor: palette.background }}>
-    <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
+    <ScrollView contentInsetAdjustmentBehavior="never"
+      scrollIndicatorInsets={{ bottom: bottomPadding }}
+      contentContainerStyle={[styles.screen, { paddingBottom: bottomPadding }]} keyboardShouldPersistTaps="handled">
       {eyebrow ? <Text style={[styles.eyebrow, { color: palette.accent }]}>{eyebrow}</Text> : null}
       <Text accessibilityRole="header" style={[styles.heading, { color: palette.text }]}>{title}</Text>
       {children}

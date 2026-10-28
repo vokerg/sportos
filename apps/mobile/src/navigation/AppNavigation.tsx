@@ -1,7 +1,7 @@
 import React from 'react';
-import { TabIcon } from '../ui/TabIcon';
+import { nativeTabOptions } from './native-tabs';
 import { NavigationContainer, type Theme } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeBottomTabNavigator } from '@bottom-tabs/react-navigation';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSportosTheme } from '../ui/theme';
 import { HomeScreen, DailyScreen, ActivitiesScreen, RunLabScreen, MoreScreen, AboutScreen } from '../screens/Features';
@@ -12,19 +12,13 @@ import { PerformanceDetailScreen } from '../performance/screens';
 import { AnalyticsScreen } from '../analytics/screens';
 import type { MainTabs, RootStack } from './routes';
 
-const Tabs = createBottomTabNavigator<MainTabs>();
+const Tabs = createNativeBottomTabNavigator<MainTabs>();
 const Stack = createNativeStackNavigator<RootStack>();
 function TabScreens() {
   const { palette } = useSportosTheme();
-  return <Tabs.Navigator screenOptions={({ route }) => ({
-    headerShown: false,
-    tabBarActiveTintColor: palette.accent,
-    tabBarInactiveTintColor: palette.muted,
-    tabBarStyle: { backgroundColor: palette.surface, borderTopColor: palette.border, minHeight: 58 },
-    tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
-    tabBarButtonTestID: `tab-${route.name}`,
-    tabBarIcon: ({ color }) => <TabIcon name={route.name} color={color} />,
-  })}>
+  return <Tabs.Navigator labeled scrollEdgeAppearance="default" minimizeBehavior="never"
+    tabBarActiveTintColor={palette.accent}
+    screenOptions={({ route }) => nativeTabOptions(route.name)}>
     <Tabs.Screen name="Home" component={HomeScreen} />
     <Tabs.Screen name="Daily" component={DailyScreen} />
     <Tabs.Screen name="Activities" component={ActivitiesScreen} />

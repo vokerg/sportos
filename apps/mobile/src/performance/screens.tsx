@@ -1,7 +1,7 @@
 import React,{useCallback,useState} from 'react';
 import {ScrollView,TextInput,View} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
-import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
+import type {NativeBottomTabScreenProps} from '@bottom-tabs/react-navigation';
 import type {NativeStackNavigationProp,NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useScreenSession as useSession} from '../auth/useScreenSession';
 import {Action,Body,Card,Metric,Screen,SourceBadge,StatusPanel,formatDistance,formatDuration,formatPace} from '../ui/primitives';
@@ -9,7 +9,7 @@ import {useSportosTheme} from '../ui/theme';
 import {localToday,shiftCalendarDate} from '../ui/format.mjs';
 import type {MainTabs,RootStack} from '../navigation/routes';
 import {TARGETS,leaderboardPath,projectLeaderboard,projectEvent,type Leaderboard,type EventDetail} from './model.mjs';
-export function RunLabScreen({navigation}:BottomTabScreenProps<MainTabs,'RunLab'>){
+export function RunLabScreen({navigation}:NativeBottomTabScreenProps<MainTabs,'RunLab'>){
  const {read}=useSession();const {palette}=useSportosTheme();
  const [showCoverage,setShowCoverage]=useState(false);
  const [showRange,setShowRange]=useState(false);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivitiesScreen } from '../activities/screens';
-import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeBottomTabScreenProps } from '@bottom-tabs/react-navigation';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Body, Action, Card, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
@@ -13,7 +13,7 @@ export { ActivitiesScreen };
 
 export { RunLabScreen } from '../performance/screens';
 
-export function MoreScreen({ navigation }: BottomTabScreenProps<MainTabs, 'More'>) {
+export function MoreScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 'More'>) {
   const { session, signOut } = useSession();
   return <Screen eyebrow="Account and preferences" title="More">
     <Card title="Signed in">

@@ -61,3 +61,15 @@ No private screenshots, GPS, source records, account material or tokens are comm
 One-use browser helper defaults to port 4311; ASWebAuthenticationSession local-HTTP
 cookies can be separate from ordinary Safari. Local QA initialized the approval
 browser's own session; temporary QA UI/diagnostics were removed before commit.
+
+Post-merge follow-up (#208): Run Lab and analytics walkthroughs passed and their
+issues closed. System Liquid Glass navigation, all five direct tab touches,
+detail/back, bottom-control clearance and light/dark behavior passed. A native
+embedded Release built for both simulator architectures, passed origin/private-
+value/permission audit, and launched with local simulator ad-hoc signing. Real
+hosted PKCE start/browser login page and safe cancellation passed; no production
+credentials/full hosted authenticated walkthrough or device archive is claimed.
+Unsigned simulator binaries failed Keychain safely; ordinary ad-hoc signing fixes
+that test setup. Preview now shares the early production HTTPS origin gate and
+unused Face ID metadata is disabled. See MOBILE_QA.md for the current matrix and
+operator procedure. Remaining release acceptance is human-controlled.
