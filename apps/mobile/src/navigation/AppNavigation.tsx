@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { TabIcon } from '../ui/TabIcon';
 import { NavigationContainer, type Theme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -7,17 +7,13 @@ import { useSportosTheme } from '../ui/theme';
 import { HomeScreen, DailyScreen, ActivitiesScreen, RunLabScreen, MoreScreen, AboutScreen } from '../screens/Features';
 import { DailyDetailScreen } from '../daily/screens';
 import { ActivityDetailScreen } from '../activities/screens';
-import { AnalyticsScreen } from '../analytics/screens';
-import { PerformanceDetailScreen } from '../performance/screens';
 import { MapScreen, HeatmapScreen } from '../maps/screens';
+import { PerformanceDetailScreen } from '../performance/screens';
+import { AnalyticsScreen } from '../analytics/screens';
 import type { MainTabs, RootStack } from './routes';
 
 const Tabs = createBottomTabNavigator<MainTabs>();
 const Stack = createNativeStackNavigator<RootStack>();
-const symbols: Record<keyof MainTabs, string> = {
-  Home: '⌂', Daily: '◷', Activities: '≋', RunLab: '↗', More: '•••',
-};
-
 function TabScreens() {
   const { palette } = useSportosTheme();
   return <Tabs.Navigator screenOptions={({ route }) => ({
@@ -27,9 +23,7 @@ function TabScreens() {
     tabBarStyle: { backgroundColor: palette.surface, borderTopColor: palette.border, minHeight: 58 },
     tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
     tabBarButtonTestID: `tab-${route.name}`,
-    tabBarIcon: ({ color }) => <Text accessibilityElementsHidden style={{ color, fontSize: 23 }}>
-      {symbols[route.name]}
-    </Text>,
+    tabBarIcon: ({ color }) => <TabIcon name={route.name} color={color} />,
   })}>
     <Tabs.Screen name="Home" component={HomeScreen} />
     <Tabs.Screen name="Daily" component={DailyScreen} />
@@ -58,10 +52,10 @@ export function AppNavigation() {
   return <NavigationContainer theme={navTheme}>
     <Stack.Navigator screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="Main" component={TabScreens} options={{ headerShown: false }} />
-      <Stack.Screen name="Analytics" component={AnalyticsScreen} options={{ title: 'Analytics' }} />
-      <Stack.Screen name="PerformanceDetail" component={PerformanceDetailScreen} options={{ title: 'Achievement' }} />
       <Stack.Screen name="RouteMap" component={MapScreen} options={{ title: 'Activity route' }} />
       <Stack.Screen name="Heatmap" component={HeatmapScreen} options={{ title: 'Private heatmap' }} />
+      <Stack.Screen name="PerformanceDetail" component={PerformanceDetailScreen} options={{ title: 'Achievement' }} />
+      <Stack.Screen name="Analytics" component={AnalyticsScreen} options={{ title: 'Analytics' }} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} options={{ title: 'Activity' }} />
       <Stack.Screen name="DailyDetail" component={DailyDetailScreen} options={{ title: 'Daily score' }} />

@@ -21,11 +21,11 @@ export function MoreScreen({ navigation }: BottomTabScreenProps<MainTabs, 'More'
       <Body subdued>Session expires: {session?.absoluteExpiresAt ?? '—'}</Body>
       <Action title="Sign out of this phone" secondary onPress={() => { void signOut(); }} />
     </Card>
-    <Card title="Training analytics">
-      <Action title="Dynamics and Monthly Stats" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Analytics')} />
-    </Card>
     <Card title="Explore your training">
       <Action title="Private route heatmap" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Heatmap')} />
+    </Card>
+    <Card title="Training analytics">
+      <Action title="Dynamics and Monthly Stats" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Analytics')} />
     </Card>
     <Card title="About the mobile app">
       <Body>Privacy, coverage and the mobile roadmap.</Body>
@@ -41,7 +41,7 @@ export function AboutScreen(_: NativeStackScreenProps<RootStack, 'About'>) {
       <SourceBadge label="No direct provider access" />
     </Card>
     <Card title="Scope">
-      <Body>Mobile views are being added across epic #185. Apple Health, widgets and notifications are out of scope until explicitly approved.</Body>
+      <Body>Browse canonical scores, activities, routes, running achievements and training trends. Source coverage and recorded timing remain visible throughout.</Body>
     </Card>
   </Screen>;
 }
