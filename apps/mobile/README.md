@@ -1,71 +1,95 @@
-# SportOS iPhone app — issues #188–#190
+# SportOS iPhone
 
-React Native + Expo SDK 57 + TypeScript, maintained alongside the independent Angular UI. It consumes the existing NestJS API and `packages/shared/src/mobile-api.ts` mobile auth contract (#187), never Angular components, owner-supplied identifiers, browser cookies or provider credentials. Home and Daily read persisted server scores and canonical activity previews from #189. Activities now supplies a paged/filterable canonical feed and sport-specific detail (#190), while Run Lab and analytics remain placeholders for #192–#193. No invented training results.
+Expo SDK 57 / React Native 0.86 / TypeScript client for the existing SportOS API.
+The five tabs are Home, Daily, Activities, Run Lab and More. More opens native
+Dynamics/Monthly Stats and the private route heatmap. Scores, rankings, rolling
+windows and source authority are calculated on the server. No provider credentials,
+private source cache or offline mutation queue live on the phone.
 
-## Installation and environment
+## Run locally
 
-`apps/mobile` is a **normal root pnpm workspace importer** (`apps/*`) with its complete dependencies committed in the root `pnpm-lock.yaml`. Root `pnpm install --frozen-lockfile` installs it with other workspaces; `tsconfig.json` at repository root intentionally excludes native files, which use Expo's own TypeScript/Metro configuration. The Expo package graph was generated with `pnpm install --lockfile-only --ignore-scripts` on a GitHub runner. This is package resolution, **not** validation of build/run or an iOS device.
-
-Prerequisites: Node 22.22.0, pnpm 9.12.0, macOS with Xcode >=26.4 and iOS Simulator. SDK 57 uses `expo-build-properties` scene support to launch with the iOS 27 SDK. Native Apple signing/TestFlight remains maintainer-gated in #195. Server V142 must be deployed to allow mobile PKCE handoffs.
+Use Node 22.22+, pnpm 9.12, Xcode 26.4+ and an installed iOS simulator.
 
 ```sh
-# Repo root (do not generate another lockfile)
 pnpm install --frozen-lockfile
 cp apps/mobile/.env.example apps/mobile/.env
-# Configure exact HTTPS origins in apps/mobile/.env, with no paths, tokens or passwords.
-# EXPO_PUBLIC_SPORTOS_API_URL=https://your-api-host
-# EXPO_PUBLIC_SPORTOS_WEB_ORIGIN=https://your-web-login-host
-pnpm --filter @sportos/mobile doctor
+# Set public API and web login origins; never passwords or tokens.
+pnpm --filter @sportos/mobile run doctor
 pnpm --filter @sportos/mobile typecheck
 pnpm --filter @sportos/mobile test
-pnpm --filter @sportos/mobile ios   # physical native simulator build, NOT Expo Go
-pnpm dev:mobile                    # connect Metro to the installed development build
+pnpm --filter @sportos/mobile ios
+pnpm dev:mobile
 ```
 
-For local simulator-only backend testing, `EXPO_PUBLIC_ALLOW_INSECURE_LOCALHOST=true` and `EXPO_PUBLIC_SPORTOS_API_URL=http://localhost:3000` permit loopback HTTP in __DEV__ builds only; use `EXPO_PUBLIC_SPORTOS_WEB_ORIGIN=http://localhost:4210` if your browser login is local too. No insecure non-loopback host is allowed. Production must use the deployed HTTPS origins. For a physical iPhone, local `localhost` resolves to the phone itself, not your laptop. The app intentionally has no fake login or user-data fixture.
+For this workstation's local API use `http://localhost:3010` and browser origin
+`http://localhost:4210`, with `EXPO_PUBLIC_ALLOW_INSECURE_LOCALHOST=true` only in
+this ignored development environment. HTTP is accepted only on loopback in debug.
+Physical phones require reachable HTTPS origins; localhost refers to the phone.
+If Metro's localhost mode binds IPv6 while the simulator requests IPv4, start it
+with `REACT_NATIVE_PACKAGER_HOSTNAME=127.0.0.1 pnpm dev:mobile -- --lan` and select
+`http://127.0.0.1:8081` in the development client. This serves development bundles
+on the local network; never add private credentials to public Expo variables.
 
-## Native session security
+The API needs V142. Native sign-in opens the system browser, approves the existing
+SportOS account, exchanges a one-use PKCE code and saves an origin-scoped opaque
+session in Keychain (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`). A change of API deployment
+requires fresh sign-in. Foundation v1 unscoped credentials are removed on upgrade.
+No browser cookie is copied into the native API client.
 
-- A CSPRNG makes fresh 256-bit PKCE verifier/state pairs; the API receives the SHA256 challenge and state via unauthenticated `POST /auth/mobile/start`. Neither the verifier nor account credentials enter a browser URL, log or app config.
-- The returned authorization URL must match the exact configured HTTPS web origin, `/mobile-connect` path and single `request` parameter. `expo-web-browser.openAuthSessionAsync` uses system authentication UI, not a WebView, to let the server-owned browser password/OIDC flow and web-only CSRF approval run normally.
-- The single-use `sportos://auth/callback?code=...&state=...` custom scheme is registered in `app.json`. `MobileApiClient.finishSignIn` verifies URL scheme/host/path, exact state, two query fields and one-time code before the verifier-bound exchange. A stolen callback code alone cannot be used without the original verifier.
-- The resulting `smo_` bearer session is held only in memory and iOS Keychain through `expo-secure-store` with `WHEN_UNLOCKED_THIS_DEVICE_ONLY` (no AsyncStorage); `MobileApiClient` sends it only to the configured API origin over HTTPS and never sends browser cookies.
-- A 401 purges the mobile session, cancels outstanding requests and removes private navigation. Sign-out hides private screens, clears local storage and attempts server revocation. When offline, the UI explicitly warns that revocation was not confirmed; there is no persistent cache or mobile-only scoring state. #194 will add deeper lifecycle/offline hardening.
+`dev-single-user` browser convenience does not grant native bearer access. A real
+browser cookie plus CSRF is required to approve native login. Local operator tools
+are `pnpm mobile:smoke` and `pnpm mobile:smoke -- --browser`; the latter starts a
+one-use, two-minute loopback helper on port 4311 (`SPORTOS_MOBILE_QA_PORT` overrides).
+The optional `request` query binds its redirect to a pending local approval.
+ASWebAuthenticationSession may isolate local HTTP cookies from ordinary Safari;
+initialize the approval browser's own session when using the local test harness,
+or use normal HTTPS password/OIDC login. The helper is not shipped in the app/API.
 
-## Navigation and presentation
+## Feature boundaries
 
-Five root destinations: Home, Daily, Activities, Run Lab, More; native nested-stack About and future Activity Detail. Dark/light system theme, safe-area support, scalable text, >44pt touch areas and accessibility labels are built in. Reusable Card, Action, Metric, SourceBadge, StatusPanel, DateStepper and MiniBars primitives keep date-only strings in local-calendar time and render metric units as metres/km, duration and pace. The chart is presentation-only; server-derived scores remain authoritative.
+- Home/Daily read persisted scores, authority, contributions, history and ledgers.
+- Activities offers filters/pages, sport-specific canonical metrics, retained laps,
+  pool lengths/SWOLF and strength evidence. Rich provider Fetch/Refresh is explicit
+  and server-availability gated. Walking is labelled non-scoring.
+- Route maps use `/activities/:id/map`, preserve recording gaps and mark endpoints.
+  Indoor pools have no route action. MapLibre Native renders maps in development
+  builds; Expo Go is unsupported. OSM attribution stays visible. Tile providers
+  receive viewed tile-area requests; private GeoJSON remains in memory.
+- Heatmap shows two explicit pages, at most 50 routes/75,000 points/15,000 density
+  cells. Missing GPS, precision, budget and truncation are disclosed. Density counts
+  retained route presence per 0.001° cell, not distance/effort/archive completeness.
+- Run Lab retains server ranks, Excel timing, measured moving/timer-active windows,
+  alternatives and coverage. Estimates/stale values do not rank.
+- Analytics uses canonical monthly/rolling responses with null gaps, signed values,
+  coverage, touch selection and exact accessible values. Rolling ranges cap at
+  366 days; monthly at 3,660. Score contribution averages are labelled explicitly.
 
-## Native Home and Daily (#189)
+Reads time out after 30 seconds; explicit operations after 120. Screen/background
+cancellation rejects late results. Inactive/background state hides private navigation;
+resume checks the server before remount. Offline state has no pretend live cache.
+401/sign-out remove access; offline sign-out reports unconfirmed server revocation.
+iOS app-switcher blur is enabled. Real-device privacy/performance is still a release
+gate; a simulator does not establish physical-device behavior.
 
-- Home reads `GET /daily/summary?limit=14&to=<local YYYY-MM-DD>` and a bounded 30-day `GET /activities` recap. The most recent persisted score is explicitly dated and never relabelled as today's when today's row is absent. Current-day rows are marked incomplete. Category contributions come from the API, including negative and unattributed values.
-- Daily reads recent saved days with cursor-style date-only pagination (`to=<oldest date minus one day>`), permits stepping through exact local-calendar days, and opens nested `DailyDetail` for a persisted row only. Detail reads `GET /daily/:date/score-breakdown` after confirming a saved summary row, and whitelists only numeric scores, facts, source classifications and ledger metadata into React state. All three read-only API envelopes are runtime-validated and projected to minimal native view records; unexpected/malformed responses fail closed. Full import/source records are never logged, rendered or cached.
-- Every request uses `SessionProvider.read` with server-derived ownership; 401 purges the mobile session. Focus changes, selection changes and history paging reject stale results. There is no API mutation, implicit provider download, new local scoring algorithm, cached score or offline queue.
-- Missing days are not zero days; manually edited and workbook-imported scores retain their own status and source authority. Historical score and rule-ledger differences are not silently reconciled by the phone. Activity feed/detail remains #190; full encrypted/offline lifecycle belongs to #194.
+## Build and QA
 
-**Local Codex acceptance (deferred to epic QA):** Run `pnpm --filter @sportos/mobile test`, mobile typecheck, and iOS simulator layout/navigation checks, then compare saved scores/facts/ledger and date-only responses against the browser for zero/negative/manual/imported/empty days, DST and timezone changes, delayed responses, logout/401 and network errors. Also check VoiceOver/dynamic type and API/GitHub CI parity. No simulator, native build, live session/Neon or full-suite verification was run by this remote implementation agent.
+`eas.json` proposes simulator development/preview and human-controlled production
+profiles. `build:ios:local` creates an embedded Release build and requires explicit
+HTTPS public origins plus the insecure-localhost flag disabled. No Apple team,
+paid account, signing credentials, EAS project or submission is registered here.
+The icon is generated by `node scripts/mobile-icon.mjs`.
 
-## Local Codex acceptance (deferred to epic QA)
+Local validation on 2026-10-28: Xcode 26.6 / iPhone 17 Pro / iOS 26.5 native build
+installed/launched; real PKCE/native API, Home/Daily/activity/route/heatmap rendering;
+Expo Doctor 21/21; mobile model/native URL/mounted lifecycle tests; repository
+TypeScript/tests/build; production Hermes export; live minimal API projection
+checks; fresh V142 and isolated non-owner auth/RLS database checks. Individual
+implementation notes in `docs/implementation/issue-191.md` through `issue-195.md`
+separate completed observations from remaining manual scenarios.
 
-1. Confirm frozen root install, `expo install --check` / `expo-doctor`, mobile typecheck/unit tests and unaffected Angular/API tests and builds; check native dependency resolution from outside `apps/mobile`.
-2. Clean simulator Xcode/Metro build and actual launch on iOS 26/27 SDK (Expo Go does not prove native packaging); verify scene lifecycle, iOS package identifier and intended physical-device signing configuration.
-3. Browser sign-in: password/OIDC, web confirmation, PKCE exchange and app scheme callback, expired/replayed/duplicate code rejection, mismatched state, URL-interception attempt, Safari cancellation, and rejected HTTP/unexpected web origins.
-4. Verify Keychain session restore after restart, logout online/offline, revoked/expired bearer response and forced private UI teardown on 401; rejected CSRF cookie-bearer mixing, account ownership and wrong-owner read attempts.
-5. Exercise VoiceOver tab labels, dark/light and large text, nested back gesture, date controls, contrast and 48pt targets; check background/foreground privacy. The latter privacy work continues in #194.
-6. Confirm normal web/API build and deploy paths remain unchanged, including hosted read limitations. No App Store/TestFlight submission or production credentials without maintainer approval.
-
-## Investigation files
-
-`AGENTS.md`, `docs/adr/0011-react-native-expo-ios.md`, `docs/AUTHENTICATION.md`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `package.json`, `tsconfig.base.json`, `.gitignore`, `.github/workflows/ci.yml`, `packages/shared/package.json`, `packages/shared/src/index.ts`, `packages/shared/src/mobile-api.ts`, `apps/api/package.json`, `apps/api/src/auth/auth.controller.ts`, `apps/api/src/auth/auth.service.ts`, `apps/web/package.json`, `apps/web/src/app/app.routes.ts`, `apps/web/src/app/web-auth.service.ts`, `spikes/mobile-expo/package.json`, `spikes/mobile-expo/App.tsx`, `spikes/mobile-expo/index.js`, `spikes/mobile-expo/app.json`, `spikes/mobile-expo/README.md`, `spikes/mobile-expo/tsconfig.json`, `spikes/mobile-expo/pnpm-workspace.yaml`; #185–#188, PRs #198–#200.
-
-## Native Activities — #190
-
-The Activities tab uses the existing owner-scoped GET /activities feed, with a 90-day/all-source default, bounded server pagination and filters for date window, sport and exact source. Selecting a row navigates to GET /activities/:id. UI projections whitelist canonical facts, distance-correction effective/recorded totals, server-selected optional metric values and provenance coverage; they discard original/source payloads and internal identifiers. A server 401 tears down the authenticated navigation as before. Stale focus/filter/paging/provider responses cannot overwrite newly selected data. There is no persistent offline activity cache.
-
-Run detail displays canonical pace, heart rate, server-computed best efforts with their exact estimated/calculated method and provider, plus **recorded** Strava/Garmin laps when the user presses View saved laps. Indoor/pool swims show recorded Garmin FIT 25/50m pool length when supplied, timer/elapsed per-length pacing, SWOLF, strokes/rest markers, count completeness, and original-vs-audited corrected distance; incomplete or missing FIT evidence never produces inferred lengths. Rides show speed/terrain and server-selected extras such as power; strength workouts show server Garmin set counts and optional explicit retained exercise sets. Walks retain canonical distance/steps and their no-separate-activity-points note. Sparse/legacy activity displays remain explicit, not invented.
-
-Activity navigation does not call upstream providers or POST endpoints. Read-only enrichment GET checks whether data is cached or linked. **View saved** uses GET on existing retained data only; **Fetch**/**Refresh** buttons perform provider POSTs only after explicit user presses. Strava Fetch is shown only when a Strava link/status supports it. Garmin Fetch is hidden unless the backend advertises the local helper as enabled. Hosted Garmin Fetch is not available without that helper. There is no native distance editing or score modification. GPS route rendering and multi-activity heatmaps remain #191; open-water swimming has no invented pool map or lengths.
-
-## #190 deferred local Codex verification
-
-After the epic implementation, local Codex should run the mobile test suite and TypeScript check, lint/Expo doctor, API and Angular regression coverage, iOS simulator and physical-iPhone checks (narrow screens, VoiceOver, chart gestures, dark mode, offline/401/logout, race conditions). Compare all five major sports against canonical browser API responses, audit FIT pool completeness/25m/50m/partial laps, route visibility (after #191), corrected swim distance and genuine provider coverage. Exercise hosted Strava View/Fetch vs blocked Garmin helper, current/stale rich-version handling, and account non-owner UUIDs. **None of these local/device/live validations was run by the remote implementation agent.**
+Human release checklist: approve Apple Developer team/bundle ID, signing, actual
+iPhone login/Keychain/revocation, large text/VoiceOver, maps/gestures, background
+privacy, network loss/cold starts, battery/performance, privacy/export declarations
+and distribution. Apple Health, widgets and notifications remain explicit separate
+maintainer decisions. Hosted worker/storage and historical catch-up are not implied
+by a successful native read. No TestFlight/device pass is claimed.

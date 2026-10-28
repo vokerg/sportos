@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SessionProvider, useSession } from './src/auth/SessionProvider';
@@ -27,7 +28,7 @@ function AuthGate() {
           disabled={status === 'signingIn'} onPress={() => { void signIn(); }} />
       </> : null}
     </Card>
-    <Body subdued>A mobile session is revocable and stored in the device Keychain. No provider or scoring data is retained in this foundation release.</Body>
+    <Body subdued>A mobile session is revocable and stored in the device Keychain. Training data is read from SportOS and is not cached on this phone.</Body>
   </Screen>;
 }
 
@@ -42,5 +43,6 @@ function Content() {
 }
 
 export default function App() {
+  useEffect(() => { void SplashScreen.hideAsync().catch(() => {}); }, []);
   return <SafeAreaProvider><SportosThemeProvider><Content /></SportosThemeProvider></SafeAreaProvider>;
 }

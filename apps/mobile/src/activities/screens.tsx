@@ -85,6 +85,7 @@ function ActivityRow({activity,onOpen}: {activity:Activity;onOpen():void}) {
 
 export function ActivitiesScreen({navigation}: BottomTabScreenProps<MainTabs,'Activities'>) {
   const {read} = useSession();
+  const [showFilters,setShowFilters] = useState(false);
   const [range,setRange] = useState<'30d'|'90d'|'all'>('90d');
   const [type,setType] = useState('all');
   const [source,setSource] = useState('all');
@@ -128,10 +129,15 @@ export function ActivitiesScreen({navigation}: BottomTabScreenProps<MainTabs,'Ac
   const data = view.data;
   const hasMore = data ? data.offset+data.items.length<data.count && data.items.length>0 && data.items.length<MAX_FEED_ROWS && data.offset+data.items.length<=100000 : false;
   return <Screen eyebrow="Your canonical history" title="Activities">
-    <Card title="Filters">
+    <Card title="History filters">
+      <Body subdued>{FILTER_RANGES.find(([key])=>key===range)?.[1]} · {FILTER_TYPES.find(([key])=>key===type)?.[1]} · {FILTER_SOURCES.find(([key])=>key===source)?.[1]}</Body>
+      <Action title={showFilters?'Done with filters':'Change filters'} secondary onPress={()=>setShowFilters(v=>!v)}/>
+      {showFilters?<>
+
       <Filters label="Date window" items={FILTER_RANGES} value={range} onChange={v=>setRange(v as typeof range)} />
       <Filters label="Sport" items={FILTER_TYPES} value={type} onChange={setType} />
       <Filters label="Origin" items={FILTER_SOURCES} value={source} onChange={setSource} />
+      </>:null}
     </Card>
     {view.kind==='loading'?<StatusPanel kind="loading" message="Reading canonical activities…" />:null}
     {['error','offline'].includes(view.kind)?<StatusPanel kind={view.kind as 'error'|'offline'}
