@@ -41,6 +41,21 @@ export class MobileApiError extends Error {
 const MOBILE_TOKEN = /^smo_[A-Za-z0-9_-]{64}$/;
 const RANDOM_TOKEN = /^[A-Za-z0-9_-]{43,128}$/;
 
+/** Strict minimal session projection. Never retain arbitrary auth/server fields in UI state. */
+function sessionProjection(value: unknown): MobileSession {
+  if (!value || typeof value !== 'object') throw new MobileApiError('invalid');
+  const raw = value as MobileSession;
+  if (!raw.account || typeof raw.account.id !== 'string' || raw.account.id.length > 128
+    || typeof raw.account.displayName !== 'string' || raw.account.displayName.length > 200
+    || (raw.account.email !== null && (typeof raw.account.email !== 'string' || raw.account.email.length > 320))
+    || typeof raw.expiresAt !== 'string' || !Number.isFinite(Date.parse(raw.expiresAt))
+    || typeof raw.absoluteExpiresAt !== 'string' || !Number.isFinite(Date.parse(raw.absoluteExpiresAt))) {
+    throw new MobileApiError('invalid');
+  }
+  return { account: { id: raw.account.id, displayName: raw.account.displayName, email: raw.account.email },
+    expiresAt: raw.expiresAt, absoluteExpiresAt: raw.absoluteExpiresAt };
+}
+
 export class MobileApiClient {
   private token: string | null = null;
   private readonly base: string;
@@ -52,7 +67,9 @@ export class MobileApiClient {
     private readonly store: SecureSessionStore,
     private readonly fetcher: typeof fetch = fetch,
     allowInsecureLocalhost = false,
+    private readonly timeoutMs = 30_000,
   ) {
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) throw new MobileApiError('invalid');
     const url = new URL(baseUrl);
     if (url.username || url.password || url.search || url.hash
       || (url.protocol !== 'https:' && !(allowInsecureLocalhost
@@ -74,7 +91,7 @@ export class MobileApiClient {
     let url: URL;
     try { url = new URL(callbackUrl); } catch { throw new MobileApiError('invalid'); }
     if (url.protocol !== 'sportos:' || url.hostname !== 'auth' || url.pathname !== '/callback'
-      || url.hash || url.searchParams.size !== 2
+      || url.username || url.password || url.port || url.hash || url.searchParams.size !== 2
       || url.searchParams.get('state') !== expectedState
       || !RANDOM_TOKEN.test(url.searchParams.get('code') ?? '')) {
       throw new MobileApiError('invalid');
@@ -85,6 +102,7 @@ export class MobileApiClient {
       body: { code: url.searchParams.get('code'), state: expectedState, codeVerifier },
       public: true,
     });
+    const session = sessionProjection(response);
     if (!MOBILE_TOKEN.test(response.token)) throw new MobileApiError('invalid');
     if (generation !== this.generation) throw new MobileApiError('unauthorized');
     // A new mobile token is persisted only in secure storage.
@@ -95,7 +113,7 @@ export class MobileApiClient {
       throw new MobileApiError('unauthorized');
     }
     this.token = response.token;
-    return { account: response.account, expiresAt: response.expiresAt, absoluteExpiresAt: response.absoluteExpiresAt };
+    return session;
   }
 
   async restore(): Promise<MobileSession | null> {
@@ -108,7 +126,7 @@ export class MobileApiClient {
     }
     this.token = token;
     try {
-      return await this.request<MobileSession>('/auth/session');
+      return sessionProjection(await this.request<unknown>('/auth/session'));
     } catch (error) {
       if (error instanceof MobileApiError && error.kind === 'unauthorized') return null;
       throw error;
@@ -116,12 +134,12 @@ export class MobileApiClient {
   }
 
   /** Canonical API response; owner is always derived on the server. */
-  async get<T>(path: string): Promise<T> {
-    return this.request<T>(path);
+  async get<T>(path: string, signal?: AbortSignal): Promise<T> {
+    return this.request<T>(path, {signal});
   }
 
-  async mutate<T>(path: string, method: 'POST' | 'PUT' | 'DELETE', body?: unknown): Promise<T> {
-    return this.request<T>(path, { method, body });
+  async mutate<T>(path: string, method: 'POST' | 'PUT' | 'DELETE', body?: unknown, signal?: AbortSignal): Promise<T> {
+    return this.request<T>(path, { method, body, signal });
   }
 
   async signOut(): Promise<'revoked' | 'local-only'> {
@@ -131,8 +149,11 @@ export class MobileApiClient {
     // Clearing local access is mandatory even when the network is unavailable.
     await this.clear();
     if (!current || !MOBILE_TOKEN.test(current)) return 'local-only';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await this.fetcher(`${this.base}/auth/logout`, {
+        signal: controller.signal,
         method: 'POST',
         credentials: 'omit',
         redirect: 'error',
@@ -141,14 +162,21 @@ export class MobileApiClient {
       return response.ok || response.status === 401 ? 'revoked' : 'local-only';
     } catch {
       return 'local-only';
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
-  private async clear(): Promise<void> {
+  /** Cancel private reads/mutations on background/navigation teardown without erasing Keychain. */
+  cancelRequests(): void {
     this.generation += 1;
-    this.token = null;
     for (const controller of this.pending) controller.abort();
     this.pending.clear();
+  }
+
+  private async clear(): Promise<void> {
+    this.token = null;
+    this.cancelRequests();
     await this.store.remove();
   }
 
@@ -156,19 +184,22 @@ export class MobileApiClient {
     method?: 'POST' | 'PUT' | 'DELETE';
     body?: unknown;
     public?: boolean;
+    signal?: AbortSignal;
   } = {}): Promise<T> {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('..')
       || path.includes('#') || /[\\\r\n]/.test(path)) throw new MobileApiError('invalid');
+    if (options.signal?.aborted) throw new MobileApiError('network');
     const token = options.public ? null : this.token;
     if (!options.public && !token) throw new MobileApiError('unauthorized');
     const controller = new AbortController();
+    const generation = this.generation;
+    const abort = () => controller.abort();
+    options.signal?.addEventListener('abort', abort, {once:true});
     this.pending.add(controller);
-    let response: Response;
+    const timeout = setTimeout(() => controller.abort(), options.method ? Math.max(this.timeoutMs, 120_000) : this.timeoutMs);
     try {
-      response = await this.fetcher(`${this.base}${path}`, {
-        method: options.method ?? 'GET',
-        credentials: 'omit',
-        redirect: 'error',
+      const response = await this.fetcher(`${this.base}${path}`, {
+        method: options.method ?? 'GET', credentials: 'omit', redirect: 'error', cache: 'no-store',
         signal: controller.signal,
         headers: {
           Accept: 'application/json',
@@ -177,18 +208,29 @@ export class MobileApiClient {
         },
         ...(options.method ? { body: JSON.stringify(options.body ?? {}) } : {}),
       });
-    } catch {
+      if (generation !== this.generation || controller.signal.aborted) throw new MobileApiError('network');
+      if (token && token !== this.token) throw new MobileApiError('unauthorized');
+      if (response.status === 401) {
+        if (token) {
+          // Purge in-memory access even if the platform Keychain removal fails.
+          try { await this.clear(); } catch { /* Expired credential cannot authorize reads. */ }
+        }
+        throw new MobileApiError('unauthorized');
+      }
+      if (response.status === 403) throw new MobileApiError('forbidden');
+      if (!response.ok) throw new MobileApiError('server');
+      let value: T;
+      try { value = await response.json() as T; } catch { throw new MobileApiError('invalid'); }
+      // Sign-out/background can race a streamed body even after response headers arrived.
+      if (generation !== this.generation || controller.signal.aborted) throw new MobileApiError('network');
+      return value;
+    } catch (error) {
+      if (error instanceof MobileApiError) throw error;
       throw new MobileApiError('network');
     } finally {
+      clearTimeout(timeout);
       this.pending.delete(controller);
+      options.signal?.removeEventListener('abort', abort);
     }
-    if (token && token !== this.token) throw new MobileApiError('unauthorized');
-    if (response.status === 401) {
-      if (token) await this.clear();
-      throw new MobileApiError('unauthorized');
-    }
-    if (response.status === 403) throw new MobileApiError('forbidden');
-    if (!response.ok) throw new MobileApiError('server');
-    try { return await response.json() as T; } catch { throw new MobileApiError('invalid'); }
   }
 }

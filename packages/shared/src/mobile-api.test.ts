@@ -20,6 +20,70 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 describe('MobileApiClient', () => {
+  it('aborts only the leaving screen while another screen can finish', async () => {
+    const { store, set } = fixture(); set(token);
+    const fetcher = vi.fn(async () => json(session));
+    const api = new MobileApiClient('https://api.example', store, fetcher as unknown as typeof fetch);
+    await api.restore();
+    fetcher.mockImplementationOnce((_url?: unknown, opts?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      opts!.signal!.addEventListener('abort', () => reject(new Error('aborted')));
+    }));
+    const leaving = new AbortController();
+    const pending = api.get('/activities', leaving.signal);
+    leaving.abort();
+    await expect(pending).rejects.toMatchObject({ kind: 'network' });
+    await expect(api.get('/daily/summary')).resolves.toEqual(session);
+  });
+  it('bounds offline requests and aborts them without leaking upstream details', async () => {
+    vi.useFakeTimers();
+    try {
+      const { store, set } = fixture(); set(token);
+      const fetcher = vi.fn((_url: string, opts: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        opts.signal!.addEventListener('abort', () => reject(new Error('private network details')));
+      }));
+      const api = new MobileApiClient('https://api.example', store, fetcher as unknown as typeof fetch, false, 50);
+      const request = expect(api.restore()).rejects.toMatchObject({ kind: 'network' });
+      await vi.advanceTimersByTimeAsync(51);
+      await request;
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('cancels a late body on background even after headers arrived', async () => {
+    const { store, set } = fixture(); set(token);
+    let release!: (value: unknown) => void;
+    const body = new Promise(resolve => { release = resolve; });
+    const fetcher = vi.fn(async () => json(session));
+    const api = new MobileApiClient('https://api.example', store, fetcher as unknown as typeof fetch);
+    await api.restore();
+    fetcher.mockImplementationOnce(async () => ({ ok: true, status: 200, json: () => body }) as Response);
+    const reading = api.get('/activities');
+    await Promise.resolve(); await Promise.resolve();
+    api.cancelRequests(); release({ private: 'must not reappear' });
+    await expect(reading).rejects.toMatchObject({ kind: 'network' });
+    expect(await api.restore()).toEqual(session);
+  });
+
+  it('projects sessions and rejects malformed native exchanges before Keychain writes', async () => {
+    const { store, set } = fixture(); set(token);
+    const fetcher = vi.fn(async () => json({ ...session, private: 'secret', account: { ...session.account, raw: 'private' } }));
+    const api = new MobileApiClient('https://api.example', store, fetcher as unknown as typeof fetch);
+    expect(await api.restore()).toEqual(session);
+    fetcher.mockImplementationOnce(async () => json({ token, account: null }));
+    await expect(api.finishSignIn('sportos://auth/callback?code=' + 'c'.repeat(43) + '&state=' + 's'.repeat(43), 's'.repeat(43), 'v'.repeat(64))).rejects.toMatchObject({ kind: 'invalid' });
+    expect(store.write).not.toHaveBeenCalled();
+  });
+
+  it('rejects callbacks with user information and fails closed on Keychain removal failure', async () => {
+    const { store, set } = fixture(); set(token);
+    const fetcher = vi.fn(async () => json(session));
+    const api = new MobileApiClient('https://api.example', store, fetcher as unknown as typeof fetch);
+    await expect(api.finishSignIn('sportos://user:password@auth/callback?code=' + 'c'.repeat(43) + '&state=' + 's'.repeat(43), 's'.repeat(43), 'v'.repeat(64))).rejects.toMatchObject({ kind: 'invalid' });
+    await api.restore();
+    store.remove = async () => { throw new Error('Keychain unavailable'); };
+    fetcher.mockImplementationOnce(async () => json({}, 401));
+    await expect(api.get('/activities')).rejects.toMatchObject({ kind: 'unauthorized' });
+    await expect(api.get('/activities')).rejects.toMatchObject({ kind: 'unauthorized' });
+  });
   it('refuses insecure remote API endpoints and credentials in base URLs', () => {
     const { store } = fixture();
     expect(() => new MobileApiClient('http://external.example', store)).toThrow(MobileApiError);
