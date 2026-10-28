@@ -75,8 +75,8 @@ Implementation notes separate unperformed manual scenarios from observed results
 `eas.json` proposes reproducible build profiles; release origin checks require
 explicit HTTPS configuration. No Apple Developer team, paid credentials,
 registration, EAS project, TestFlight submission or distribution consent is
-provided by these files. Physical-device validation, privacy/export declarations,
-personal-device validation remains tracked in #195. The maintainer subsequently
+provided by these files. Personal-device validation remains tracked in #195.
+The maintainer subsequently
 selected personal installation with a seven-day refresh cadence; paid enrollment,
 TestFlight/App Store and distribution administration are outside this task.
 AltStore is a possible later option, with no setup authorized here. Hosted worker,

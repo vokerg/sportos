@@ -16,8 +16,8 @@ gate. Their results are still unverified until exercised on the actual phone.
 2026-10-28: Xcode 26.6, iPhone 17 Pro simulator, iOS 26.5. Core native
 implementation #186–#194 is merged; simulator feature walkthrough, real PKCE
 approval, read/projection parity and revocation smoke passed. No physical-iPhone
-acceptance has been recorded. Native Liquid Glass #208 is validated in simulator: all five direct tab touches,
-detail/back behavior, final-control clearance and light/dark appearance.
+acceptance has been recorded. Native Liquid Glass #208 is validated in simulator:
+all five direct tab touches, detail/back behavior, final-control clearance and light/dark appearance.
 
 | Area | Existing evidence | Remaining personal-device check |
 | --- | --- | --- |
