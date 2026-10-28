@@ -4,3 +4,5 @@ export function projectRoute(raw:unknown):({status:'available'} & MapRoute)|{sta
 export function projectHeatmap(raw:unknown):{items:MapRoute[];coverage:Record<string,number>;hasMore:boolean;nextCursor:string|null};
 export function mapData(routes:MapRoute[]):{bounds:[[number,number],[number,number]];lines:FeatureCollection<LineString>;density:FeatureCollection<Point>;start:[number,number];finish:[number,number];points:number;densityTruncated:boolean};
 export function geometry(raw:unknown):MapRoute['geometry'];
+
+export function routePath(id:string):string;

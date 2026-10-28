@@ -78,7 +78,7 @@ if(process.argv.includes('--browser')){
     if(feature==='maps'){
       const page=model.projectHeatmap(await client.get('/heatmap/routes?limit=1'));
       const runs=activities.projectActivityList(await client.get(activities.activityListPath({range:'all',type:'run',limit:1})));
-      if(runs.items[0])model.projectRoute(await client.get('/activities/'+runs.items[0].id+'/map'));
+      if(runs.items[0])model.projectRoute(await client.get(model.routePath(runs.items[0].id)));
     }
   }
   const token=saved;

@@ -71,3 +71,8 @@ export function mapData(routes) {
     density:{type:'FeatureCollection',features:[...cells.values()]},
     start:lines[0]?.geometry.coordinates[0],finish:lines.at(-1)?.geometry.coordinates.at(-1),points,densityTruncated};
 }
+
+export function routePath(id) {
+  if(typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return fail();
+  return '/activities/'+id+'/map';
+}

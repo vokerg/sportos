@@ -12,3 +12,9 @@ test('rolling projection retains server totals, null gaps and incomplete window 
  assert.throws(()=>projectRolling({metric:'score',unit:'points',windows:[30],points:[{date:'2026-10-28',dailyValue:NaN,windows:{}}]},'score',30));
 });
 test('native chart disconnects missing data and supports signed values without fabricating zeros',()=>{const s=chartSegments([null,0,-10,null,20]);assert.equal(s.length,2);assert.deepEqual(s.map(a=>a.map(p=>p.index)),[[1,2],[4]]);assert.ok(s[0][0].y<s[0][1].y);assert.equal(chartSegments([null,null]).length,0);});
+
+test('phone rolling ranges are limited to a year while monthly history stays bounded',()=>{
+ assert.throws(()=>analyticsPath({mode:'rolling',from:'2020-01-01',to:'2026-10-28'}));
+ assert.match(analyticsPath({mode:'monthly',from:'2020-01-01',to:'2026-10-28'}),/granularity=monthly/);
+ assert.throws(()=>analyticsPath({mode:'monthly',from:'2000-01-01',to:'2026-10-28'}));
+});

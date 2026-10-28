@@ -8,7 +8,7 @@ import {Action, Body, Card, Screen, StatusPanel} from '../ui/primitives';
 import {useSportosTheme} from '../ui/theme';
 import {localToday, shiftCalendarDate} from '../ui/format.mjs';
 import type {RootStack} from '../navigation/routes';
-import {mapData, projectHeatmap, projectRoute, type MapRoute} from './model.mjs';
+import {mapData, projectHeatmap, projectRoute, routePath, type MapRoute} from './model.mjs';
 // Native messages can contain tile URLs/viewports. Do not forward them to telemetry/logs.
 LogManager.onLog(() => true);
 const style:StyleSpecification={version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm',paint:{'raster-saturation':-.35}}]};
@@ -53,7 +53,7 @@ export function MapScreen({route}:NativeStackScreenProps<RootStack,'RouteMap'>) 
   const [revision,setRevision]=useState(0);
   useFocusEffect(useCallback(()=>{
     let active=true;setRoutes([]);setBusy(true);setMessage(null);
-    void read<unknown>(`/activities/${encodeURIComponent(route.params.activityId)}/map`).then(raw=>{
+    void read<unknown>(routePath(route.params.activityId)).then(raw=>{
       const result=projectRoute(raw);
       if(!active)return;
       if(result.status==='available')setRoutes([result]);
