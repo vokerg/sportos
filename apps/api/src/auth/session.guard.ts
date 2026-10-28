@@ -27,7 +27,10 @@ export class SessionGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    if (this.auth.isDevelopmentMode()) {
+    // Native credentials always use real revocable sessions, even on a local
+    // single-user API. Browser approval must also prove cookie + CSRF ownership.
+    const nativeApproval = request.url.split('?')[0] === '/auth/mobile/approve';
+    if (this.auth.isDevelopmentMode() && request.headers.authorization === undefined && !nativeApproval) {
       const session = await this.auth.getDevelopmentSession();
       request.account = session.account;
       request.authSession = session;
