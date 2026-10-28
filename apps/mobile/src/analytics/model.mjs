@@ -8,6 +8,8 @@ const count=v=>Number.isSafeInteger(v)&&v>=0?v:fail();
 const date=v=>isCalendarDate(v)?v:fail();
 export function analyticsPath({mode,from,to,metric='score',window=30}){
  if(!['monthly','rolling'].includes(mode)||!METRICS.includes(metric)||!WINDOWS.includes(window)||!isCalendarDate(from)||!isCalendarDate(to)||from>to)return fail();
+ const dayNumber=s=>{const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)/86400000;};
+ if(dayNumber(to)-dayNumber(from)+1>(mode==='rolling'?366:3660))return fail();
  const q=new URLSearchParams({from,to});
  if(mode==='monthly'){q.set('granularity','monthly');q.set('metrics',METRICS.join(','));}
  else{q.set('metric',metric);q.set('windows',String(window));}
@@ -17,6 +19,7 @@ export function projectMonthly(raw){
  if(!Array.isArray(raw?.monthly)||raw.monthly.length>121)return fail();
  return raw.monthly.map(b=>{
   if(typeof b.key!=='string'||!/^\d{4}-\d{2}$/.test(b.key)||typeof b.partial!=='boolean')return fail();
+  if(count(b.recordedDays)>count(b.calendarDays))return fail();
   const values={},distances={},contributions={};
   for(const m of METRICS){const v=b.values?.[m];if(!v)return fail();values[m]={total:number(v.total),average:number(v.recordedDayAverage)};}
   for(const m of ['run','bike','swim'])if(b.distanceTotals?.[m]!==undefined)distances[m]=number(b.distanceTotals[m]);
@@ -27,7 +30,7 @@ export function projectMonthly(raw){
 export function projectRolling(raw,metric,window){
  if(raw?.metric!==metric||!METRICS.includes(metric)||!['points','steps','metres'].includes(raw.unit)||!Array.isArray(raw.points)||raw.points.length>3660||!Array.isArray(raw.windows)||!raw.windows.includes(window))return fail();
  const points=raw.points.map(p=>{
-  const w=p.windows?.[window];if(!w||typeof w.complete!=='boolean'||w.windowDays!==window)return fail();
+  const w=p.windows?.[window];if(!w||typeof w.complete!=='boolean'||w.windowDays!==window||count(w.recordedDays)>window)return fail();
   return {date:date(p.date),dailyValue:number(p.dailyValue),total:number(w.total),average:number(w.calendarDayAverage),activeDays:number(w.activeDays),recordedDays:count(w.recordedDays),windowDays:count(w.windowDays),complete:w.complete};
  });
  const contributionPoints=raw.scoreContributions?.[window]?.points??[];

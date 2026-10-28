@@ -91,7 +91,7 @@ export class MobileApiClient {
     let url: URL;
     try { url = new URL(callbackUrl); } catch { throw new MobileApiError('invalid'); }
     if (url.protocol !== 'sportos:' || url.hostname !== 'auth' || url.pathname !== '/callback'
-      || url.username || url.password || url.port || url.hash || url.searchParams.size !== 2
+      || url.username || url.password || url.port || url.hash || Array.from(url.searchParams).length !== 2
       || url.searchParams.get('state') !== expectedState
       || !RANDOM_TOKEN.test(url.searchParams.get('code') ?? '')) {
       throw new MobileApiError('invalid');

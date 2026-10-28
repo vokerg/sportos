@@ -3,7 +3,7 @@ import {ScrollView,TextInput,View} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
 import type {NativeStackNavigationProp,NativeStackScreenProps} from '@react-navigation/native-stack';
-import {useSession} from '../auth/SessionProvider';
+import {useScreenSession as useSession} from '../auth/useScreenSession';
 import {Action,Body,Card,Metric,Screen,SourceBadge,StatusPanel,formatDistance,formatDuration,formatPace} from '../ui/primitives';
 import {useSportosTheme} from '../ui/theme';
 import {localToday,shiftCalendarDate} from '../ui/format.mjs';
@@ -11,6 +11,8 @@ import type {MainTabs,RootStack} from '../navigation/routes';
 import {TARGETS,leaderboardPath,projectLeaderboard,projectEvent,type Leaderboard,type EventDetail} from './model.mjs';
 export function RunLabScreen({navigation}:BottomTabScreenProps<MainTabs,'RunLab'>){
  const {read}=useSession();const {palette}=useSportosTheme();
+ const [showCoverage,setShowCoverage]=useState(false);
+ const [showRange,setShowRange]=useState(false);
  const [distanceM,setDistance]=useState(5000);const [from,setFrom]=useState('');const [to,setTo]=useState('');
  const [query,setQuery]=useState({distanceM:5000,from:'',to:'',offset:0});
  const [result,setResult]=useState<Leaderboard|null>(null);const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [revision,setRevision]=useState(0);
@@ -21,20 +23,28 @@ export function RunLabScreen({navigation}:BottomTabScreenProps<MainTabs,'RunLab'
  const apply=()=>{try{leaderboardPath({distanceM,from,to});setQuery({distanceM,from,to,offset:0});}catch{setError('Enter valid YYYY-MM-DD dates with From before To.');}};
  const stack=navigation.getParent<NativeStackNavigationProp<RootStack>>();
  return <Screen eyebrow="Measured and historical achievements" title="Run Lab">
-  <Body subdued>Original Excel times and current measured windows. Historical time, Strava moving time and Garmin timer-active time differ; these are analytical records, not certified race PRs.</Body>
+  <Body subdued>Original Excel achievements and measured windows. Timing and evidence stay labelled.</Body>
   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>{TARGETS.map(m=><Action key={m} title={m===21097.5?'Half marathon':m===42195?'Marathon':m/1000+' km'} secondary={distanceM!==m} onPress={()=>{setDistance(m);setQuery(q=>({...q,distanceM:m,offset:0}));}}/>)}</ScrollView>
   <Card title="Date range">
+   <Body subdued>{query.from||'All history'}{query.to?' → '+query.to:''}</Body>
+   <Action title={showRange?'Hide range controls':'Change date range'} secondary onPress={()=>setShowRange(v=>!v)}/>
+   {showRange?<>
+
    <View style={{flexDirection:'row',gap:8}}>{[30,365,0].map(days=><View style={{flex:1}} key={days}><Action title={days?days+' days':'All time'} secondary onPress={()=>{const f=days?shiftCalendarDate(localToday(),1-days):'';const t=days?localToday():'';setFrom(f);setTo(t);setQuery({distanceM,from:f,to:t,offset:0});}}/></View>)}</View>
    {[['From',from,setFrom],['To',to,setTo]].map(([label,value,setter])=><TextInput key={String(label)} accessibilityLabel={String(label)+' date YYYY-MM-DD'} placeholder={label+' YYYY-MM-DD (optional)'} placeholderTextColor={palette.muted} value={value as string} onChangeText={setter as (s:string)=>void} autoCapitalize="none" maxLength={10} style={{color:palette.text,borderColor:palette.border,borderWidth:1,borderRadius:10,padding:14,minHeight:48}}/>)}
-   <Action title="Apply range" secondary disabled={busy} onPress={apply}/>
+   <Action title="Apply range" secondary disabled={busy} onPress={()=>{apply();setShowRange(false);}}/>
+   </>:null}
   </Card>
   {busy?<StatusPanel kind="loading" message="Reading qualified records…"/>:null}
   {error?<StatusPanel kind="error" message={error} retry={()=>setRevision(n=>n+1)}/>:null}
   {result?<>
    <Card title="Evidence coverage"><Body>{result.coverage.measuredCurrent} current measured / {result.coverage.eligibleRuns} eligible linked runs</Body>
+    <Action title={showCoverage?'Hide coverage details':'Show coverage details'} secondary onPress={()=>setShowCoverage(v=>!v)}/>
+    {showCoverage?<>
     <Body subdued>Excel: {result.coverage.legacyLinked} linked · {result.coverage.legacyUnmatched} unlinked · {result.coverage.legacyAmbiguous} ambiguous</Body>
     <Body subdued>{result.coverage.estimatedOnly} estimated only · {result.coverage.unprocessed} unprocessed · {result.coverage.staleOrFailed} stale/failed · {result.coverage.missingRichDetail} missing rich detail · {result.coverage.unavailable} unavailable</Body>
     <Body subdued>Coverage categories can overlap. Missing processing may hide faster runs. Estimates and stale efforts never rank.</Body>
+    </>:null}
    </Card>
    {!result.rows.length?<StatusPanel kind="empty" message="No qualified records for this distance and range."/>:null}
    {result.rows.map(row=><Card key={row.id} title={'#'+row.rank+' · '+row.date}>

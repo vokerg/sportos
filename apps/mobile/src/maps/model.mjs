@@ -39,6 +39,8 @@ export function projectHeatmap(raw) {
   return {items,coverage,hasMore:raw.hasMore,nextCursor:raw.hasMore?raw.nextCursor:null};
 }
 export function mapData(routes) {
+  if(routes.length>50)throw new Error('Map route limit reached. Narrow the date range.');
+  let densityTruncated=false;
   let points=0;
   const lines=[]; const cells=new Map();
   let west=180,south=90,east=-180,north=-90;
@@ -59,6 +61,7 @@ export function mapData(routes) {
           const existing=cells.get(key);
           if(existing) existing.properties.weight++;
           else if(cells.size<15000) cells.set(key,{type:'Feature',properties:{weight:1},geometry:{type:'Point',coordinates:[(x+.5)/1000,(y+.5)/1000]}});
+          else densityTruncated=true;
         }
       }
       lines.push({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:line}});
@@ -66,5 +69,5 @@ export function mapData(routes) {
   }
   return {bounds:[[west,south],[east,north]],lines:{type:'FeatureCollection',features:lines},
     density:{type:'FeatureCollection',features:[...cells.values()]},
-    start:lines[0]?.geometry.coordinates[0],finish:lines.at(-1)?.geometry.coordinates.at(-1),points};
+    start:lines[0]?.geometry.coordinates[0],finish:lines.at(-1)?.geometry.coordinates.at(-1),points,densityTruncated};
 }

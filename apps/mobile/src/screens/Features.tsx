@@ -41,7 +41,7 @@ export function AboutScreen(_: NativeStackScreenProps<RootStack, 'About'>) {
       <SourceBadge label="No direct provider access" />
     </Card>
     <Card title="Scope">
-      <Body>Mobile views are being added across epic #185. Apple Health, widgets and notifications are out of scope until explicitly approved.</Body>
+      <Body>Browse canonical scores, activities, routes, running achievements and training trends. Source coverage and recorded timing remain visible throughout.</Body>
     </Card>
   </Screen>;
 }

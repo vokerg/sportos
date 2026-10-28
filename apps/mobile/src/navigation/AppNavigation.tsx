@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { TabIcon } from '../ui/TabIcon';
 import { NavigationContainer, type Theme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -14,10 +14,6 @@ import type { MainTabs, RootStack } from './routes';
 
 const Tabs = createBottomTabNavigator<MainTabs>();
 const Stack = createNativeStackNavigator<RootStack>();
-const symbols: Record<keyof MainTabs, string> = {
-  Home: '⌂', Daily: '◷', Activities: '≋', RunLab: '↗', More: '•••',
-};
-
 function TabScreens() {
   const { palette } = useSportosTheme();
   return <Tabs.Navigator screenOptions={({ route }) => ({
@@ -27,9 +23,7 @@ function TabScreens() {
     tabBarStyle: { backgroundColor: palette.surface, borderTopColor: palette.border, minHeight: 58 },
     tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
     tabBarButtonTestID: `tab-${route.name}`,
-    tabBarIcon: ({ color }) => <Text accessibilityElementsHidden style={{ color, fontSize: 23 }}>
-      {symbols[route.name]}
-    </Text>,
+    tabBarIcon: ({ color }) => <TabIcon name={route.name} color={color} />,
   })}>
     <Tabs.Screen name="Home" component={HomeScreen} />
     <Tabs.Screen name="Daily" component={DailyScreen} />
