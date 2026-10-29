@@ -23,6 +23,21 @@ removed from activity projection and UI. Route/stats/lap/provider action copy is
 shortened; useful missing-data, scoring authority and source limitations remain.
 No scoring, provider policy, ownership, session, storage or permission change.
 
-Validation in progress: mobile typecheck, projection/workflow/UI regressions,
-native light/dark layout and embedded Release installation. No private source
-content, screenshots or synthetic QA entry points are committed.
+Validation: mobile typecheck and all 67 tests passed (40 model and 27 runtime/UI/
+workflow tests). New regressions cover health-unit formatting, missing versus zero,
+latest timestamped weight, ambiguous undated observations, old values after partial
+failure, source-name filtering and loaded/missing/unchecked provider marks. The
+combined #216 history-navigation regression also passed; its test SVG isolation
+was updated separately.
+
+Native simulator synthetic review verified Home source marks, day-detail health
+metrics, expanded/collapsed measurements and light/dark appearance. Signed Release
+build passed with #216 day navigation locally integrated for the phone artifact;
+the line was restored afterwards to keep PR scope isolated. Production bundle
+audit verified hosted origins/new UI and absence of old diagnostic labels,
+synthetic fixtures and localhost. Temporary preview removed.
+
+Installed successfully on the personal iPhone. Automated launch was blocked by the
+locked device; the owner can open the updated app after unlocking. No actual-device
+health-data freshness or provider-fetch result is claimed from synthetic visual QA.
+No private source content, screenshots or build products are committed.
