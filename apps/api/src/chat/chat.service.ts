@@ -1,6 +1,6 @@
 import { chatEvidence } from './chat-evidence.js';
 import { createHash } from 'node:crypto';
-import { Inject, Injectable, HttpException } from '@nestjs/common';
+import { Inject, Injectable, HttpException, Logger } from '@nestjs/common';
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { AthleteReadService, assertRuntimeRole, createServer } from '@sportos/mcp';
 import { AnalysisAuditRepository } from '@sportos/db';
@@ -12,6 +12,7 @@ import type { ChatAnswer, ChatEvidence, ChatRequest } from './chat.contracts.js'
 
 @Injectable()
 export class ChatService {
+  private readonly logger = new Logger(ChatService.name);
   private readonly config = chatModelConfig();
   private readonly active = new Set<string>();
   private readonly recent = new Map<string, { count: number; until: number }>();
@@ -46,11 +47,16 @@ export class ChatService {
       if (config) {
         const client = new Client({ name: 'sportos-chat', version: '1.0.0' });
         const service = new AthleteReadService(this.db.db, accountId, 'Europe/Copenhagen', () => new Date(), this.detail.db);
-        const server = createServer(service);
+        let toolFailure: { code: string; sqlState: string | null } | undefined;
+        const server = createServer(service, failure => { toolFailure = failure; });
+        const readFailure = () => toolFailure;
+        let stage = 'runtime';
+        let currentTool: string | null = null;
         const [a, b] = InMemoryTransport.createLinkedPair();
         const signal = AbortSignal.timeout(config.timeoutMs);
         try {
           await assertRuntimeRole(this.db.db);
+          stage = 'discovery';
           await server.connect(a); await client.connect(b);
           const { tools } = await client.listTools();
           const definitions = tools.map(t => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } }));
@@ -63,15 +69,33 @@ export class ChatService {
           let calls = 0;
           let bytes = 0;
           for (let round = 0; round < 3; round++) {
+            stage = 'model';
             const message = await complete(config, messages, definitions, signal);
             messages.push(message);
-            if (!message.tool_calls?.length) { final = message; break; }
+            if (!message.tool_calls?.length) {
+              // Tool mode may return prose despite prompt instructions. Use one
+              // final JSON-mode pass when its draft cannot be accepted directly.
+              try {
+                const draft = parseGeneratedAnalysisDraft(JSON.parse(message.content ?? ''), new Set(evidence.map(e => e.key)));
+                if (!evidence.length && draft.observations.length) throw Error('Fresh evidence required.');
+                final = message;
+              } catch { /* JSON-mode formatting below remains inside the same deadline. */ }
+              break;
+            }
             for (const call of message.tool_calls) {
               if (++calls > 4 || signal.aborted) throw Error('Tool budget exceeded.');
               if (!tools.some(t => t.name === call.function.name)) throw Error('Unsupported tool.');
               const input = JSON.parse(call.function.arguments) as Record<string, unknown>;
+              stage = 'tool'; currentTool = call.function.name; toolFailure = undefined;
               const output = await client.callTool({ name: call.function.name, arguments: input }, { signal });
-              if (output.isError || !output.structuredContent) throw Error('Evidence unavailable.');
+              if (output.isError || !output.structuredContent) {
+                const failure = readFailure();
+                if (failure?.code === 'INVALID_INPUT' || failure?.code === 'NOT_FOUND') {
+                  messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: { code: failure.code, message: `Use the fixed schema and real dates no later than ${service.today()}. Missing records are not evidence.` } }) });
+                  continue;
+                }
+                throw Error('Evidence unavailable.');
+              }
               const result = chatEvidence(call.function.name, output.structuredContent);
               const text = JSON.stringify(result);
               bytes += Buffer.byteLength(text);
@@ -83,14 +107,18 @@ export class ChatService {
           }
           if (signal.aborted) throw Error('Chat deadline exceeded.');
           messages.push({ role: 'system', content: 'Now return only the required JSON object. Cite only evidence keys from successful tool results in this turn. No further tools. If the question is unclear, ask for clarification in suggestions.' });
+          stage = 'model';
           final ??= await complete(config, messages, [], signal);
+          stage = 'answer_validation';
           if (final.tool_calls?.length) throw Error('Unexpected final tools.');
           const draft = parseGeneratedAnalysisDraft(JSON.parse(final.content ?? ''), new Set(evidence.map(e => e.key)));
           if (!evidence.length && draft.observations.length) throw Error('Observations require fresh evidence.');
           guidance = draft;
           status = 'answered'; generator = 'external_model'; model = config.model;
         } catch {
-          // Do not persist or expose provider messages, question text or database errors.
+          // Fixed operation names/codes only: never error objects, messages, prompts or results.
+          this.logger.warn({ event: 'chat_fallback', stage: signal.aborted ? 'deadline' : stage,
+            tool: currentTool, code: toolFailure?.code ?? null, sqlState: toolFailure?.sqlState ?? null });
         } finally { await client.close(); await server.close(); }
       }
     }

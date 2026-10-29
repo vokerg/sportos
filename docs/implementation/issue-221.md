@@ -81,3 +81,9 @@ the existing exact route-list test needed the new Chat route; it was updated.
 The optional combined hosted launcher now forwards the chat endpoint only to
 the API, with a focused regression assertion that endpoint/key do not reach the
 worker. Deployment guidance now documents API-only generation settings.
+
+Authenticated hosted follow-up found model greetings working but athlete reads
+falling back. A separate continuation adds fixed stage/tool/SQLSTATE telemetry
+(without exception bodies, prompts or records) and bounded invalid/missing-input
+recovery. Existing ownership, schema validation and total call limits remain
+unchanged. Focused synthetic tests verify redaction and recovery.

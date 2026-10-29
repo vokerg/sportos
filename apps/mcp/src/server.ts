@@ -14,7 +14,11 @@ import {
   volumeOutput,
 } from './contracts.js';
 import { AthleteReadService, ToolError } from './service.js';
-export function createServer(service: AthleteReadService) {
+export interface ReadFailure {
+  code: 'NOT_FOUND' | 'UNAVAILABLE' | 'INVALID_INPUT' | 'BUSY' | 'OUTPUT_LIMIT';
+  sqlState: string | null;
+}
+export function createServer(service: AthleteReadService, onReadFailure?: (failure: ReadFailure) => void) {
   const server = new McpServer({ name: 'sportos-readonly', version: '0.1.0' });
   let active = false;
   let windowStart = Date.now(),
@@ -98,6 +102,8 @@ export function createServer(service: AthleteReadService) {
                     ? 'Input or retained output does not match the contract.'
                     : 'Retained evidence is unavailable. Check local runtime configuration.',
                 );
+          const rawCode = typeof error === 'object' && error !== null && 'code' in error ? error.code : null;
+          onReadFailure?.({ code: e.code, sqlState: typeof rawCode === 'string' && /^[0-9A-Z]{5}$/.test(rawCode) ? rawCode : null });
           const result = { error: { code: e.code, message: e.message } };
           return {
             isError: true,
