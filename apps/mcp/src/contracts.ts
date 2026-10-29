@@ -43,9 +43,16 @@ export const bestInput = z
     discipline,
     ...range,
     distanceM: z.number().positive().max(1000000).optional(),
+    subtype: z
+      .enum(['outdoor', 'indoor', 'treadmill', 'track', 'manual', 'race', 'unknown'])
+      .optional(),
     ...page,
   })
-  .refine(validRange, 'Invalid or excessive range.');
+  .refine(validRange, 'Invalid or excessive range.')
+  .refine(
+    (i) => i.discipline !== 'run' || i.subtype === undefined,
+    'Running leaderboard subtype filtering is unavailable; use search_activities for conditional whole sessions.',
+  );
 export const searchInput = z
   .strictObject({
     ...range,
@@ -71,7 +78,15 @@ export const searchInput = z
       (i.minDurationS ?? 0) <= (i.maxDurationS ?? Infinity),
     'Inverted filter range.',
   );
-export const detailsInput = z.strictObject({ activityId: z.uuid() });
+export const detailsInput = z.strictObject({
+  activityId: z.uuid(),
+  includeSwimLengths: z.boolean().default(false),
+  lapLimit: z.number().int().min(1).max(100).default(100),
+  lapOffset: z.number().int().min(0).max(10000).default(0),
+  lapProvider: z.enum(['strava', 'garmin']).optional(),
+  swimLengthLimit: z.number().int().min(1).max(100).default(100),
+  swimLengthOffset: z.number().int().min(0).max(2000).default(0),
+});
 const nullable = z.number().finite().nullable();
 const activityFields = {
   id: z.uuid(),
@@ -211,9 +226,222 @@ const bucket = z.strictObject({
   partial: z.boolean(),
   disciplines: z.strictObject({ run: volumeSchema, bike: volumeSchema, swim: volumeSchema }),
 });
+const numericProfileSchema = z.strictObject({
+  known: count,
+  missing: count,
+  min: nullable,
+  p10: nullable,
+  p25: nullable,
+  median: nullable,
+  p75: nullable,
+  p90: nullable,
+  max: nullable,
+  mean: nullable,
+});
+const referenceSchema = z.strictObject({
+  activityId: z.uuid(),
+  date: dateSchema,
+  source: z.string(),
+  subtype: z.string().nullable(),
+  distanceM: nullable,
+  elapsedS: nullable,
+  movingS: nullable,
+  paceSPerKm: nullable,
+  distanceCorrected: z.boolean(),
+  method: z.enum(['measured', 'summary_estimated']),
+});
+const histogramSchema = z.strictObject({
+  unit: z.string(),
+  known: count,
+  missing: count,
+  bins: z.array(z.strictObject({ min: z.number(), max: nullable, sessions: count })).max(12),
+});
+const metricProfileSchema = z.strictObject({
+  key: z.string(),
+  unit: z.string(),
+  sessions: count,
+  stats: numericProfileSchema,
+  sourceCounts: z.record(z.string(), count),
+  originCounts: z.record(z.string(), count),
+  firstDate: dateSchema,
+  lastDate: dateSchema,
+  evidence: z
+    .array(
+      z.strictObject({
+        activityId: z.uuid(),
+        date: dateSchema,
+        value: z.number(),
+        source: z.string(),
+        origin: z.string(),
+        unit: z.string(),
+      }),
+    )
+    .max(2),
+});
+const profilePeriodSchema = z.strictObject({
+  key: z.string(),
+  evidenceId: z.string(),
+  volume: volumeSchema,
+  sessionDistance: numericProfileSchema,
+  sessionMoving: numericProfileSchema,
+  sessionElapsed: numericProfileSchema,
+  sessionRate: numericProfileSchema,
+  rateUnit: z.string(),
+  distributions: z.strictObject({
+    distance: histogramSchema,
+    duration: histogramSchema,
+    rate: histogramSchema,
+  }),
+  metrics: z.array(metricProfileSchema).max(100),
+  longest: z.array(referenceSchema).max(3),
+});
+const peakSchema = z.strictObject({
+  from: dateSchema,
+  to: dateSchema,
+  distanceM: nullable,
+  movingS: nullable,
+  sessions: count,
+  distanceKnown: count,
+  movingKnown: count,
+});
+const benchmarkResultSchema = z.strictObject({ sessions: count, best: referenceSchema.nullable() });
+const longitudinalSportSchema = z.strictObject({
+  firstDate: dateSchema.nullable(),
+  lastDate: dateSchema.nullable(),
+  daysSinceLast: nullable,
+  periods: z.array(profilePeriodSchema).length(9),
+  adjacentComparisons: z
+    .array(
+      z.strictObject({
+        days: z.number(),
+        recentFrom: dateSchema,
+        recentTo: dateSchema,
+        previousFrom: dateSchema,
+        previousTo: dateSchema,
+        distanceChangePercent: nullable,
+        movingChangePercent: nullable,
+        sessionChange: z.number().int(),
+        recentDistanceKnown: count,
+        previousDistanceKnown: count,
+        recentMovingKnown: count,
+        previousMovingKnown: count,
+      }),
+    )
+    .length(2),
+  consistency: z.strictObject({
+    from: dateSchema,
+    to: dateSchema,
+    completeWeeks: z.literal(52),
+    recordedWeeks: count,
+    weeksAtLeastTwoSessions: count,
+    weeksAtLeastThreeSessions: count,
+    longestRecordedWeekStreak: count,
+    currentRecordedWeekStreak: count,
+    weeklySessions: numericProfileSchema,
+    weeklyMoving: numericProfileSchema,
+    recordingGaps: z
+      .array(z.strictObject({ from: dateSchema, to: dateSchema, days: count }))
+      .max(5),
+    recentBlocks: z
+      .array(
+        z.strictObject({
+          weeks: count,
+          from: dateSchema,
+          to: dateSchema,
+          recordedWeeks: count,
+          sessions: count,
+        }),
+      )
+      .length(5),
+  }),
+  rolling28Peaks: z.strictObject({
+    days: z.literal(28),
+    distance: z.array(peakSchema).max(3),
+    moving: z.array(peakSchema).max(3),
+  }),
+  recent28DistanceAsPercentOfPeak: nullable,
+  seasons: z
+    .array(
+      z.strictObject({
+        year: z.string(),
+        partial: z.boolean(),
+        volume: volumeSchema,
+        sessionDistance: numericProfileSchema,
+        sessionMoving: numericProfileSchema,
+        longest: z.array(referenceSchema).max(1),
+        conditions: z
+          .array(
+            z.strictObject({ condition: z.string(), sessions: count, pace: numericProfileSchema }),
+          )
+          .max(8),
+      }),
+    )
+    .max(131),
+  endurance: z
+    .array(
+      z.strictObject({
+        minDistanceM: z.number(),
+        comparison: z.literal('whole_activity_at_least_distance'),
+        lifetimeSessions: count,
+        recent90Sessions: count,
+        recent365Sessions: count,
+        recent90DistinctWeeks: count,
+        firstDate: dateSchema.nullable(),
+        lastDate: dateSchema.nullable(),
+        daysSinceLast: nullable,
+        recent90GapDays: numericProfileSchema,
+        evidence: z.array(referenceSchema).max(3),
+      }),
+    )
+    .max(8),
+  benchmarks: z
+    .array(
+      z.strictObject({
+        targetDistanceM: z.number(),
+        toleranceM: z.number(),
+        condition: z.string(),
+        timeBasis: z.literal('elapsed'),
+        allTime: benchmarkResultSchema,
+        recent90: benchmarkResultSchema,
+        recent365: benchmarkResultSchema,
+        recent90VsAllTimeElapsedPercent: nullable,
+        seasons: z
+          .array(z.strictObject({ year: z.string(), sessions: count, best: referenceSchema }))
+          .max(131),
+        caveats: z.array(z.string()).max(5),
+      }),
+    )
+    .max(48),
+  unknowns: z.array(z.string()).max(20),
+});
+export const longitudinalSchema = z.strictObject({
+  methodology: z.literal('longitudinal-observations-v1'),
+  quantiles: z.literal('linear_interpolation_type_7'),
+  comparisonPolicy: z.literal('adjacent_non_overlapping_equal_calendar_windows'),
+  profiles: z.strictObject({
+    run: longitudinalSportSchema,
+    bike: longitudinalSportSchema,
+    swim: longitudinalSportSchema,
+  }),
+  multisport: z.strictObject({
+    sameDayCount: count,
+    combinationCounts: z.record(z.string(), count),
+    recentExamples: z
+      .array(
+        z.strictObject({
+          date: dateSchema,
+          disciplines: z.array(discipline).max(3),
+          activityIds: z.array(z.uuid()).max(6),
+          truncated: z.boolean(),
+        }),
+      )
+      .max(10),
+    interpretation: z.literal('same_calendar_date_does_not_establish_brick_or_transition'),
+  }),
+});
 export const athleteSnapshotSchema = z.strictObject({
   schemaVersion: z.literal('sportos.athlete-snapshot.v1'),
-  calculationVersion: z.literal('canonical-calendar-v1'),
+  calculationVersion: z.literal('canonical-calendar-v2'),
   generatedAt: z.iso.datetime(),
   asOfDate: dateSchema,
   timezone: z.string(),
@@ -242,9 +470,20 @@ export const athleteSnapshotSchema = z.strictObject({
     incompleteDayExcluded: z.boolean(),
     incompleteDaySessions: count,
     archiveCompleteness: z.literal('unknown'),
-    providerSyncFreshness: z.literal('not_inferred_from_activity_dates'),
+    providerSyncFreshness: z.literal('connection_metadata_observed_at_generation'),
+    providerConnections: z
+      .array(
+        z.strictObject({
+          provider: z.string(),
+          status: z.string(),
+          lastSyncAt: z.iso.datetime().nullable(),
+          lastAttemptAt: z.iso.datetime().nullable(),
+        }),
+      )
+      .max(10),
     projectedMetricSessions: count,
   }),
+  longitudinal: longitudinalSchema,
   disciplines: z.strictObject({
     run: disciplineSummary,
     bike: disciplineSummary,
@@ -289,7 +528,43 @@ export const detailOutput = z.strictObject({
       }),
     )
     .max(2),
+  swimLengths: z
+    .strictObject({
+      status: z.enum(['available', 'unavailable']),
+      reason: z.string().optional(),
+      poolLengthM: nullable,
+      poolLengthDisplay: z.string().nullable(),
+      expectedLengths: nullable,
+      expectedActiveLengths: nullable,
+      complete: z.boolean().nullable(),
+      truncated: z.boolean(),
+      total: count,
+      limit: count,
+      offset: count,
+      hasMore: z.boolean(),
+      canonicalCorrectionApplied: z.literal(false),
+      lengths: z
+        .array(
+          z.strictObject({
+            row: count,
+            lengthNumber: nullable,
+            kind: z.enum(['active', 'rest', 'unknown']),
+            durationS: nullable,
+            durationBasis: z.enum(['timer', 'elapsed']).nullable(),
+            paceSPer100M: nullable,
+            strokes: nullable,
+            swolf: nullable,
+            stroke: z.string().nullable(),
+          }),
+        )
+        .max(100),
+    })
+    .nullable(),
   laps: z.strictObject({
+    limit: count,
+    offset: count,
+    total: count,
+    hasMore: z.boolean(),
     status: z.string(),
     provider: z.enum(['strava', 'garmin']).nullable(),
     items: z
@@ -307,7 +582,20 @@ export const detailOutput = z.strictObject({
     truncated: z.boolean(),
   }),
 });
+const totalsSchema = z.strictObject({
+  calendarDays: nullable,
+  sessionsPerWeek: nullable,
+  sessions: count,
+  distanceM: nullable,
+  movingS: nullable,
+  elapsedS: nullable,
+  distanceKnown: count,
+  movingKnown: count,
+  elapsedKnown: count,
+  activeDays: count,
+});
 export const searchOutput = z.strictObject({
+  totals: totalsSchema,
   metadata: readMetadata,
   items: z.array(evidenceSchema).max(100),
   total: count,
@@ -319,6 +607,7 @@ export const searchOutput = z.strictObject({
   }),
 });
 export const volumeOutput = z.strictObject({
+  totals: totalsSchema,
   metadata: readMetadata,
   buckets: z.array(bucket).max(100),
   total: count,

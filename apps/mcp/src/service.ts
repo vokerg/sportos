@@ -1,4 +1,9 @@
-import { retainedLaps, unavailableLaps } from '@sportos/db';
+import {
+  retainedLaps,
+  unavailableLaps,
+  retainedAthleteSwimLengths,
+  unavailableAthleteSwimLengths,
+} from '@sportos/db';
 import {
   activityEvidence,
   activityPaceSPerKm,
@@ -102,6 +107,7 @@ export class AthleteReadService {
       const repository = new AthleteDataRepository(db);
       const activities = await repository.activities({ to: asOfDate });
       const supplements = await repository.supplements(undefined, completeTo);
+      const providerFreshness = await repository.providerFreshness();
       const runningBests: RunBest[] = [],
         recentRunningBests: RunBest[] = [];
       for (const distanceM of TARGETS) {
@@ -143,6 +149,7 @@ export class AthleteReadService {
           timezone: this.timezone,
           generatedAt,
           windows: input.windows,
+          providerFreshness,
         }),
       );
     });
@@ -151,15 +158,10 @@ export class AthleteReadService {
     const input = volumeInput.parse(raw);
     this.validateTo(input.to);
     return this.read(async (db) => {
-      let rows = await new AthleteDataRepository(db).activities(input);
-      if (input.discipline) rows = rows.filter((a) => a.discipline === input.discipline);
-      const buckets = volumeBuckets(rows, input.from, input.to, input.period);
+      const result = await new AthleteDataRepository(db).volume(input);
       return volumeOutput.parse({
+        ...result,
         metadata: this.metadata(input.from, input.to),
-        buckets: buckets.slice(input.offset, input.offset + input.limit),
-        total: buckets.length,
-        limit: input.limit,
-        offset: input.offset,
         coverage: { archiveCompleteness: 'unknown', emptyBucketMeaning: 'no_retained_sessions' },
       });
     });
@@ -168,33 +170,11 @@ export class AthleteReadService {
     const i = searchInput.parse(raw);
     this.validateTo(i.to);
     return this.read(async (db) => {
-      const rows = (await new AthleteDataRepository(db).activities(i))
-        .map(activityEvidence)
-        .filter(
-          (a) =>
-            (!i.discipline || a.discipline === i.discipline) &&
-            (!i.source || a.source === i.source) &&
-            (!i.subtype || a.subtype === i.subtype) &&
-            (i.minDistanceM === undefined ||
-              (a.distanceM !== null && a.distanceM >= i.minDistanceM)) &&
-            (i.maxDistanceM === undefined ||
-              (a.distanceM !== null && a.distanceM <= i.maxDistanceM)) &&
-            (i.minDurationS === undefined ||
-              (a.elapsedS !== null && a.elapsedS >= i.minDurationS)) &&
-            (i.maxDurationS === undefined ||
-              (a.elapsedS !== null && a.elapsedS <= i.maxDurationS)) &&
-            (i.maxPaceSPerKm === undefined ||
-              (activityPaceSPerKm(a) !== null && activityPaceSPerKm(a)! <= i.maxPaceSPerKm)) &&
-            (i.minSpeedKmh === undefined ||
-              (activityPaceSPerKm(a) !== null && 3600 / activityPaceSPerKm(a)! >= i.minSpeedKmh)),
-        )
-        .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+      const result = await new AthleteDataRepository(db).search(i);
       return searchOutput.parse({
+        ...result,
+        items: result.items.map(activityEvidence),
         metadata: this.metadata(i.from, i.to),
-        items: rows.slice(i.offset, i.offset + i.limit),
-        total: rows.length,
-        limit: i.limit,
-        offset: i.offset,
         coverage: { archiveCompleteness: 'unknown', providerReads: 'none' },
       });
     });
@@ -241,34 +221,23 @@ export class AthleteReadService {
         });
       }
       const toleranceM = i.distanceM === undefined ? null : Math.max(1, i.distanceM * 0.01);
-      const rows = (await new AthleteDataRepository(db).activities(i))
-        .filter(
-          (a) =>
-            a.discipline === i.discipline &&
-            !a.historicalSummary &&
-            a.distanceM !== null &&
-            a.distanceM > 0 &&
-            a.elapsedS !== null &&
-            a.elapsedS > 0 &&
-            (i.distanceM === undefined || Math.abs(a.distanceM - i.distanceM) <= toleranceM!),
-        )
-        .map(activityEvidence)
-        .sort((a, b) =>
-          i.distanceM === undefined
-            ? (activityPaceSPerKm(a) ?? Infinity) - (activityPaceSPerKm(b) ?? Infinity) ||
-              a.id.localeCompare(b.id)
-            : a.elapsedS! - b.elapsedS! || a.id.localeCompare(b.id),
-        );
+      const result = await new AthleteDataRepository(db).search({
+        ...i,
+        qualifiedWholeActivity: true,
+        minDistanceM: i.distanceM === undefined ? undefined : i.distanceM - toleranceM!,
+        maxDistanceM: i.distanceM === undefined ? undefined : i.distanceM + toleranceM!,
+        sort: i.distanceM === undefined ? 'pace' : 'elapsed',
+      });
       return bestOutput.parse({
         metadata: this.metadata(i.from, i.to),
         discipline: i.discipline,
         method: 'whole_activity',
         targetDistanceM: i.distanceM ?? null,
         toleranceM,
-        total: rows.length,
+        total: result.total,
         limit: i.limit,
         offset: i.offset,
-        items: rows.slice(i.offset, i.offset + i.limit),
+        items: result.items.map(activityEvidence),
         coverage: {
           conditions: 'subtype_only_course_weather_unknown',
           ranking:
@@ -281,11 +250,22 @@ export class AthleteReadService {
     });
   }
   async details(raw: unknown) {
-    const { activityId } = detailsInput.parse(raw);
+    const input = detailsInput.parse(raw),
+      { activityId } = input;
     return this.read(async (db) => {
       const result = await new AthleteDataRepository(db).details(activityId, this.today());
       if (!result) throw new ToolError('NOT_FOUND', 'Activity was not found.');
-      let laps = unavailableLaps('detail_database_not_configured');
+      let laps = unavailableLaps('detail_database_not_configured', {
+        limit: input.lapLimit,
+        offset: input.lapOffset,
+      });
+      let swimLengths: Awaited<ReturnType<typeof retainedAthleteSwimLengths>> | null =
+        input.includeSwimLengths && result.activity.discipline === 'swim'
+          ? unavailableAthleteSwimLengths('detail_database_not_configured', {
+              limit: input.swimLengthLimit,
+              offset: input.swimLengthOffset,
+            })
+          : null;
       if (this.detailDb) {
         const ref = await new ActivityProviderResourcesRepository(db).getProviderReference(
           activityId,
@@ -293,12 +273,35 @@ export class AthleteReadService {
         const garmin = await new AthleteDataRepository(db).garminReference(activityId);
         try {
           await assertRuntimeRole(this.detailDb);
-          laps = await this.read(
-            (detail) => retainedLaps(detail, activityId, ref, garmin),
+          const retained = await this.read(
+            async (detail) => ({
+              laps: await retainedLaps(detail, activityId, ref, garmin, {
+                limit: input.lapLimit,
+                offset: input.lapOffset,
+                provider: input.lapProvider,
+              }),
+              swimLengths:
+                input.includeSwimLengths && result.activity.discipline === 'swim'
+                  ? await retainedAthleteSwimLengths(detail, garmin, {
+                      limit: input.swimLengthLimit,
+                      offset: input.swimLengthOffset,
+                    })
+                  : null,
+            }),
             this.detailDb,
           );
+          laps = retained.laps;
+          swimLengths = retained.swimLengths;
         } catch {
-          laps = unavailableLaps('retained_laps_unavailable');
+          laps = unavailableLaps('retained_laps_unavailable', {
+            limit: input.lapLimit,
+            offset: input.lapOffset,
+          });
+          if (swimLengths)
+            swimLengths = unavailableAthleteSwimLengths('retained_lengths_unavailable', {
+              limit: input.swimLengthLimit,
+              offset: input.swimLengthOffset,
+            });
         }
       }
       return detailOutput.parse({
@@ -306,6 +309,7 @@ export class AthleteReadService {
         metadata: this.metadata(result.activity.date, result.activity.date),
         activity: activityEvidence(result.activity),
         laps,
+        swimLengths,
       });
     });
   }

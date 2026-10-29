@@ -106,3 +106,71 @@ Private handoff basenames are `athlete-snapshot-2026-10-28.json`,
 `athlete-performance-report-2026-10-28.md` and `manifest.json`. Actual locations and
 contents remain in the private local handoff. Issue remains open pending review
 and separately authorized squash merge; no merge was performed.
+
+## Continued implementation after maintainer feedback (2026-10-29)
+
+The first pass supplied transport, aggregates and report structure but did not
+satisfy the intended analytical depth. Investigation found missing period-specific
+metric evidence, condition-separated seasonal benchmarks, repeatability and peak
+volume context, meaningful sport-specific distributions, and database pagination.
+The claim/branch/PR remain #211 / `issue-211-readonly-athlete-mcp` / #212.
+
+Files re-inspected before this continuation: the issue and PR bodies/comments,
+this investigation, `docs/ATHLETE_MCP.md`, analytics snapshot implementation/tests,
+MCP contracts/service/report/private writer/runtime and their tests, compact
+athlete-data and athlete-laps repositories, and existing API swim-length parser
+and enrichment read paths. The first pass's successful validation did not prove
+that report depth met the issue; chapter/line counts are not a depth criterion.
+
+### Concrete continuation changes
+
+- Split reusable observations from snapshot orchestration and implemented a pure
+  longitudinal profile: nine metric periods, nonoverlapping adjacent comparisons,
+  type-7 quantiles, sport-specific histograms, source/origin evidence, seasonal
+  profiles, condition-separated bike/swim benchmarks, endurance repeat counts,
+  distinct weeks, recording gaps, 28-day peak contexts and multisport-day evidence.
+- The Russian report now derives specific observations and comparisons from those
+  fields in the relevant chapters instead of relying on repeated generic caveats.
+  Calculation methodology is `canonical-calendar-v2`; the earlier private pair is
+  preserved and a new execution-date pair is generated separately.
+- Search and bike/swim bests filter/count/page in PostgreSQL. Volume aggregates
+  paginated calendar buckets there and returns page-independent filtered totals.
+  A 50,002-session synthetic archive exceeds the snapshot cap while those tools
+  remain usable; SQL bucket values are checked against the pure calculations.
+- Detail tools page retained Strava/Garmin laps, support explicit provider choice
+  and expose opt-in native swim-length pages with completeness and units. The
+  existing API swim parser moved to domain and remains an API compatibility export;
+  no alternative parser, inferred pool length or correction-based split rescaling.
+- Narrow provider connection freshness is included without native identities or
+  credentials; it does not certify archive completeness or past database state.
+
+Further inspected files: `packages/domain/src/index.ts`, the existing API
+`activity-swim-lengths.test.ts`, `GarminActivityResourcesRepository` session/length
+allowlists and detail migrations. No new schema migration or ingestion/scoring
+change is required. Private rows, report contents and absolute paths remain absent
+from this document and all public status.
+
+### Continuation validation and private handoff
+
+- Repository-wide `pnpm typecheck` passed. Focused validation passed 15 analytics
+  tests, 16 MCP tests (including non-owner primary/detail integration and stdio)
+  and 7 existing API swim-length tests after sharing the parser.
+- A large synthetic archive of 50,002 sessions validates database pagination and
+  aggregation above the snapshot materialization cap. Calendar pages are compared
+  field-for-field with the shared pure calculations; totals remain page-independent.
+- New real private artifacts for the execution date were generated and validated.
+  Independent account-scoped read-only SQL cross-checked all 27 longitudinal period
+  totals, endurance threshold counts, historical 28-day peak windows and selected
+  condition-separated benchmark UUIDs. No real result values are logged here.
+- Generic real-data MCP calls passed snapshot, volume/search paging with stable
+  grand totals, running and conditional cycling bests, and native split-read
+  contracts. Report/JSON equality, schema, manifest hashes and restricted modes
+  passed. The original first-pass artifacts remain outside Git, unchanged.
+- The independently written validation query initially used an invalid unquoted
+  SQL alias; correcting that diagnostic query required no application/data change.
+  Peak verification follows the documented three-decimal quantization/tie rule.
+
+Current private handoff basenames: `athlete-snapshot-2026-10-29.json`,
+`athlete-performance-report-2026-10-29.md`, `manifest.json`. Absolute paths are
+provided only through the private handoff. No provider fetch, sync, score writes,
+canonical mutation, public artifact attachment or IronMan update occurred.

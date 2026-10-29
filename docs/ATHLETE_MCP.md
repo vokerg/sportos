@@ -83,15 +83,19 @@ validation and unknown-tool errors also use standard MCP error handling).
 | Tool | Required input | Optional input / semantics |
 | --- | --- | --- |
 | `get_athlete_snapshot` | `{}` | `asOfDate`, unique subset of `windows: [7,28,30,90,180,365]`; full versioned snapshot |
-| `get_training_volume` | `from`, `to`, `period` | `discipline`; periods `daily`, `weekly`, `monthly`, `annual`; paginated calendar buckets |
-| `get_personal_bests` | `discipline`, `from`, `to` | Running requires `distanceM` 5000/10000/15000/20000/21097.5/25000/42195; bike/swim optional target |
+| `get_training_volume` | `from`, `to`, `period` | `discipline`; periods `daily`, `weekly`, `monthly`, `annual`; database-aggregated pages and filtered grand totals |
+| `get_personal_bests` | `discipline`, `from`, `to` | Running requires `distanceM` 5000/10000/15000/20000/21097.5/25000/42195; bike/swim optional target and explicit `subtype` |
 | `search_activities` | `from`, `to` | `discipline`, allowlisted `source`/`subtype`, min/max `DistanceM`, min/max `DurationS`, `maxPaceSPerKm`, `minSpeedKmh` |
-| `get_activity_details` | `activityId` | Canonical facts, current numeric metric projections and explicitly requested retained laps |
+| `get_activity_details` | `activityId` | Canonical facts, current numeric metric projections; `lapLimit`, `lapOffset`, optional `lapProvider`; explicit `includeSwimLengths`, `swimLengthLimit`, `swimLengthOffset` |
 
 `discipline` is run/bike/swim; omitted means all three. Search duration filters use
 canonical elapsed/recorded `duration_s`; pace/speed filters use positive moving
 time with an explicit elapsed fallback. Search is descending date, ascending UUID.
-Search returns filtered total, page and coverage; weekly/monthly/annual bucket
+Search returns filtered total, page, grand `totals` and coverage; filtering, ordering,
+counting and pagination happen in PostgreSQL before rows are materialized. Grand
+totals include metres, separate moving/elapsed seconds, known-field counts, unique
+active dates, calendar length and sessions/week. They do not depend on page size.
+Volume also returns these filtered grand totals; weekly/monthly/annual bucket
 pages are ascending calendar order and include empty buckets. `total` for volume
 is the number of buckets, not sessions. For a discipline-filtered volume response,
 other disciplines are empty rather than inferred. Use the per-discipline session
@@ -115,12 +119,25 @@ use the paginated tool for additional entries.
 Activity details never return notes, names, correction reason text, raw JSON, GPS,
 provider account/native identifiers, source hashes, storage information or owner
 fields. Laps use current retained Strava references first, then current linked
-Garmin native FIT laps, capped at 100 with explicit truncation. Fixed numeric
+Garmin native FIT laps, paged at up to 100 rows with total/offset/limit/hasMore and explicit truncation.
+An explicit provider selection never falls through to a different provider on an
+empty or out-of-range page. Fixed numeric
 fields and units only; FIT timer time remains separate from moving time. There is
 no detail fetch, stream processing or synthetic split reconstruction. The two
 physical databases have separate read snapshots; linked source versions are
 matched, but there is no cross-database atomicity claim. Unavailable detail leaves
 canonical facts usable and gives an explicit laps status.
+
+Native swim lengths are opt-in. They reuse the existing API's pure FIT parser,
+now shared in `packages/domain/src/swim-lengths.ts`, with current retained session
+and length messages. Pool length requires explicit metre units; timer/elapsed
+basis, active/rest/unknown kind, strokes and calculated SWOLF retain their native
+semantics. Unknown units, duplicate native fields and count mismatches fail closed.
+Up to 2,000 lengths are inspected, with separate bounded paging (1–100 rows),
+coverage/completeness and source truncation. `hasMore` refers to the inspected
+pages; source truncation remains a separate flag. Canonical distance corrections
+never rescale native lengths or invent splits (`canonicalCorrectionApplied: false`).
+No interval PR is inferred from those lengths by the bests tool.
 
 ## Snapshot semantics
 
@@ -133,7 +150,7 @@ is in `apps/mcp/src/contracts.ts`; a generated JSON Schema is in
 [schemas/athlete-snapshot.v1.schema.json](schemas/athlete-snapshot.v1.schema.json).
 Both paths validate the complete output before release.
 
-- Schema: `sportos.athlete-snapshot.v1`; methodology: `canonical-calendar-v1`.
+- Schema: `sportos.athlete-snapshot.v1`; methodology: `canonical-calendar-v2`.
 - `asOfDate` is the requested date. For execution-day snapshots the incomplete
   local day is excluded; `completeThrough` is yesterday. Earlier dates are
   included in full. `generatedAt` and timezone make the policy reproducible.
@@ -166,18 +183,66 @@ Both paths validate the complete output before release.
   unchanged. Provider origin, source kind, derivation method and projection time
   accompany examples.
 - Coverage is retained-record coverage, not a general audit, complete-archive
-  certificate or assertion that provider sync is up to date.
+  certificate or assertion that provider sync is up to date. Narrow connection
+  metadata gives provider/status/last successful sync/last attempt at generation
+  time; it excludes native accounts and credentials and does not certify archive
+  completeness.
 - No scoring points enter physiological load, no FTP/CSS/zones are inferred,
   no race forecast or medical readiness determination is generated.
 
 Every query executes through `withAccountContext` in a reserved connection and a
 repeatable-read **READ ONLY** transaction. Query statement timeout is 20 seconds;
-idle transaction timeout is 30 seconds. The compact archive cap is 50,000 canonical
-sessions and 1,000,000 candidate numeric projections per call, with explicit failure
-instead of silent truncation. Each process serves one active tool call and at most
+idle transaction timeout is 30 seconds. Snapshot materialization is capped at 50,000 canonical sessions and 1,000,000
+candidate numeric projections, with explicit failure instead of silent truncation.
+Search and qualified bike/swim bests page in PostgreSQL; volume aggregates only the
+requested calendar bucket page in PostgreSQL. Those views do not materialize or
+inherit the snapshot's 50,000-session cap. A synthetic 50,002-session fixture proves
+that filtered search and volume remain available above that cap. Each process serves one active tool call and at most
 30 calls/minute. Successful structured JSON is capped at 2 MB (also mirrored into
 a text content block for generic clients). These are local transport limits, not
 a substitute for remote-service authentication or infrastructure controls.
+
+## Longitudinal evidence and report depth
+
+`longitudinal-observations-v1` adds a structured profile for each discipline:
+
+- Nine periods: lifetime, 7/28/30/90/180/365 days, previous 28 days and previous
+  90 days. The two previous periods are adjacent and nonoverlapping; they support
+  honest comparisons rather than comparing an interval to a nested superset.
+- Session distance/moving/elapsed and sport-specific rate quantiles: count, missing,
+  min/max, mean, P10/P25/median/P75/P90. Quantiles use linear interpolation type 7.
+  Bike rates use km/h, swim rates s/100m, run rates s/km. Histograms use separate
+  distance/rate bounds per sport and never put missing values into a zero bin.
+- Period-specific retained metric summaries with source/origin counts and exact
+  selected activity references. Metrics follow activity dates, not projection
+  dates. Canonical HR is selected once before supplemental fallback.
+- Active seasonal summaries, condition-separated pace distributions and longest
+  sessions. Bike/swim target benchmarks retain separate subtypes, whole-activity
+  exact distances/elapsed times, historical/recent bests and annual examples.
+- Endurance thresholds count whole sessions **at least** the stated distance,
+  separately for lifetime/365/90 days, including distinct recent weeks, recency,
+  intervals between recorded qualifying dates and exact examples. These counts
+  are not shorter-distance split estimates or official race finishes.
+- 52 complete weeks of recorded consistency, including weekly distributions,
+  4/8/13/26/52-week contexts, consecutive recorded-week streaks and explicit
+  recording gaps. A gap does not establish rest or illness.
+- Historic 28-day peaks by known distance and moving time, selected separately
+  with up to three nonoverlapping examples. Current volume relative to a peak is
+  an observation, not a fitness/physiological load metric or a training target.
+- Same-day multisport combinations with selected UUID references. Calendar
+  co-occurrence never establishes event order, transitions or a brick session.
+
+The report renders these observations into the relevant chapters, including a
+quantitative executive comparison, seasonal progression context, metric evidence,
+endurance repeatability and a triathlon-distance evidence matrix. Its quality is
+checked against substantive synthetic evidence, not chapter or line counts alone.
+
+Methodology is now `canonical-calendar-v2`. The earlier private first-pass
+artifacts used `canonical-calendar-v1` and are retained separately. Compare
+methodology identifiers before comparing snapshots. This work evolves the draft
+v1 contract before initial release; no existing production client is migrated.
+A historical as-of date restricts activity dates in the currently retained state;
+it does not reconstruct the database/connection state that existed on that date.
 
 ## Generate the mandatory private pair
 
@@ -237,3 +302,8 @@ database migrated through V004. That test uses a rollback transaction and checks
 current/stale versions, foreign-owner exclusion, Strava allowlisting, Garmin FIT
 units and the 100-lap sentinel. CI's primary ownership gate does not require an
 operator's private detail database.
+
+Calculated aggregates and quantiles use three decimal places. Historical peak
+ranking uses that same precision, then earliest window start for deterministic
+ties. Raw selected activity distances/times remain intact. Distance eligibility
+for endurance counts is strict; no favourable rounding is introduced.

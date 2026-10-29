@@ -1,3 +1,4 @@
+import { volumeBuckets } from '@sportos/analytics';
 import { afterAll, beforeAll, describe, it, expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { createDb, withAccountContext, sql, AthleteDataRepository } from '@sportos/db';
@@ -340,6 +341,76 @@ suite('non-owner MCP read isolation (synthetic database only)', () => {
       ),
     ).rejects.toBe(rollback);
   });
+  it('matches pure volume calculations for paged calendar buckets and filtered grand totals', async () => {
+    const range = { from: '2026-10-25', to: '2026-10-28' };
+    const rows = await a.read((scoped) => new AthleteDataRepository(scoped).activities(range));
+    for (const period of ['daily', 'weekly', 'monthly', 'annual'] as const) {
+      const all = volumeBuckets(rows, range.from, range.to, period);
+      const page = await a.volume({ ...range, period, limit: 1, offset: 0 });
+      expect(page.buckets).toEqual(all.slice(0, 1));
+      expect(page.total).toBe(all.length);
+      expect(page.totals).toMatchObject({
+        sessions: 2,
+        distanceM: 6600,
+        movingS: 3600,
+        elapsedS: 4800,
+        activeDays: 1,
+      });
+      expect((await a.volume({ ...range, period, offset: 50000 })).buckets).toEqual([]);
+    }
+    expect((await a.volume({ ...range, period: 'daily', discipline: 'run' })).totals).toMatchObject(
+      { sessions: 1, distanceM: 5000 },
+    );
+    const first = await a.search({ ...range, limit: 1 }),
+      second = await a.search({ ...range, limit: 1, offset: 1 });
+    expect(first.total).toBe(2);
+    expect(first.totals).toEqual(second.totals);
+    expect(first.items[0].id).not.toBe(second.items[0].id);
+  });
+  it('paginates search and volume before the archive materialization cap', async () => {
+    const rollback = Error('rollback large synthetic archive');
+    await expect(
+      withAccountContext(db, owners[0], (scoped) =>
+        scoped.transaction().execute(async (tx) => {
+          await sql`insert into activities (activity_type,source,activity_date,distance_m,duration_s)
+        select 'run','manual','2024-01-01'::date,5000,1800 from generate_series(1,50001)`.execute(
+            tx,
+          );
+          await tx
+            .insertInto('activities')
+            .values({
+              activity_type: 'run',
+              source: 'manual',
+              activity_date: '2024-01-01',
+              distance_m: 6000,
+              duration_s: 1800,
+            })
+            .execute();
+          const repository = new AthleteDataRepository(tx);
+          const page = await repository.search({
+            from: '2024-01-01',
+            to: '2024-12-31',
+            minDistanceM: 6000,
+            limit: 1,
+            offset: 0,
+          });
+          expect(page.total).toBe(1);
+          expect(page.items).toHaveLength(1);
+          expect(page.items[0].distanceM).toBe(6000);
+          const volumes = await repository.volume({
+            from: '2024-01-01',
+            to: '2024-12-31',
+            period: 'annual',
+            limit: 1,
+            offset: 0,
+          });
+          expect(volumes.totals.sessions).toBe(50002);
+          expect(volumes.buckets[0].disciplines.run.sessions).toBe(50002);
+          throw rollback;
+        }),
+      ),
+    ).rejects.toBe(rollback);
+  }, 60000);
   it('starts stdio and serves all five tools through an independent generic client', async () => {
     const transport = new StdioClientTransport({
       command: process.execPath,

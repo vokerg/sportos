@@ -1,3 +1,4 @@
+import { renderLongitudinalChapter } from './report-longitudinal.js';
 import { DISCIPLINES, shiftDate, type Discipline } from '@sportos/analytics';
 import type { Snapshot } from './contracts.js';
 type Volume = Snapshot['disciplines']['run']['lifetime'];
@@ -119,7 +120,10 @@ function performanceTable(bests: Snapshot['runningBests']) {
 export function renderReport(s: Snapshot): string {
   const lines: string[] = [];
   const add = (...text: string[]) => lines.push(...text, '');
-  const chapter = (number: number, title: string) => add(`## ${number}. ${title}`);
+  const chapter = (number: number, title: string) => {
+    add(`## ${number}. ${title}`);
+    add(...renderLongitudinalChapter(s, number));
+  };
   const find = (sport: Discipline, days: number) =>
     s.disciplines[sport].windows.find((w) => w.days === days);
   const allRefs = new Map<string, Evidence>();

@@ -1,5 +1,11 @@
 import { ACTIVITY_METRIC_CATALOG, ACTIVITY_METRIC_PARSER_VERSION } from '@sportos/domain';
-import type { AthleteActivity, Discipline, Supplement } from '@sportos/analytics';
+import {
+  aggregate,
+  calendarBucketRanges,
+  type AthleteActivity,
+  type Discipline,
+  type Supplement,
+} from '@sportos/analytics';
 import { sql, type Kysely } from 'kysely';
 import type { Database } from '../schema.js';
 import {
@@ -9,14 +15,55 @@ import {
 import { displaySubtype } from './run-classification.js';
 import { ActivityMetricsRepository } from './activity-metrics.repository.js';
 
+export interface AthleteSearchQuery {
+  from?: string;
+  to: string;
+  activityId?: string;
+  discipline?: Discipline;
+  source?:
+    | 'manual'
+    | 'my_sport_xlsx'
+    | 'run_db_xlsx'
+    | 'google_sheets'
+    | 'strava'
+    | 'garmin'
+    | 'fit';
+  subtype?: 'outdoor' | 'indoor' | 'treadmill' | 'track' | 'manual' | 'race' | 'unknown';
+  minDistanceM?: number;
+  maxDistanceM?: number;
+  minDurationS?: number;
+  maxDurationS?: number;
+  maxPaceSPerKm?: number;
+  minSpeedKmh?: number;
+  qualifiedWholeActivity?: boolean;
+}
+function serializeActivity(r: Record<string, unknown>): AthleteActivity {
+  const number = (v: unknown) => (v === null ? null : Number(v));
+  return {
+    id: String(r.id),
+    date: String(r.activity_date).slice(0, 10),
+    discipline: r.activity_type as Discipline,
+    subtype: r.subtype as string | null,
+    source: String(r.source),
+    distanceM: number(r.effective_distance_m),
+    recordedDistanceM: number(r.recorded_distance_m),
+    distanceCorrected: r.distance_corrected as boolean,
+    elapsedS: number(r.duration_s),
+    movingS: number(r.moving_time_s),
+    avgHrBpm: number(r.avg_hr),
+    maxHrBpm: number(r.max_hr),
+    elevationM: number(r.elevation_gain_m),
+    updatedAt: (r.updated_at instanceof Date
+      ? r.updated_at
+      : new Date(String(r.updated_at))
+    ).toISOString(),
+    historicalSummary: r.historical_summary as boolean,
+  };
+}
 /** Compact, explicitly selected primary read models; never source bodies or narrative. */
 export class AthleteDataRepository {
   constructor(private readonly db: Kysely<Database>) {}
-  async activities(input: {
-    from?: string;
-    to: string;
-    activityId?: string;
-  }): Promise<AthleteActivity[]> {
+  private query(input: AthleteSearchQuery) {
     let query = this.db
       .selectFrom('activities')
       .select([
@@ -44,29 +91,196 @@ export class AthleteDataRepository {
       .where('activity_date', '<=', input.to);
     if (input.from) query = query.where('activity_date', '>=', input.from);
     if (input.activityId) query = query.where('id', '=', input.activityId);
-    const rows = await query.orderBy('activity_date').orderBy('id').limit(50001).execute();
+    const distance = effectiveDistanceExpression('activities');
+    const duration = sql<
+      number | null
+    >`case when moving_time_s>0 then moving_time_s when duration_s>0 then duration_s else null end`;
+    const pace = sql<number | null>`${duration}/nullif(${distance}/1000.0,0)`;
+    if (input.discipline) query = query.where('activity_type', '=', input.discipline);
+    if (input.source) query = query.where('source', '=', input.source);
+    if (input.subtype) query = query.where(displaySubtype('activities'), '=', input.subtype);
+    if (input.minDistanceM !== undefined) query = query.where(distance, '>=', input.minDistanceM);
+    if (input.maxDistanceM !== undefined) query = query.where(distance, '<=', input.maxDistanceM);
+    if (input.minDurationS !== undefined)
+      query = query.where('duration_s', '>=', input.minDurationS);
+    if (input.maxDurationS !== undefined)
+      query = query.where('duration_s', '<=', input.maxDurationS);
+    if (input.maxPaceSPerKm !== undefined)
+      query = query.where(distance, '>', 0).where(pace, '<=', input.maxPaceSPerKm);
+    if (input.minSpeedKmh !== undefined)
+      query = query
+        .where(distance, '>', 0)
+        .where(sql<number>`3600.0/${pace}`, '>=', input.minSpeedKmh);
+    if (input.qualifiedWholeActivity)
+      query = query
+        .where(distance, '>', 0)
+        .where('duration_s', '>', 0)
+        .where(
+          sql<boolean>`not coalesce(raw_payload_json->'historicalReconstruction'->>'policyVersion'='1',false)`,
+        );
+    return query;
+  }
+  async activities(input: AthleteSearchQuery): Promise<AthleteActivity[]> {
+    const rows = await this.query(input)
+      .orderBy('activity_date')
+      .orderBy('id')
+      .limit(50001)
+      .execute();
     if (rows.length > 50000) throw Error('ARCHIVE_LIMIT');
-    const number = (value: unknown) => (value === null ? null : Number(value));
-    return rows.map((r) => ({
-      id: r.id,
-      date: String(r.activity_date).slice(0, 10),
-      discipline: r.activity_type as Discipline,
-      subtype: r.subtype,
-      source: r.source,
-      distanceM: number(r.effective_distance_m),
-      recordedDistanceM: number(r.recorded_distance_m),
-      distanceCorrected: r.distance_corrected,
-      elapsedS: number(r.duration_s),
-      movingS: number(r.moving_time_s),
-      avgHrBpm: number(r.avg_hr),
-      maxHrBpm: number(r.max_hr),
-      elevationM: number(r.elevation_gain_m),
-      updatedAt: (r.updated_at instanceof Date
-        ? r.updated_at
-        : new Date(String(r.updated_at))
-      ).toISOString(),
-      historicalSummary: r.historical_summary,
+    return rows.map(serializeActivity);
+  }
+  async totals(input: AthleteSearchQuery) {
+    const distance = effectiveDistanceExpression('activities');
+    const row = await this.query(input)
+      .clearSelect()
+      .select((eb) => [
+        eb.fn.countAll<number>().as('sessions'),
+        sql<number | null>`sum(${distance})::float8`.as('distanceM'),
+        sql<number | null>`sum(moving_time_s)::float8`.as('movingS'),
+        sql<number | null>`sum(duration_s)::float8`.as('elapsedS'),
+        sql<number>`count(${distance})::int`.as('distanceKnown'),
+        sql<number>`count(moving_time_s)::int`.as('movingKnown'),
+        sql<number>`count(duration_s)::int`.as('elapsedKnown'),
+        sql<number>`count(distinct activity_date)::int`.as('activeDays'),
+      ])
+      .executeTakeFirstOrThrow();
+    const calendarDays = input.from
+      ? Math.round((Date.parse(input.to) - Date.parse(input.from)) / 86400000) + 1
+      : null;
+    return {
+      ...row,
+      sessions: Number(row.sessions),
+      calendarDays,
+      sessionsPerWeek: calendarDays
+        ? Math.round(((Number(row.sessions) * 7) / calendarDays) * 1000) / 1000
+        : null,
+    };
+  }
+  async search(
+    input: AthleteSearchQuery & {
+      limit: number;
+      offset: number;
+      sort?: 'recent' | 'elapsed' | 'pace';
+    },
+  ) {
+    if (
+      !Number.isInteger(input.limit) ||
+      input.limit < 1 ||
+      input.limit > 100 ||
+      !Number.isInteger(input.offset) ||
+      input.offset < 0 ||
+      input.offset > 50000
+    )
+      throw Error('Invalid athlete page.');
+    const query = this.query(input),
+      distance = effectiveDistanceExpression('activities');
+    const order =
+      input.sort === 'elapsed'
+        ? query.orderBy('duration_s')
+        : input.sort === 'pace'
+          ? query.orderBy(
+              sql`case when moving_time_s>0 then moving_time_s else duration_s end/nullif(${distance}/1000.0,0)`,
+            )
+          : query.orderBy('activity_date', 'desc');
+    const [rows, totals] = await Promise.all([
+      order.orderBy('id').limit(input.limit).offset(input.offset).execute(),
+      this.totals(input),
+    ]);
+    return {
+      items: rows.map(serializeActivity),
+      total: totals.sessions,
+      totals,
+      limit: input.limit,
+      offset: input.offset,
+    };
+  }
+  async volume(
+    input: AthleteSearchQuery & {
+      from: string;
+      period: 'daily' | 'weekly' | 'monthly' | 'annual';
+      limit: number;
+      offset: number;
+    },
+  ) {
+    if (
+      !Number.isInteger(input.limit) ||
+      input.limit < 1 ||
+      input.limit > 100 ||
+      !Number.isInteger(input.offset) ||
+      input.offset < 0 ||
+      input.offset > 50000
+    )
+      throw Error('Invalid volume page.');
+    const ranges = calendarBucketRanges(input.from, input.to, input.period),
+      page = ranges.slice(input.offset, input.offset + input.limit),
+      totals = await this.totals(input);
+    if (!page.length)
+      return {
+        buckets: [],
+        total: ranges.length,
+        totals,
+        limit: input.limit,
+        offset: input.offset,
+      };
+    const unit = { daily: 'day', weekly: 'week', monthly: 'month', annual: 'year' }[input.period];
+    const query = this.query({ ...input, from: page[0].from, to: page.at(-1)!.to });
+    const result = await sql<Record<string, unknown>>`with base as (${query}), b as (
+      select base.*,date_trunc(${unit},activity_date)::date::text as bucket,
+       case when moving_time_s>0 then moving_time_s when duration_s>0 then duration_s else null end as paired_time
+      from base
+    ) select bucket,activity_type,count(*)::int as sessions,count(distinct activity_date)::int as "activeDays",
+      sum(effective_distance_m) filter(where effective_distance_m>=0)::float8 as "distanceM",
+      sum(moving_time_s) filter(where moving_time_s>=0)::float8 as "movingS",sum(duration_s) filter(where duration_s>=0)::float8 as "elapsedS",
+      count(*) filter(where effective_distance_m>=0)::int as "distanceKnown",count(*) filter(where moving_time_s>=0)::int as "movingKnown",count(*) filter(where duration_s>=0)::int as "elapsedKnown",
+      avg(moving_time_s) filter(where moving_time_s>=0)::float8 as "averageSessionMovingS",
+      percentile_cont(0.5) within group(order by moving_time_s) filter(where moving_time_s>=0)::float8 as "medianSessionMovingS",
+      avg(effective_distance_m) filter(where effective_distance_m>=0)::float8 as "averageSessionDistanceM",
+      percentile_cont(0.5) within group(order by effective_distance_m) filter(where effective_distance_m>=0)::float8 as "medianSessionDistanceM",
+      avg(paired_time/nullif(effective_distance_m/1000.0,0)) filter(where effective_distance_m>0 and paired_time>0)::float8 as "meanSessionPaceSPerKm",
+      percentile_cont(0.5) within group(order by paired_time/nullif(effective_distance_m/1000.0,0)) filter(where effective_distance_m>0 and paired_time>0)::float8 as "medianSessionPaceSPerKm",
+      (sum(paired_time) filter(where effective_distance_m>0 and paired_time>0)/nullif(sum(effective_distance_m/1000.0) filter(where effective_distance_m>0 and paired_time>0),0))::float8 as "weightedPaceSPerKm",
+      count(*) filter(where effective_distance_m>0 and paired_time>0)::int as "pacePairedSessions",
+      count(*) filter(where effective_distance_m>0 and paired_time>0 and moving_time_s>0)::int as "paceMovingSessions",
+      count(*) filter(where effective_distance_m>0 and paired_time>0 and not coalesce(moving_time_s>0,false))::int as "paceElapsedFallbackSessions",
+      avg(avg_hr) filter(where avg_hr>0)::float8 as "meanRecordedHrBpm",count(*) filter(where avg_hr>0)::int as "hrKnown",
+      sum(elevation_gain_m)::float8 as "elevationM",count(elevation_gain_m)::int as "elevationKnown",
+      count(*) filter(where distance_corrected)::int as "correctedSessions",count(*) filter(where historical_summary)::int as "historicalSummarySessions",
+      (select jsonb_object_agg(source,n) from (select source,count(*)::int n from b b2 where b2.bucket=b.bucket and b2.activity_type=b.activity_type group by source) sources) as "sourceCounts",
+      (select jsonb_object_agg(subtype,n) from (select coalesce(subtype,'unknown') subtype,count(*)::int n from b b2 where b2.bucket=b.bucket and b2.activity_type=b.activity_type group by coalesce(subtype,'unknown')) subtypes) as "subtypeCounts"
+      from b group by bucket,activity_type order by bucket,activity_type`.execute(this.db);
+    const buckets = page.map((range) => ({
+      key: range.key,
+      partial: range.partial,
+      disciplines: Object.fromEntries(
+        (['run', 'bike', 'swim'] as const).map((sport) => {
+          const empty = aggregate([], range.from, range.to),
+            row = result.rows.find((r) => r.bucket === range.key && r.activity_type === sport);
+          if (!row) return [sport, empty];
+          const values = Object.fromEntries(
+            Object.keys(empty)
+              .filter((key) => !['from', 'to', 'calendarDays', 'sessionsPerWeek'].includes(key))
+              .map((key) => [
+                key,
+                row[key] === null
+                  ? null
+                  : typeof row[key] === 'number'
+                    ? Math.round(row[key] * 1000) / 1000
+                    : row[key],
+              ]),
+          );
+          return [
+            sport,
+            {
+              ...empty,
+              ...values,
+              sessionsPerWeek:
+                Math.round(((Number(row.sessions) * 7) / empty.calendarDays) * 1000) / 1000,
+            },
+          ];
+        }),
+      ),
     }));
+    return { buckets, total: ranges.length, totals, limit: input.limit, offset: input.offset };
   }
   async supplements(
     from: string | undefined,
@@ -154,6 +368,21 @@ export class AthleteDataRepository {
         });
     }
     return selected;
+  }
+  async providerFreshness() {
+    const rows = await this.db
+      .selectFrom('provider_connections')
+      .select(['provider', 'status', 'last_sync_at', 'last_attempt_at'])
+      .orderBy('provider')
+      .execute();
+    const timestamp = (v: unknown) =>
+      v === null ? null : (v instanceof Date ? v : new Date(String(v))).toISOString();
+    return rows.map((r) => ({
+      provider: r.provider,
+      status: r.status,
+      lastSyncAt: timestamp(r.last_sync_at),
+      lastAttemptAt: timestamp(r.last_attempt_at),
+    }));
   }
   async garminReference(activityId: string) {
     return this.db
