@@ -28,6 +28,22 @@ No new dependencies, remote assets, permissions, backend calls or data storage.
 
 - Mobile typecheck passed.
 - Existing 40 model tests and 13 runtime/lifecycle/release tests passed.
-- Native visual inspection and signed device refresh pending.
+- Native iPhone 17 Pro simulator inspection with temporary synthetic fixtures:
+  Home, Activities, Run Lab and More; light/dark palettes; accessibility-medium
+  Dynamic Type. Found and fixed score wrapping; large-text supporting metrics stack.
+  The temporary entry point was removed and is absent from the device bundle.
+- Production entry point sign-in screen rendered on simulator with hosted HTTPS origins.
+- Embedded Release device build passed; installed on the connected personal iPhone
+  16 Pro Max. Bundle audit verified hosted origins and new UI, and absence of the
+  synthetic fixture, sample account and local development origins.
+- Native Liquid Glass navigation remains in place. No comprehensive physical-device
+  accessibility, authentication or privacy acceptance is claimed by visual QA.
+  Existing release/lifecycle tests cover the unchanged auth boundary.
+
+Follow-up review compacted filter controls, put ranked results before the detailed
+coverage panel, and kept missing activity distance from becoming a large dash.
+Final source typecheck and whitespace checks passed. No backend/database validation
+was required for this presentation-only change. PR is left unmerged for maintainer
+review; #195 still owns full device and seven-day refresh acceptance.
 
 No private records, screenshots, auth material or build products are committed.
