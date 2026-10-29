@@ -67,7 +67,10 @@ without an external model.
 - Audit uses existing append-only `analysis_runs`: `tool_name` is null, with
   `operation: athlete_chat`, tool names, history count, question hash, citation keys,
   model metadata and outcome. No prompts, answers, history, tool payloads or model
-  error bodies are persisted or logged. No database migration is required.
+  error bodies are persisted or logged. Hosted fallback telemetry contains only a
+  fixed stage, allowlisted tool/error code and optional five-character SQLSTATE;
+  it excludes error objects and messages. Invalid/missing tool evidence may be
+  corrected within the existing four-call budget. No database migration is required.
 
 SportOS chat explains retained evidence. Training plans, race forecasts and health
 diagnoses remain outside this surface. Citation checks validate evidence references;
