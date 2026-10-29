@@ -38,13 +38,14 @@ function service() {
   const db = { db: {}, withAccount: async (account: string, fn: (db: never) => unknown) => { recorded.push(account); return fn({} as never); } };
   return new ChatService(db as unknown as DbProvider, { db: {} } as ActivityDetailDbProvider);
 }
-function responses(draft: unknown = answerDraft, toolRounds = 1) {
+function responses(draft: unknown = answerDraft, toolRounds = 1, proseBeforeJson = false) {
   let count = 0;
   return vi.fn(async (_url: unknown, options: { body: string }) => {
     const body = JSON.parse(options.body);
     count++;
     if (count <= toolRounds) return new Response(JSON.stringify({ choices: [{ finish_reason: 'tool_calls', message: { role: 'assistant', content: null, tool_calls: [{ id: 'one', type: 'function', function: { name: 'get_training_volume', arguments: JSON.stringify({ from: '2026-10-01', to: '2026-10-28', period: 'monthly' }) } }] } }] }));
     expect(body.messages.some((m: { role: string }) => m.role === 'tool')).toBe(true);
+    if (proseBeforeJson && count === toolRounds + 1) return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: 'Unstructured prose is not yet a validated answer.' } }] }));
     return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: JSON.stringify(draft) } }] }));
   });
 }
@@ -116,6 +117,14 @@ describe('chat boundary', () => {
     expect(mocks.reads).toHaveBeenCalledTimes(2);
     expect(JSON.stringify(recorded)).not.toContain('Synthetic retained evidence');
     expect(JSON.stringify(recorded)).not.toContain(request.question);
+  });
+  it('uses a bounded JSON-mode pass when tool mode returns unstructured prose', async () => {
+    const fetcher = responses(answerDraft, 1, true); vi.stubGlobal('fetch', fetcher);
+    const result = await service().answer(request, owner);
+    expect(result.status).toBe('answered'); expect(result.guidance).toEqual(answerDraft);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    const finalBody = JSON.parse(fetcher.mock.calls[2][1].body);
+    expect(finalBody.response_format).toEqual({ type: 'json_object' }); expect(finalBody.tools).toBeUndefined();
   });
   it('allows a bounded correction after invalid or missing retained input', async () => {
     mocks.reads.mockImplementationOnce(() => { throw new ToolError('INVALID_INPUT', 'Synthetic date error'); });

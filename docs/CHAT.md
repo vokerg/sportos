@@ -42,7 +42,9 @@ without an external model.
 - Questions: 1–2,000 characters. Context: at most six prior user/assistant messages,
   each at most 6,000 characters. The browser retains at most 20 turns in page
   memory; clearing or leaving the page discards them. Nothing goes to localStorage.
-- At most four tool calls across three model tool rounds, then a final JSON answer.
+- At most four tool calls across three model tool rounds, then a final JSON answer. If tool mode returns prose or invalid
+  structure, one JSON-mode formatting pass is permitted within the same deadline;
+  the result still undergoes full citation and shape validation.
   Tool schemas enforce fixed dates, fields, pagination and resource limits. The
   snapshot is projected to explicitly labelled lifetime/window summaries, existing
   deterministic adjacent comparisons and three

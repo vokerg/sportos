@@ -72,7 +72,16 @@ export class ChatService {
             stage = 'model';
             const message = await complete(config, messages, definitions, signal);
             messages.push(message);
-            if (!message.tool_calls?.length) { final = message; break; }
+            if (!message.tool_calls?.length) {
+              // Tool mode may return prose despite prompt instructions. Use one
+              // final JSON-mode pass when its draft cannot be accepted directly.
+              try {
+                const draft = parseGeneratedAnalysisDraft(JSON.parse(message.content ?? ''), new Set(evidence.map(e => e.key)));
+                if (!evidence.length && draft.observations.length) throw Error('Fresh evidence required.');
+                final = message;
+              } catch { /* JSON-mode formatting below remains inside the same deadline. */ }
+              break;
+            }
             for (const call of message.tool_calls) {
               if (++calls > 4 || signal.aborted) throw Error('Tool budget exceeded.');
               if (!tools.some(t => t.name === call.function.name)) throw Error('Unsupported tool.');
