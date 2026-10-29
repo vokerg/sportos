@@ -1,7 +1,7 @@
 import React, {useEffect} from 'react';
 import {act,create,type ReactTestRenderer} from 'react-test-renderer';
 import {expect,it,vi} from 'vitest';
-globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);
 const {read}=vi.hoisted(()=>({read:vi.fn()}));
 vi.mock('react-native',()=>({Pressable:'Pressable',Text:'Text',View:'View',StyleSheet:{create:(s:unknown)=>s}}));
 vi.mock('@react-navigation/native',()=>({useFocusEffect:(effect:()=>void)=>useEffect(effect,[effect])}));

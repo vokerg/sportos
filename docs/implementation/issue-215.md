@@ -11,6 +11,9 @@ auth useScreenSession.ts/SessionProvider.tsx, package/vitest configuration and
 existing daily/release tests. Reviewed current main and open issues/PRs.
 
 Validation: mobile typecheck and a mounted history-tap regression test passed.
-Native simulator and device-build verification in progress. Synthetic preview
+Native simulator history-row tap opened the exact dated detail screen; Back
+returned to Daily. Signed embedded Release build passed and was installed on the
+personal iPhone. Production bundle audit excluded the synthetic fixture and
+verified the hosted HTTPS API origin. Synthetic preview
 entry point is temporary and excluded from the production entry/bundle.
 No API, scoring, ownership, session or storage change.
