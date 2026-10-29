@@ -1,0 +1,21 @@
+import React from 'react';
+import {act,create} from 'react-test-renderer';
+import {expect,it,vi} from 'vitest';
+vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);
+vi.mock('react-native',()=>({Text:'Text',View:'View',StyleSheet:{create:(v:unknown)=>v}}));
+vi.mock('react-native-svg',()=>({default:'Svg',Path:'Path'}));
+vi.mock('../src/ui/theme',()=>({useSportosTheme:()=>({palette:{}})}));
+import {ProviderStatus} from '../src/ui/ProviderStatus';
+it('distinguishes loaded, absent and unchecked providers without claiming freshness',async()=>{
+ let tree!:ReturnType<typeof create>;await act(async()=>{tree=create(<ProviderStatus sources={{strava:true,garmin:false}}/>)});
+ expect(tree.root.findByProps({accessibilityLabel:'Strava: Data loaded'})).toBeTruthy();
+ expect(tree.root.findByProps({accessibilityLabel:'Garmin: No data'})).toBeTruthy();
+ await act(async()=>tree.update(<ProviderStatus sources={{garmin:true}}/>));
+ expect(tree.root.findByProps({accessibilityLabel:'Strava: Not checked'})).toBeTruthy();
+ expect(tree.root.findByProps({accessibilityLabel:'Garmin: Data loaded'})).toBeTruthy();
+ await act(async()=>tree.update(<ProviderStatus sources={{strava:true,garmin:false}} compact/>));
+ expect(tree.root.findByProps({accessibilityLabel:'Strava: Data loaded'})).toBeTruthy();
+ expect(JSON.stringify(tree.toJSON())).not.toContain('"STRAVA"');
+ expect(JSON.stringify(tree.toJSON())).not.toContain('"GARMIN"');
+ await act(async()=>tree.unmount());
+});

@@ -54,7 +54,7 @@ test('running detail keeps canonical pace, provenance and server effort method d
     secret:'should not survive'});
   const data=projectActivityDetail(raw);
   assert.equal(data.name,'Long run');
-  assert.equal(data.provenance,'strava_api');
+  assert.equal(data.provenance,undefined);
   assert.equal(data.linkedStrava,true);
   assert.equal(data.metricComparisons[0].value,86);
   assert.equal(data.metricComparisons[0].candidates,undefined);
@@ -115,7 +115,7 @@ test('run laps preserve provider order and do not derive splits for missing fiel
 });
 test('ride, gym and walk present only evidenced metrics and sets',()=>{
   const bike=projectActivityDetail(detail('bike',{avg_speed_mps:8.2,avg_pace_s_per_km:null}));
-  assert.match(summaryMetrics(bike).find(m=>m.label==='Average speed').value,/km\/h/);
+  assert.match(summaryMetrics(bike).find(m=>m.label==='Avg speed').value,/km\/h/);
   const gym=projectActivityDetail(detail('workout',{distance_m:null,
     garminStrength:{workingSets:8,totalRecordedSets:10,warmupSets:2,restMarkers:3,complete:false,
       exercises:[{name:'Squat',workingSets:4},{name:'Bench',workingSets:4}]}}));

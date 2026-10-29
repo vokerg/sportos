@@ -164,8 +164,6 @@ export function projectActivityDetail(payload) {
     garminStrength: strength(payload.garminStrength),
     linkedStrava: base.providerMetrics.some(p => p.provider === 'strava' && p.linked) || payload.providerDetail?.provider === 'strava',
     linkedGarmin: base.providerMetrics.some(p => p.provider === 'garmin' && p.linked) || payload.garmin?.provider === 'garmin',
-    provenance: payload.provenance && object(payload.provenance)
-      ? optional(payload.provenance.sourceRecordSource,80) : null,
     // Provider activity names can contain line breaks; normalize instead of crashing detail.
     name: base.source === 'strava' && typeof payload.notes === 'string'
       ? payload.notes.replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,120) || null : null,
@@ -280,9 +278,9 @@ export function summaryMetrics(row) {
   if (row.moving_time_s !== null && row.moving_time_s !== row.duration_s) put('Moving time',row.moving_time_s,formatDuration);
   if (row.activity_type === 'run' || row.activity_type === 'walk') put('Pace',row.avg_pace_s_per_km,formatPace);
   if (row.activity_type === 'swim') put('Pace',row.avg_pace_s_per_km,n => formatDuration(n/10) + ' /100 m');
-  if (['bike','rowing','sup'].includes(row.activity_type)) put('Average speed',row.avg_speed_mps,n => (n*3.6).toFixed(1) + ' km/h');
+  if (['bike','rowing','sup'].includes(row.activity_type)) put('Avg speed',row.avg_speed_mps,n => (n*3.6).toFixed(1) + ' km/h');
   if (row.activity_type !== 'steps' && row.activity_type !== 'bonus') {
-    put('Average HR',row.avg_hr,n => Math.round(n)+' bpm');
+    put('Avg HR',row.avg_hr,n => Math.round(n)+' bpm');
     put('Max HR',row.max_hr,n => Math.round(n)+' bpm');
   }
   put('Ascent',row.elevation_gain_m,n => Math.round(n)+' m');

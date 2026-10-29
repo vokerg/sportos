@@ -22,8 +22,8 @@ export function RunLabScreen({navigation}:NativeBottomTabScreenProps<MainTabs,'R
  },[read,query,revision]));
  const apply=()=>{try{leaderboardPath({distanceM,from,to});setQuery({distanceM,from,to,offset:0});}catch{setError('Enter valid YYYY-MM-DD dates with From before To.');}};
  const stack=navigation.getParent<NativeStackNavigationProp<RootStack>>();
- return <Screen eyebrow="CHASE YOUR NEXT BEST" title="Run Lab">
-  <Body subdued>Original Excel achievements and measured windows. Timing and evidence stay labelled.</Body>
+ return <Screen eyebrow="RUNNING" title="Run Lab">
+  <Body subdued>Your best times. Recorded and imported results stay labelled.</Body>
   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>{TARGETS.map(m=><Action key={m} title={m===21097.5?'Half marathon':m===42195?'Marathon':m/1000+' km'} secondary={distanceM!==m} onPress={()=>{setDistance(m);setQuery(q=>({...q,distanceM:m,offset:0}));}}/>)}</ScrollView>
   <Card>
    <NavigationRow title={query.from||'All history'} detail={query.to?'Through '+query.to:'Change date range'} icon="chart" onPress={()=>setShowRange(v=>!v)}/>

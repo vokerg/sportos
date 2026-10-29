@@ -20,7 +20,7 @@ function RouteCanvas({routes,heatmap}:{routes:MapRoute[];heatmap:boolean}) {
   if(!data.points) return null;
   return <View style={{flex:1,minHeight:300}}>
     <NativeMap style={StyleSheet.absoluteFill} mapStyle={style} attribution logo={false}
-      onDidFailLoadingMap={()=>setFailed(true)} accessibilityLabel={heatmap?'Private retained route density map':'Recorded activity route map'}>
+      onDidFailLoadingMap={()=>setFailed(true)} accessibilityLabel={heatmap?'Private route heatmap':'Recorded activity route map'}>
       <Camera key={routes.length} initialViewState={{bounds:[...data.bounds[0],...data.bounds[1]],padding:{top:40,bottom:60,left:35,right:35}}}/>
       {heatmap?<GeoJSONSource id="density" data={data.density}>
         <Layer id="density-halo" type="heatmap" paint={{
@@ -39,7 +39,7 @@ function RouteCanvas({routes,heatmap}:{routes:MapRoute[];heatmap:boolean}) {
     </NativeMap>
     {failed?<View style={{backgroundColor:palette.surface,padding:12}}><Body>Base map unavailable. Check your connection and reopen. Retained routes do not require a provider download.</Body></View>:null}
     <Text style={{position:'absolute',bottom:30,left:8,backgroundColor:palette.surface,color:palette.text,padding:5,fontSize:12}}>
-      {heatmap?(data.densityTruncated?'Density capped at 15,000 cells · route lines retained':'Darker = more routes · ~0.001° cells'):'Green start · red finish'}
+      {heatmap?(data.densityTruncated?'Heatmap detail limited; routes are still shown':'Darker areas = more routes'):'Green start · red finish'}
     </Text>
     <Text style={{position:'absolute',bottom:6,left:8,backgroundColor:palette.surface,color:palette.text,padding:4,fontSize:11}}>© OpenStreetMap contributors</Text>
   </View>;
@@ -57,14 +57,13 @@ export function MapScreen({route}:NativeStackScreenProps<RootStack,'RouteMap'>) 
       const result=projectRoute(raw);
       if(!active)return;
       if(result.status==='available')setRoutes([result]);
-      else setMessage(result.reason==='indoor_pool_swim'?'Indoor pool workout has no GPS route.':'No usable GPS route is retained for this activity.');
+      else setMessage(result.reason==='indoor_pool_swim'?'Indoor pool workout has no GPS route.':'No route recorded for this activity.');
     }).catch(()=>{if(active)setMessage('Could not read the route. Check your connection or retry.');}).finally(()=>{if(active)setBusy(false);});
     return ()=>{active=false;};
   },[read,route.params.activityId,revision]));
   return <View style={{flex:1,backgroundColor:palette.background}}>
     <View style={{padding:16,gap:8}}>
-      {routes[0]?<Body>{routes[0].source} · {routes[0].resolution} geometry · recording gaps preserved</Body>:null}
-      {busy?<StatusPanel kind="loading" message="Reading retained route…"/>:null}
+      {busy?<StatusPanel kind="loading" message="Loading route…"/>:null}
       {message?<StatusPanel kind="empty" message={message} retry={()=>setRevision(n=>n+1)}/>:null}
     </View>
     {focused&&routes.length?<RouteCanvas routes={routes} heatmap={false}/>:null}
@@ -92,7 +91,7 @@ export function HeatmapScreen() {
       mapData(all);retained.current=all;setRoutes(all);
       setCoverage(old=>Object.fromEntries(Object.keys(result.coverage).map(k=>[k,(page===0?0:old[k]??0)+result.coverage[k]])));
       setNext(result.nextCursor);
-      if(!result.items.length)setMessage('No additional GPS geometry in this page. Coverage includes missing and invalid routes.');
+      if(!result.items.length)setMessage('No more routes to show. Some activities have no usable GPS.');
     }).catch(()=>{if(active)setMessage('Could not read this map page. Check your connection or narrow the range.');}).finally(()=>{if(active)setBusy(false);});
     return ()=>{active=false;};
   },[read,days,sport,revision,page,cursors]));
@@ -102,13 +101,13 @@ export function HeatmapScreen() {
       <View style={{flexDirection:'row',gap:8}}>{[30,90,365].map(n=><View key={n} style={{flex:1}}><Action title={n+' days'} secondary={days!==n} onPress={()=>{setDays(n);reset();}}/></View>)}</View>
       <View style={{flexDirection:'row',gap:8}}>{['all','run','bike','walk'].map(s=><View key={s} style={{flex:1}}><Action title={s} secondary={sport!==s} onPress={()=>{setSport(s);reset();}}/></View>)}</View>
       <Body subdued>{routes.length} routes · {coverage.eligibleScanned??0} scanned · {coverage.missingGps??0} missing GPS · {(coverage.invalidGeometry??0)+(coverage.budgetExceeded??0)} omitted</Body>
-      <Body subdued>Summary/streams/detail/FIT precision varies. Density represents retained route presence, not distance or effort. Up to 50 routes per view.</Body>
+      <Body subdued>Darker areas show more recorded routes, not greater distance. Up to 50 routes per view.</Body>
       {message?<Body>{message}</Body>:null}
-      {busy?<Body>Reading retained routes…</Body>:<View style={{flexDirection:'row',gap:8}}>
+      {busy?<Body>Loading routes…</Body>:<View style={{flexDirection:'row',gap:8}}>
         <View style={{flex:1}}><Action title="Reload" secondary onPress={reset}/></View>
         {next&&page<1?<View style={{flex:1}}><Action title="Load next page" onPress={()=>{setCursors(c=>[...c,next]);setPage(p=>p+1);}}/></View>:null}
       </View>}
     </View>
-    {focused&&routes.length?<RouteCanvas routes={routes} heatmap/>:!busy?<View style={{padding:16}}><Body>No retained routes in this selection. Choose another range or sport.</Body></View>:null}
+    {focused&&routes.length?<RouteCanvas routes={routes} heatmap/>:!busy?<View style={{padding:16}}><Body>No routes found. Try another range or sport.</Body></View>:null}
   </View>;
 }
