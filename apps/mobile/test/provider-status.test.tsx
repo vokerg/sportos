@@ -13,5 +13,9 @@ it('distinguishes loaded, absent and unchecked providers without claiming freshn
  await act(async()=>tree.update(<ProviderStatus sources={{garmin:true}}/>));
  expect(tree.root.findByProps({accessibilityLabel:'Strava: Not checked'})).toBeTruthy();
  expect(tree.root.findByProps({accessibilityLabel:'Garmin: Data loaded'})).toBeTruthy();
+ await act(async()=>tree.update(<ProviderStatus sources={{strava:true,garmin:false}} compact/>));
+ expect(tree.root.findByProps({accessibilityLabel:'Strava: Data loaded'})).toBeTruthy();
+ expect(JSON.stringify(tree.toJSON())).not.toContain('"STRAVA"');
+ expect(JSON.stringify(tree.toJSON())).not.toContain('"GARMIN"');
  await act(async()=>tree.unmount());
 });

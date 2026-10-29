@@ -41,3 +41,13 @@ Installed successfully on the personal iPhone. Automated launch was blocked by t
 locked device; the owner can open the updated app after unlocking. No actual-device
 health-data freshness or provider-fetch result is claimed from synthetic visual QA.
 No private source content, screenshots or build products are committed.
+
+## Owner refinement — compact history
+
+Day-history rows now put 15–16px source icons beside the date, without wordmarks
+or status panels. Colored/gray marks and tiny state indicators preserve source
+presence, with full accessible labels. Removed the large inline selected-day
+summary so history is reachable without scrolling past a duplicate detail view.
+A small date selector opens the separate day screen, including dates without a
+saved score. Removed the now-unused selected-day fetch/effect. Activity labels
+use Avg speed / Avg HR consistently in list, detail and metric filtering.

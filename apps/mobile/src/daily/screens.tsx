@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeBottomTabScreenProps } from '@bottom-tabs/react-navigation';
@@ -31,11 +31,10 @@ function TextLine({ children }: { children: React.ReactNode }) {
 }
 function CompactRow({ title, detail, sources, onPress }: { title: string; detail: string; sources?:DailySummary['providerSources']; onPress(): void }) {
   const { palette } = useSportosTheme();
-  return <Pressable accessibilityRole="button" accessibilityLabel={title + ', ' + detail}
+  return <Pressable accessibilityRole="button" accessibilityLabel={title + ', ' + detail + (sources ? ', Strava: '+(sources.strava?'Data loaded':'No data')+', Garmin: '+(sources.garmin?'Data loaded':'No data') : '')}
     onPress={onPress} style={[styles.listRow, { borderColor: palette.border }]}>
-    <View style={{flexDirection:'row',alignItems:'center',gap:12}}><Text style={[styles.rowTitle, { color: palette.text,flex:1 }]}>{title}</Text><Text style={{color:palette.muted,fontSize:22}} accessible={false}>›</Text></View>
+    <View style={{flexDirection:'row',alignItems:'center',gap:10}}><Text style={[styles.rowTitle, { color: palette.text,flex:1 }]}>{title}</Text>{sources?<ProviderStatus sources={sources} compact/>:null}<Text style={{color:palette.muted,fontSize:22}} accessible={false}>›</Text></View>
     <Text style={[styles.rowDetail, { color: palette.muted }]}>{detail}</Text>
-    {sources?<ProviderStatus sources={sources}/>:null}
   </Pressable>;
 }
 function Contributions({ row }: { row: DailySummary }) {
@@ -125,7 +124,6 @@ export function DailyScreen({ navigation }: NativeBottomTabScreenProps<MainTabs,
   const [date, setDate] = useState(localToday());
   const [revision, setRevision] = useState(0);
   const [history, setHistory] = useState<Load<DailySummary[]>>(INITIAL);
-  const [selected, setSelected] = useState<Load<DailySummary>>({ kind: 'loading', data: null });
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [olderError, setOlderError] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
@@ -150,29 +148,6 @@ export function DailyScreen({ navigation }: NativeBottomTabScreenProps<MainTabs,
     return () => { generation.current += 1; };
   }, [read, revision, today]));
 
-  useEffect(() => {
-    if (history.kind === 'loading' || history.kind === 'error' || history.kind === 'offline') {
-      setSelected({ kind: history.kind === 'loading' ? 'loading' : history.kind, data: null });
-      return;
-    }
-    const found = history.data?.find(row => row.metric_date === date);
-    if (found) {
-      setSelected({ kind: 'loaded', data: found });
-      return;
-    }
-    let active = true;
-    setSelected({ kind: 'loading', data: null });
-    void read<unknown>(dailySummaryPath({ from: date, to: date, limit: 1 }))
-      .then(payload => {
-        const rows = parseDailySummaries(payload);
-        if (active) setSelected({ kind: rows.length ? 'loaded' : 'empty', data: rows[0] ?? null });
-      })
-      .catch(error => {
-        if (active) setSelected({ kind: errorKind(error), data: null });
-      });
-    return () => { active = false; };
-  }, [date, history, read]);
-
   const loadOlder = () => {
     const rows = history.data;
     if (loadingOlder || !rows?.length || !hasOlder) return;
@@ -194,30 +169,9 @@ export function DailyScreen({ navigation }: NativeBottomTabScreenProps<MainTabs,
   };
 
   return <Screen eyebrow="DAILY" title="Daily journal">
-    <Card title="Choose day">
+    <Card>
       <DateStepper date={date} onChange={setDate} />
-      <Action title="Jump to today" secondary disabled={date === today} onPress={() => setDate(localToday())} />
-      {selected.kind === 'loading' ? <StatusPanel kind="loading" message="Checking the saved day…" /> : null}
-      {selected.kind === 'empty' ? <StatusPanel kind="empty" message="No score saved for this day." /> : null}
-      {selected.kind === 'offline' || selected.kind === 'error' ?
-        <StatusPanel kind={selected.kind} message="Could not load this day."
-          retry={() => setRevision(v => v + 1)} /> : null}
-      {selected.data ? <>
-        <Metric label="Official score" value={formatPoints(selected.data.total_points)}
-          source={scoreAuthority(selected.data.score_status)} />
-        <TextLine>{selected.data.metric_date === today ? 'Today is incomplete.' : 'Persisted score for the selected day.'}</TextLine>
-        <ProviderStatus sources={selected.data.providerSources}/>
-        <View style={styles.metrics}>
-          <Metric label="Steps" value={formatPoints(selected.data.steps)} />
-          <Metric label="Run" value={formatDistance(selected.data.run_m)} />
-          <Metric label="Bike" value={formatDistance(selected.data.bike_m)} />
-          <Metric label="Swim" value={formatDistance(selected.data.swim_m)} />
-          <Metric label="Workout points" value={formatPoints(selected.data.workout_points)} />
-          <Metric label="Bonus" value={formatPoints(selected.data.bonus_points, true)} />
-        </View>
-        <Action title="Open score detail" onPress={() =>
-          navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('DailyDetail', { date: selected.data!.metric_date })} />
-      </> : null}
+      <Action title="Open day" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('DailyDetail', {date})}/>
     </Card>
     <Card title="Score history">
       {history.kind === 'loading' ? <StatusPanel kind="loading" message="Loading saved score history…" /> : null}

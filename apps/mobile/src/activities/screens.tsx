@@ -65,7 +65,7 @@ function durationLabel(row:Activity) {
   return seconds===null ? null : (moving?'Moving ':'Elapsed ')+formatDuration(seconds);
 }
 function activityInfo(row:Activity) {
-  const extras = summaryMetrics(row).filter(m => ['Pace','Average speed','Average HR'].includes(m.label))
+  const extras = summaryMetrics(row).filter(m => ['Pace','Avg speed','Avg HR'].includes(m.label))
     .map(m => m.label+': '+m.value).slice(0,2);
   return [row.activity_date,localActivityTime(row.start_time),activityDistance(row),durationLabel(row),...extras]
     .filter(Boolean).join(' · ');
@@ -84,7 +84,7 @@ function ActivityRow({activity,onOpen}: {activity:Activity;onOpen():void}) {
       <Text style={{color:palette.muted,fontSize:24}} accessible={false}>›</Text>
     </View>
     {activity.distance_m !== null ? <Text style={{color:palette.text,fontSize:27,fontWeight:'700',letterSpacing:-0.8,marginTop:4,fontVariant:['tabular-nums']}}>{activityDistance(activity)}</Text> : null}
-    <Text style={[styles.rowSub,{color:palette.muted}]}>{[durationLabel(activity),...summaryMetrics(activity).filter(m=>['Pace','Average speed','Average HR'].includes(m.label)).map(m=>m.label+': '+m.value)].filter(Boolean).join(' · ')}</Text>
+    <Text style={[styles.rowSub,{color:palette.muted}]}>{[durationLabel(activity),...summaryMetrics(activity).filter(m=>['Pace','Avg speed','Avg HR'].includes(m.label)).map(m=>m.label+': '+m.value)].filter(Boolean).join(' · ')}</Text>
     <Text style={[styles.mini,{color:palette.accent}]}>{sourceLabel(activity.source)}
       {activity.historicalSummary?' · Imported summary':''}
       {activity.distanceCorrection?' · Corrected distance':''}</Text>
@@ -359,7 +359,7 @@ export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<R
       {activity.activity_type==='run'?<Card title="Distance efforts">
         {effortRows(activity.bestEfforts).length?effortRows(activity.bestEfforts).map((e,i)=>
           <TextRow key={i+'-'+e.provider} label={(e.distanceM/1000).toLocaleString('en-US',{maximumFractionDigits:3})+' km · '+e.provider}
-            value={formatDuration(e.durationS)+' · '+e.status+' · '+(e.method==='summary_estimate'?'Average pace estimate':e.method==='fit_calculated'?'Recorded timer':'Recorded GPS timing')}/>)
+            value={formatDuration(e.durationS)+' · '+e.status+' · '+(e.method==='summary_estimate'?'Avg pace estimate':e.method==='fit_calculated'?'Recorded timer':'Recorded GPS timing')}/>)
           :<Body subdued>No current measured or explicitly estimated best-effort projections are available. No split time is inferred.</Body>}
         {activity.bestEfforts.some(p=>p.state!=='current')?<Body subdued>Some provider effort projections are missing, stale or not calculated.</Body>:null}
       </Card>:null}

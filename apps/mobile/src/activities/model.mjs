@@ -278,9 +278,9 @@ export function summaryMetrics(row) {
   if (row.moving_time_s !== null && row.moving_time_s !== row.duration_s) put('Moving time',row.moving_time_s,formatDuration);
   if (row.activity_type === 'run' || row.activity_type === 'walk') put('Pace',row.avg_pace_s_per_km,formatPace);
   if (row.activity_type === 'swim') put('Pace',row.avg_pace_s_per_km,n => formatDuration(n/10) + ' /100 m');
-  if (['bike','rowing','sup'].includes(row.activity_type)) put('Average speed',row.avg_speed_mps,n => (n*3.6).toFixed(1) + ' km/h');
+  if (['bike','rowing','sup'].includes(row.activity_type)) put('Avg speed',row.avg_speed_mps,n => (n*3.6).toFixed(1) + ' km/h');
   if (row.activity_type !== 'steps' && row.activity_type !== 'bonus') {
-    put('Average HR',row.avg_hr,n => Math.round(n)+' bpm');
+    put('Avg HR',row.avg_hr,n => Math.round(n)+' bpm');
     put('Max HR',row.max_hr,n => Math.round(n)+' bpm');
   }
   put('Ascent',row.elevation_gain_m,n => Math.round(n)+' m');
