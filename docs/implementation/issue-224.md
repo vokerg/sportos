@@ -53,7 +53,11 @@ sync-before-recalculation, failure handling, polling budget/manual continuation,
 ambiguous enqueue recovery, duplicate protection, manual subtype/unit validation,
 server score authority and late-save cancellation.
 
-Production iOS JavaScript/Hermes export passed. No new physical
-phone installation or live provider download/scoring mutation is claimed. Existing
-installed embedded Release builds need rebuilding/reinstalling for these controls.
+Production iOS JavaScript/Hermes export passed. At the maintainer's explicit
+request, the signed embedded Release was rebuilt with hosted HTTPS API/login
+origins and installed/launched successfully on the paired personal iPhone on
+2026-10-29. Signature verification and bundle checks confirmed all four action
+labels, both hosted origins and absence of local API/web origins. A transient
+connection reset on the first install resolved after reconnecting. No live provider
+download/scoring mutation or owner UI acceptance is claimed by this installation.
 Garmin helper and Strava worker availability remain deployment requirements.
