@@ -1,7 +1,7 @@
 import {useCallback,useRef,useState} from 'react';
 import {useFocusEffect} from '@react-navigation/native';
 import {useSession} from '../auth/SessionProvider';
-export interface OperationScope {read<T>(path:string):Promise<T>;mutate<T>(path:string,body?:unknown):Promise<T>;signal:AbortSignal}
+export interface OperationScope {read<T>(path:string):Promise<T>;mutate<T>(path:string,body?:unknown,method?:'POST'|'PUT'):Promise<T>;signal:AbortSignal}
 /** Route-bound network cancellation, synchronous duplicate guard and late-result rejection. */
 export function useOperation(){
  const session=useSession();const controller=useRef<AbortController|null>(null);const generation=useRef(0);const locked=useRef(false);
@@ -10,7 +10,7 @@ export function useOperation(){
  const run=useCallback(async<T,>(task:(scope:OperationScope)=>Promise<T>,accept:(value:T)=>void,message:string)=>{
   if(locked.current||!controller.current||controller.current.signal.aborted)return;
   const current=generation.current,signal=controller.current.signal;locked.current=true;setBusy(true);setError('');
-  try{const value=await task({read:<R,>(p:string)=>session.read<R>(p,signal),mutate:<R,>(p:string,body?:unknown)=>session.mutate<R>(p,'POST',body??{},signal),signal});if(generation.current===current&&!signal.aborted)accept(value)}
+  try{const value=await task({read:<R,>(p:string)=>session.read<R>(p,signal),mutate:<R,>(p:string,body?:unknown,method:'POST'|'PUT'='POST')=>session.mutate<R>(p,method,body??{},signal),signal});if(generation.current===current&&!signal.aborted)accept(value)}
   catch{if(generation.current===current&&!signal.aborted)setError(message)}
   finally{if(generation.current===current){locked.current=false;setBusy(false)}}
  },[session.read,session.mutate]);
