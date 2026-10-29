@@ -18,5 +18,11 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.4.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/library.d.ts",
+      "import": "./dist/library.js"
+    }
   }
 }

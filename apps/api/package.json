@@ -18,6 +18,8 @@
     "@sportos/domain": "workspace:^",
     "@sportos/importers": "workspace:*",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "@sportos/mcp": "workspace:*",
+    "@modelcontextprotocol/client": "2.4.0"
   }
 }

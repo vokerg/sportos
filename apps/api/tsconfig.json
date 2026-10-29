@@ -10,8 +10,17 @@
     "experimentalDecorators": true
   },
   "references": [
-    { "path": "../../packages/db" },
-    { "path": "../../packages/importers" }
+    {
+      "path": "../../packages/db"
+    },
+    {
+      "path": "../../packages/importers"
+    },
+    {
+      "path": "../mcp"
+    }
   ],
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }
