@@ -193,7 +193,7 @@ export function DailyScreen({ navigation }: NativeBottomTabScreenProps<MainTabs,
       .finally(() => { if (generation.current === current) setLoadingOlder(false); });
   };
 
-  return <Screen eyebrow="ONE DAY AT A TIME" title="Daily journal">
+  return <Screen eyebrow="DAILY" title="Daily journal">
     <Card title="Choose day">
       <DateStepper date={date} onChange={setDate} />
       <Action title="Jump to today" secondary disabled={date === today} onPress={() => setDate(localToday())} />
@@ -276,7 +276,7 @@ export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, '
     {detail.kind === 'offline' || detail.kind === 'error' ? <StatusPanel kind={detail.kind}
       message="Could not load this day's score breakdown. Previous data is not shown as live."
       retry={() => setRevision(v => v + 1)} /> : null}
-    {data ? <>
+    {data ?
       <Card title="Daily score">
         <ProviderStatus sources={{...coverage,...(garminLoaded?{garmin:true}:{})}}/>
         <Metric label="Total points" value={formatPoints(data.score.appTotal)}
@@ -292,7 +292,9 @@ export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, '
             <Metric label="Difference vs Excel" value={formatPoints(data.score.delta, true)} /> : null}
         </View>
         
-      </Card>
+      </Card> : null}
+    <GarminDayCard key={date} date={date} onLoaded={onGarminLoaded}/>
+    {data ? <>
       <Card title="Activity">
         <View style={styles.metrics}>
           <Metric label="Steps" value={formatPoints(data.facts.steps)} />
@@ -312,7 +314,6 @@ export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, '
       </Card>
       <Action title="Refresh this day" secondary onPress={() => setRevision(v => v + 1)} />
     </> : null}
-    <GarminDayCard key={date} date={date} onLoaded={onGarminLoaded}/>
   </Screen>;
 }
 

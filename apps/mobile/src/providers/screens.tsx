@@ -30,9 +30,9 @@ function ConnectionCard({connection}:{connection:Connection}){
   {current?<>
    <Body>Latest sync: {current.status} · {current.progress}%</Body>
    {current.rateLimited&&active?<Body subdued>Waiting for Strava’s rate limit. The worker will resume when allowed.</Body>:null}
-   {current.cancelling?<Body subdued>Cancellation requested; waiting for the worker to stop safely.</Body>:null}
+   {current.cancelling?<Body subdued>Cancellation requested; waiting for sync to stop.</Body>:null}
    {current.status==='succeeded'?<Body subdued>Sync completed. Return to Home, Daily or Activities to load the updated server data.</Body>:null}
-   {current.status==='failed'?<Body subdued>Sync failed. Previous data is retained. Check the connection and worker before retrying.</Body>:null}
+   {current.status==='failed'?<Body subdued>Sync failed. Your previous activities are safe. Try again.</Body>:null}
   </>:null}
   {active?<Action title="Cancel sync" secondary disabled={busy||current?.cancelling} onPress={()=>action(jobPath(current!.id)+'/cancel')}/>:null}
   {current&&['failed','cancelled'].includes(current.status)&&current.canRetry?<Action title="Retry sync" disabled={busy||connection.status!=='connected'} onPress={()=>action(jobPath(current.id)+'/retry')}/>:null}
@@ -45,8 +45,8 @@ export function ProvidersScreen(){
  const {run,busy,error}=useOperation();const [data,setData]=useState<Connection[]|null>(null);
  const load=useCallback(()=>{void run(async api=>connections(await api.read('/providers/connections')),setData,'Could not read provider connections. Check your connection and retry.')},[run]);
  useFocusEffect(useCallback(()=>{setData(null);load()},[load]));
- return <Screen nested eyebrow="KEEP YOUR TRAINING CURRENT" title="Providers">
-  <Body subdued>Sync changes imports new or changed Strava activities through your SportOS worker. Queued means waiting; it does not mean the import has completed.</Body>
+ return <Screen nested eyebrow="CONNECTIONS" title="Providers">
+  <Body subdued>Import new or changed Strava activities. You can leave this screen while sync runs.</Body>
   {busy&&data===null?<StatusPanel kind="loading" message="Reading provider connections…"/>:null}
   {error?<StatusPanel kind="error" message={error} retry={load}/>:null}
   {data?.length===0?<Card title="No Strava connection"><Body>Connect Strava through the SportOS website first, then refresh this screen.</Body></Card>:null}

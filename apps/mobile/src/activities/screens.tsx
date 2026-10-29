@@ -86,7 +86,7 @@ function ActivityRow({activity,onOpen}: {activity:Activity;onOpen():void}) {
     {activity.distance_m !== null ? <Text style={{color:palette.text,fontSize:27,fontWeight:'700',letterSpacing:-0.8,marginTop:4,fontVariant:['tabular-nums']}}>{activityDistance(activity)}</Text> : null}
     <Text style={[styles.rowSub,{color:palette.muted}]}>{[durationLabel(activity),...summaryMetrics(activity).filter(m=>['Pace','Average speed','Average HR'].includes(m.label)).map(m=>m.label+': '+m.value)].filter(Boolean).join(' · ')}</Text>
     <Text style={[styles.mini,{color:palette.accent}]}>{sourceLabel(activity.source)}
-      {activity.historicalSummary?' · Historical reconstruction':''}
+      {activity.historicalSummary?' · Imported summary':''}
       {activity.distanceCorrection?' · Corrected distance':''}</Text>
     
   </Pressable>;
@@ -137,7 +137,7 @@ export function ActivitiesScreen({navigation}: NativeBottomTabScreenProps<MainTa
   };
   const data = view.data;
   const hasMore = data ? data.offset+data.items.length<data.count && data.items.length>0 && data.items.length<MAX_FEED_ROWS && data.offset+data.items.length<=100000 : false;
-  return <Screen eyebrow="THE WORK YOU PUT IN" title="Activities">
+  return <Screen eyebrow="TRAINING" title="Activities">
     <Card>
       <NavigationRow title={FILTER_RANGES.find(([key])=>key===range)?.[1]+' · '+FILTER_TYPES.find(([key])=>key===type)?.[1]}
         detail={(FILTER_SOURCES.find(([key])=>key===source)?.[1]??'All sources')+' · '+(showFilters?'Hide filters':'Change filters')}
@@ -211,7 +211,7 @@ function SwimSplits({data}: {data:SwimLengths}) {
     <TextRow label="Evidence coverage" value={data.complete===true?'Complete reported count':data.complete===false?'Incomplete or mismatched':'Unconfirmed'} />
     {data.recordedDistanceM!==null && data.effectiveDistanceM!==null && data.recordedDistanceM!==data.effectiveDistanceM?
       <TextRow label="Original / corrected distance" value={data.recordedDistanceM+' m / '+data.effectiveDistanceM+' m'}/>:null}
-    {data.truncated?<Body subdued>FIT length display is capped by the backend; not all lengths are shown.</Body>:null}
+    {data.truncated?<Body subdued>Showing the first recorded lengths; more are available.</Body>:null}
     <SplitChart label="Length pace" values={data.lengths.map(r=>r.kind==='active'?r.paceSPer100M:null)} formatter={swimPace}/>
     <SplitChart label="SWOLF" values={data.lengths.map(r=>r.kind==='active'?r.swolf:null)} formatter={n=>String(Math.round(n))}/>
     <SplitChart label="Strokes per length" values={data.lengths.map(r=>r.kind==='active'?r.strokes:null)} formatter={n=>String(Math.round(n))}/>
@@ -359,7 +359,7 @@ export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<R
       {activity.activity_type==='run'?<Card title="Distance efforts">
         {effortRows(activity.bestEfforts).length?effortRows(activity.bestEfforts).map((e,i)=>
           <TextRow key={i+'-'+e.provider} label={(e.distanceM/1000).toLocaleString('en-US',{maximumFractionDigits:3})+' km · '+e.provider}
-            value={formatDuration(e.durationS)+' · '+e.status+' · '+(e.method==='summary_estimate'?'Average pace estimate':e.method==='fit_calculated'?'FIT timer':'Retained streams')}/>)
+            value={formatDuration(e.durationS)+' · '+e.status+' · '+(e.method==='summary_estimate'?'Average pace estimate':e.method==='fit_calculated'?'Recorded timer':'Recorded GPS timing')}/>)
           :<Body subdued>No current measured or explicitly estimated best-effort projections are available. No split time is inferred.</Body>}
         {activity.bestEfforts.some(p=>p.state!=='current')?<Body subdued>Some provider effort projections are missing, stale or not calculated.</Body>:null}
       </Card>:null}

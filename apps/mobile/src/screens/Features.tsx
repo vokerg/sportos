@@ -15,7 +15,7 @@ export { RunLabScreen } from '../performance/screens';
 
 export function MoreScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 'More'>) {
   const { session, signOut } = useSession();
-  return <Screen eyebrow="YOUR SPORTOS" title="Beyond the numbers">
+  return <Screen eyebrow="SPORTOS" title="More">
     <Card title="Explore">
       <NavigationRow title="Providers" detail="Strava sync and job status" icon="arrow" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Providers')} />
       <NavigationRow title="Training trends" detail="Dynamics & monthly stats" icon="chart" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Analytics')} />
