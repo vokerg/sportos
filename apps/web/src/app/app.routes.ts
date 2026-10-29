@@ -2,6 +2,11 @@ import type { Routes } from '@angular/router';
 
 export const APP_ROUTES: Routes = [
   {
+    path: 'chat',
+    loadComponent: () => import('./features/chat/pages/chat-page.component').then(module => module.ChatPageComponent),
+    title: 'Chat · SportOS',
+  },
+  {
     path: 'mobile-connect',
     loadComponent: () => import('./mobile-connect.component').then((module) => module.MobileConnectComponent),
     title: 'Connect iPhone · SportOS',

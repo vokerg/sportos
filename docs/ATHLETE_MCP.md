@@ -1,5 +1,9 @@
 # Local read-only athlete MCP and private IronMan handoff
 
+The web [athlete chat](CHAT.md) also reuses these tools through an authenticated
+in-process host. It does not use the local operator account binding or expose
+this stdio server remotely.
+
 Issue #211 adds a local stdio MCP server and a deterministic private snapshot and
 Russian performance report. No HTTP listener is created. Starting it intentionally
 authorizes the selected local MCP host to receive the bound account's private
