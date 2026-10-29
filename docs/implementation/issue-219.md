@@ -51,3 +51,10 @@ summary so history is reachable without scrolling past a duplicate detail view.
 A small date selector opens the separate day screen, including dates without a
 saved score. Removed the now-unused selected-day fetch/effect. Activity labels
 use Avg speed / Avg HR consistently in list, detail and metric filtering.
+
+Compact-list validation: mobile typecheck and all 67 tests passed; compact icon
+mode preserves accessible source states without visible wordmarks. Native
+simulator review used a synthetic 12-day history and verified multiple days fit
+on screen. Embedded Release and production-origin/fixture-exclusion bundle audit
+passed; phone refresh installation is recorded in the session. No screenshots or
+synthetic fixtures were committed.
