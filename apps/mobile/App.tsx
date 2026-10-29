@@ -8,15 +8,17 @@ import { configuredClient } from './src/auth/native';
 import { AppNavigation } from './src/navigation/AppNavigation';
 import { SportosThemeProvider, useSportosTheme } from './src/ui/theme';
 import { Action, Body, Card, Screen, StatusPanel } from './src/ui/primitives';
+import { BrandBanner } from './src/ui/identity';
 
 const client = configuredClient();
 
 function AuthGate() {
   const { status, session, message, retry, signIn, signOut } = useSession();
   if (status === 'authenticated' && session) return <AppNavigation />;
-  return <Screen eyebrow="SportOS iPhone" title="Your training, native">
-    <Card title="Secure access">
-      <Body>Sign in using your existing SportOS account in the system browser. SportOS never asks for your password inside the iPhone app.</Body>
+  return <Screen eyebrow="WELCOME TO YOUR TRAINING JOURNAL" title="Make it count.">
+    <BrandBanner/>
+    <Card title="Your training starts here">
+      <Body>Continue with your SportOS account. Secure sign-in opens in your browser.</Body>
       {status === 'locked' ? <StatusPanel kind="loading" message="Private data hidden while SportOS is inactive." /> : null}
       {status === 'restoring' ? <StatusPanel kind="loading" message="Checking your secure session…" /> : null}
       {status === 'unavailable' ? <StatusPanel kind="offline"

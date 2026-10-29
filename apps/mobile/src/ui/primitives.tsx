@@ -3,6 +3,7 @@ import { BottomTabBarHeightContext } from 'react-native-bottom-tabs';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSportosTheme } from './theme';
+import { SportGlyph } from './identity';
 import { formatDistance, formatDuration, formatPace, localToday, shiftCalendarDate } from './format.mjs';
 
 export { formatDistance, formatDuration, formatPace };
@@ -18,8 +19,10 @@ export function Screen({ title, eyebrow, children, nested = false }: {
     <ScrollView contentInsetAdjustmentBehavior="never"
       scrollIndicatorInsets={{ bottom: bottomPadding }}
       contentContainerStyle={[styles.screen, { paddingBottom: bottomPadding }]} keyboardShouldPersistTaps="handled">
+      <View style={styles.screenHeader}>
       {eyebrow ? <Text style={[styles.eyebrow, { color: palette.accent }]}>{eyebrow}</Text> : null}
       <Text accessibilityRole="header" style={[styles.heading, { color: palette.text }]}>{title}</Text>
+      </View>
       {children}
     </ScrollView>
   </SafeAreaView>;
@@ -45,10 +48,25 @@ export function Action({ title, onPress, secondary = false, disabled = false }: 
   return <Pressable accessibilityRole="button" accessibilityLabel={title}
     accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
     style={({ pressed }) => [styles.action, {
-      backgroundColor: secondary ? palette.surface : palette.accent,
-      borderColor: palette.accent, opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
+      backgroundColor: secondary ? palette.soft : palette.accent,
+      borderColor: secondary ? palette.soft : palette.accent, opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
+      transform: [{ scale: pressed ? 0.985 : 1 }],
     }]}>
     <Text style={[styles.actionText, { color: secondary ? palette.accent : palette.accentText }]}>{title}</Text>
+  </Pressable>;
+}
+
+/** A navigation row has a distinct visual weight from a submit/fetch action. */
+export function NavigationRow({ title, detail, icon = 'arrow', onPress }: {
+  title: string; detail?: string; icon?: string; onPress(): void;
+}) {
+  const { palette } = useSportosTheme();
+  return <Pressable accessibilityRole="button" onPress={onPress}
+    style={({pressed}) => ({flexDirection:'row',alignItems:'center',gap:14,minHeight:64,paddingVertical:10,opacity:pressed?0.6:1})}>
+    <View style={{padding:12,borderRadius:15,backgroundColor:palette.soft}}><SportGlyph sport={icon} color={palette.accent}/></View>
+    <View style={{flex:1,gap:4}}><Text style={{color:palette.text,fontSize:16,fontWeight:'700'}}>{title}</Text>
+      {detail ? <Text style={{color:palette.muted,fontSize:13,lineHeight:19}}>{detail}</Text> : null}</View>
+    <Text style={{color:palette.muted,fontSize:24}} accessible={false}>›</Text>
   </Pressable>;
 }
 
@@ -63,7 +81,7 @@ export function Metric({ label, value, source }: { label: string; value: string;
 
 export function SourceBadge({ label }: { label: string }) {
   const { palette } = useSportosTheme();
-  return <Text style={[styles.badge, { color: palette.accent, borderColor: palette.accent }]}>
+  return <Text style={[styles.badge, { color: palette.accent, borderColor: palette.soft, backgroundColor: palette.soft }]}>
     {label}
   </Text>;
 }
@@ -85,7 +103,7 @@ export function DateStepper({ date, onChange }: {
   date: string; onChange(value: string): void;
 }) {
   const { palette } = useSportosTheme();
-  return <View style={styles.dateRow}>
+  return <View style={[styles.dateRow, {backgroundColor: palette.soft}]}>
     <Pressable accessibilityRole="button" accessibilityLabel="Previous date"
       onPress={() => onChange(shiftCalendarDate(date, -1))} style={styles.dateButton}>
       <Text style={[styles.dateText, { color: palette.accent }]}>‹</Text>
@@ -117,19 +135,20 @@ export function MiniBars({ label, values }: { label: string; values: number[] })
 }
 
 const styles = StyleSheet.create({
-  screen: { padding: 22, paddingBottom: 42, gap: 18 },
-  eyebrow: { fontSize: 12, letterSpacing: 1.4, fontWeight: '800', textTransform: 'uppercase' },
-  heading: { fontSize: 31, fontWeight: '800', lineHeight: 39 },
-  card: { padding: 18, borderWidth: 1, borderRadius: 16, gap: 14 },
-  cardTitle: { fontSize: 19, fontWeight: '700', lineHeight: 26 },
-  body: { fontSize: 16, lineHeight: 24 },
-  action: { minHeight: 48, padding: 12, borderWidth: 1, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  screen: { padding: 20, paddingBottom: 42, gap: 18 },
+  screenHeader: { gap: 7, paddingTop: 12, paddingBottom: 6 },
+  eyebrow: { fontSize: 10, letterSpacing: 2.2, fontWeight: '700', textTransform: 'uppercase' },
+  heading: { fontSize: 36, fontWeight: '800', lineHeight: 42, letterSpacing: -1.4 },
+  card: { padding: 20, borderWidth: 1, borderRadius: 24, borderCurve: 'continuous', gap: 16 },
+  cardTitle: { fontSize: 18, fontWeight: '700', lineHeight: 25, letterSpacing: -0.4 },
+  body: { fontSize: 15, lineHeight: 23 },
+  action: { minHeight: 48, padding: 12, borderWidth: 1, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   actionText: { fontSize: 16, fontWeight: '700' },
-  metric: { gap: 3, minWidth: 120 },
-  metricValue: { fontSize: 26, fontWeight: '800' },
+  metric: { gap: 5, minWidth: 112, flexShrink: 1 },
+  metricValue: { fontSize: 28, fontWeight: '700', letterSpacing: -0.9, fontVariant: ['tabular-nums'] },
   metricLabel: { fontSize: 14, lineHeight: 20 },
-  badge: { fontSize: 11, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, borderWidth: 1, alignSelf: 'flex-start' },
-  dateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  badge: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7, borderWidth: 1, alignSelf: 'flex-start' },
+  dateRow: { borderRadius: 16, padding: 3, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   dateButton: { minWidth: 48, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
   dateText: { fontSize: 32, fontWeight: '700' },
   chart: { height: 92, flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 10 },

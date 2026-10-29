@@ -6,9 +6,10 @@ import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-n
 import { MobileApiError } from '../../../../packages/shared/src/mobile-api';
 import { useScreenSession as useSession } from '../auth/useScreenSession';
 import type { MainTabs, RootStack } from '../navigation/routes';
-import { Action, Body, Card, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
+import { Action, Body, Card, NavigationRow, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { formatDuration, localToday } from '../ui/format.mjs';
 import { useSportosTheme } from '../ui/theme';
+import { SportMark } from '../ui/identity';
 import { activityDetailPath, activityDistance, activityListPath, effortRows, projectActivityDetail,
   projectActivityList, projectEnrichment, projectGarminSets, projectLaps, projectSwimLengths,
   providerLabel, summaryMetrics, title, validActivityId } from './model.mjs';
@@ -74,8 +75,14 @@ function ActivityRow({activity,onOpen}: {activity:Activity;onOpen():void}) {
   const subtitle = activityInfo(activity);
   return <Pressable accessibilityRole="button" accessibilityLabel={heading+', '+subtitle+', source '+activity.source}
     onPress={onOpen} style={[styles.activityRow,{borderColor:palette.border}]}>
-    <Text style={[styles.rowTitle,{color:palette.text}]}>{heading}</Text>
-    <Text style={[styles.rowSub,{color:palette.muted}]}>{subtitle}</Text>
+    <View style={{flexDirection:'row',alignItems:'center',gap:12}}>
+      <SportMark sport={activity.activity_type}/>
+      <View style={{flex:1,gap:4}}><Text style={[styles.rowTitle,{color:palette.text}]}>{heading}</Text>
+      <Text style={[styles.mini,{color:palette.muted}]}>{activity.activity_date}{localActivityTime(activity.start_time)?' · '+localActivityTime(activity.start_time):''}</Text></View>
+      <Text style={{color:palette.muted,fontSize:24}} accessible={false}>›</Text>
+    </View>
+    {activity.distance_m !== null ? <Text style={{color:palette.text,fontSize:27,fontWeight:'700',letterSpacing:-0.8,marginTop:4,fontVariant:['tabular-nums']}}>{activityDistance(activity)}</Text> : null}
+    <Text style={[styles.rowSub,{color:palette.muted}]}>{[durationLabel(activity),...summaryMetrics(activity).filter(m=>['Pace','Average speed','Average HR'].includes(m.label)).map(m=>m.label+': '+m.value)].filter(Boolean).join(' · ')}</Text>
     <Text style={[styles.mini,{color:palette.accent}]}>{activity.source.replaceAll('_',' ')}
       {activity.historicalSummary?' · Historical reconstruction':''}
       {activity.distanceCorrection?' · Corrected distance':''}</Text>
@@ -128,10 +135,11 @@ export function ActivitiesScreen({navigation}: NativeBottomTabScreenProps<MainTa
   };
   const data = view.data;
   const hasMore = data ? data.offset+data.items.length<data.count && data.items.length>0 && data.items.length<MAX_FEED_ROWS && data.offset+data.items.length<=100000 : false;
-  return <Screen eyebrow="Your canonical history" title="Activities">
-    <Card title="History filters">
-      <Body subdued>{FILTER_RANGES.find(([key])=>key===range)?.[1]} · {FILTER_TYPES.find(([key])=>key===type)?.[1]} · {FILTER_SOURCES.find(([key])=>key===source)?.[1]}</Body>
-      <Action title={showFilters?'Done with filters':'Change filters'} secondary onPress={()=>setShowFilters(v=>!v)}/>
+  return <Screen eyebrow="THE WORK YOU PUT IN" title="Activities">
+    <Card>
+      <NavigationRow title={FILTER_RANGES.find(([key])=>key===range)?.[1]+' · '+FILTER_TYPES.find(([key])=>key===type)?.[1]}
+        detail={(FILTER_SOURCES.find(([key])=>key===source)?.[1]??'All sources')+' · '+(showFilters?'Hide filters':'Change filters')}
+        icon="chart" onPress={()=>setShowFilters(v=>!v)}/>
       {showFilters?<>
 
       <Filters label="Date window" items={FILTER_RANGES} value={range} onChange={v=>setRange(v as typeof range)} />
@@ -144,7 +152,7 @@ export function ActivitiesScreen({navigation}: NativeBottomTabScreenProps<MainTa
       message={view.kind==='offline'?'Offline. Activity history is not cached.':'Could not load canonical activities.'} retry={retry}/>:null}
     {view.kind==='empty'?<StatusPanel kind="empty" message="No activities match these filters. Missing history is not a zero-distance session." retry={retry}/>:null}
     {data?<>
-      <Body>{data.count.toLocaleString('en-US')} activities matching the selected filters · server data</Body>
+      <Body>{data.count.toLocaleString('en-US')} activities in your training history</Body>
       <Card title="Training sessions">
         {data.items.map(row=><ActivityRow key={row.id} activity={row} onOpen={()=>navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('ActivityDetail',{activityId:row.id})}/>)}
         {moreError?<Body subdued>Could not load the next page; existing rows remain available.</Body>:null}
@@ -417,10 +425,10 @@ export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<R
 const styles=StyleSheet.create({
   filterGroup:{gap:8},smallLabel:{fontSize:13,fontWeight:'700'},
   chips:{flexDirection:'row',flexWrap:'wrap',gap:8},
-  chip:{minHeight:44,borderRadius:10,borderWidth:1,paddingHorizontal:12,justifyContent:'center'},
+  chip:{minHeight:44,borderRadius:16,borderWidth:1,paddingHorizontal:14,justifyContent:'center'},
   textRow:{flexDirection:'row',justifyContent:'space-between',gap:14,paddingVertical:9,borderBottomWidth:0},
   rowKey:{flex:1,fontSize:14,lineHeight:20},rowValue:{flex:2,fontSize:14,lineHeight:20,fontWeight:'600',textAlign:'right'},
-  activityRow:{borderBottomWidth:1,paddingVertical:14,minHeight:62,gap:5},
+  activityRow:{borderBottomWidth:1,paddingVertical:18,minHeight:62,gap:9},
   rowTitle:{fontSize:18,fontWeight:'700'},rowSub:{fontSize:14,lineHeight:21},
   mini:{fontSize:12,lineHeight:18},
   bars:{flexDirection:'row',alignItems:'flex-end',gap:5,paddingVertical:10},

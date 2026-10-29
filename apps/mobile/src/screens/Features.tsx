@@ -3,7 +3,7 @@ import { ActivitiesScreen } from '../activities/screens';
 import type { NativeBottomTabScreenProps } from '@bottom-tabs/react-navigation';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Body, Action, Card, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
+import { Body, Action, Card, NavigationRow, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { useSession } from '../auth/SessionProvider';
 import type { MainTabs, RootStack } from '../navigation/routes';
 
@@ -15,21 +15,16 @@ export { RunLabScreen } from '../performance/screens';
 
 export function MoreScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 'More'>) {
   const { session, signOut } = useSession();
-  return <Screen eyebrow="Account and preferences" title="More">
-    <Card title="Signed in">
-      <Body>{session?.account.displayName ?? 'SportOS account'}</Body>
+  return <Screen eyebrow="YOUR SPORTOS" title="Beyond the numbers">
+    <Card title="Explore">
+      <NavigationRow title="Training trends" detail="Dynamics & monthly stats" icon="chart" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Analytics')} />
+      <NavigationRow title="Your map" detail="A heatmap of the ground you covered" icon="map" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Heatmap')} />
+      <NavigationRow title="About SportOS" detail="Your data, privacy and coverage" icon="info" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('About')} />
+    </Card>
+    <Card title={session?.account.displayName ?? 'SportOS account'}>
+      <SourceBadge label="Private account" />
       <Body subdued>Session expires: {session?.absoluteExpiresAt ?? '—'}</Body>
       <Action title="Sign out of this phone" secondary onPress={() => { void signOut(); }} />
-    </Card>
-    <Card title="Explore your training">
-      <Action title="Private route heatmap" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Heatmap')} />
-    </Card>
-    <Card title="Training analytics">
-      <Action title="Dynamics and Monthly Stats" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Analytics')} />
-    </Card>
-    <Card title="About the mobile app">
-      <Body>Privacy, coverage and the mobile roadmap.</Body>
-      <Action title="About SportOS" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('About')} />
     </Card>
   </Screen>;
 }
