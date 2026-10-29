@@ -182,7 +182,7 @@ export function DailyScreen({ navigation }: NativeBottomTabScreenProps<MainTabs,
       {(history.data ?? []).map(row =>
         <CompactRow key={row.metric_date} title={row.metric_date}
           detail={formatPoints(row.total_points) + ' pt · ' + scoreAuthority(row.score_status)} sources={row.providerSources}
-          onPress={() => setDate(row.metric_date)} />)}
+          onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('DailyDetail', { date: row.metric_date })} />)}
       {olderError ? <Body subdued>Older records could not be loaded; retry when connected.</Body> : null}
       {hasOlder && history.kind === 'loaded' ?
         <Action title={loadingOlder ? 'Loading older days…' : 'Load older days'} secondary
