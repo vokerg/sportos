@@ -110,7 +110,7 @@ export function useDayActions(date:string,onUpdated:(detail:MobileDayDetail)=>vo
   if(!Array.isArray(rows)||rows.length>1)throw new Error('Invalid facts');
   if(rows.length&&rows[0].date!==date)throw new Error('Wrong day');
   return factsDraft(rows[0]?.facts??Object.fromEntries(factFields.map(([key])=>[key,0])));
- },setEditor,'Could not load current facts. Try again before editing.')};
+ },next=>{setValidation('');setEditor(next)},'Could not load current facts. Try again before editing.')};
  const save=()=>{
   if(!editor)return;
   let input:ManualFacts;

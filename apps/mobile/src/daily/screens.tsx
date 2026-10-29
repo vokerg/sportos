@@ -16,6 +16,7 @@ import { DayActions } from './DayActions';
 import { useDayActions } from './day-actions';
 import { ScoreHero } from './ScoreHero';
 import { SportMark } from '../ui/identity';
+import { DayScoreCard } from './DayScoreCard';
 import type { DailySummary, ActivityListPreview, MobileDayDetail } from './contracts';
 import { contributionRows, dailySummaryPath, formatPoints, mergeDays, safeActivityType, scoreAuthority, scoreBreakdownPath, projectDetail, projectActivityPreview, parseDailySummaries } from './model.mjs';
 
@@ -195,10 +196,10 @@ export function DailyScreen({ navigation }: NativeBottomTabScreenProps<MainTabs,
   </Screen>;
 }
 
-export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, 'DailyDetail'>) {
-  return <DailyDetail key={route.params.date} date={route.params.date}/>;
+export function DailyDetailScreen({ route,navigation }: NativeStackScreenProps<RootStack, 'DailyDetail'>) {
+  return <DailyDetail key={route.params.date} date={route.params.date} navigation={navigation}/>;
 }
-function DailyDetail({date}:{date:string}) {
+function DailyDetail({date,navigation}:{date:string;navigation:NativeStackNavigationProp<RootStack,'DailyDetail'>}) {
   const { read } = useSession();
   const [revision, setRevision] = useState(0);
   const [coverage,setCoverage]=useState<{strava?:boolean;garmin?:boolean}>();
@@ -231,30 +232,18 @@ function DailyDetail({date}:{date:string}) {
   }, [date, read, revision]));
 
   const data = detail.data;
-  return <Screen nested eyebrow="DAILY" title={date}>
-    {isCalendarDate(date)?<DayActions actions={actions} garmin={garmin} ready={detail.kind==='loaded'||detail.kind==='empty'}/>:null}
+  const day = isCalendarDate(date) ? new Date(...(date.split('-').map(Number).map((n,i)=>i===1?n-1:n) as [number,number,number]),12) : null;
+  const heading = day ? (date===localToday()?'Today':new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long'}).format(day)) : date;
+  const subtitle = day ? new Intl.DateTimeFormat('en-GB',{weekday:'long'}).format(day)+' · '+day.getFullYear() : 'DAILY';
+  return <Screen nested eyebrow={subtitle} title={heading}
+    onRefresh={actions.busy||garmin.busy?undefined:()=>{setRevision(v=>v+1);garmin.load()}} refreshing={detail.kind==='loading'}>
+    {isCalendarDate(date)?<DayActions actions={actions} garmin={garmin} navigation={navigation} date={date} ready={detail.kind==='loaded'||detail.kind==='empty'}/>:null}
     {detail.kind === 'loading' ? <StatusPanel kind="loading" message="Loading your day…" /> : null}
     {detail.kind === 'empty' ? <StatusPanel kind="empty" message="No score saved for this day." /> : null}
     {detail.kind === 'offline' || detail.kind === 'error' ? <StatusPanel kind={detail.kind}
       message="Could not load this day's score breakdown. Previous data is not shown as live."
       retry={() => setRevision(v => v + 1)} /> : null}
-    {data ?
-      <Card title="Daily score">
-        <ProviderStatus sources={{...coverage,...(garminLoaded?{garmin:true}:{})}}/>
-        <Metric label="Total points" value={formatPoints(data.score.appTotal)}
-          source={scoreAuthority(data.status)} />
-        <TextLine>{data.date === localToday()
-          ? 'Today so far.' : 'Saved score.'}</TextLine>
-        <View style={styles.metrics}>
-          <Metric label="Base" value={formatPoints(data.score.baseTotal)} />
-          <Metric label="Bonus" value={formatPoints(data.score.bonusPoints, true)} />
-          {data.score.excelTotal !== null ?
-            <Metric label="Original Excel total" value={formatPoints(data.score.excelTotal)} /> : null}
-          {data.score.delta !== null ?
-            <Metric label="Difference vs Excel" value={formatPoints(data.score.delta, true)} /> : null}
-        </View>
-        
-      </Card> : null}
+    {data ? <DayScoreCard data={data} sources={{...coverage,...(garminLoaded?{garmin:true}:{})}} today={date===localToday()}/> : null}
     <GarminDayView state={garmin} showAction={false}/>
     {data ? <>
       <Card title="Activity">
@@ -274,7 +263,6 @@ function DailyDetail({date}:{date:string}) {
         </TextLine>) : <Body subdued>No breakdown for this day.</Body>}
         <Body subdued>Imported and manually edited scores may differ from this breakdown.</Body>
       </Card>
-      <Action title="Refresh this day" secondary onPress={() => setRevision(v => v + 1)} />
     </> : null}
   </Screen>;
 }

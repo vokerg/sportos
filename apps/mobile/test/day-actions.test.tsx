@@ -8,10 +8,11 @@ vi.mock('../src/auth/SessionProvider',()=>({useSession:()=>({read,mutate})}));
 vi.mock('../src/ui/theme',()=>({useSportosTheme:()=>({palette:{}})}));
 vi.mock('../src/ui/identity',()=>({SportMark:()=>null}));
 vi.mock('../src/ui/ProviderStatus',()=>({ProviderLogo:()=>null,ProviderStatus:()=>null}));
-vi.mock('react-native',()=>({Text:'Text',TextInput:'Input',Switch:'Switch',Pressable:'Pressable',View:'View',StyleSheet:{create:(s:unknown)=>s}}));
+vi.mock('react-native-safe-area-context',()=>({SafeAreaView:({children}:{children:React.ReactNode})=><>{children}</>}));
+vi.mock('react-native',()=>({Platform:{OS:'ios'},ActivityIndicator:'Spinner',Modal:({visible,children}:{visible:boolean;children:React.ReactNode})=>visible?<>{children}</>:null,ScrollView:'ScrollView',Text:'Text',TextInput:'Input',Switch:'Switch',Pressable:'Pressable',View:'View',StyleSheet:{create:(s:unknown)=>s}}));
 vi.mock('../src/ui/primitives',()=>{
  const Container=({children}: {children:React.ReactNode})=><>{children}</>;
- return{Screen:Container,Card:Container,Body:Container,Metric:()=>null,Action:(p:object)=>React.createElement('Action',p),StatusPanel:Container,formatDistance:String};
+ return{Screen:(p:object)=>React.createElement('Screen',p),Card:Container,Body:Container,Metric:()=>null,Action:(p:object)=>React.createElement('Action',p),StatusPanel:Container,formatDistance:String};
 });
 import {factsDraft,parseDraft,stravaDayWindow,useDayActions} from '../src/daily/day-actions';
 import {DailyDetailScreen} from '../src/daily/screens';
@@ -23,6 +24,9 @@ const facts={steps:100,runOutdoorM:1234,runIndoorM:500,runUnspecifiedM:10,bikeOu
 const breakdown={date,recomputedAt:'2026-10-29T00:00:00Z',scoreStatus:'calculated',facts:{...facts,runM:1744,bikeM:20025},score:{appTotal:1000,baseTotal:600,bonusPoints:400,ledgerTotal:1000,excelTotal:null,delta:null},ledger:[],activities:[]};
 let tree:ReactTestRenderer|null=null;let scope!:ReturnType<typeof useDayActions>;
 const updated=vi.fn();
+const navigation={setOptions:vi.fn()};
+function menuItems(){const opts=navigation.setOptions.mock.calls.at(-1)![0];return opts.unstable_headerRightItems()[0].menu.items.flatMap((group:{items:unknown[]})=>group.items)}
+const menuItem=(label:string)=>menuItems().find((item:{label:string})=>item.label===label);
 function Probe(){scope=useDayActions(date,updated);return null}
 async function mount(element=<Probe/>){await act(async()=>{tree=create(element)})}
 afterEach(async()=>{if(tree)await act(async()=>tree!.unmount());tree=null;vi.resetAllMocks();vi.useRealTimers()});
@@ -33,10 +37,12 @@ function defaultReads(path:string):unknown{
  if(path.startsWith('/daily/summary'))return [];
  return {...queued,status:'succeeded',progressPercent:100};
 }
-it('renders all four actions on an empty day and never writes on navigation',async()=>{
+it('keeps all four actions in a native menu on an empty day with no button stack or navigation writes',async()=>{
  read.mockImplementation(async(p:string)=>defaultReads(p));
- await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={{} as never}/>);
- for(const title of ['Refetch day from Strava','Refresh from Garmin','Recalculate from activities','Enter facts manually'])expect(tree!.root.findByProps({title}).props.disabled).toBe(false);
+ await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={navigation as never}/>);
+ for(const label of ['Refetch Strava','Refresh Garmin','Recalculate Score','Edit Facts…'])expect(menuItem(label).disabled).toBe(false);
+ expect(tree!.root.findAllByProps({title:'Recalculate from activities'})).toHaveLength(0);
+ expect(tree!.root.findAllByType('Input' as never)).toHaveLength(0);
  expect(mutate).not.toHaveBeenCalled();
 });
 it('waits for targeted sync success before recalculation and prevents double submissions',async()=>{
@@ -97,19 +103,38 @@ it('bounds dates, numeric input and all-day steps without calculating official s
 });
 it('uses the top Garmin action without recalculation and explains unavailable capabilities',async()=>{
  read.mockImplementation(async(p:string)=>defaultReads(p));mutate.mockResolvedValue({...defaultReads('/daily/'+date+'/garmin') as object});
- await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={{} as never}/>);
- await act(async()=>tree!.root.findByProps({title:'Refresh from Garmin'}).props.onPress());
+ await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={navigation as never}/>);
+ await act(async()=>menuItem('Refresh Garmin').onPress());
  expect(mutate.mock.calls[0].slice(0,3)).toEqual(['/daily/'+date+'/garmin','POST',{refresh:false}]);
  expect(mutate).toHaveBeenCalledTimes(1);
  await act(async()=>tree!.unmount());tree=null;
  read.mockImplementation(async(p:string)=>p.endsWith('/garmin')?{...defaultReads(p) as object,fetchEnabled:false}:p==='/providers/connections'?[]:defaultReads(p));
- await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={{} as never}/>);
- expect(tree!.root.findByProps({title:'Refresh from Garmin'}).props.disabled).toBe(true);
- expect(tree!.root.findByProps({title:'Refetch day from Strava'}).props.disabled).toBe(true);
- expect(tree!.root.findByProps({title:'Enter facts manually'}).props.disabled).toBe(false);
+ await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={navigation as never}/>);
+ expect(menuItem('Refresh Garmin').disabled).toBe(true);
+ expect(menuItem('Refetch Strava').disabled).toBe(true);
+ expect(menuItem('Edit Facts…').disabled).toBe(false);
 });
 it('cannot enqueue another refresh when the previous submission outcome is unknown',async()=>{
  read.mockImplementation(async(p:string)=>p.includes('/jobs?')?[]:defaultReads(p));mutate.mockRejectedValue(new Error('timeout'));
  await mount();await act(async()=>scope.refreshStrava());await act(async()=>scope.refreshStrava());
  expect(mutate).toHaveBeenCalledTimes(1);expect(scope.uncertain).toBe(true);
+});
+
+it('opens a separate manual sheet from the menu and cancels without writing',async()=>{
+ read.mockImplementation(async(p:string)=>defaultReads(p));
+ await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={navigation as never}/>);
+ await act(async()=>menuItem('Edit Facts…').onPress());
+ expect(tree!.root.findAllByType('Input' as never)).toHaveLength(6);
+ expect(tree!.root.findByProps({accessibilityLabel:'Run outdoor (km)'}).props.value).toBe('1.234');
+ await act(async()=>tree!.root.findByProps({accessibilityLabel:'Cancel manual entry'}).props.onPress());
+ expect(tree!.root.findAllByType('Input' as never)).toHaveLength(0);expect(mutate).not.toHaveBeenCalled();
+});
+
+it('pulls saved day data and Garmin coverage without fetching providers or recalculating',async()=>{
+ read.mockImplementation(async(p:string)=>defaultReads(p));
+ await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={navigation as never}/>);
+ read.mockClear();
+ await act(async()=>tree!.root.findByType('Screen' as never).props.onRefresh());
+ expect(read.mock.calls.map(([path])=>path).sort()).toEqual(['/daily/'+date+'/garmin','/daily/summary?from='+date+'&to='+date+'&limit=1'].sort());
+ expect(mutate).not.toHaveBeenCalled();
 });

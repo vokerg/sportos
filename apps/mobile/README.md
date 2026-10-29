@@ -64,9 +64,13 @@ with `node scripts/mobile-tab-icons.mjs`. Device and release gaps are tracked in
 ## Feature boundaries
 
 - Home/Daily read persisted scores, authority, contributions, history and ledgers.
-  Day detail has the same four Day actions as web, including dates without saved scores:
-  Refetch day from Strava, Refresh from Garmin, Recalculate from activities and
-  Enter facts manually. Opening a day only reads data. Targeted Strava refetch uses
+  Day detail keeps the score and measurements first. Its native navigation-bar
+  **•••** menu contains the same four workflows as web, including dates without
+  saved scores: Refetch Strava, Refresh Garmin, Recalculate Score and Edit Facts….
+  Commands are grouped into Sources and Daily facts; unavailable actions explain
+  the server capability or connection requirement. Manual entry opens a separate
+  editing sheet with Cancel/Save and grouped fields. Indoor/other distances are
+  disclosed on demand. Pull to refresh reloads saved data only. Opening a day only reads data. Targeted Strava refetch uses
   a bounded calendar-day window, polls at most 24 times over two minutes, then
   recalculates only after success. Check refresh status continues the same job;
   an ambiguous enqueue checks exact-range jobs before another submission.

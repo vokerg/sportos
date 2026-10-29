@@ -1,7 +1,7 @@
 # Day actions on iPhone (#224)
 
 Web already exposes all four actions on `/daily/:date`. Native day detail now
-places the same actions at the top, including empty dates. They reuse existing
+keeps all four workflows in a native navigation-bar menu, including empty dates. They reuse existing
 native bearer/session transport and owner-scoped API routes. No backend, database
 migration, scoring policy or web implementation changes are required.
 
@@ -46,8 +46,8 @@ account authorization stay in the existing API; no new roadmap milestone.
 
 ## Validation
 
-Mobile typecheck; complete mobile tests (40 pure model tests, 38 mounted/config
-checks including ten new day-action tests); existing web day page tests (5).
+Mobile typecheck; complete mobile tests (40 pure model tests, 40 mounted/config
+checks including twelve new day-action tests); existing web day page tests (5).
 The focused tests cover empty-day visibility, no writes on navigation, targeted
 sync-before-recalculation, failure handling, polling budget/manual continuation,
 ambiguous enqueue recovery, duplicate protection, manual subtype/unit validation,
@@ -61,3 +61,45 @@ labels, both hosted origins and absence of local API/web origins. A transient
 connection reset on the first install resolved after reconnecting. No live provider
 download/scoring mutation or owner UI acceptance is claimed by this installation.
 Garmin helper and Strava worker availability remain deployment requirements.
+
+
+## Native presentation follow-up
+
+The maintainer found the four prominent buttons too heavy for the day screen.
+The final design uses a native iOS navigation-bar ellipsis menu (UIMenu through
+React Navigation's installed native-stack header items). Source commands and
+score/manual commands form inline groups. Disabled actions remain discoverable
+with capability/connection descriptions. No additional native dependency was added;
+the installed native-stack API is experimental, so mounted option/command tests
+and actual simulator interaction cover the integration. Android retains a compact
+header entry and modal command list.
+
+The screen now leads with a readable calendar date and forest/lime score card;
+server authority, signed totals and provider presence are preserved. Normal
+navigation shows neither command buttons nor instructional copy. Status appears
+only while checking/operating or reporting an outcome. Pull to refresh performs
+saved-data reads only. Manual entry uses an iOS page sheet, Cancel/Save toolbar,
+grouped rows and expandable indoor/unspecified distances. Input validation,
+subtype preservation, server scoring and request cancellation remain unchanged.
+
+Guidance reviewed: [Apple Menus](https://developer.apple.com/design/human-interface-guidelines/menus),
+[Apple Sheets](https://developer.apple.com/design/human-interface-guidelines/sheets),
+[React Navigation native stack](https://reactnavigation.org/docs/native-stack-navigator/).
+Additionally inspected native-stack header option/menu types and native mapping,
+mobile ui theme/primitives, ScoreHero, AppNavigation, SessionProvider, App entry,
+existing implementation notes #213/#219 and day-action tests before editing.
+
+Synthetic native simulator review covers light/dark appearances, increased text
+size, native menu opening, manual sheet opening, field focus and Cancel returning
+to the day. Temporary synthetic entry/context export is removed before production
+build; no fixture data or screen capture is committed. Focused mounted regression
+now verifies menu availability without the button stack, capability gating and
+manual sheet cancellation without writes. This is presentation validation; no live
+provider mutation or personal data was used for it.
+
+
+Final native presentation Release build passed and was installed/launched on the
+personal iPhone under the maintainer's existing reinstall authorization. The bundle
+was audited for the final menu/sheet, hosted HTTPS origins, absence of local origins
+and absence of temporary synthetic fixtures/context export. Signature verification
+passed. The owner has not yet confirmed the final presentation on the phone.

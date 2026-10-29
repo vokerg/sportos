@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { BottomTabBarHeightContext } from 'react-native-bottom-tabs';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSportosTheme } from './theme';
 import { SportGlyph } from './identity';
@@ -8,8 +8,8 @@ import { formatDistance, formatDuration, formatPace, localToday, shiftCalendarDa
 
 export { formatDistance, formatDuration, formatPace };
 
-export function Screen({ title, eyebrow, children, nested = false }: {
-  title: string; eyebrow?: string; children: React.ReactNode; nested?: boolean;
+export function Screen({ title, eyebrow, children, nested = false, onRefresh, refreshing=false }: {
+  title: string; eyebrow?: string; children: React.ReactNode; nested?: boolean; onRefresh?():void; refreshing?:boolean;
 }) {
   const { palette } = useSportosTheme();
   const tabBarHeight = useContext(BottomTabBarHeightContext);
@@ -17,6 +17,7 @@ export function Screen({ title, eyebrow, children, nested = false }: {
   return <SafeAreaView edges={nested ? ['left', 'right', 'bottom'] : ['top', 'left', 'right']}
     style={{ flex: 1, backgroundColor: palette.background }}>
     <ScrollView automaticallyAdjustKeyboardInsets contentInsetAdjustmentBehavior="never"
+      refreshControl={onRefresh?<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.accent}/>:undefined}
       scrollIndicatorInsets={{ bottom: bottomPadding }}
       contentContainerStyle={[styles.screen, { paddingBottom: bottomPadding }]} keyboardShouldPersistTaps="handled">
       <View style={styles.screenHeader}>
