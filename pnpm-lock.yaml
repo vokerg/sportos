@@ -41,6 +41,9 @@ importers:
       '@sportos/domain':
         specifier: workspace:^
         version: link:../../packages/domain
+      '@sportos/garmin-runtime':
+        specifier: workspace:*
+        version: link:../../packages/garmin-runtime
       '@sportos/importers':
         specifier: workspace:*
         version: link:../../packages/importers
@@ -224,6 +227,9 @@ importers:
       '@sportos/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@sportos/garmin-runtime':
+        specifier: workspace:*
+        version: link:../../packages/garmin-runtime
       '@sportos/importers':
         specifier: workspace:*
         version: link:../../packages/importers
@@ -257,6 +263,21 @@ importers:
       '@sportos/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/garmin-runtime:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.4.15
+        version: 10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@sportos/db':
+        specifier: workspace:*
+        version: link:../db
+      '@sportos/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@sportos/importers':
+        specifier: workspace:*
+        version: link:../importers
 
   packages/importers:
     dependencies:

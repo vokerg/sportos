@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@sportos/db": "workspace:*",
-    "@sportos/importers": "workspace:*"
+    "@sportos/importers": "workspace:*",
+    "@sportos/garmin-runtime": "workspace:*"
   }
 }

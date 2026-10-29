@@ -36,6 +36,20 @@ def discover(transport, start):
     return {'items': items, 'truncated': len(rows) == 100, 'uncertain': uncertain}
 
 
+def execute(request, transport):
+    if request.get('operation') == 'discover':
+        result = discover(transport, request['startTime'])
+    elif request.get('operation') == 'day':
+        from fetch_day import fetch_day
+        result = fetch_day(transport, request['date'], request.get('categories'))
+    elif request.get('operation') == 'extract':
+        result = extract(transport, activity_id(request['providerActivityId']), DEFAULT_HOME / 'sources', request.get('refresh') is True)
+        result = {'folder': str(result['folder']), 'bundle': result['bundle']}
+    else:
+        raise ExtractionError('INVALID_BRIDGE_INPUT')
+    return result
+
+
 def main():
     try:
         data = sys.stdin.buffer.read(16385)
@@ -51,16 +65,7 @@ def main():
             from fetch_day import calendar_date
             calendar_date(request.get('date'))
         transport = login(str(DEFAULT_HOME / 'tokens'))
-        if request.get('operation') == 'discover':
-            result = discover(transport, request['startTime'])
-        elif request.get('operation') == 'day':
-            from fetch_day import fetch_day
-            result = fetch_day(transport, request['date'], request.get('categories'))
-        elif request.get('operation') == 'extract':
-            result = extract(transport, activity_id(request['providerActivityId']), DEFAULT_HOME / 'sources', request.get('refresh') is True)
-            result = {'folder': str(result['folder']), 'bundle': result['bundle']}
-        else:
-            raise ExtractionError('INVALID_BRIDGE_INPUT')
+        result = execute(request, transport)
         sys.stdout.buffer.write(encoded(result))
     except ExtractionError as error:
         sys.stdout.buffer.write(encoded({'error': error.code}))

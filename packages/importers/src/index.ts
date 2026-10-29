@@ -8,3 +8,4 @@ export * from './provider-types.js';
 export * from './credential-cipher.js';
 export * from './strava-adapter.js';
 export { writeMySportFixture } from './test-fixtures/xlsx-fixtures.js';
+export * from './garmin-session-cipher.js';

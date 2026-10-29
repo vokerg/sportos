@@ -1,3 +1,4 @@
+import type {GarminConnectionsTable,GarminCredentialsTable,GarminJobsTable,GarminWorkerStatusTable} from './garmin-jobs-schema.js';
 import type { PerformanceMatchDecisionsTable, PerformanceMatchHeadsTable } from './performance-match-schema.js';
 import type { RunningEffortProjectionsTable, RunningEffortValuesTable, RunningEffortHeadsTable } from './running-effort-schema.js';
 import type { ActivityRouteProjectionsTable } from './activity-route-projection-schema.js';
@@ -473,6 +474,10 @@ export interface Database {
   activity_metric_projections: ActivityMetricProjectionsTable;
   activity_provider_metric_values: ActivityProviderMetricValuesTable;
   activity_metric_heads: ActivityMetricHeadsTable;
+  garmin_connections:GarminConnectionsTable;
+  garmin_credentials:GarminCredentialsTable;
+  garmin_jobs:GarminJobsTable;
+  garmin_worker_status:GarminWorkerStatusTable;
   garmin_day_versions: GarminDayVersionsTable;
   garmin_day_heads: GarminDayHeadsTable;
   garmin_day_resources: GarminDayResourcesTable;

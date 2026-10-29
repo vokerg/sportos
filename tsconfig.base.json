@@ -12,11 +12,24 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@sportos/shared": ["packages/shared/src/index.ts"],
-      "@sportos/domain": ["packages/domain/src/index.ts"],
-      "@sportos/db": ["packages/db/src/index.ts"],
-      "@sportos/importers": ["packages/importers/src/index.ts"],
-      "@sportos/analytics": ["packages/analytics/src/index.ts"]
+      "@sportos/shared": [
+        "packages/shared/src/index.ts"
+      ],
+      "@sportos/domain": [
+        "packages/domain/src/index.ts"
+      ],
+      "@sportos/db": [
+        "packages/db/src/index.ts"
+      ],
+      "@sportos/importers": [
+        "packages/importers/src/index.ts"
+      ],
+      "@sportos/analytics": [
+        "packages/analytics/src/index.ts"
+      ],
+      "@sportos/garmin-runtime": [
+        "packages/garmin-runtime/src/index.ts"
+      ]
     }
   }
 }

@@ -70,3 +70,6 @@ export * from './connection-errors.js';
 export * from "./repositories/athlete-data.repository.js";
 export * from './repositories/athlete-laps.repository.js';
 export * from './repositories/athlete-swim-lengths.repository.js';
+
+export * from './garmin-jobs-schema.js';
+export * from './repositories/garmin-jobs.repository.js';
