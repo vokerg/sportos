@@ -57,14 +57,13 @@ export function MapScreen({route}:NativeStackScreenProps<RootStack,'RouteMap'>) 
       const result=projectRoute(raw);
       if(!active)return;
       if(result.status==='available')setRoutes([result]);
-      else setMessage(result.reason==='indoor_pool_swim'?'Indoor pool workout has no GPS route.':'No usable GPS route is retained for this activity.');
+      else setMessage(result.reason==='indoor_pool_swim'?'Indoor pool workout has no GPS route.':'No route recorded for this activity.');
     }).catch(()=>{if(active)setMessage('Could not read the route. Check your connection or retry.');}).finally(()=>{if(active)setBusy(false);});
     return ()=>{active=false;};
   },[read,route.params.activityId,revision]));
   return <View style={{flex:1,backgroundColor:palette.background}}>
     <View style={{padding:16,gap:8}}>
-      {routes[0]?<Body>{routes[0].source} · {routes[0].resolution} geometry · recording gaps preserved</Body>:null}
-      {busy?<StatusPanel kind="loading" message="Reading retained route…"/>:null}
+      {busy?<StatusPanel kind="loading" message="Loading route…"/>:null}
       {message?<StatusPanel kind="empty" message={message} retry={()=>setRevision(n=>n+1)}/>:null}
     </View>
     {focused&&routes.length?<RouteCanvas routes={routes} heatmap={false}/>:null}
@@ -104,11 +103,11 @@ export function HeatmapScreen() {
       <Body subdued>{routes.length} routes · {coverage.eligibleScanned??0} scanned · {coverage.missingGps??0} missing GPS · {(coverage.invalidGeometry??0)+(coverage.budgetExceeded??0)} omitted</Body>
       <Body subdued>Summary/streams/detail/FIT precision varies. Density represents retained route presence, not distance or effort. Up to 50 routes per view.</Body>
       {message?<Body>{message}</Body>:null}
-      {busy?<Body>Reading retained routes…</Body>:<View style={{flexDirection:'row',gap:8}}>
+      {busy?<Body>Loading routes…</Body>:<View style={{flexDirection:'row',gap:8}}>
         <View style={{flex:1}}><Action title="Reload" secondary onPress={reset}/></View>
         {next&&page<1?<View style={{flex:1}}><Action title="Load next page" onPress={()=>{setCursors(c=>[...c,next]);setPage(p=>p+1);}}/></View>:null}
       </View>}
     </View>
-    {focused&&routes.length?<RouteCanvas routes={routes} heatmap/>:!busy?<View style={{padding:16}}><Body>No retained routes in this selection. Choose another range or sport.</Body></View>:null}
+    {focused&&routes.length?<RouteCanvas routes={routes} heatmap/>:!busy?<View style={{padding:16}}><Body>No routes found. Try another range or sport.</Body></View>:null}
   </View>;
 }

@@ -164,8 +164,6 @@ export function projectActivityDetail(payload) {
     garminStrength: strength(payload.garminStrength),
     linkedStrava: base.providerMetrics.some(p => p.provider === 'strava' && p.linked) || payload.providerDetail?.provider === 'strava',
     linkedGarmin: base.providerMetrics.some(p => p.provider === 'garmin' && p.linked) || payload.garmin?.provider === 'garmin',
-    provenance: payload.provenance && object(payload.provenance)
-      ? optional(payload.provenance.sourceRecordSource,80) : null,
     // Provider activity names can contain line breaks; normalize instead of crashing detail.
     name: base.source === 'strava' && typeof payload.notes === 'string'
       ? payload.notes.replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,120) || null : null,

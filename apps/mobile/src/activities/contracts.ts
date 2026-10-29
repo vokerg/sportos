@@ -27,7 +27,7 @@ export interface GarminStrength {
 export interface ActivityDetail extends Activity {
   bestEfforts: EffortProvider[]; metricComparisons: MetricComparison[];
   garminStrength: GarminStrength|null; linkedStrava:boolean; linkedGarmin:boolean;
-  provenance:string|null; name:string|null;
+  name:string|null;
 }
 export interface Enrichment {
   strava: 'cached'|'missing'|'stale'|'unavailable';

@@ -1,9 +1,10 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ProviderStatus } from '../ui/ProviderStatus';
 import { TrackArt, SportGlyph } from '../ui/identity';
 import { useSportosTheme } from '../ui/theme';
 import type { DailySummary } from './contracts';
-import { formatPoints, scoreAuthority, sourceNames, todayCoverage } from './model.mjs';
+import { formatPoints, scoreAuthority } from './model.mjs';
 
 export function ScoreHero({ day, today, onOpen }: { day: DailySummary; today: string; onOpen(): void }) {
   const { palette } = useSportosTheme();
@@ -11,7 +12,7 @@ export function ScoreHero({ day, today, onOpen }: { day: DailySummary; today: st
   return <View style={[styles.hero,{backgroundColor:palette.hero}]}>
     <TrackArt/>
     <View style={styles.top}>
-      <Text accessibilityRole="header" style={[styles.label,{color:palette.heroMuted}]}>{day.metric_date===today?"TODAY'S SAVED SCORE":'LATEST SAVED SCORE'}</Text>
+      <Text accessibilityRole="header" style={[styles.label,{color:palette.heroMuted}]}>{day.metric_date===today?"TODAY'S SCORE":'LATEST SCORE'}</Text>
       <View style={styles.date}><Text style={{color:palette.heroText,fontSize:11,fontWeight:'600'}}>{day.metric_date}</Text></View>
     </View>
     <View style={styles.scoreRow}>
@@ -24,10 +25,11 @@ export function ScoreHero({ day, today, onOpen }: { day: DailySummary; today: st
         <View key={label} style={[styles.metric,fontScale>1.3?{flexBasis:'100%'}:null]}><Text style={[styles.metricValue,{color:palette.heroText}]}>{value}</Text>
           <Text style={[styles.metricLabel,{color:palette.heroMuted}]}>{label}</Text></View>)}
     </View>
-    <Text style={[styles.note,{color:palette.heroMuted}]}>{todayCoverage(day.metric_date,today)}{'\n'}{sourceNames(day.providerSources)}</Text>
-    <Pressable accessibilityRole="button" accessibilityLabel="Review this day" onPress={onOpen}
+    <ProviderStatus sources={day.providerSources}/>
+    {day.metric_date===today?<Text style={[styles.note,{color:palette.heroMuted}]}>Today so far</Text>:null}
+    <Pressable accessibilityRole="button" accessibilityLabel="View day" onPress={onOpen}
       style={({pressed})=>[styles.button,{backgroundColor:palette.lime,opacity:pressed?0.8:1}]}>
-      <Text style={{color:'#1B3025',fontSize:15,fontWeight:'700'}}>Review this day</Text><SportGlyph sport="arrow" color="#1B3025" size={20}/>
+      <Text style={{color:'#1B3025',fontSize:15,fontWeight:'700'}}>View day</Text><SportGlyph sport="arrow" color="#1B3025" size={20}/>
     </Pressable>
   </View>;
 }

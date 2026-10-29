@@ -9,6 +9,8 @@ import type { MainTabs, RootStack } from '../navigation/routes';
 import { Action, Body, Card, NavigationRow, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { formatDuration, localToday } from '../ui/format.mjs';
 import { useSportosTheme } from '../ui/theme';
+import { sourceLabel } from '../ui/source-label';
+import { ProviderStatus } from '../ui/ProviderStatus';
 import { SportMark } from '../ui/identity';
 import { activityDetailPath, activityDistance, activityListPath, effortRows, projectActivityDetail,
   projectActivityList, projectEnrichment, projectGarminSets, projectLaps, projectSwimLengths,
@@ -83,10 +85,10 @@ function ActivityRow({activity,onOpen}: {activity:Activity;onOpen():void}) {
     </View>
     {activity.distance_m !== null ? <Text style={{color:palette.text,fontSize:27,fontWeight:'700',letterSpacing:-0.8,marginTop:4,fontVariant:['tabular-nums']}}>{activityDistance(activity)}</Text> : null}
     <Text style={[styles.rowSub,{color:palette.muted}]}>{[durationLabel(activity),...summaryMetrics(activity).filter(m=>['Pace','Average speed','Average HR'].includes(m.label)).map(m=>m.label+': '+m.value)].filter(Boolean).join(' · ')}</Text>
-    <Text style={[styles.mini,{color:palette.accent}]}>{activity.source.replaceAll('_',' ')}
+    <Text style={[styles.mini,{color:palette.accent}]}>{sourceLabel(activity.source)}
       {activity.historicalSummary?' · Historical reconstruction':''}
       {activity.distanceCorrection?' · Corrected distance':''}</Text>
-    {activity.providerMetrics.map(p => <Text key={p.provider} style={[styles.mini,{color:palette.muted}]}>{providerLabel(p)}</Text>)}
+    
   </Pressable>;
 }
 
@@ -147,10 +149,10 @@ export function ActivitiesScreen({navigation}: NativeBottomTabScreenProps<MainTa
       <Filters label="Origin" items={FILTER_SOURCES} value={source} onChange={setSource} />
       </>:null}
     </Card>
-    {view.kind==='loading'?<StatusPanel kind="loading" message="Reading canonical activities…" />:null}
+    {view.kind==='loading'?<StatusPanel kind="loading" message="Loading activities…" />:null}
     {['error','offline'].includes(view.kind)?<StatusPanel kind={view.kind as 'error'|'offline'}
-      message={view.kind==='offline'?'Offline. Activity history is not cached.':'Could not load canonical activities.'} retry={retry}/>:null}
-    {view.kind==='empty'?<StatusPanel kind="empty" message="No activities match these filters. Missing history is not a zero-distance session." retry={retry}/>:null}
+      message={view.kind==='offline'?'Offline. Activity history is not cached.':'Could not load activities.'} retry={retry}/>:null}
+    {view.kind==='empty'?<StatusPanel kind="empty" message="No activities match these filters." retry={retry}/>:null}
     {data?<>
       <Body>{data.count.toLocaleString('en-US')} activities in your training history</Body>
       <Card title="Training sessions">
@@ -201,9 +203,9 @@ function SplitTable({rows,renderRow}: {rows:{row:number}[];renderRow:(index:numb
 function swimPace(s:number) {return formatDuration(s)+' /100 m'}
 function SwimSplits({data}: {data:SwimLengths}) {
   if (data.status==='unavailable') return <Card title="Pool lengths">
-    <Body subdued>Individual FIT lengths are not available ({data.reason??'no retained evidence'}). No splits are inferred from total distance.</Body>
+    <Body subdued>No pool lengths recorded.</Body>
   </Card>;
-  return <Card title="Pool lengths · Garmin FIT">
+  return <Card title="Pool lengths">
     <TextRow label="Pool size" value={data.poolLengthM===null?'Not recorded':data.poolLengthM+' m'} />
     <TextRow label="Recorded lengths" value={String(data.lengths.length)} />
     <TextRow label="Evidence coverage" value={data.complete===true?'Complete reported count':data.complete===false?'Incomplete or mismatched':'Unconfirmed'} />
@@ -227,8 +229,8 @@ function SwimSplits({data}: {data:SwimLengths}) {
   </Card>;
 }
 function RunSplits({data,source}: {data:RunLapBatch;source:'strava'|'garmin'}) {
-  return <Card title={(source==='strava'?'Strava':'Garmin FIT')+' recorded running laps'}>
-    {data.rows.length===0?<Body subdued>No recorded laps retained for this provider.</Body>:<>
+  return <Card title={(source==='strava'?'Strava':'Garmin')+' laps'}>
+    {data.rows.length===0?<Body subdued>No laps recorded.</Body>:<>
       <SplitChart label="Lap pace" values={data.rows.map(r=>r.paceSPerKm)} formatter={n=>formatDuration(n)+' /km'}/>
       <SplitChart label="Lap heart rate" values={data.rows.map(r=>r.heartRate)} formatter={n=>Math.round(n)+' bpm'}/>
       <SplitTable rows={data.rows} renderRow={i=>{
@@ -245,12 +247,11 @@ function RunSplits({data,source}: {data:RunLapBatch;source:'strava'|'garmin'}) {
   </Card>;
 }
 function StrengthSets({rows}: {rows:GarminSetRows}) {
-  return <Card title="Garmin FIT recorded sets">
+  return <Card title="Workout sets">
     {rows.length? <SplitTable rows={rows.map((_,i)=>({row:i+1}))}
       renderRow={i=><TextRow label={'Set '+(i+1)} value={rows[i]!.map(r=>r.label+': '+r.value).join(' · ')}/>}
-      />:<Body subdued>No individual exercise sets were retained.</Body>}
-    <Body subdued>Exercise labels reflect native source evidence, not a computed workout plan.</Body>
-  </Card>;
+      />:<Body subdued>No sets recorded.</Body>}
+      </Card>;
 }
 
 export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<RootStack,'ActivityDetail'>) {
@@ -324,8 +325,8 @@ export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<R
   };
   const activity=detail.data;
   const safeId=validActivityId(id);
-  return <Screen nested eyebrow="Canonical activity" title={activity?title(activity.activity_type):'Activity detail'}>
-    {detail.kind==='loading'?<StatusPanel kind="loading" message="Reading activity facts…" />:null}
+  return <Screen nested eyebrow="ACTIVITY" title={activity?title(activity.activity_type):'Activity detail'}>
+    {detail.kind==='loading'?<StatusPanel kind="loading" message="Loading activity…" />:null}
     {detail.kind==='offline'||detail.kind==='error'?<StatusPanel kind={detail.kind}
       message={detail.kind==='offline'?'Offline. No activity details are cached.':'Could not load this activity, or it is no longer available to this account.'}
       retry={safeId?reload:undefined}/>:null}
@@ -333,29 +334,27 @@ export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<R
       <Card title={activity.name??title(activity.activity_type)}>
         <Body subdued>{activity.activity_date}{localActivityTime(activity.start_time)?' · '+localActivityTime(activity.start_time):''}
           {activity.subtype && !['outdoor','unknown'].includes(activity.subtype)?' · '+activity.subtype:''}</Body>
-        <SourceBadge label={'Canonical · '+activity.source.replaceAll('_',' ')}/>
-        {activity.provenance?<Body subdued>Source-record class: {activity.provenance}</Body>:null}
-        {activity.historicalSummary?<Body subdued>Historical workbook reconstruction; original session count, start time and GPS are unknown.</Body>:null}
+        <ProviderStatus sources={{strava:activity.linkedStrava,garmin:activity.linkedGarmin}}/>
+        {activity.historicalSummary?<Body subdued>Imported training summary. Individual sessions and GPS aren’t available.</Body>:null}
         {activity.activity_type==='walk'?<Body subdued>Walking activities do not independently earn activity points; steps remain in the daily step total.</Body>:null}
         {activity.activity_type==='swim' && activity.subtype==='indoor'?
           <Body subdued>Indoor pool workout · no GPS map.</Body>
           :activity.activity_type==='swim' || ['run','bike','walk','rowing','sup'].includes(activity.activity_type)
-            ? <Action title="View retained GPS route" onPress={()=>navigation.navigate('RouteMap',{activityId:id})}/>
+            ? <Action title="Show route" onPress={()=>navigation.navigate('RouteMap',{activityId:id})}/>
             :null}
-        {activity.distanceCorrection?<><SourceBadge label="Audited distance correction"/>
+        {activity.distanceCorrection?<><SourceBadge label="Distance corrected"/>
           <TextRow label="Original distance" value={activity.distanceCorrection.recordedDistanceM+' m'}/>
-          <TextRow label="Effective distance" value={activity.distanceCorrection.effectiveDistanceM+' m'}/>
+          <TextRow label="Corrected distance" value={activity.distanceCorrection.effectiveDistanceM+' m'}/>
         </>:null}
       </Card>
-      <Card title="Sport metrics · canonical">
+      <Card title="Stats">
         {summaryMetrics(activity).length?summaryMetrics(activity).map(item=>
           <TextRow key={item.label} label={item.label} value={item.value}/>)
-          :<Body subdued>No sport-specific numeric metrics are available in canonical data.</Body>}
+          :<Body subdued>No stats for this activity.</Body>}
       </Card>
-      {activity.metricComparisons.length?<Card title="Provider metric selections">
-        <Body subdued>Read-only values selected by the server. A selected value does not overwrite the canonical facts.</Body>
-        {activity.metricComparisons.map((m,i)=><TextRow key={m.key+'-'+i} label={m.label}
-          value={m.value.toLocaleString('en-US',{maximumFractionDigits:2})+' '+m.unit+' · '+m.source}/>)}
+      {activity.metricComparisons.length?<Card title="More stats">
+                {activity.metricComparisons.map((m,i)=><TextRow key={m.key+'-'+i} label={m.label}
+          value={m.value.toLocaleString('en-US',{maximumFractionDigits:2})+' '+m.unit+' · '+sourceLabel(m.source)}/>)}
       </Card>:null}
       {activity.activity_type==='run'?<Card title="Distance efforts">
         {effortRows(activity.bestEfforts).length?effortRows(activity.bestEfforts).map((e,i)=>
@@ -368,57 +367,47 @@ export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<R
         <TextRow label="Working sets" value={String(activity.garminStrength.workingSets)}/>
         <TextRow label="Recorded sets" value={String(activity.garminStrength.totalRecordedSets)}/>
         <TextRow label="Warmup / rest markers" value={activity.garminStrength.warmupSets+' / '+activity.garminStrength.restMarkers}/>
-        <Body subdued>{activity.garminStrength.complete?'Source summary complete':'Source summary partial or unconfirmed'}</Body>
+        <Body subdued>{activity.garminStrength.complete?'All sets loaded':'Some sets may be missing'}</Body>
         {activity.garminStrength.exercises.map((e,i)=><TextRow key={i} label={e.name} value={e.workingSets+' working sets'}/>)}
       </Card>:null}
       {activity.activity_type==='swim' && activity.subtype!=='outdoor'?<>
-        {swim.kind==='loading'?<StatusPanel kind="loading" message="Reading retained pool FIT lengths…" />:null}
-        {swim.kind==='error'?<StatusPanel kind="error" message="Pool length data cannot be read. Recorded splits are not inferred." retry={reload}/>:null}
+        {swim.kind==='loading'?<StatusPanel kind="loading" message="Loading pool lengths…" />:null}
+        {swim.kind==='error'?<StatusPanel kind="error" message="Couldn’t load pool lengths." retry={reload}/>:null}
         {swim.data?<SwimSplits data={swim.data}/>:null}
       </>:null}
-      <Card title="Source coverage · read-only">
-        <Body subdued>Canonical fields remain authoritative. Rich provider data is stored separately and optional.</Body>
-        {activity.providerMetrics.length?activity.providerMetrics.map(row=>
-          <Body key={row.provider}>{providerLabel(row)}</Body>)
-          :<Body subdued>Provider metric status not reported.</Body>}
-        {coverageError?<Body subdued>Detail availability could not be checked; Fetch controls are hidden.</Body>:null}
-        {enrichment?<><TextRow label="Strava rich detail" value={enrichment.strava}/>
-          <TextRow label="Garmin FIT detail" value={enrichment.garmin}/></>:null}
-      </Card>
-      {activity.activity_type==='run'?<Card title="Recorded running laps">
-        <Body subdued>View reads only retained Strava/Garmin laps. No request to the provider is made by opening this screen.</Body>
-        <Action title="View saved Strava laps" secondary disabled={!activity.linkedStrava || laps.kind==='loading'}
+      {coverageError?<Body subdued>Couldn’t check download availability. Try reloading.</Body>:null}
+      {activity.activity_type==='run'?<Card title="Laps">
+                <Action title="Show Strava laps" secondary disabled={!activity.linkedStrava || laps.kind==='loading'}
           onPress={()=>viewLaps('strava')}/>
-        <Action title="View saved Garmin FIT laps" secondary disabled={!activity.linkedGarmin || laps.kind==='loading'}
+        <Action title="Show Garmin laps" secondary disabled={!activity.linkedGarmin || laps.kind==='loading'}
           onPress={()=>viewLaps('garmin')}/>
-        {laps.kind==='loading'?<StatusPanel kind="loading" message="Reading retained provider laps…"/>:null}
-        {laps.kind==='error'?<Body subdued>Retained laps are missing or could not be read. Fetch detail is a separate explicit action.</Body>:null}
-        {laps.kind==='empty'?<Body subdued>Provider detail was retained, but has no recorded laps.</Body>:null}
+        {laps.kind==='loading'?<StatusPanel kind="loading" message="Loading laps…"/>:null}
+        {laps.kind==='error'?<Body subdued>Couldn’t load laps. Try downloading activity details.</Body>:null}
+        {laps.kind==='empty'?<Body subdued>No laps recorded.</Body>:null}
       </Card>:null}
       {laps.kind==='loaded'&&laps.data&&laps.source?<RunSplits data={laps.data} source={laps.source}/>:null}
-      {activity.activity_type==='workout'?<Card title="Recorded exercise sets">
-        <Body subdued>Only explicitly retained Garmin FIT sets are shown; no exercises are generated.</Body>
-        <Action title="View saved Garmin sets" secondary disabled={!activity.linkedGarmin || sets.kind==='loading'} onPress={viewSets}/>
-        {sets.kind==='loading'?<StatusPanel kind="loading" message="Reading retained exercise sets…"/>:null}
-        {sets.kind==='error'?<Body subdued>Retained sets are unavailable or could not be read.</Body>:null}
-        {sets.kind==='empty'?<Body subdued>No individual sets are retained in Garmin detail.</Body>:null}
+      {activity.activity_type==='workout'?<Card title="Workout sets">
+                <Action title="Show sets" secondary disabled={!activity.linkedGarmin || sets.kind==='loading'} onPress={viewSets}/>
+        {sets.kind==='loading'?<StatusPanel kind="loading" message="Loading sets…"/>:null}
+        {sets.kind==='error'?<Body subdued>Couldn’t load sets.</Body>:null}
+        {sets.kind==='empty'?<Body subdued>No sets recorded.</Body>:null}
       </Card>:null}
       {sets.kind==='loaded'&&sets.data?<StrengthSets rows={sets.data}/>:null}
-      <Card title="Explicit provider detail fetch">
-        <Body subdued>These actions may contact Strava or, where the local helper is enabled, Garmin and retain additional private data on the backend. No rich detail is fetched in the background.</Body>
+      <Card title="Sync activity">
+        <Body subdued>Download the latest activity details.</Body>
         {enrichment && activity.linkedStrava && enrichment.strava!=='unavailable'?<>
-          <Action title="Fetch Strava rich detail" disabled={providerOp!==null} onPress={()=>fetchDetail('strava',false)}/>
+          <Action title="Download Strava details" disabled={providerOp!==null} onPress={()=>fetchDetail('strava',false)}/>
           {enrichment.strava==='cached'||enrichment.strava==='stale'?
-            <Action title="Refresh Strava from provider" secondary disabled={providerOp!==null} onPress={()=>fetchDetail('strava',true)}/>:null}
+            <Action title="Refresh Strava" secondary disabled={providerOp!==null} onPress={()=>fetchDetail('strava',true)}/>:null}
         </>:null}
         {enrichment && enrichment.garminFetchEnabled?<>
-          <Action title="Fetch Garmin FIT detail" disabled={providerOp!==null} onPress={()=>fetchDetail('garmin',false)}/>
-          {enrichment.garmin==='cached'?<Action title="Refresh Garmin from helper" secondary disabled={providerOp!==null} onPress={()=>fetchDetail('garmin',true)}/>:null}
-        </>:<Body subdued>Garmin Fetch is disabled unless the authenticated local desktop helper is explicitly enabled. Saved FIT data can still be viewed.</Body>}
-        {providerOp?<StatusPanel kind="loading" message={'Fetching '+providerOp+' only because you requested it…'}/>:null}
+          <Action title="Download Garmin details" disabled={providerOp!==null} onPress={()=>fetchDetail('garmin',false)}/>
+          {enrichment.garmin==='cached'?<Action title="Refresh Garmin" secondary disabled={providerOp!==null} onPress={()=>fetchDetail('garmin',true)}/>:null}
+        </>:<Body subdued>Garmin sync isn’t available here.</Body>}
+        {providerOp?<StatusPanel kind="loading" message={'Downloading '+(providerOp==='strava'?'Strava':'Garmin')+' details…'}/>:null}
         {providerMessage?<Body subdued>{providerMessage}</Body>:null}
       </Card>
-      <Action title="Refresh canonical detail" secondary onPress={reload}/>
+      <Action title="Reload activity" secondary onPress={reload}/>
     </>:null}
   </Screen>;
 }

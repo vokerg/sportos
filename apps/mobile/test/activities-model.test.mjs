@@ -54,7 +54,7 @@ test('running detail keeps canonical pace, provenance and server effort method d
     secret:'should not survive'});
   const data=projectActivityDetail(raw);
   assert.equal(data.name,'Long run');
-  assert.equal(data.provenance,'strava_api');
+  assert.equal(data.provenance,undefined);
   assert.equal(data.linkedStrava,true);
   assert.equal(data.metricComparisons[0].value,86);
   assert.equal(data.metricComparisons[0].candidates,undefined);
