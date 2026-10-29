@@ -11,7 +11,9 @@ import { isCalendarDate, localToday, shiftCalendarDate } from '../ui/format.mjs'
 import { useSportosTheme } from '../ui/theme';
 import { sourceLabel } from '../ui/source-label';
 import { ProviderStatus } from '../ui/ProviderStatus';
-import { GarminDayCard } from './GarminDayCard';
+import { useGarminDay, GarminDayView } from './GarminDayCard';
+import { DayActions } from './DayActions';
+import { useDayActions } from './day-actions';
 import { ScoreHero } from './ScoreHero';
 import { SportMark } from '../ui/identity';
 import type { DailySummary, ActivityListPreview, MobileDayDetail } from './contracts';
@@ -194,13 +196,18 @@ export function DailyScreen({ navigation }: NativeBottomTabScreenProps<MainTabs,
 }
 
 export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, 'DailyDetail'>) {
+  return <DailyDetail key={route.params.date} date={route.params.date}/>;
+}
+function DailyDetail({date}:{date:string}) {
   const { read } = useSession();
-  const date = route.params.date;
   const [revision, setRevision] = useState(0);
   const [coverage,setCoverage]=useState<{strava?:boolean;garmin?:boolean}>();
   const [garminLoaded,setGarminLoaded]=useState(false);
   const onGarminLoaded=useCallback((hasData:boolean)=>setGarminLoaded(hasData),[]);
   const [detail, setDetail] = useState<Load<MobileDayDetail>>(INITIAL);
+  const garmin = useGarminDay(date,onGarminLoaded);
+  const updated = useCallback((value:MobileDayDetail)=>{setDetail({kind:'loaded',data:value});setRevision(v=>v+1)},[]);
+  const actions = useDayActions(date,updated);
   useFocusEffect(useCallback(() => {
     let active = true;
     setDetail(INITIAL);setCoverage(undefined);
@@ -225,6 +232,7 @@ export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, '
 
   const data = detail.data;
   return <Screen nested eyebrow="DAILY" title={date}>
+    {isCalendarDate(date)?<DayActions actions={actions} garmin={garmin} ready={detail.kind==='loaded'||detail.kind==='empty'}/>:null}
     {detail.kind === 'loading' ? <StatusPanel kind="loading" message="Loading your day…" /> : null}
     {detail.kind === 'empty' ? <StatusPanel kind="empty" message="No score saved for this day." /> : null}
     {detail.kind === 'offline' || detail.kind === 'error' ? <StatusPanel kind={detail.kind}
@@ -247,7 +255,7 @@ export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, '
         </View>
         
       </Card> : null}
-    <GarminDayCard key={date} date={date} onLoaded={onGarminLoaded}/>
+    <GarminDayView state={garmin} showAction={false}/>
     {data ? <>
       <Card title="Activity">
         <View style={styles.metrics}>
