@@ -64,6 +64,15 @@ with `node scripts/mobile-tab-icons.mjs`. Device and release gaps are tracked in
 ## Feature boundaries
 
 - Home/Daily read persisted scores, authority, contributions, history and ledgers.
+  Day detail also reads compact retained Garmin categories. Explicit Fetch missing /
+  Refresh actions require the API-reported `fetchEnabled` capability; the Garmin
+  helper must be enabled on that API, independently of worker availability. These
+  actions retain evidence and do not recalculate scores.
+- More > Providers lists existing Strava connections and supports Sync changes,
+  retry/cancel and bounded job status checks (24 checks over two minutes), with
+  manual refresh afterwards. A running compatible worker is required to execute
+  queued syncs. Connection/reauthorization remains in the SportOS website. No
+  provider sync or Garmin download starts merely by opening a screen.
 - Activities offers filters/pages, sport-specific canonical metrics, retained laps,
   pool lengths/SWOLF and strength evidence. Rich provider Fetch/Refresh is explicit
   and server-availability gated. Walking is labelled non-scoring.
