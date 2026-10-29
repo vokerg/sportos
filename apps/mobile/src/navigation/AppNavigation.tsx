@@ -1,4 +1,5 @@
 import React from 'react';
+import { ProvidersScreen } from '../providers/screens';
 import { nativeTabOptions } from './native-tabs';
 import { NavigationContainer, type Theme } from '@react-navigation/native';
 import { createNativeBottomTabNavigator } from '@bottom-tabs/react-navigation';
@@ -50,6 +51,7 @@ export function AppNavigation() {
       <Stack.Screen name="Heatmap" component={HeatmapScreen} options={{ title: 'Private heatmap' }} />
       <Stack.Screen name="PerformanceDetail" component={PerformanceDetailScreen} options={{ title: 'Achievement' }} />
       <Stack.Screen name="Analytics" component={AnalyticsScreen} options={{ title: 'Analytics' }} />
+      <Stack.Screen name="Providers" component={ProvidersScreen} options={{ title: 'Providers' }} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} options={{ title: 'Activity' }} />
       <Stack.Screen name="DailyDetail" component={DailyDetailScreen} options={{ title: 'Daily score' }} />

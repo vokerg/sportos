@@ -17,6 +17,7 @@ export function MoreScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 
   const { session, signOut } = useSession();
   return <Screen eyebrow="YOUR SPORTOS" title="Beyond the numbers">
     <Card title="Explore">
+      <NavigationRow title="Providers" detail="Strava sync and job status" icon="arrow" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Providers')} />
       <NavigationRow title="Training trends" detail="Dynamics & monthly stats" icon="chart" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Analytics')} />
       <NavigationRow title="Your map" detail="A heatmap of the ground you covered" icon="map" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('Heatmap')} />
       <NavigationRow title="About SportOS" detail="Your data, privacy and coverage" icon="info" onPress={() => navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('About')} />

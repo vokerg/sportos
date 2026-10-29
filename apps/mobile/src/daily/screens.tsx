@@ -9,6 +9,7 @@ import type { MainTabs, RootStack } from '../navigation/routes';
 import { Action, Body, Card, DateStepper, formatDistance, Metric, NavigationRow, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { isCalendarDate, localToday, shiftCalendarDate } from '../ui/format.mjs';
 import { useSportosTheme } from '../ui/theme';
+import { GarminDayCard } from './GarminDayCard';
 import { ScoreHero } from './ScoreHero';
 import { SportMark } from '../ui/identity';
 import type { DailySummary, ActivityListPreview, MobileDayDetail } from './contracts';
@@ -310,6 +311,7 @@ export function DailyDetailScreen({ route }: NativeStackScreenProps<RootStack, '
       </Card>
       <Action title="Refresh this day" secondary onPress={() => setRevision(v => v + 1)} />
     </> : null}
+    <GarminDayCard key={date} date={date}/>
   </Screen>;
 }
 

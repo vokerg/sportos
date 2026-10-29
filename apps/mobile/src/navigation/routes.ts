@@ -8,6 +8,7 @@ export type MainTabs = {
 
 export type RootStack = {
   Main: undefined;
+  Providers: undefined;
   About: undefined;
   Analytics: undefined;
   PerformanceDetail: {eventId:string};
