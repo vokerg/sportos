@@ -427,3 +427,22 @@ An issue is complete only when its acceptance criteria are satisfied; the releva
   account-scoped `GET /rules`. Angular groups/describes API output only. Do not
   restore rule editing, preview/publication or job mutation controls without a
   new maintainer request. Backend audited rule management remains supported.
+
+
+### Durable Garmin execution (#226)
+
+- Explicit UI day/activity Fetch/Refresh now enqueues owner-scoped durable jobs;
+  the API never invokes Python or reads Garmin session files. This supersedes
+  earlier API-local development-only Fetch guidance. Terminal tools remain optional.
+- `packages/garmin-runtime` shares targeted retention/reconciliation execution;
+  `apps/worker/src/garmin-job-runner.ts` owns lease-fenced execution and credential
+  rotation. Preserve one active job per connection and encrypted owner/connection/
+  provider/version-bound sessions. The initial operator import is legacy-account-only.
+- Primary V143/V144 and detail V005/V006 add queue/session boundaries and dedicated
+  worker-data detail access including explicit CONNECT. API/dispatcher cannot read
+  Garmin credentials. No worker may use API/schema-owner credentials.
+- Repeated same-day requests are supported; identical active work deduplicates.
+  Keep GETs read-only, successful evidence on partial failure, bounded polling and
+  manual continuation. Fetch never recalculates official scores.
+- See `docs/GARMIN_WORKER.md` and ADR 0012. #95 Oracle/shared-storage restrictions
+  remain in force; this change does not authorize that deployment.

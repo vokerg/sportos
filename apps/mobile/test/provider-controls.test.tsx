@@ -60,7 +60,7 @@ it('refreshes Garmin explicitly with duplicate protection and keeps partial cate
  read.mockResolvedValue(day);let finish!:(v:unknown)=>void;mutate.mockImplementation(()=>new Promise(r=>{finish=r}));await mount(<GarminDayCard date={day.date}/>);
  const refresh=button('Load Garmin');await act(async()=>{refresh.props.onPress();refresh.props.onPress()});expect(mutate).toHaveBeenCalledTimes(1);
  expect(mutate.mock.calls[0].slice(0,3)).toEqual(['/daily/'+day.date+'/garmin','POST',{refresh:true}]);
- await act(async()=>finish(day));expect(JSON.stringify(tree!.toJSON())).not.toContain('retained');
+ await act(async()=>finish({id:jobId,operation:'day',date:day.date,activityId:null,refresh:true,status:'succeeded',phase:'succeeded',attemptCount:1,errorCode:null}));expect(JSON.stringify(tree!.toJSON())).not.toContain('retained');
  expect(mutate.mock.calls.some(([p])=>p.includes('recalculate'))).toBe(false);
 });
 it('aborts route requests and discards late results after unmount',async()=>{

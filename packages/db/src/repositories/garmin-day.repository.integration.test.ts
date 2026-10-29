@@ -88,9 +88,9 @@ integration('Garmin day provenance and RLS',()=>{
     await expect(withAccountContext(primary,owner,db=>db.updateTable('garmin_day_versions').set({projection_json:{steps:1}}).execute())).rejects.toThrow('permission denied');
     await expect(withAccountContext(detail,owner,db=>db.deleteFrom('garmin_day_resources').execute())).rejects.toThrow('permission denied');
   });
-  it('denies dispatcher and worker-data access to day evidence',async()=>{
+  it('denies dispatcher access and requires account context for worker data',async()=>{
     for(const url of [process.env.SPORTOS_WORKER_TEST_DATABASE_URL,process.env.SPORTOS_WORKER_DATA_TEST_DATABASE_URL].filter((x):x is string=>Boolean(x))){
-      const db=createDb(url);try{for(const table of ['garmin_day_versions','garmin_day_heads'] as const)await expect(db.selectFrom(table).selectAll().execute()).rejects.toThrow('permission denied');}finally{await db.destroy();}
+      const db=createDb(url);try{for(const table of ['garmin_day_versions','garmin_day_heads'] as const){if(url===process.env.SPORTOS_WORKER_DATA_TEST_DATABASE_URL)expect(await db.selectFrom(table).selectAll().execute()).toEqual([]);else await expect(db.selectFrom(table).selectAll().execute()).rejects.toThrow('permission denied');}}finally{await db.destroy();}
     }
   });
 });

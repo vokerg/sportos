@@ -4,6 +4,7 @@ CREATE TABLE garmin_connections (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  owner_id uuid NOT NULL DEFAULT sportos_current_account_id() REFERENCES accounts(id),
  status text NOT NULL DEFAULT 'ready' CHECK(status IN ('ready','reauthorization_required','disconnected')),
+ time_zone text NOT NULL DEFAULT 'UTC' CHECK(length(time_zone) BETWEEN 1 AND 100),
  revision integer NOT NULL DEFAULT 1 CHECK(revision > 0),
  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE(owner_id), UNIQUE(owner_id,id)

@@ -58,7 +58,7 @@ describe('Garmin day evidence card',()=>{
 function renderDay(state: 'missing' | 'current' | 'partial', result?: 'cached' | 'fetched') {
   const day = {date: '2026-03-29', origin: 'garmin_connect', evidenceOnly: true,
     fetchEnabled: true, state, completeness: 'complete', result: result ?? null, categories: []};
-  const api = {read: vi.fn(() => of(day)), fetch: vi.fn(() => of({...day, state: 'current', result: 'fetched'}))};
+  const api = {read: vi.fn(() => of(day)), fetch: vi.fn(() => of({id:'job',operation:'day',date:day.date,activityId:null,status:'succeeded',phase:'succeeded',attemptCount:1,errorCode:null,refresh:true}))};
   const store = new GarminDayStore(api as never);
   TestBed.configureTestingModule({imports: [GarminDayCardComponent]});
   TestBed.overrideComponent(GarminDayCardComponent, {set: {providers: [{provide: GarminDayStore, useValue: store}]}});
@@ -79,7 +79,7 @@ it.each(['missing', 'current', 'partial'] as const)('the main %s-day action requ
   button.click();
   fixture.detectChanges();
   expect(api.fetch).toHaveBeenCalledExactlyOnceWith('2026-03-29', true);
-  expect(fixture.nativeElement.textContent).toContain('Latest day data checked. Use Recalculate');
+  expect(fixture.nativeElement.textContent).toContain('Garmin updated. Use Recalculate');
 });
 
 it('explains cached and incomplete results without claiming a successful update', () => {

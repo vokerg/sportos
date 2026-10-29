@@ -105,6 +105,7 @@ export class ActivityEnrichmentService {
       return { ...(await this.read(account.id, activityId)), cacheStatus: 'miss', effortProjection: await this.efforts.project(account.id,activityId,'garmin'), metricProjection: await this.metrics.project(account.id,activityId) };
     } catch (error) {
       if (error instanceof HttpException) throw error;
+      if(error instanceof Error && /^GARMIN_[A-Z_]+$/.test(error.message)) throw new ServiceUnavailableException({code:error.message,message:'Garmin request failed; retained evidence is safe.'});
       throw new ServiceUnavailableException({ code: 'GARMIN_FETCH_FAILED', message: 'Garmin fetch failed. Check the local login and retry.' });
     } finally { this.active.delete(key); }
   }

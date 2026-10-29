@@ -1,3 +1,4 @@
+import {inRepositoryTransaction} from '../ownership-context.js';
 import { GarminStrengthRepository } from './garmin-strength.repository.js';
 import type { GarminStrengthSummary } from '@sportos/domain';
 import { createHash } from 'node:crypto';
@@ -37,7 +38,7 @@ export class GarminActivitiesRepository {
   async ingest(input: GarminActivitySnapshot, strength?: GarminStrengthSummary) {
     validateSnapshot(input);
     const key = garminIdentityKey(input);
-    return this.db.transaction().execute(async (tx) => {
+    return inRepositoryTransaction(this.db,async (tx) => {
       await lockActivityReconciliation(tx);
       const existing = await tx.selectFrom('garmin_activity_identities').selectAll().where('identity_key', '=', key).forUpdate().executeTakeFirst();
       let identity = existing ?? await tx.insertInto('garmin_activity_identities').values({
@@ -73,7 +74,7 @@ export class GarminActivitiesRepository {
   /** Explicit retained Fetch may reconsider pending evidence under the current
    * policy. Existing links and rejected decisions are never changed. */
   async reconsider(identityKey: string, contentHash: string, dryRun = false) {
-    return this.db.transaction().execute(async tx => {
+    return inRepositoryTransaction(this.db,async tx => {
       await lockActivityReconciliation(tx);
       const identity = await tx.selectFrom('garmin_activity_identities').selectAll()
         .where('identity_key', '=', identityKey).where('current_hash', '=', contentHash).forUpdate().executeTakeFirst();
@@ -145,7 +146,7 @@ export class GarminActivitiesRepository {
   }
 
   async review(id: string, decision: 'link' | 'reject' | 'reopen', activityId: string | null = null) {
-    return this.db.transaction().execute(async (tx) => {
+    return inRepositoryTransaction(this.db,async (tx) => {
       await lockActivityReconciliation(tx);
       const identity = await tx.selectFrom('garmin_activity_identities').selectAll().where('id', '=', id).forUpdate().executeTakeFirst();
       if (!identity) return null;

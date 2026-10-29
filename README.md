@@ -5,7 +5,7 @@ See [chat setup](docs/CHAT.md) to configure the server-side DeepSeek connection.
 
 SportOS is a local-first, account-scoped sports-data cockpit for importing training records, synchronizing provider activity, preserving source provenance, calculating deterministic scores, reviewing canonical results, and producing cited read-only analysis.
 
-> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V142, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
+> **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V144, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
 
 ## What SportOS can do
 
@@ -90,6 +90,14 @@ creates a private JSON snapshot and comprehensive Russian report outside all Git
 worktrees for manual IronMan handoff. An explicit trusted local account binding
 and non-owner runtime connection are required. No provider fetch, canonical write
 or automatic IronMan update occurs.
+
+## Garmin worker requests
+
+Explicit day/activity Garmin Fetch/Refresh now queues durable jobs for a configured
+worker, including when the API and worker run on different machines. Garmin
+sessions are encrypted in the primary database and available only to owner-scoped
+worker execution. See [Garmin worker setup](docs/GARMIN_WORKER.md). Fetch remains
+evidence-only; scoring requires explicit Recalculate.
 
 ## Native iPhone client
 

@@ -121,11 +121,16 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         }
         <div class="provider-heading"><h3>Garmin</h3><span class="badge">{{ store.coverage()?.garmin?.state === 'cached' ? 'Rich data retained' : store.coverage()?.garmin?.linked ? 'Linked · detail missing' : 'Not linked' }}</span></div>
         <div class="provider-actions">
-          <button type="button" [disabled]="store.garminState() === 'loading' || !store.coverage() || (!store.coverage()?.garmin?.fetchEnabled && store.coverage()?.garmin?.state !== 'cached')" (click)="store.garminDetail(true)">{{ store.garminState() === 'loading' ? 'Loading Garmin…' : 'Fetch Garmin detail' }}</button>
+          <button type="button" [disabled]="store.garminState() === 'loading' || !store.coverage() || !store.coverage()?.garmin?.fetchEnabled" (click)="store.garminDetail(true)">{{ store.garminState() === 'loading' ? 'Loading Garmin…' : 'Fetch Garmin detail' }}</button>
           <button type="button" [disabled]="store.garminState() === 'loading' || store.coverage()?.garmin?.state !== 'cached'" (click)="store.garminDetail()">View Garmin data</button>
           @if (store.coverage()?.garmin?.linked && store.coverage()?.garmin?.fetchEnabled) { <button type="button" [disabled]="store.garminState() === 'loading'" (click)="store.garminDetail(true, true)">Refresh from Garmin</button> }
         </div>
         @if (store.coverage() && !store.coverage()?.garmin?.fetchEnabled) { <p>New Garmin downloads require the local desktop helper. Retained Garmin data can still be viewed.</p> }
+        @if (store.garminJobMessage()) { <p role="status">{{store.garminJobMessage()}}</p> }
+        @if (store.garminJob(); as job) {
+          @if (job.status === 'queued' || job.status === 'running') { <button type="button" (click)="store.checkGarminJob()" [disabled]="store.garminState() === 'loading'">Check Garmin status</button><button type="button" (click)="store.cancelGarminJob()">Cancel Garmin request</button> }
+          @if (job.status === 'failed' || job.status === 'cancelled') { <button type="button" (click)="store.retryGarminJob()" [disabled]="store.garminState() === 'loading' || !store.coverage()?.garmin?.fetchEnabled">Retry Garmin request</button> }
+        }
         @if (store.garminState() === 'loading') { <p role="status">Checking retained data and fetching only if needed…</p> }
         @if (store.garminState() === 'error' || store.garminState() === 'missing') { <p role="alert">{{ store.garminError() }}</p> }
         @if (store.garminState() === 'loaded' && store.garminError()) { <p role="alert">{{ store.garminError() }}</p> }

@@ -2,7 +2,7 @@ import { ActivityMetricsService } from './activity-metrics.service.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConflictException } from '@nestjs/common';
 import { GarminActivityResourcesRepository, LEGACY_ACCOUNT_ID } from '@sportos/db';
-import { ActivityEnrichmentService } from './activity-enrichment.service.js';
+import { ActivityEnrichmentService } from '@sportos/garmin-runtime';
 import { GarminLocalIngestService } from './garmin-local-ingest.service.js';
 const id = '11111111-1111-4111-8111-111111111111';
 const summary = { start_time: '2026-01-01T10:00:00Z', activity_type: 'run', subtype: 'outdoor', duration_s: 1800, moving_time_s: 1800, distance_m: 5000 };

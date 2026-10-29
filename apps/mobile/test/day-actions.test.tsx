@@ -102,10 +102,10 @@ it('bounds dates, numeric input and all-day steps without calculating official s
  expect(()=>parseDraft({...draft,bonusPoints:'1.5'},false)).toThrow();
 });
 it('uses the top Garmin action without recalculation and explains unavailable capabilities',async()=>{
- read.mockImplementation(async(p:string)=>defaultReads(p));mutate.mockResolvedValue({...defaultReads('/daily/'+date+'/garmin') as object});
+ read.mockImplementation(async(p:string)=>defaultReads(p));mutate.mockResolvedValue({id:jobId,operation:'day',date,activityId:null,refresh:true,status:'succeeded',phase:'succeeded',attemptCount:1,errorCode:null});
  await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={navigation as never}/>);
  await act(async()=>menuItem('Refresh Garmin').onPress());
- expect(mutate.mock.calls[0].slice(0,3)).toEqual(['/daily/'+date+'/garmin','POST',{refresh:false}]);
+ expect(mutate.mock.calls[0].slice(0,3)).toEqual(['/daily/'+date+'/garmin','POST',{refresh:true}]);
  expect(mutate).toHaveBeenCalledTimes(1);
  await act(async()=>tree!.unmount());tree=null;
  read.mockImplementation(async(p:string)=>p.endsWith('/garmin')?{...defaultReads(p) as object,fetchEnabled:false}:p==='/providers/connections'?[]:defaultReads(p));

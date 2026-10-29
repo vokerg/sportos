@@ -17,7 +17,7 @@ type CategoryResult = { category: GarminDayCategory; state: GarminDayState; sour
 export class GarminDayService {
   private readonly active = new Set<string>();
   constructor(private readonly primary: DbProvider, private readonly detail: ActivityDetailDbProvider,
-    private readonly storage: UploadStorage, private readonly enrichment: ActivityEnrichmentService) {}
+    private readonly storage: UploadStorage, private readonly enrichment: ActivityEnrichmentService,private readonly timeZone?:string) {}
 
   private rows(owner: string, date: string) {
     return this.primary.withAccount(owner, db => new GarminDayRepository(db).read(date));
@@ -52,8 +52,8 @@ export class GarminDayService {
         evidence: projection, resourceAvailable: Boolean(row?.source_hash) });
     }
     const now = new Date();
-    const needsCheck = rows.length < GARMIN_DAY_CATEGORIES.length || rows.some(row => !garminDayCheckedAfterEnd(date, row, now));
-    const completeness = date >= garminLocalDate(now) ? 'in_progress' : needsCheck ? 'refresh_required' : 'complete';
+    const needsCheck = rows.length < GARMIN_DAY_CATEGORIES.length || rows.some(row => !garminDayCheckedAfterEnd(date, row, now,this.timeZone));
+    const completeness = date >= garminLocalDate(now,this.timeZone) ? 'in_progress' : needsCheck ? 'refresh_required' : 'complete';
     const partial = completeness !== 'complete' || uncoveredStravaActivities || rows.some(row => retryable(row.state));
     return { date, origin: 'garmin_connect', evidenceOnly: true, fetchEnabled: this.enrichment.localEnabled(owner),
       state: !rows.length ? 'missing' : partial ? 'partial' : 'current', completeness, result: result ?? null, categories };
@@ -84,7 +84,7 @@ export class GarminDayService {
       const requested: GarminDayCategory[] = [];
       for (const category of GARMIN_DAY_CATEGORIES) {
         const row = rows.find(item => item.category === category);
-        let complete = Boolean(row && !retryable(row.state) && garminDayCheckedAfterEnd(date, row));
+        let complete = Boolean(row && !retryable(row.state) && garminDayCheckedAfterEnd(date, row,new Date(),this.timeZone));
         if (complete && row?.source_hash) complete = Boolean(await this.detail.withAccount(account.id, db => new GarminDayResourcesRepository(db).read(date, category, row.source_hash!)));
         if (complete && category === 'activities' && row?.projection_json && typeof row.projection_json === 'object' && !Array.isArray(row.projection_json) && Array.isArray(row.projection_json.identities)) {
           for (const key of row.projection_json.identities) {
@@ -170,6 +170,7 @@ export class GarminDayService {
       return this.read(account.id, date, 'fetched');
     } catch (error) {
       if (error instanceof HttpException) throw error;
+      console.error('Garmin retention operation failed',{type:error instanceof Error?error.name:'unknown',code:error&&typeof error==='object'&&'code' in error&&/^[A-Z0-9_]{1,50}$/.test(String(error.code))?String(error.code):'UNCLASSIFIED'});
       throw new ServiceUnavailableException({ code: 'GARMIN_DAY_RETENTION_UNAVAILABLE', message: 'Garmin day retention is unavailable. Prior evidence is safe; retry later.' });
     } finally { clearTimeout(timeout); signal?.removeEventListener('abort', abort); this.active.delete(key); }
   }
@@ -193,7 +194,7 @@ export class GarminDayService {
 
 function errorState(error: unknown): GarminDayState {
   const response = error instanceof HttpException ? error.getResponse() : null;
-  const code = response && typeof response === 'object' && 'code' in response ? String(response.code) : '';
+  const code = response && typeof response === 'object' && 'code' in response ? String(response.code) : error instanceof Error?error.message:'';
   if (/RATE_LIMIT/.test(code)) return 'rate_limited';
   if (/REAUTHENTICATE|LOGIN|SETUP_REQUIRED/.test(code)) return 'authentication_required';
   return 'failed';

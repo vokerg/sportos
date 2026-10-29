@@ -491,3 +491,18 @@ against owner-scoped workbook provenance/date/distance/subtype. Ordinary Strava
 identity checks remain unchanged. Preview is read-only; apply shares the account
 reconciliation lock and is atomic/replay-safe. The operator performs no scoring,
 ledger, snapshot, rule or provider mutations. See [policy](HISTORICAL_RUN_ACTIVITIES.md).
+
+
+## Durable Garmin execution (#226)
+
+The API now submits owner-scoped day/activity jobs and never invokes Python for UI
+Fetch/Refresh. `packages/garmin-runtime` contains the shared existing bounded
+execution/retention/reconciliation pipeline, with API-compatible server exceptions;
+it is a server runtime package, separate from pure domain/analytics packages.
+`GarminJobRunner` runs it under fenced owner context and separate detail-worker
+credentials. Encrypted primary session envelopes and a private in-memory Python
+protocol replace dependence on API-local token files. A shared-system heartbeat
+exposes capability freshness without host or owner data. Primary V143/V144 and
+detail V005/V006 define jobs, ownership, credentials, immutable targets and narrow
+worker grants. See [Garmin workers](GARMIN_WORKER.md) for lifecycle, role, storage,
+calendar and deployment constraints. Official scoring remains separate.

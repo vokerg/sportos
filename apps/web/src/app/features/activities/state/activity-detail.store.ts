@@ -1,8 +1,10 @@
+import {pollDurableJob} from '../../../core/jobs/durable-job-poller';
+import {activeGarminJob,terminalGarminJob,garminJobMessage,type GarminFetchJob} from '../../../shared/model/garmin-job';
 import { runLaps, type LapSource } from '../model/run-laps.models';
 import type { ActivityTimeline, TimelineSource } from '../model/activity-timeline.models';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, OnDestroy, computed, signal } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Subscription,of } from 'rxjs';
 import { ActivitiesApiService, type ActivityDetail, type ActivityMapAvailable, type ActivityMapResponse, type ActivityProviderDetailResponse, type EnrichmentStatus, type GarminDetail, type SwimLengthResponse } from '../activities-api.service';
 type LoadState = 'idle' | 'loading' | 'loaded' | 'missing' | 'error';
 
@@ -35,6 +37,7 @@ export class ActivityDetailStore implements OnDestroy {
   readonly providerState = signal<LoadState>('idle'); readonly providerDetail = signal<ActivityProviderDetailResponse | null>(null);
   readonly providerJson = signal<string | null>(null); readonly providerFetchedAt = signal<string | null>(null); readonly providerCacheStatus = signal<'hit' | 'miss' | null>(null);
   readonly providerError = signal('');
+  readonly garminJob=signal<GarminFetchJob|null>(null); readonly garminJobMessage=signal('');
   readonly garminState = signal<LoadState>('idle'); readonly garmin = signal<GarminDetail | null>(null); readonly garminError = signal('');
   readonly resourceState = signal<LoadState>('idle'); readonly resourceJson = signal<string | null>(null);
   readonly distanceCorrectionState = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -46,7 +49,7 @@ export class ActivityDetailStore implements OnDestroy {
   load(id: string, options: { coverage?: boolean } = {}) {
     this.cancel(); this.runLapSource.set('strava'); this.swimLengthState.set('idle'); this.swimLengths.set(null); this.timelineRequest++; this.timelineState.set('idle'); this.timelineData.set(null); this.timelineSource.set('strava'); this.id = id; this.state.set('loading'); this.effortState.set('idle'); this.effortError.set(''); this.metricState.set('idle');this.metricError.set(''); this.activity.set(null); this.mapState.set('idle'); this.mapData.set(null); this.mapReason.set(null); this.coverage.set(null); this.coverageError.set(false); this.distanceCorrectionState.set('idle'); this.distanceCorrectionError.set('');
     this.sourceState.set('idle'); this.sourceJson.set(null); this.providerState.set('idle'); this.providerDetail.set(null); this.providerJson.set(null); this.providerFetchedAt.set(null); this.providerCacheStatus.set(null); this.providerError.set('');
-    this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
+    this.garminJob.set(null);this.garminJobMessage.set('');this.garminState.set('idle'); this.garmin.set(null); this.garminError.set(''); this.resourceState.set('idle'); this.resourceJson.set(null);
     const generation = this.generation;
     this.requests.set('activity', this.api.detail(id).subscribe({ next: activity => { if (generation !== this.generation) return; this.activity.set(activity); if (activity.activity_type === 'swim' && activity.garmin) this.timelineSource.set('garmin'); this.state.set('loaded'); if (options.coverage !== false) this.refreshCoverage(); if (activity.activity_type === 'swim' && activity.subtype === 'indoor') { this.mapState.set('unavailable'); this.mapReason.set('indoor_pool_swim'); } else this.loadMap(); }, error: error => { if (generation === this.generation) this.state.set(missing(error)); } }));
   }
@@ -92,7 +95,7 @@ export class ActivityDetailStore implements OnDestroy {
   }
   refreshCoverage() {
     this.requests.get('coverage')?.unsubscribe(); const generation = this.generation;
-    this.requests.set('coverage', this.api.enrichment(this.id).subscribe({ next: status => { if (generation === this.generation) { this.coverage.set(status); this.coverageError.set(false); } }, error: () => { if (generation === this.generation) this.coverageError.set(true); } }));
+    this.requests.set('coverage', this.api.enrichment(this.id).subscribe({ next: status => { if (generation === this.generation) { this.coverage.set(status); this.coverageError.set(false);if(status.garmin?.activeJob&&!this.garminJob()){this.garminJob.set(status.garmin.activeJob);this.checkGarminJob();} } }, error: () => { if (generation === this.generation) this.coverageError.set(true); } }));
   }
   strava(fetch = false, refresh = false) {
     if (this.providerState() === 'loading' || !this.activity()?.providerDetail) return;
@@ -101,11 +104,31 @@ export class ActivityDetailStore implements OnDestroy {
     this.requests.set('strava', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.providerDetail.set(detail); this.providerJson.set(JSON.stringify(detail.resources, null, 2)); this.providerFetchedAt.set(new Date(detail.fetchedAt).toLocaleString()); this.providerCacheStatus.set(detail.cacheStatus); this.providerState.set('loaded'); this.refreshCoverage(); if(fetch) { this.refreshActivity(); this.loadMap(); } }, error: error => { if (generation === this.generation) { this.providerState.set(missing(error)); this.providerError.set(message(error, 'Could not load Strava detail. You can retry or reconnect Strava.')); if(fetch) this.refreshActivity(); } } }));
   }
   garminDetail(fetch = false, refresh = false) {
-    if (this.garminState() === 'loading') return;
-    this.garminState.set('loading'); this.garminError.set(''); const generation = this.generation;
-    const request = fetch ? this.api.fetchGarminDetail(this.id, refresh) : this.api.garminDetail(this.id);
-    this.requests.set('garmin', request.subscribe({ next: detail => { if (generation !== this.generation) return; this.garmin.set(detail); this.garminState.set('loaded'); this.refreshCoverage(); if (fetch) { this.invalidateGarminCharts(); this.refreshActivity(); this.loadMap(); } }, error: error => { if (generation === this.generation) { this.garminState.set(missing(error)); this.garminError.set(message(error, 'Could not load Garmin detail. Retry after checking your local login.')); if(fetch) this.refreshActivity(); } } }));
+    if(this.garminState()==='loading')return;
+    if(fetch){
+      if(activeGarminJob(this.garminJob())){this.checkGarminJob();return;}
+      if(!this.coverage()?.garmin.fetchEnabled)return;
+      this.garminState.set('loading');this.garminError.set('');const generation=this.generation;
+      this.requests.set('garmin',this.api.fetchGarminDetail(this.id,refresh).subscribe({next:job=>{if(generation===this.generation){if(job.operation!=='activity'||job.activityId!==this.id){this.garminState.set('error');this.garminError.set('Unexpected Garmin job response.');return;}this.garminJob.set(job);this.checkGarminJob()}},error:error=>{if(generation===this.generation){this.garminState.set('error');this.garminError.set(message(error,'Could not queue Garmin. Refresh coverage before retrying.'))}}}));return;
+    }
+    this.garminState.set('loading');this.garminError.set('');const generation=this.generation;
+    this.requests.set('garmin',this.api.garminDetail(this.id).subscribe({next:detail=>{if(generation===this.generation){this.garmin.set(detail);this.garminState.set('loaded')}},error:error=>{if(generation===this.generation){this.garminState.set(missing(error));this.garminError.set(message(error,'Could not read retained Garmin detail.'))}}}));
   }
+  checkGarminJob(){
+    const current=this.garminJob();if(!current)return;
+    this.requests.get('garminPoll')?.unsubscribe();this.garminState.set('loading');const generation=this.generation;
+    this.requests.set('garminPoll',(terminalGarminJob(current)?of({state:'terminal' as const,attempt:0,job:current}):pollDurableJob(()=>this.api.garminJob(current.id),{intervalMs:5000,maxAttempts:120,maxDurationMs:600000,isTerminal:terminalGarminJob})).subscribe(event=>{
+      if(generation!==this.generation)return;
+      if(event.job){if(event.job.id!==current.id||event.job.operation!=='activity'||event.job.activityId!==this.id){this.garminState.set('error');this.garminError.set('Unexpected Garmin job response.');this.requests.get('garminPoll')?.unsubscribe();return;}this.garminJob.set(event.job);this.garminJobMessage.set(garminJobMessage(event.job));}
+      if(event.state==='terminal'){
+        this.garminState.set('idle');this.refreshCoverage();
+        if(event.job.status==='succeeded'){this.garminDetail();this.invalidateGarminCharts();this.refreshActivity();this.loadMap();}
+        else{this.garminState.set('error');this.garminError.set(garminJobMessage(event.job));}
+      }else if(event.state==='exhausted'||event.state==='error'){this.garminState.set('error');this.garminError.set('Status checks paused. The job continues; check Garmin status to resume.');}
+    }));
+  }
+  cancelGarminJob(){const job=this.garminJob();if(!job)return;const generation=this.generation;this.requests.set('garminCancel',this.api.cancelGarminJob(job.id).subscribe({next:result=>{if(generation===this.generation){this.garminJob.set(result);this.checkGarminJob()}},error:()=>{if(generation===this.generation)this.garminError.set('Cancellation could not be requested. Check status.')}}))}
+  retryGarminJob(){const job=this.garminJob();if(!job||activeGarminJob(job)||!this.coverage()?.garmin.fetchEnabled)return;const generation=this.generation;this.garminState.set('loading');this.requests.set('garminRetry',this.api.retryGarminJob(job.id).subscribe({next:result=>{if(generation===this.generation){this.garminJob.set(result);this.checkGarminJob()}},error:()=>{if(generation===this.generation){this.garminState.set('error');this.garminError.set('Could not retry Garmin. Refresh coverage.')}}}))}
   private invalidateGarminCharts() {
     // A successful Fetch/Refresh may publish a new immutable source version.
     // Cancel older reads, then require explicit chart reloads from that version.

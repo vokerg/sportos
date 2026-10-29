@@ -14,7 +14,7 @@ DO $$DECLARE t text; BEGIN
  END LOOP;
  -- Garmin route projection checks retained Strava privacy/geometry before using
  -- Garmin geometry. Read access does not grant Strava fetching or replacement.
- ALTER POLICY account_isolation ON activity_provider_resources TO sportos_app,sportos_worker_data;
+ CREATE POLICY garmin_worker_privacy_read ON activity_provider_resources FOR SELECT TO sportos_worker_data USING(owner_id=sportos_activity_detail_current_account_id());
  GRANT SELECT ON activity_provider_resources TO sportos_worker_data;
  GRANT UPDATE ON activity_route_projections TO sportos_worker_data;
  IF has_table_privilege('sportos_worker_data','garmin_activity_resources','UPDATE,DELETE') OR has_table_privilege('sportos_worker_data','garmin_day_resources','UPDATE,DELETE') THEN

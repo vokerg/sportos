@@ -43,7 +43,8 @@
     "test:mobile": "pnpm --filter @sportos/mobile test",
     "mobile:smoke": "tsx scripts/mobile-smoke.mts",
     "mcp": "pnpm --filter @sportos/mcp start",
-    "athlete:snapshot": "pnpm --filter @sportos/mcp snapshot"
+    "athlete:snapshot": "pnpm --filter @sportos/mcp snapshot",
+    "garmin:import-session": "pnpm --filter @sportos/worker exec tsx src/garmin-session-import.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -1,3 +1,8 @@
+> Day/activity UI Fetch/Refresh uses durable worker jobs as of #226. See
+> [Garmin worker setup](GARMIN_WORKER.md). The isolated CLI extraction/upload
+> commands below remain available; their local token files are separate from
+> encrypted worker sessions and are not automatically synchronized.
+
 # Local Garmin activity import and UI helper
 
 The single-activity phase of #99 builds on the #97 reconciliation foundation.

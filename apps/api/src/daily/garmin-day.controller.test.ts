@@ -1,46 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GarminDayController } from './garmin-day.controller.js';
-const account = { id: '11111111-1111-4111-8111-111111111111', displayName: 'Test', email: null };
-function setup() {
-  const service = { read: vi.fn(), resource: vi.fn(), fetch: vi.fn() };
-  return { service, controller: new GarminDayController(service as never) };
-}
-describe('Garmin day request boundary', () => {
-  afterEach(() => vi.useRealTimers());
-  it('accepts today through the authenticated existing workflow but rejects tomorrow at local midnight', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(2026, 9, 25, 0, 5));
-    const { service, controller } = setup();
-    await controller.fetch('2026-10-25', { refresh: true }, account);
-    expect(service.fetch).toHaveBeenCalledWith(account, '2026-10-25', true, expect.any(AbortSignal));
-    await expect(controller.fetch('2026-10-26', {}, account)).rejects.toMatchObject({ status: 400 });
-    expect(service.fetch).toHaveBeenCalledTimes(1);
-  });
-  it('GET selects only retained data and derives owner from account', () => {
-    const { service, controller } = setup(); controller.read('2026-03-29', account);
-    expect(service.read).toHaveBeenCalledWith(account.id,'2026-03-29'); expect(service.fetch).not.toHaveBeenCalled();
-    controller.resource('2026-03-29','weight',account); expect(service.resource).toHaveBeenCalledWith(account.id,'2026-03-29','weight');
-  });
-  it('POST allows only refresh boolean and rejects private internals', async () => {
-    const { service, controller } = setup();
-    for (const input of [{ownerId:account.id},{refresh:'true'},{password:'secret'},{path:'/private'},[],null]) {
-      if (input === null) continue;
-      await expect(controller.fetch('2026-03-29',input,account)).rejects.toMatchObject({status:400});
-    }
-    expect(service.fetch).not.toHaveBeenCalled();
-    await controller.fetch('2026-03-29',{refresh:true},account);
-    expect(service.fetch).toHaveBeenCalledWith(account,'2026-03-29',true,expect.any(AbortSignal));
-  });
-  it('rejects malformed/future dates and arbitrary categories before any work', async () => {
-    const { service, controller } = setup();
-    expect(() => controller.read('2026-02-30',account)).toThrow();
-    expect(() => controller.resource('2026-03-29','credentials',account)).toThrow();
-    await expect(controller.fetch('2099-01-01',{},account)).rejects.toMatchObject({status:400});
-    expect(service.fetch).not.toHaveBeenCalled();
-  });
-  it('disconnect cancels the underlying helper', async () => {
-    const { service, controller } = setup(); let close: (()=>void) | undefined;
-    service.fetch.mockImplementation(async (_owner,_date,_refresh, signal: AbortSignal) => { close?.(); expect(signal.aborted).toBe(true); });
-    await controller.fetch('2026-03-29',{},account,undefined,{on: (_event,listener) => {close=listener;},off:vi.fn()});
-  });
+import {describe,expect,it,vi} from 'vitest';
+import {GarminDayController} from './garmin-day.controller.js';
+const account={id:'11111111-1111-4111-8111-111111111111',displayName:'Test',email:null};
+function setup(){const service={read:vi.fn(),resource:vi.fn(),fetch:vi.fn()};return{service,controller:new GarminDayController(service as never)}}
+describe('Garmin day queue request boundary',()=>{
+ it('enqueues only the authenticated owner and allowed refresh flag',async()=>{const {service,controller}=setup();await controller.fetch('2026-03-29',{refresh:true},account);expect(service.fetch).toHaveBeenCalledWith(account,'2026-03-29',true)});
+ it('GET stays read-only and categories are allowlisted',()=>{const{service,controller}=setup();controller.read('2026-03-29',account);expect(service.read).toHaveBeenCalledWith(account.id,'2026-03-29');expect(service.fetch).not.toHaveBeenCalled();expect(()=>controller.resource('2026-03-29','credentials',account)).toThrow()});
+ it('rejects owners, paths, passwords and malformed dates before queueing',async()=>{const{service,controller}=setup();for(const body of [{ownerId:account.id},{refresh:'true'},{password:'secret'},{path:'/private'},[]])await expect(controller.fetch('2026-03-29',body,account)).rejects.toMatchObject({status:400});await expect(controller.fetch('2026-02-30',{},account)).rejects.toMatchObject({status:400});expect(service.fetch).not.toHaveBeenCalled()});
+ it('disconnecting an HTTP request does not cancel durable work',async()=>{const{service,controller}=setup();const on=vi.fn(),off=vi.fn();await controller.fetch('2026-03-29',{},account,{on,off},{on,off});expect(on).not.toHaveBeenCalled();expect(service.fetch).toHaveBeenCalledWith(account,'2026-03-29',false)});
 });

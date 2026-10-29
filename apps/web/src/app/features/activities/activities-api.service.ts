@@ -1,3 +1,4 @@
+import type {GarminFetchJob} from '../../shared/model/garmin-job';
 import type { ActivityTimeline, TimelineSource } from './model/activity-timeline.models';
 import type { RunningEfforts } from './model/running-efforts.models';
 import type { ProviderMetricStatus, ActivityMetricComparison } from './model/activity-metrics.models';
@@ -116,7 +117,7 @@ export interface ActivitiesResponse {
 
 export interface EnrichmentStatus {
   strava: { state: 'cached' | 'missing' | 'stale' | 'unavailable' };
-  garmin: { state: 'cached' | 'linked' | 'missing'; linked: boolean; fetchEnabled: boolean };
+  garmin: { state: 'cached' | 'linked' | 'missing'; linked: boolean; fetchEnabled: boolean;fetchAvailability?:string;activeJob?:GarminFetchJob|null };
 }
 export interface FitMessage { message: string; fields: { name: string; units: string | null; value: unknown }[] }
 export interface GarminDetail {
@@ -183,7 +184,10 @@ export class ActivitiesApiService {
   enrichment(id: string) { return this.http.get<EnrichmentStatus>(`${this.apiBase}/activities/${encodeURIComponent(id)}/enrichment`); }
   fetchProviderDetail(id: string, refresh = false) { return this.http.post<ActivityProviderDetailResponse>(`${this.apiBase}/activities/${encodeURIComponent(id)}/provider-detail`, { refresh }); }
   garminDetail(id: string) { return this.http.get<GarminDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail`); }
-  fetchGarminDetail(id: string, refresh = false) { return this.http.post<GarminDetail>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail`, { refresh }); }
+  fetchGarminDetail(id: string, refresh = false) { return this.http.post<GarminFetchJob>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail`, { refresh }); }
+  garminJob(id:string){return this.http.get<GarminFetchJob>(`${this.apiBase}/garmin/jobs/${encodeURIComponent(id)}`);}
+  cancelGarminJob(id:string){return this.http.post<GarminFetchJob>(`${this.apiBase}/garmin/jobs/${encodeURIComponent(id)}/cancel`,{});}
+  retryGarminJob(id:string){return this.http.post<GarminFetchJob>(`${this.apiBase}/garmin/jobs/${encodeURIComponent(id)}/retry`,{});}
   garminResource(id: string, resourceType: string, chunkIndex: number) { return this.http.get<{ payload: unknown }>(`${this.apiBase}/activities/${encodeURIComponent(id)}/garmin-detail/resource`, { params: { resourceType, chunkIndex } }); }
 
   reprocessEfforts(id:string) { return this.http.post(`${this.apiBase}/activities/${encodeURIComponent(id)}/efforts/reprocess`,{}); }
