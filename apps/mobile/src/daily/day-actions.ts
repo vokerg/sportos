@@ -50,6 +50,8 @@ export function useDayActions(date:string,onUpdated:(detail:MobileDayDetail)=>vo
  const [connectionLoaded,setConnectionLoaded]=useState(false);
  const [pending,setPending]=useState<SyncJob|null>(null);
  const pendingRef=useRef<SyncJob|null>(null);
+ const attemptedAt=useRef<number|null>(null);
+ const [uncertain,setUncertain]=useState(false);
  const [message,setMessage]=useState('');
  const [validation,setValidation]=useState('');
  const [editor,setEditor]=useState<{draft:Draft;totalSteps:boolean}|null>(null);
@@ -82,11 +84,26 @@ export function useDayActions(date:string,onUpdated:(detail:MobileDayDetail)=>vo
   setMessage('Checking Strava refresh…');
   void run(async api=>{
    const current=pendingRef.current;
-   const next=current?job(await api.read(jobPath(current.id)),connection.id)
-    :job(await api.mutate(connectionPath(connection.id)+'/sync',{mode:'webhook_refresh',...stravaDayWindow(date)}),connection.id);
+   let next:SyncJob;
+   if(current)next=job(await api.read(jobPath(current.id)),connection.id);
+   else if(attemptedAt.current!==null){
+    const rows=await api.read<unknown>(connectionPath(connection.id)+'/jobs?limit=20');
+    if(!Array.isArray(rows)||rows.length>20)throw new Error('Invalid jobs');
+    const range=stravaDayWindow(date);
+    const matches=rows.filter(r=>r&&r.mode==='webhook_refresh'
+     &&Date.parse(r.requestedAfter)===Date.parse(range.after)&&Date.parse(r.requestedBefore)===Date.parse(range.before)
+     &&Date.parse(r.createdAt)>=attemptedAt.current!-5000);
+    if(matches.length!==1)throw new Error('Cannot identify refresh; inspect Providers before retrying');
+    next=job(matches[0],connection.id);
+   }else{
+    attemptedAt.current=Date.now();setUncertain(true);
+    next=job(await api.mutate(connectionPath(connection.id)+'/sync',{mode:'webhook_refresh',...stravaDayWindow(date)}),connection.id);
+   }
+   if(api.signal.aborted)throw new Error('Cancelled');
+   setUncertain(false);
    if(current&&next.id!==current.id)throw new Error('Wrong job');
    return monitor(api,next);
-  },result=>{if(result.raw)accept(result.raw);if(result.raw||!activeJob(pendingRef.current)&&pendingRef.current?.status!=='succeeded')remember(null);setMessage(result.message)},'Strava refresh could not finish. Check refresh status before retrying; the score may still need recalculation.');
+  },result=>{if(result.raw)accept(result.raw);if(result.raw||!activeJob(pendingRef.current)&&pendingRef.current?.status!=='succeeded'){remember(null);attemptedAt.current=null}setMessage(result.message)},'Strava refresh could not finish. Check refresh status before retrying; the score may still need recalculation.');
  };
  const openEditor=()=>{void run(async api=>{
   const rows=await api.read<unknown>('/daily/manual-facts?from='+date+'&to='+date+'&limit=1');
@@ -100,5 +117,5 @@ export function useDayActions(date:string,onUpdated:(detail:MobileDayDetail)=>vo
   try{input=parseDraft(editor.draft,editor.totalSteps);setValidation('')}catch(e){setValidation(e instanceof Error?e.message:'Invalid facts');return}
   void run(api=>api.mutate('/daily/'+date+'/facts',input,'PUT'),raw=>{accept(raw);setEditor(null);setMessage('Manual facts saved and score recalculated.')},'Could not save manual facts. Your entries are kept here; check the day before retrying.');
  };
- return {save,validation,busy,error,message,connection,connectionLoaded,pending,loadConnection,recalculate,refreshStrava,editor,setEditor,openEditor};
+ return {uncertain,save,validation,busy,error,message,connection,connectionLoaded,pending,loadConnection,recalculate,refreshStrava,editor,setEditor,openEditor};
 }

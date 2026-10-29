@@ -8,10 +8,10 @@ import type {useGarminDay} from './GarminDayCard';
 export function DayActions({actions:a,garmin:g,ready}:{actions:ReturnType<typeof useDayActions>;garmin:ReturnType<typeof useGarminDay>;ready:boolean}){
  const {palette}=useSportosTheme();const disabled=a.busy||g.busy||!ready||!!a.editor;
  return <Card title="Day actions">
-  <Action title={a.pending?'Check refresh status':'Refetch day from Strava'} disabled={disabled||a.connection?.status!=='connected'} onPress={a.refreshStrava}/>
+  <Action title={a.pending||a.uncertain?'Check refresh status':'Refetch day from Strava'} disabled={disabled||a.connection?.status!=='connected'} onPress={a.refreshStrava}/>
   <Action title="Refresh from Garmin" disabled={disabled||!g.data?.fetchEnabled} onPress={g.refresh}/>
-  <Action title="Recalculate from activities" disabled={disabled||!!a.pending} onPress={a.recalculate}/>
-  <Action title="Enter facts manually" disabled={disabled||!!a.pending} onPress={a.openEditor}/>
+  <Action title="Recalculate from activities" disabled={disabled||!!a.pending||a.uncertain} onPress={a.recalculate}/>
+  <Action title="Enter facts manually" disabled={disabled||!!a.pending||a.uncertain} onPress={a.openEditor}/>
   <Body subdued>Strava refetch updates activities, then recalculates this day. Garmin refresh updates evidence; use Recalculate to update totals and score.</Body>
   {a.connectionLoaded&&a.connection?.status!=='connected'?<Body subdued>Connect or reauthorize Strava on the website to enable refetch.</Body>:null}
   {!a.connectionLoaded&&!a.busy?<Action title="Check Strava connection" secondary onPress={a.loadConnection}/>:null}

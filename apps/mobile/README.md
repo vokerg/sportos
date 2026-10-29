@@ -64,10 +64,19 @@ with `node scripts/mobile-tab-icons.mjs`. Device and release gaps are tracked in
 ## Feature boundaries
 
 - Home/Daily read persisted scores, authority, contributions, history and ledgers.
-  Day detail also reads compact retained Garmin categories. Explicit Fetch missing /
-  Refresh actions require the API-reported `fetchEnabled` capability; the Garmin
-  helper must be enabled on that API, independently of worker availability. These
-  actions retain evidence and do not recalculate scores.
+  Day detail has the same four Day actions as web, including dates without saved scores:
+  Refetch day from Strava, Refresh from Garmin, Recalculate from activities and
+  Enter facts manually. Opening a day only reads data. Targeted Strava refetch uses
+  a bounded calendar-day window, polls at most 24 times over two minutes, then
+  recalculates only after success. Check refresh status continues the same job;
+  an ambiguous enqueue checks exact-range jobs before another submission.
+  A running provider worker is required. Garmin refresh requires API-reported
+  `fetchEnabled`; the helper must be enabled on that API, independently of worker
+  availability. It retains evidence without changing scores. Recalculate uses
+  existing retained evidence and canonical activities. Manual entry loads existing
+  facts, preserves run/bike subtype fields, accepts all-day steps for server-side
+  running-step deduction and saves through the web's PUT endpoint. No official
+  score is calculated on the phone. Unsaved entries live only in screen memory.
 - More > Providers lists existing Strava connections and supports Sync changes,
   retry/cancel and bounded job status checks (24 checks over two minutes), with
   manual refresh afterwards. A running compatible worker is required to execute

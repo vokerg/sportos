@@ -16,7 +16,7 @@ export function Screen({ title, eyebrow, children, nested = false }: {
   const bottomPadding = !nested && tabBarHeight !== undefined ? Math.max(tabBarHeight, 80) + 24 : 42;
   return <SafeAreaView edges={nested ? ['left', 'right', 'bottom'] : ['top', 'left', 'right']}
     style={{ flex: 1, backgroundColor: palette.background }}>
-    <ScrollView contentInsetAdjustmentBehavior="never"
+    <ScrollView automaticallyAdjustKeyboardInsets contentInsetAdjustmentBehavior="never"
       scrollIndicatorInsets={{ bottom: bottomPadding }}
       contentContainerStyle={[styles.screen, { paddingBottom: bottomPadding }]} keyboardShouldPersistTaps="handled">
       <View style={styles.screenHeader}>
