@@ -66,3 +66,7 @@ export * from './performance-match-schema.js';
 export * from './historical-run-plan.js';
 export * from './repositories/historical-runs.repository.js';
 export * from './connection-errors.js';
+
+export * from "./repositories/athlete-data.repository.js";
+export * from './repositories/athlete-laps.repository.js';
+export * from './repositories/athlete-swim-lengths.repository.js';

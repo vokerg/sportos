@@ -14,3 +14,4 @@ export * from './activity-metrics.js';
 export * from './running-efforts.js';
 export * from './performance-matching.js';
 export * from './rule-guide.js';
+export * from './swim-lengths.js';

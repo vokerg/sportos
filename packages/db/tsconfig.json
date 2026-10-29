@@ -9,7 +9,8 @@
   },
   "references": [
     { "path": "../shared" },
-    { "path": "../domain" }
+    { "path": "../domain" },
+    { "path": "../analytics" }
   ],
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]

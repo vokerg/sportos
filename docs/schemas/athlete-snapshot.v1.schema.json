@@ -1,0 +1,2148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "sportos.athlete-snapshot.v1"
+    },
+    "calculationVersion": {
+      "type": "string",
+      "const": "canonical-calendar-v2"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    },
+    "asOfDate": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "timezone": {
+      "type": "string"
+    },
+    "completeThrough": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "sourcePolicy": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "const": "canonical_activity_strava_priority"
+        },
+        "supplement": {
+          "type": "string",
+          "const": "current_allowlisted_provider_metric_projections"
+        },
+        "deduplication": {
+          "type": "string",
+          "const": "canonical_uuid"
+        },
+        "narrative": {
+          "type": "string",
+          "const": "excluded"
+        },
+        "providerReads": {
+          "type": "string",
+          "const": "retained_only"
+        }
+      },
+      "required": [
+        "primary",
+        "supplement",
+        "deduplication",
+        "narrative",
+        "providerReads"
+      ],
+      "additionalProperties": false
+    },
+    "units": {
+      "type": "object",
+      "properties": {
+        "distance": {
+          "type": "string",
+          "const": "m"
+        },
+        "duration": {
+          "type": "string",
+          "const": "s"
+        },
+        "heartRate": {
+          "type": "string",
+          "const": "bpm"
+        },
+        "power": {
+          "type": "string",
+          "const": "W"
+        },
+        "pace": {
+          "type": "string",
+          "const": "s/km"
+        },
+        "swimPace": {
+          "type": "string",
+          "const": "s/100m"
+        },
+        "speed": {
+          "type": "string",
+          "const": "km/h"
+        }
+      },
+      "required": [
+        "distance",
+        "duration",
+        "heartRate",
+        "power",
+        "pace",
+        "swimPace",
+        "speed"
+      ],
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "canonicalSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "firstDate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema0"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastDate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema0"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastCanonicalUpdate": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "incompleteDayExcluded": {
+          "type": "boolean"
+        },
+        "incompleteDaySessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "archiveCompleteness": {
+          "type": "string",
+          "const": "unknown"
+        },
+        "providerSyncFreshness": {
+          "type": "string",
+          "const": "connection_metadata_observed_at_generation"
+        },
+        "providerConnections": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema2"
+          }
+        },
+        "projectedMetricSessions": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "canonicalSessions",
+        "firstDate",
+        "lastDate",
+        "lastCanonicalUpdate",
+        "incompleteDayExcluded",
+        "incompleteDaySessions",
+        "archiveCompleteness",
+        "providerSyncFreshness",
+        "providerConnections",
+        "projectedMetricSessions"
+      ],
+      "additionalProperties": false
+    },
+    "longitudinal": {
+      "type": "object",
+      "properties": {
+        "methodology": {
+          "type": "string",
+          "const": "longitudinal-observations-v1"
+        },
+        "quantiles": {
+          "type": "string",
+          "const": "linear_interpolation_type_7"
+        },
+        "comparisonPolicy": {
+          "type": "string",
+          "const": "adjacent_non_overlapping_equal_calendar_windows"
+        },
+        "profiles": {
+          "type": "object",
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "bike": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "swim": {
+              "$ref": "#/$defs/__schema3"
+            }
+          },
+          "required": [
+            "run",
+            "bike",
+            "swim"
+          ],
+          "additionalProperties": false
+        },
+        "multisport": {
+          "type": "object",
+          "properties": {
+            "sameDayCount": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "combinationCounts": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/__schema1"
+              }
+            },
+            "recentExamples": {
+              "maxItems": 10,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema29"
+              }
+            },
+            "interpretation": {
+              "type": "string",
+              "const": "same_calendar_date_does_not_establish_brick_or_transition"
+            }
+          },
+          "required": [
+            "sameDayCount",
+            "combinationCounts",
+            "recentExamples",
+            "interpretation"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "methodology",
+        "quantiles",
+        "comparisonPolicy",
+        "profiles",
+        "multisport"
+      ],
+      "additionalProperties": false
+    },
+    "disciplines": {
+      "type": "object",
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/__schema32"
+        },
+        "bike": {
+          "$ref": "#/$defs/__schema32"
+        },
+        "swim": {
+          "$ref": "#/$defs/__schema32"
+        }
+      },
+      "required": [
+        "run",
+        "bike",
+        "swim"
+      ],
+      "additionalProperties": false
+    },
+    "annual": {
+      "maxItems": 131,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema39"
+      }
+    },
+    "monthly": {
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema39"
+      }
+    },
+    "completeWeeks": {
+      "minItems": 52,
+      "maxItems": 52,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema39"
+      }
+    },
+    "runningBests": {
+      "maxItems": 7,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema40"
+      }
+    },
+    "recentRunningBests": {
+      "maxItems": 7,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema40"
+      }
+    },
+    "knownUnknowns": {
+      "maxItems": 30,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema42"
+      }
+    },
+    "limitations": {
+      "maxItems": 30,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema43"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "calculationVersion",
+    "generatedAt",
+    "asOfDate",
+    "timezone",
+    "completeThrough",
+    "sourcePolicy",
+    "units",
+    "coverage",
+    "longitudinal",
+    "disciplines",
+    "annual",
+    "monthly",
+    "completeWeeks",
+    "runningBests",
+    "recentRunningBests",
+    "knownUnknowns",
+    "limitations"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+    },
+    "__schema1": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema2": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "lastSyncAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastAttemptAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "provider",
+        "status",
+        "lastSyncAt",
+        "lastAttemptAt"
+      ],
+      "additionalProperties": false
+    },
+    "__schema3": {
+      "type": "object",
+      "properties": {
+        "firstDate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema0"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastDate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema0"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "daysSinceLast": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "periods": {
+          "minItems": 9,
+          "maxItems": 9,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema5"
+          }
+        },
+        "adjacentComparisons": {
+          "minItems": 2,
+          "maxItems": 2,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema17"
+          }
+        },
+        "consistency": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "to": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "completeWeeks": {
+              "type": "number",
+              "const": 52
+            },
+            "recordedWeeks": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "weeksAtLeastTwoSessions": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "weeksAtLeastThreeSessions": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "longestRecordedWeekStreak": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "currentRecordedWeekStreak": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "weeklySessions": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "weeklyMoving": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "recordingGaps": {
+              "maxItems": 5,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema18"
+              }
+            },
+            "recentBlocks": {
+              "minItems": 5,
+              "maxItems": 5,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema19"
+              }
+            }
+          },
+          "required": [
+            "from",
+            "to",
+            "completeWeeks",
+            "recordedWeeks",
+            "weeksAtLeastTwoSessions",
+            "weeksAtLeastThreeSessions",
+            "longestRecordedWeekStreak",
+            "currentRecordedWeekStreak",
+            "weeklySessions",
+            "weeklyMoving",
+            "recordingGaps",
+            "recentBlocks"
+          ],
+          "additionalProperties": false
+        },
+        "rolling28Peaks": {
+          "type": "object",
+          "properties": {
+            "days": {
+              "type": "number",
+              "const": 28
+            },
+            "distance": {
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema20"
+              }
+            },
+            "moving": {
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema20"
+              }
+            }
+          },
+          "required": [
+            "days",
+            "distance",
+            "moving"
+          ],
+          "additionalProperties": false
+        },
+        "recent28DistanceAsPercentOfPeak": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "seasons": {
+          "maxItems": 131,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema21"
+          }
+        },
+        "endurance": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema23"
+          }
+        },
+        "benchmarks": {
+          "maxItems": 48,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema24"
+          }
+        },
+        "unknowns": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema28"
+          }
+        }
+      },
+      "required": [
+        "firstDate",
+        "lastDate",
+        "daysSinceLast",
+        "periods",
+        "adjacentComparisons",
+        "consistency",
+        "rolling28Peaks",
+        "recent28DistanceAsPercentOfPeak",
+        "seasons",
+        "endurance",
+        "benchmarks",
+        "unknowns"
+      ],
+      "additionalProperties": false
+    },
+    "__schema4": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "__schema5": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "evidenceId": {
+          "type": "string"
+        },
+        "volume": {
+          "$ref": "#/$defs/__schema6"
+        },
+        "sessionDistance": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "sessionMoving": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "sessionElapsed": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "sessionRate": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "rateUnit": {
+          "type": "string"
+        },
+        "distributions": {
+          "type": "object",
+          "properties": {
+            "distance": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "duration": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "rate": {
+              "$ref": "#/$defs/__schema12"
+            }
+          },
+          "required": [
+            "distance",
+            "duration",
+            "rate"
+          ],
+          "additionalProperties": false
+        },
+        "metrics": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema14"
+          }
+        },
+        "longest": {
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema16"
+          }
+        }
+      },
+      "required": [
+        "key",
+        "evidenceId",
+        "volume",
+        "sessionDistance",
+        "sessionMoving",
+        "sessionElapsed",
+        "sessionRate",
+        "rateUnit",
+        "distributions",
+        "metrics",
+        "longest"
+      ],
+      "additionalProperties": false
+    },
+    "__schema6": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "to": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "calendarDays": {
+          "$ref": "#/$defs/__schema7"
+        },
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "activeDays": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "sessionsPerWeek": {
+          "$ref": "#/$defs/__schema8"
+        },
+        "distanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "movingS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "elapsedS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "distanceKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "movingKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "elapsedKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "averageSessionMovingS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "medianSessionMovingS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "averageSessionDistanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "medianSessionDistanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "meanSessionPaceSPerKm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "medianSessionPaceSPerKm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "weightedPaceSPerKm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "pacePairedSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "paceMovingSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "paceElapsedFallbackSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "meanRecordedHrBpm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "hrKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "elevationM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "elevationKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "sourceCounts": {
+          "$ref": "#/$defs/__schema9"
+        },
+        "subtypeCounts": {
+          "$ref": "#/$defs/__schema10"
+        },
+        "correctedSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "historicalSummarySessions": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "calendarDays",
+        "sessions",
+        "activeDays",
+        "sessionsPerWeek",
+        "distanceM",
+        "movingS",
+        "elapsedS",
+        "distanceKnown",
+        "movingKnown",
+        "elapsedKnown",
+        "averageSessionMovingS",
+        "medianSessionMovingS",
+        "averageSessionDistanceM",
+        "medianSessionDistanceM",
+        "meanSessionPaceSPerKm",
+        "medianSessionPaceSPerKm",
+        "weightedPaceSPerKm",
+        "pacePairedSessions",
+        "paceMovingSessions",
+        "paceElapsedFallbackSessions",
+        "meanRecordedHrBpm",
+        "hrKnown",
+        "elevationM",
+        "elevationKnown",
+        "sourceCounts",
+        "subtypeCounts",
+        "correctedSessions",
+        "historicalSummarySessions"
+      ],
+      "additionalProperties": false
+    },
+    "__schema7": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema8": {
+      "type": "number"
+    },
+    "__schema9": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/__schema1"
+      }
+    },
+    "__schema10": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/__schema1"
+      }
+    },
+    "__schema11": {
+      "type": "object",
+      "properties": {
+        "known": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "missing": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "min": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "p10": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "p25": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "median": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "p75": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "p90": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "max": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "mean": {
+          "$ref": "#/$defs/__schema4"
+        }
+      },
+      "required": [
+        "known",
+        "missing",
+        "min",
+        "p10",
+        "p25",
+        "median",
+        "p75",
+        "p90",
+        "max",
+        "mean"
+      ],
+      "additionalProperties": false
+    },
+    "__schema12": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "known": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "missing": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "bins": {
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema13"
+          }
+        }
+      },
+      "required": [
+        "unit",
+        "known",
+        "missing",
+        "bins"
+      ],
+      "additionalProperties": false
+    },
+    "__schema13": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "min",
+        "max",
+        "sessions"
+      ],
+      "additionalProperties": false
+    },
+    "__schema14": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "stats": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "sourceCounts": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/__schema1"
+          }
+        },
+        "originCounts": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/__schema1"
+          }
+        },
+        "firstDate": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "lastDate": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "evidence": {
+          "maxItems": 2,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema15"
+          }
+        }
+      },
+      "required": [
+        "key",
+        "unit",
+        "sessions",
+        "stats",
+        "sourceCounts",
+        "originCounts",
+        "firstDate",
+        "lastDate",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "__schema15": {
+      "type": "object",
+      "properties": {
+        "activityId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "date": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "value": {
+          "type": "number"
+        },
+        "source": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "activityId",
+        "date",
+        "value",
+        "source",
+        "origin",
+        "unit"
+      ],
+      "additionalProperties": false
+    },
+    "__schema16": {
+      "type": "object",
+      "properties": {
+        "activityId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "date": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "source": {
+          "type": "string"
+        },
+        "subtype": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "distanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "elapsedS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "movingS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "paceSPerKm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "distanceCorrected": {
+          "type": "boolean"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "summary_estimated"
+          ]
+        }
+      },
+      "required": [
+        "activityId",
+        "date",
+        "source",
+        "subtype",
+        "distanceM",
+        "elapsedS",
+        "movingS",
+        "paceSPerKm",
+        "distanceCorrected",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "__schema17": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "number"
+        },
+        "recentFrom": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "recentTo": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "previousFrom": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "previousTo": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "distanceChangePercent": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "movingChangePercent": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "sessionChange": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "recentDistanceKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "previousDistanceKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "recentMovingKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "previousMovingKnown": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "days",
+        "recentFrom",
+        "recentTo",
+        "previousFrom",
+        "previousTo",
+        "distanceChangePercent",
+        "movingChangePercent",
+        "sessionChange",
+        "recentDistanceKnown",
+        "previousDistanceKnown",
+        "recentMovingKnown",
+        "previousMovingKnown"
+      ],
+      "additionalProperties": false
+    },
+    "__schema18": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "to": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "days": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "days"
+      ],
+      "additionalProperties": false
+    },
+    "__schema19": {
+      "type": "object",
+      "properties": {
+        "weeks": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "from": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "to": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "recordedWeeks": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "weeks",
+        "from",
+        "to",
+        "recordedWeeks",
+        "sessions"
+      ],
+      "additionalProperties": false
+    },
+    "__schema20": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "to": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "distanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "movingS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "distanceKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "movingKnown": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "distanceM",
+        "movingS",
+        "sessions",
+        "distanceKnown",
+        "movingKnown"
+      ],
+      "additionalProperties": false
+    },
+    "__schema21": {
+      "type": "object",
+      "properties": {
+        "year": {
+          "type": "string"
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "volume": {
+          "$ref": "#/$defs/__schema6"
+        },
+        "sessionDistance": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "sessionMoving": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "longest": {
+          "maxItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema16"
+          }
+        },
+        "conditions": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema22"
+          }
+        }
+      },
+      "required": [
+        "year",
+        "partial",
+        "volume",
+        "sessionDistance",
+        "sessionMoving",
+        "longest",
+        "conditions"
+      ],
+      "additionalProperties": false
+    },
+    "__schema22": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "type": "string"
+        },
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "pace": {
+          "$ref": "#/$defs/__schema11"
+        }
+      },
+      "required": [
+        "condition",
+        "sessions",
+        "pace"
+      ],
+      "additionalProperties": false
+    },
+    "__schema23": {
+      "type": "object",
+      "properties": {
+        "minDistanceM": {
+          "type": "number"
+        },
+        "comparison": {
+          "type": "string",
+          "const": "whole_activity_at_least_distance"
+        },
+        "lifetimeSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "recent90Sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "recent365Sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "recent90DistinctWeeks": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "firstDate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema0"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastDate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema0"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "daysSinceLast": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "recent90GapDays": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "evidence": {
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema16"
+          }
+        }
+      },
+      "required": [
+        "minDistanceM",
+        "comparison",
+        "lifetimeSessions",
+        "recent90Sessions",
+        "recent365Sessions",
+        "recent90DistinctWeeks",
+        "firstDate",
+        "lastDate",
+        "daysSinceLast",
+        "recent90GapDays",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "__schema24": {
+      "type": "object",
+      "properties": {
+        "targetDistanceM": {
+          "type": "number"
+        },
+        "toleranceM": {
+          "type": "number"
+        },
+        "condition": {
+          "type": "string"
+        },
+        "timeBasis": {
+          "type": "string",
+          "const": "elapsed"
+        },
+        "allTime": {
+          "$ref": "#/$defs/__schema25"
+        },
+        "recent90": {
+          "$ref": "#/$defs/__schema25"
+        },
+        "recent365": {
+          "$ref": "#/$defs/__schema25"
+        },
+        "recent90VsAllTimeElapsedPercent": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "seasons": {
+          "maxItems": 131,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema26"
+          }
+        },
+        "caveats": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema27"
+          }
+        }
+      },
+      "required": [
+        "targetDistanceM",
+        "toleranceM",
+        "condition",
+        "timeBasis",
+        "allTime",
+        "recent90",
+        "recent365",
+        "recent90VsAllTimeElapsedPercent",
+        "seasons",
+        "caveats"
+      ],
+      "additionalProperties": false
+    },
+    "__schema25": {
+      "type": "object",
+      "properties": {
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "best": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema16"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "sessions",
+        "best"
+      ],
+      "additionalProperties": false
+    },
+    "__schema26": {
+      "type": "object",
+      "properties": {
+        "year": {
+          "type": "string"
+        },
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "best": {
+          "$ref": "#/$defs/__schema16"
+        }
+      },
+      "required": [
+        "year",
+        "sessions",
+        "best"
+      ],
+      "additionalProperties": false
+    },
+    "__schema27": {
+      "type": "string"
+    },
+    "__schema28": {
+      "type": "string"
+    },
+    "__schema29": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "disciplines": {
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema30"
+          }
+        },
+        "activityIds": {
+          "maxItems": 6,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema31"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "date",
+        "disciplines",
+        "activityIds",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "__schema30": {
+      "type": "string",
+      "enum": [
+        "run",
+        "bike",
+        "swim"
+      ]
+    },
+    "__schema31": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "__schema32": {
+      "type": "object",
+      "properties": {
+        "lifetime": {
+          "$ref": "#/$defs/__schema6"
+        },
+        "windows": {
+          "maxItems": 6,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema33"
+          }
+        },
+        "longest": {
+          "maxItems": 15,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema34"
+          }
+        },
+        "recent": {
+          "maxItems": 15,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema34"
+          }
+        },
+        "recentLongest": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema34"
+          }
+        },
+        "distanceDistribution": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "minM": {
+                "type": "number"
+              },
+              "maxM": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "sessions": {
+                "$ref": "#/$defs/__schema1"
+              }
+            },
+            "required": [
+              "minM",
+              "maxM",
+              "sessions"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "paceDistribution": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "minSPerKm": {
+                "type": "number"
+              },
+              "maxSPerKm": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "sessions": {
+                "$ref": "#/$defs/__schema1"
+              }
+            },
+            "required": [
+              "minSPerKm",
+              "maxSPerKm",
+              "sessions"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "metrics": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema36"
+          }
+        },
+        "wholeActivityBenchmarks": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema38"
+          }
+        }
+      },
+      "required": [
+        "lifetime",
+        "windows",
+        "longest",
+        "recent",
+        "recentLongest",
+        "distanceDistribution",
+        "paceDistribution",
+        "metrics",
+        "wholeActivityBenchmarks"
+      ],
+      "additionalProperties": false
+    },
+    "__schema33": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "number"
+        },
+        "from": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "to": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "calendarDays": {
+          "$ref": "#/$defs/__schema7"
+        },
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "activeDays": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "sessionsPerWeek": {
+          "$ref": "#/$defs/__schema8"
+        },
+        "distanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "movingS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "elapsedS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "distanceKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "movingKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "elapsedKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "averageSessionMovingS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "medianSessionMovingS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "averageSessionDistanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "medianSessionDistanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "meanSessionPaceSPerKm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "medianSessionPaceSPerKm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "weightedPaceSPerKm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "pacePairedSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "paceMovingSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "paceElapsedFallbackSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "meanRecordedHrBpm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "hrKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "elevationM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "elevationKnown": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "sourceCounts": {
+          "$ref": "#/$defs/__schema9"
+        },
+        "subtypeCounts": {
+          "$ref": "#/$defs/__schema10"
+        },
+        "correctedSessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "historicalSummarySessions": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "days",
+        "from",
+        "to",
+        "calendarDays",
+        "sessions",
+        "activeDays",
+        "sessionsPerWeek",
+        "distanceM",
+        "movingS",
+        "elapsedS",
+        "distanceKnown",
+        "movingKnown",
+        "elapsedKnown",
+        "averageSessionMovingS",
+        "medianSessionMovingS",
+        "averageSessionDistanceM",
+        "medianSessionDistanceM",
+        "meanSessionPaceSPerKm",
+        "medianSessionPaceSPerKm",
+        "weightedPaceSPerKm",
+        "pacePairedSessions",
+        "paceMovingSessions",
+        "paceElapsedFallbackSessions",
+        "meanRecordedHrBpm",
+        "hrKnown",
+        "elevationM",
+        "elevationKnown",
+        "sourceCounts",
+        "subtypeCounts",
+        "correctedSessions",
+        "historicalSummarySessions"
+      ],
+      "additionalProperties": false
+    },
+    "__schema34": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "date": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "discipline": {
+          "$ref": "#/$defs/__schema30"
+        },
+        "subtype": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "distanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "recordedDistanceM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "distanceCorrected": {
+          "type": "boolean"
+        },
+        "elapsedS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "movingS": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "avgHrBpm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "maxHrBpm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "elevationM": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "historicalSummary": {
+          "type": "boolean"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "summary_estimated"
+          ]
+        },
+        "evidenceType": {
+          "type": "string",
+          "const": "whole_activity"
+        },
+        "durationBasis": {
+          "type": "string",
+          "enum": [
+            "moving",
+            "elapsed_fallback",
+            "unavailable"
+          ]
+        },
+        "paceSPerKm": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "paceSPer100m": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "speedKmh": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "caveats": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema35"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "discipline",
+        "subtype",
+        "source",
+        "distanceM",
+        "recordedDistanceM",
+        "distanceCorrected",
+        "elapsedS",
+        "movingS",
+        "avgHrBpm",
+        "maxHrBpm",
+        "elevationM",
+        "updatedAt",
+        "historicalSummary",
+        "method",
+        "evidenceType",
+        "durationBasis",
+        "paceSPerKm",
+        "paceSPer100m",
+        "speedKmh",
+        "caveats"
+      ],
+      "additionalProperties": false
+    },
+    "__schema35": {
+      "type": "string"
+    },
+    "__schema36": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "sessions": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "mean": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "median": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "evidence": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema37"
+          }
+        }
+      },
+      "required": [
+        "key",
+        "unit",
+        "sessions",
+        "mean",
+        "median",
+        "min",
+        "max",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "__schema37": {
+      "type": "object",
+      "properties": {
+        "activityId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "strava",
+            "garmin"
+          ]
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "origin": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "sourceKind": {
+          "type": "string",
+          "enum": [
+            "compact",
+            "strava_detail",
+            "fit_session",
+            "strength_summary",
+            "canonical_fallback"
+          ]
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "calculated"
+          ]
+        },
+        "projectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        }
+      },
+      "required": [
+        "activityId",
+        "provider",
+        "key",
+        "value",
+        "unit",
+        "origin",
+        "sourceKind",
+        "method",
+        "projectedAt"
+      ],
+      "additionalProperties": false
+    },
+    "__schema38": {
+      "type": "object",
+      "properties": {
+        "targetDistanceM": {
+          "type": "number"
+        },
+        "toleranceM": {
+          "type": "number"
+        },
+        "candidates": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema34"
+          }
+        }
+      },
+      "required": [
+        "targetDistanceM",
+        "toleranceM",
+        "candidates"
+      ],
+      "additionalProperties": false
+    },
+    "__schema39": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "disciplines": {
+          "type": "object",
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "bike": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "swim": {
+              "$ref": "#/$defs/__schema6"
+            }
+          },
+          "required": [
+            "run",
+            "bike",
+            "swim"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "key",
+        "partial",
+        "disciplines"
+      ],
+      "additionalProperties": false
+    },
+    "__schema40": {
+      "type": "object",
+      "properties": {
+        "targetDistanceM": {
+          "type": "number"
+        },
+        "total": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "coverage": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/__schema1"
+          }
+        },
+        "rows": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema41"
+          }
+        }
+      },
+      "required": [
+        "targetDistanceM",
+        "total",
+        "coverage",
+        "rows"
+      ],
+      "additionalProperties": false
+    },
+    "__schema41": {
+      "type": "object",
+      "properties": {
+        "activityId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eventId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "date": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "durationS": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "excel",
+            "strava",
+            "garmin"
+          ]
+        },
+        "pausePolicy": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "rank": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "alternativeCount": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "historical_import",
+            "calculated"
+          ]
+        }
+      },
+      "required": [
+        "activityId",
+        "eventId",
+        "date",
+        "durationS",
+        "source",
+        "pausePolicy",
+        "rank",
+        "alternativeCount",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "__schema42": {
+      "type": "string"
+    },
+    "__schema43": {
+      "type": "string"
+    }
+  },
+  "$id": "urn:sportos:athlete-snapshot:v1"
+}
