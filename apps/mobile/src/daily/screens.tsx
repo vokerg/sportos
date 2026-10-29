@@ -6,9 +6,11 @@ import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-n
 import { MobileApiError } from '../../../../packages/shared/src/mobile-api';
 import { useScreenSession as useSession } from '../auth/useScreenSession';
 import type { MainTabs, RootStack } from '../navigation/routes';
-import { Action, Body, Card, DateStepper, formatDistance, Metric, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
+import { Action, Body, Card, DateStepper, formatDistance, Metric, NavigationRow, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
 import { isCalendarDate, localToday, shiftCalendarDate } from '../ui/format.mjs';
 import { useSportosTheme } from '../ui/theme';
+import { ScoreHero } from './ScoreHero';
+import { SportMark } from '../ui/identity';
 import type { DailySummary, ActivityListPreview, MobileDayDetail } from './contracts';
 import { contributionRows, dailySummaryPath, formatPoints, mergeDays, safeActivityType, scoreAuthority, scoreBreakdownPath, projectDetail, projectActivityPreview, parseDailySummaries, sourceNames, todayCoverage } from './model.mjs';
 
@@ -20,10 +22,6 @@ const INITIAL = { kind: 'loading' as const, data: null };
 function errorKind(error: unknown): 'offline' | 'error' {
   return error instanceof MobileApiError && error.kind === 'network' ? 'offline' : 'error';
 }
-function Points({ value, signed = false }: { value: number | null | undefined; signed?: boolean }) {
-  const { palette } = useSportosTheme();
-  return <Text style={[styles.value, { color: palette.text }]}>{formatPoints(value, signed)}</Text>;
-}
 function TextLine({ children }: { children: React.ReactNode }) {
   const { palette } = useSportosTheme();
   return <Text style={[styles.line, { color: palette.muted }]}>{children}</Text>;
@@ -32,16 +30,21 @@ function CompactRow({ title, detail, onPress }: { title: string; detail: string;
   const { palette } = useSportosTheme();
   return <Pressable accessibilityRole="button" accessibilityLabel={title + ', ' + detail}
     onPress={onPress} style={[styles.listRow, { borderColor: palette.border }]}>
-    <Text style={[styles.rowTitle, { color: palette.text }]}>{title}</Text>
+    <View style={{flexDirection:'row',alignItems:'center',gap:12}}><Text style={[styles.rowTitle, { color: palette.text,flex:1 }]}>{title}</Text><Text style={{color:palette.muted,fontSize:22}} accessible={false}>›</Text></View>
     <Text style={[styles.rowDetail, { color: palette.muted }]}>{detail}</Text>
   </Pressable>;
 }
 function Contributions({ row }: { row: DailySummary }) {
+  const { palette } = useSportosTheme();
   const rows = contributionRows(row.score_contributions);
-  return <Card title="Score contributions">
+  return <Card title="Behind the score">
     {rows.length === 0 ? <Body subdued>Category attribution has not been reported for this day.</Body>
-      : rows.map(item => <TextLine key={item.key}>{item.label}: {formatPoints(item.points, true)} pt</TextLine>)}
-    <Body subdued>These categories are returned by the canonical API. Unattributed means no defensible breakdown is available for those points.</Body>
+      : rows.map(item => <View key={item.key} style={{flexDirection:'row',alignItems:'center',gap:12}}>
+        <SportMark sport={item.key} size={38}/>
+        <Text style={{flex:1,color:palette.text,fontSize:14,fontWeight:'600'}}>{item.label}</Text>
+        <Text style={{color:palette.text,fontSize:17,fontWeight:'700',fontVariant:['tabular-nums']}}>{formatPoints(item.points,true)} <Text style={{fontSize:11,color:palette.muted}}>pt</Text></Text>
+      </View>)}
+    <Body subdued>Saved category totals. Unattributed points have no available breakdown.</Body>
   </Card>;
 }
 
@@ -81,35 +84,23 @@ export function HomeScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 
 
   const retry = () => setRevision(v => v + 1);
   const latest = view.data?.days[0];
-  return <Screen eyebrow="Your training cockpit" title="SportOS">
+  return <Screen eyebrow="SPORTOS / TRAINING JOURNAL" title="Your overview">
     {view.kind === 'loading' ? <StatusPanel kind="loading" message="Reading canonical training scores…" /> : null}
     {view.kind === 'offline' || view.kind === 'error' ? <StatusPanel kind={view.kind}
       message={view.kind === 'offline' ? 'Offline. No score is cached or presented as current.'
         : 'Could not load daily scores from SportOS.'} retry={retry} /> : null}
     {view.kind === 'empty' ? <StatusPanel kind="empty" message="No persisted scores yet. This does not mean your score is zero; a provider import or explicit calculation may still be needed." retry={retry} /> : null}
     {latest ? <>
-      <Card title={latest.metric_date === today ? "Today's saved score" : 'Latest saved score'}>
-        <TextLine>{latest.metric_date}</TextLine>
-        <Points value={latest.total_points} />
-        <SourceBadge label={scoreAuthority(latest.score_status)} />
-        <TextLine>{todayCoverage(latest.metric_date, today)}</TextLine>
-        <TextLine>{sourceNames(latest.providerSources)}</TextLine>
-        <View style={styles.metrics}>
-          <Metric label="30-day average" value={formatPoints(latest.avg_30d)} />
-          <Metric label="Base points" value={formatPoints(latest.base_points)} />
-          <Metric label="Bonus points" value={formatPoints(latest.bonus_points, true)} />
-        </View>
-        <Action title="Review this day" onPress={() =>
-          navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('DailyDetail', { date: latest.metric_date })} />
-      </Card>
+      <ScoreHero day={latest} today={today} onOpen={() =>
+        navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('DailyDetail', { date: latest.metric_date })} />
       <Contributions row={latest} />
     </> : null}
-    {view.data ? <Card title="Recent activity recap · last 30 days">
+    {view.data ? <Card title="Recent sessions">
       {view.data.activityLoading ? <StatusPanel kind="loading" message="Reading recent activity summary…" />
         : view.data.activityError ? <Body subdued>Activity recap is unavailable. Score data above remains valid.</Body>
         : view.data.activity?.summary.count === 0 ? <Body subdued>No canonical activities recorded in this window.</Body>
         : <>
-          <TextLine>{view.data.activity?.summary.count ?? 0} canonical activities in this window</TextLine>
+          <TextLine>{view.data.activity?.summary.count ?? 0} activities · last 30 days</TextLine>
           {(view.data.activity?.items ?? []).map(a =>
             <CompactRow key={a.id} title={a.activity_date + ' · ' + safeActivityType(a.activity_type)}
               detail={(a.distance_m !== null ? formatDistance(a.distance_m) + ' · ' : '') + a.source}
@@ -117,9 +108,8 @@ export function HomeScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 
         </>}
       <Action title="Open Activities" secondary onPress={() => navigation.navigate('Activities')} />
     </Card> : null}
-    <Card title="Daily history">
-      <Body>Browse saved scores, composition, source authority and previous days without changing official data.</Body>
-      <Action title="Open Daily" onPress={() => navigation.navigate('Daily')} />
+    <Card>
+      <NavigationRow title="Your daily journal" detail="Scores, activity and the story behind each day" icon="chart" onPress={() => navigation.navigate('Daily')} />
       {view.kind === 'loaded' ? <Action title="Refresh Home" secondary onPress={retry} /> : null}
     </Card>
   </Screen>;
@@ -199,7 +189,7 @@ export function DailyScreen({ navigation }: NativeBottomTabScreenProps<MainTabs,
       .finally(() => { if (generation.current === current) setLoadingOlder(false); });
   };
 
-  return <Screen eyebrow="Read-only scores" title="Daily">
+  return <Screen eyebrow="ONE DAY AT A TIME" title="Daily journal">
     <Card title="Choose day">
       <DateStepper date={date} onChange={setDate} />
       <Action title="Jump to today" secondary disabled={date === today} onPress={() => setDate(localToday())} />

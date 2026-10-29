@@ -1,5 +1,5 @@
 import React,{useCallback,useState} from 'react';
-import {ScrollView,TextInput,View} from 'react-native';
+import {ScrollView,Text,TextInput,View} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import type {NativeBottomTabScreenProps} from '@bottom-tabs/react-navigation';
 import type {NativeStackNavigationProp,NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -22,7 +22,7 @@ export function RunLabScreen({navigation}:NativeBottomTabScreenProps<MainTabs,'R
  },[read,query,revision]));
  const apply=()=>{try{leaderboardPath({distanceM,from,to});setQuery({distanceM,from,to,offset:0});}catch{setError('Enter valid YYYY-MM-DD dates with From before To.');}};
  const stack=navigation.getParent<NativeStackNavigationProp<RootStack>>();
- return <Screen eyebrow="Measured and historical achievements" title="Run Lab">
+ return <Screen eyebrow="CHASE YOUR NEXT BEST" title="Run Lab">
   <Body subdued>Original Excel achievements and measured windows. Timing and evidence stay labelled.</Body>
   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>{TARGETS.map(m=><Action key={m} title={m===21097.5?'Half marathon':m===42195?'Marathon':m/1000+' km'} secondary={distanceM!==m} onPress={()=>{setDistance(m);setQuery(q=>({...q,distanceM:m,offset:0}));}}/>)}</ScrollView>
   <Card title="Date range">
@@ -47,7 +47,12 @@ export function RunLabScreen({navigation}:NativeBottomTabScreenProps<MainTabs,'R
     </>:null}
    </Card>
    {!result.rows.length?<StatusPanel kind="empty" message="No qualified records for this distance and range."/>:null}
-   {result.rows.map(row=><Card key={row.id} title={'#'+row.rank+' · '+row.date}>
+   {result.rows.map(row=><Card key={row.id}>
+    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:16}}>
+      <View style={{backgroundColor:row.rank===1?palette.lime:palette.soft,paddingHorizontal:14,paddingVertical:9,borderRadius:12}}>
+        <Text style={{color:row.rank===1?'#1B3025':palette.accent,fontSize:20,fontWeight:'800'}}>#{row.rank}</Text>
+      </View><Text style={{color:palette.muted,fontSize:13}}>{row.date}</Text>
+    </View>
     <Metric label={formatDistance(result.targetDistanceM)} value={formatDuration(row.durationS)}/>
     <SourceBadge label={row.source==='excel'?'Original Excel':'Measured '+row.source}/>
     <Body subdued>{row.pausePolicy==='historical_excel'?'Historical timing':row.pausePolicy==='moving_flags'?'Moving time':'Timer-active time'}</Body>
