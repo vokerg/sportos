@@ -5,6 +5,7 @@ vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);
 const {read}=vi.hoisted(()=>({read:vi.fn()}));
 vi.mock('react-native',()=>({Pressable:'Pressable',Text:'Text',View:'View',StyleSheet:{create:(s:unknown)=>s}}));
 vi.mock('@react-navigation/native',()=>({useFocusEffect:(effect:()=>void)=>useEffect(effect,[effect])}));
+vi.mock('../src/auth/SessionProvider',()=>({useSession:()=>({read,mutate:read})}));
 vi.mock('../src/auth/useScreenSession',()=>({useScreenSession:()=>({read})}));
 vi.mock('../src/ui/theme',()=>({useSportosTheme:()=>({palette:{}})}));
 vi.mock('../src/ui/identity',()=>({SportMark:()=>null}));
