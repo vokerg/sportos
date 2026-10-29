@@ -11,6 +11,8 @@ const env = {
   SPORTOS_WORKER_DATA_DATABASE_URL: 'postgresql://sportos_worker_data:example@primary/db',
   SPORTOS_SINGLE_USER_PASSWORD_HASH: 'example', SPORTOS_FLYWAY_PASSWORD: 'must-not-reach-runtime',
   SPORTOS_PROVIDER_CREDENTIAL_KEYS: 'shared-provider-key',
+  SPORTOS_AI_CHAT_ENDPOINT: 'https://model.example/chat/completions',
+  SPORTOS_AI_API_KEY: 'synthetic-model-key',
 };
 test('API and worker receive only their respective runtime credentials', () => {
   const { api, worker } = childEnvironments(env);
@@ -21,6 +23,10 @@ test('API and worker receive only their respective runtime credentials', () => {
   assert.equal(worker.SPORTOS_WORKER_DATA_DATABASE_URL, env.SPORTOS_WORKER_DATA_DATABASE_URL);
   assert.equal(api.SPORTOS_FLYWAY_PASSWORD, undefined);
   assert.equal(worker.SPORTOS_FLYWAY_PASSWORD, undefined);
+  assert.equal(api.SPORTOS_AI_CHAT_ENDPOINT, env.SPORTOS_AI_CHAT_ENDPOINT);
+  assert.equal(api.SPORTOS_AI_API_KEY, env.SPORTOS_AI_API_KEY);
+  assert.equal(worker.SPORTOS_AI_CHAT_ENDPOINT, undefined);
+  assert.equal(worker.SPORTOS_AI_API_KEY, undefined);
 });
 test('hosted startup rejects development bypass, owner credentials and ephemeral relative storage', () => {
   for (const override of [{ SPORTOS_AUTH_MODE: 'dev-single-user' }, { SPORTOS_DEV_AUTH_TOKEN: 'test' },

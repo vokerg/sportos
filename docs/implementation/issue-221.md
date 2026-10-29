@@ -73,3 +73,11 @@ deadline; process-local quotas are not distributed rate limiting.
 Local configuration is in the ignored, permission-restricted `.env`; it is not
 part of the PR. No merge is authorized by this implementation request. The issue
 remains open pending review and an explicitly authorized merge.
+
+## Merge/deployment follow-up
+
+The maintainer authorized squash merge and hosted chat configuration. CI found
+the existing exact route-list test needed the new Chat route; it was updated.
+The optional combined hosted launcher now forwards the chat endpoint only to
+the API, with a focused regression assertion that endpoint/key do not reach the
+worker. Deployment guidance now documents API-only generation settings.

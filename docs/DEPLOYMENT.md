@@ -74,7 +74,11 @@ Set production environment variables through Render's secret settings:
 The API receives only its non-owner database/login secrets, the activity-detail
 runtime URL, Strava configuration and the provider encryption key ring. It does
 not receive dispatcher, worker-data, Flyway, schema-owner or legacy CLI URLs.
-Leave development authentication and optional external generation unset.
+Leave development authentication unset. To enable the web Chat, set
+`SPORTOS_AI_CHAT_ENDPOINT`, `SPORTOS_AI_MODEL`, `SPORTOS_AI_API_KEY` and
+`SPORTOS_AI_TIMEOUT_MS` on the Render API service only; see [CHAT.md](CHAT.md).
+Keep `SPORTOS_AI_JSON_ENDPOINT` unset unless using the separate legacy JSON
+gateway. These secrets never belong in Vercel frontend variables.
 
 Keep the existing encryption key ring when using existing provider connections.
 Set Strava's authorization callback domain to the Vercel production hostname.
