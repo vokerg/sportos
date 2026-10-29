@@ -63,7 +63,10 @@ The API authenticates an opaque server-side session, validates CSRF for unsafe m
 
 Background processing uses two database identities. A narrow dispatcher may discover and lease import, provider-sync, and rule-change jobs across accounts but cannot read provider connections or credentials, source rows, canonical facts, scoring rules, ledgers, performance data, analysis audit rows, or authentication data. A separate worker-data identity establishes the persisted owner before decrypting provider credentials or executing account data work.
 
-Read-only analysis is an API-only composition boundary. Fixed account-scoped tools return sanitized facts, deterministic calculations, citations, and data-quality flags. An optional generator may summarize those results but cannot invoke repositories, issue SQL, select an owner, or write official data. The only analysis write is an append-only audit insert through a repository whose database grant is limited to `SELECT, INSERT` on `analysis_runs`.
+Read-only analysis is an API-only composition boundary. The authenticated web Chat
+hosts the existing athlete MCP server over an in-memory transport bound to each
+session account, with bounded model tool use, citation validation and redacted
+append-only audit metadata; see [CHAT.md](CHAT.md). Fixed account-scoped tools return sanitized facts, deterministic calculations, citations, and data-quality flags. An optional generator may summarize those results but cannot invoke repositories, issue SQL, select an owner, or write official data. The only analysis write is an append-only audit insert through a repository whose database grant is limited to `SELECT, INSERT` on `analysis_runs`.
 
 ## Architectural invariants
 

@@ -55,7 +55,7 @@ if (!apiOnly && !workerOnly) {
 
 // Watch compiled output rather than running a watcher that stays alive after its
 // runtime crashes. The initial project build ensures these directories exist.
-for (const dir of [...projects, 'packages/db', 'packages/domain', 'packages/shared', 'packages/importers', 'packages/analytics']) {
+for (const dir of [...projects, ...(!workerOnly ? ['apps/mcp'] : []), 'packages/db', 'packages/domain', 'packages/shared', 'packages/importers', 'packages/analytics']) {
   const output = resolve(repoRoot, dir, 'dist');
   if (!existsSync(output)) continue;
   watchers.push(watch(output, { recursive: true }, (_event, filename) => {

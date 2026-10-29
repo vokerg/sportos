@@ -3,6 +3,7 @@ WORKDIR /workspace
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig*.json ./
 COPY apps/api/package.json apps/api/package.json
+COPY apps/mcp/package.json apps/mcp/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages packages
