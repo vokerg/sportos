@@ -43,6 +43,9 @@ and excluded synthetic preview and localhost data. Temporary preview removed.
 
 Phone installation initially failed because the paired device connection was
 reset; cable reconnection requested. No installed-update success claimed yet.
-No backend/schema change; prior auth/owner enforcement is reused. Inspected
+Combined-source history-navigation regression also passed with #216 and the
+new Garmin card together. #216 test session mocking was updated separately so
+the two PRs can be merged in either order. No backend/schema change; prior
+auth/owner enforcement is reused. Inspected
 session.guard.ts additionally confirms native bearer mutations remain authorized
 through existing session checks, with browser cookie CSRF kept separate.
