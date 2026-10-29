@@ -41,6 +41,8 @@ try {
 } finally { await Promise.all([dispatchDb.destroy(), dataDb.destroy(),garminDetail?.destroy()]); }
 
 function providerRuntime(): { adapter: StravaAdapter; cipher: CredentialCipher } | null {
+  // The encryption key ring is also used by Garmin; it alone does not enable Strava.
+  if (!process.env.STRAVA_CLIENT_ID?.trim() && !process.env.STRAVA_CLIENT_SECRET?.trim()) return null;
   const names = ['STRAVA_CLIENT_ID', 'STRAVA_CLIENT_SECRET', 'SPORTOS_PROVIDER_CREDENTIAL_KEYS', 'SPORTOS_PROVIDER_ACTIVE_KEY_ID'] as const;
   const configured = names.filter((name) => Boolean(process.env[name]?.trim()));
   if (configured.length === 0) return null;
