@@ -1,3 +1,4 @@
+import {activeGarminJob} from '../providers/garmin-jobs';
 import React,{useLayoutEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Modal,Platform,Pressable,Text,View} from 'react-native';
 import type {NativeStackHeaderItemMenu,NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -20,9 +21,9 @@ export function dayMenu(a:Actions,g:Garmin,ready:boolean):NativeStackHeaderItemM
     {type:'action',label:pending?'Check Strava Refresh':'Refetch Strava',icon:{type:'sfSymbol',name:'arrow.triangle.2.circlepath'},
      description:a.connection?.status==='connected'?'Activities + score':a.connectionLoaded?'Connect on the website':'Check connection',
      disabled:disabled||(a.connectionLoaded&&a.connection?.status!=='connected'),onPress:()=>a.connectionLoaded?a.refreshStrava():a.loadConnection()},
-    {type:'action',label:'Refresh Garmin',icon:{type:'sfSymbol',name:'arrow.clockwise'},
+    {type:'action',label:activeGarminJob(g.job)?'Check Garmin Refresh':g.job?'Retry Garmin':'Refresh Garmin',icon:{type:'sfSymbol',name:'arrow.clockwise'},
      description:g.data?.fetchEnabled?'Evidence only':'Unavailable on this server',
-     disabled:disabled||!g.data?.fetchEnabled,onPress:g.refresh},
+     disabled:disabled||(!g.data?.fetchEnabled&&!activeGarminJob(g.job)),onPress:g.refresh},
    ]},
    {type:'submenu',label:'Daily facts',inline:true,items:[
     {type:'action',label:'Recalculate Score',icon:{type:'sfSymbol',name:'sum'},description:'From retained activities',disabled:disabled||pending,onPress:a.recalculate},
@@ -49,11 +50,11 @@ export function DayActions({actions:a,garmin:g,ready,navigation,date}:{actions:A
   navigation.setOptions(Platform.OS==='ios'?{unstable_headerRightItems:()=>[latest()]}:{headerRight:()=>
    <Pressable accessibilityRole="button" accessibilityLabel="Day actions" onPress={()=>setFallback(true)} style={{minWidth:44,minHeight:44,justifyContent:'center',alignItems:'center'}}><Text style={{color:palette.accent,fontSize:26}}>•••</Text></Pressable>});
  },[navigation,signature,palette.accent]);
- const status=a.error||a.message;
+ const status=a.error||g.error||(g.job||g.busy?g.message:a.message||g.message);const working=a.busy||g.busy;
  return <>
-  {(a.busy||status)?<View accessibilityLiveRegion="polite" style={{flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:4}}>
-   {a.busy?<ActivityIndicator color={palette.accent}/>:null}
-   <Text accessibilityRole={a.error?'alert':'text'} style={{flex:1,color:a.error?palette.warning:palette.muted,fontSize:13,lineHeight:19}}>{status||(a.editor?'Saving facts…':'Checking day data…')}</Text>
+  {(working||status)?<View accessibilityLiveRegion="polite" style={{flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:4}}>
+   {working?<ActivityIndicator color={palette.accent}/>:null}
+   <Text accessibilityRole={a.error||g.error?'alert':'text'} style={{flex:1,color:a.error||g.error?palette.warning:palette.muted,fontSize:13,lineHeight:19}}>{status||(a.editor?'Saving facts…':'Checking day data…')}</Text>
   </View>:null}
   <ManualFactsSheet actions={a} date={date}/>
   {Platform.OS!=='ios'?<Modal visible={fallback} transparent animationType="fade" onRequestClose={()=>setFallback(false)}>

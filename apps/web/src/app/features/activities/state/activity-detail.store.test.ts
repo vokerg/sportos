@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActivityDetailStore } from './activity-detail.store';
 const coverage = { strava: { state: 'cached' }, garmin: { state: 'cached', linked: true, fetchEnabled: true } };
 function setup() {
-  const api = { timeline: vi.fn(() => of({source:'strava',status:'available',metrics:[],durationS:1,sampleCount:2,simplified:false})), map: vi.fn(() => of({status: 'unavailable', reason: 'no_gps'})), reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), saveDistanceCorrection: vi.fn(() => of({})), resetDistanceCorrection: vi.fn(() => of({})), sourceJson: vi.fn(), swimLengths: vi.fn(() => of({status:'available',lengths:[]})), garminResource: vi.fn(() => of({ payload: [] })) };
+  const api = { timeline: vi.fn(() => of({source:'strava',status:'available',metrics:[],durationS:1,sampleCount:2,simplified:false})), map: vi.fn(() => of({status: 'unavailable', reason: 'no_gps'})), reprocessEfforts:vi.fn(()=>of({})), reprocessMetrics:vi.fn(()=>of({})), detail: vi.fn(() => of({ id: 'one', activity_type:'run', providerDetail: { provider: 'strava' }, provenance: { sourceRecordId: 'record' } })), enrichment: vi.fn(() => of(coverage)), providerDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'hit', resources: {} })), fetchProviderDetail: vi.fn(() => of({ fetchedAt: '2026-01-01', cacheStatus: 'miss', resources: {} })), garminDetail: vi.fn(() => of({ sessions: [], laps: [], sets: null, resources: [] })), fetchGarminDetail: vi.fn((id:string) => of({ id:'job',operation:'activity',activityId:id,date:null,status:'succeeded',phase:'succeeded',attemptCount:1,errorCode:null,refresh:true })), saveDistanceCorrection: vi.fn(() => of({})), resetDistanceCorrection: vi.fn(() => of({})), sourceJson: vi.fn(), swimLengths: vi.fn(() => of({status:'available',lengths:[]})), garminResource: vi.fn(() => of({ payload: [] })) };
   return { api, store: new ActivityDetailStore(api as never) };
 }
 describe('ActivityDetailStore', () => {
@@ -220,4 +220,15 @@ describe('running lap workflow', () => {
     const pending=new Subject<never>();store.activity.update(a=>a?{...a,activity_type:'run'}:null);api.garminDetail.mockReturnValueOnce(pending as never);
     store.loadRunLaps('garmin');store.ngOnDestroy();expect(pending.observed).toBe(false);
   });
+});
+
+it('waits for worker success before loading retained activity detail and cancels status polling on navigation',()=>{
+ vi.useFakeTimers();
+ try{
+  const {api,store}=setup();const queued={id:'job',operation:'activity',activityId:'one',date:null,status:'queued',phase:'queued',refresh:true,attemptCount:0,errorCode:null};
+  api.fetchGarminDetail.mockReturnValue(of(queued) as never);Object.assign(api,{garminJob:vi.fn(()=>of({...queued,status:'succeeded'}))});
+  store.load('one');store.garminDetail(true,true);store.garminDetail(true,true);expect(api.fetchGarminDetail).toHaveBeenCalledTimes(1);expect(api.garminDetail).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(0);expect(api.garminDetail).toHaveBeenCalledTimes(1);expect(store.garminState()).toBe('loaded');
+  store.ngOnDestroy();expect(vi.getTimerCount()).toBe(0);
+ }finally{vi.useRealTimers()}
 });

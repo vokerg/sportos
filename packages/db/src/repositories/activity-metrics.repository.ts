@@ -1,3 +1,4 @@
+import {inRepositoryTransaction} from '../ownership-context.js';
 import { ACTIVITY_METRIC_CATALOG, ACTIVITY_METRIC_PARSER_VERSION, selectProviderMetrics, type MetricProvider, type MetricObservation, type MetricInspection } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Database, Activity } from '../schema.js';
@@ -99,7 +100,7 @@ export class ActivityMetricsRepository {
    * between this write and publication exposes raw-retained/unprocessed rather
    * than claiming success. Unchanged completed replays make no mutation. */
   async checkpoint(write:ProjectionWrite):Promise<boolean> {
-    return this.db.transaction().execute(async tx=>{
+    return inRepositoryTransaction(this.db,async tx=>{
       await lockActivityReconciliation(tx);
       const ref=(await new ActivityMetricsRepository(tx).references([write.reference.activityId])).find(r=>r.provider===write.reference.provider);
       if (!sameReference(ref,write.reference)) return false;
@@ -116,7 +117,7 @@ export class ActivityMetricsRepository {
    * Retention/read happens before this short primary-only transaction. */
   async publish(write: ProjectionWrite): Promise<'newly_projected' | 'already_current' | 'stale'> {
     if (write.observations.length > 200) throw new Error('Metric projection exceeds bound.');
-    return this.db.transaction().execute(async tx=> {
+    return inRepositoryTransaction(this.db,async tx=> {
       await lockActivityReconciliation(tx); const repo = new ActivityMetricsRepository(tx);
       const ref = (await repo.references([write.reference.activityId])).find(r=>r.provider===write.reference.provider);
       if (!sameReference(ref,write.reference)) return 'stale';
@@ -143,7 +144,7 @@ export class ActivityMetricsRepository {
       || new Set(writes.map(w=>metricWriteKey(w.reference))).size!==writes.length) throw new Error('Metric projection batch exceeds bound or repeats a provider.');
     const results=new Map<string,'newly_projected'|'already_current'|'stale'>();
     if (!writes.length) return results;
-    const eligible=await this.db.transaction().execute(async tx=>{
+    const eligible=await inRepositoryTransaction(this.db,async tx=>{
       await lockActivityReconciliation(tx);
       const refs=await new ActivityMetricsRepository(tx).references(ids);
       const heads=await tx.selectFrom('activity_metric_heads').selectAll().where('activity_id','in',ids).execute();
@@ -159,7 +160,7 @@ export class ActivityMetricsRepository {
     });
     for (const w of writes) results.set(metricWriteKey(w.reference),'stale');
     if (!eligible.length) return results;
-    await this.db.transaction().execute(async tx=>{
+    await inRepositoryTransaction(this.db,async tx=>{
       await lockActivityReconciliation(tx);
       const refs=await new ActivityMetricsRepository(tx).references(ids);
       const heads=await tx.selectFrom('activity_metric_heads').selectAll().where('activity_id','in',ids).execute();
@@ -197,7 +198,7 @@ export class ActivityMetricsRepository {
     return results;
   }
   async failure(reference: MetricReference, category: 'retained_read_failed' | 'projection_failed', richRetained: boolean | null, inspectedAt: Date | string) {
-    await this.db.transaction().execute(async tx=> {
+    await inRepositoryTransaction(this.db,async tx=> {
       await lockActivityReconciliation(tx);
       const repo=new ActivityMetricsRepository(tx); const current=(await repo.references([reference.activityId])).find(r=>r.provider===reference.provider);
       if (!sameReference(current,reference)) return;

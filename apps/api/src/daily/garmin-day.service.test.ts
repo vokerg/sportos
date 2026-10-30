@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GARMIN_DAY_CATEGORIES, GarminDayRepository, GarminDayResourcesRepository, LEGACY_ACCOUNT_ID } from '@sportos/db';
 import { GarminLocalIngestService } from '../activities/garmin-local-ingest.service.js';
-import { GarminDayService } from './garmin-day.service.js';
+import { GarminDayService } from '@sportos/garmin-runtime';
 const date='2026-03-29', hash='a'.repeat(64), account={id:LEGACY_ACCOUNT_ID,displayName:'Test',email:null};
 function setup(enabled=true) {
   const query={select:vi.fn().mockReturnThis(),where:vi.fn().mockReturnThis(),limit:vi.fn().mockReturnThis(),execute:vi.fn().mockResolvedValue([]),executeTakeFirst:vi.fn().mockResolvedValue(undefined)};

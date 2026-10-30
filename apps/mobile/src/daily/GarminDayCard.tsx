@@ -1,3 +1,5 @@
+import {trackGarminJob} from '../providers/track-garmin-job';
+import {garminJob,garminJobMessage,activeGarminJob,type GarminFetchJob} from '../providers/garmin-jobs';
 import React,{useCallback,useState} from 'react';
 import {Text,View} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
@@ -9,12 +11,22 @@ import {useOperation} from '../providers/use-operation';
 import {formatDayMetric} from './garmin-metrics';
 const primary=['sleep.sleepSeconds','summary.steps','heart_rate.restingBpm','hrv.lastNightAvgMs','weight.weightKg','stress.averageLevel'];
 export function useGarminDay(date:string,onLoaded?:(hasData:boolean)=>void){
- const {run,busy,error}=useOperation();const [data,setData]=useState<GarminDay|null>(null);const [message,setMessage]=useState('');
- const accept=useCallback((next:GarminDay)=>{setData(next);onLoaded?.(next.categories.some(c=>c.metrics.length>0||c.retained))},[onLoaded]);
+ const {run,busy,error}=useOperation();const cancellation=useOperation();const [job,setJob]=useState<GarminFetchJob|null>(null);const [data,setData]=useState<GarminDay|null>(null);const [message,setMessage]=useState('');
+ const accept=useCallback((next:GarminDay)=>{setData(next);setJob(next.activeJob??null);onLoaded?.(next.categories.some(c=>c.metrics.length>0||c.retained))},[onLoaded]);
  const load=useCallback(()=>{void run(async api=>garminDay(await api.read(dayPath(date)),date),accept,'Couldn’t load Garmin. Try again.')},[run,date,accept]);
  useFocusEffect(useCallback(()=>{setData(null);setMessage('');load()},[load]));
- const refresh=()=>{if(!data?.fetchEnabled)return;setMessage('');void run(async api=>garminDay(await api.mutate(dayPath(date),{refresh:data.state!=='missing'}),date),next=>{accept(next);setMessage(next.categories.some(c=>['failed','rate_limited','authentication_required'].includes(c.state))?'Some metrics couldn’t update. Previous values are shown where available.':'Garmin updated.')},'Garmin couldn’t update. Your previous data is safe. Try again.')};
- return {data,busy,error,message,load,refresh};
+ const refresh=()=>{
+  if(!data?.fetchEnabled&&!activeGarminJob(job))return;setMessage('');
+  void run(async api=>{
+   const target={operation:'day' as const,date};
+   const initial=job&&activeGarminJob(job)?garminJob(await api.read('/garmin/jobs/'+job.id),target):job&&['failed','cancelled'].includes(job.status)?garminJob(await api.mutate('/garmin/jobs/'+job.id+'/retry'),target):garminJob(await api.mutate(dayPath(date),{refresh:true}),target);
+   const latest=await trackGarminJob(api,initial,target,next=>{setJob(next);setMessage(garminJobMessage(next))});
+   const saved=garminDay(await api.read(dayPath(date)),date);return {saved,latest};
+  },({saved,latest})=>{accept(saved);setJob(latest.status==='succeeded'?null:latest);setMessage(activeGarminJob(latest)?'Automatic checks paused. Check Garmin refresh status to continue.':garminJobMessage(latest))},'Could not finish checking Garmin. The worker job may continue; check status before retrying.');
+ };
+ const cancel=()=>{if(!job)return;void cancellation.run(api=>api.mutate('/garmin/jobs/'+job.id+'/cancel'),()=>setMessage('Cancellation requested. The worker will stop safely.'),'Could not request cancellation. Check status.')};
+
+ return {data,busy:busy||cancellation.busy,error:error||cancellation.error,message,load,refresh,job,cancel};
 }
 export function GarminDayCard(props:{date:string;onLoaded?:(hasData:boolean)=>void}){
  const state=useGarminDay(props.date,props.onLoaded);
@@ -22,7 +34,7 @@ export function GarminDayCard(props:{date:string;onLoaded?:(hasData:boolean)=>vo
 }
 export function GarminDayView({state,showAction=true}:{state:ReturnType<typeof useGarminDay>;showAction?:boolean}){
  const {palette}=useSportosTheme();const [expanded,setExpanded]=useState(false);
- const {data,busy,error,message,load,refresh}=state;
+ const {data,busy,error,message,load,refresh,job,cancel}=state;
  const metrics=data?.categories.flatMap(c=>c.metrics)??[];const hasData=metrics.length>0;
  const main=primary.flatMap(key=>metrics.filter(m=>m.key===key));const extra=metrics.filter(m=>!primary.includes(m.key));
  const visible=expanded?metrics:main.length?main:extra.slice(0,6);
@@ -40,6 +52,8 @@ export function GarminDayView({state,showAction=true}:{state:ReturnType<typeof u
   </>:<Body subdued>{busy?'Loading your Garmin day…':'No Garmin measurements for this day yet.'}</Body>}
   {failures.length>0?<Body subdued>{failures.map(c=>categoryLabels[c.category]).join(', ')} couldn’t update.{failures.some(c=>c.state==='authentication_required')?' Reconnect Garmin.':failures.some(c=>c.state==='rate_limited')?' Garmin is busy. Try later.':''}</Body>:null}
   {showAction&&data?.fetchEnabled?<><Action title={busy?'Updating Garmin…':hasData?'Refresh Garmin':'Load Garmin'} disabled={busy} onPress={refresh}/><Body subdued>Updates Garmin metrics. Your score stays unchanged.</Body></>:showAction&&data?<Body subdued>Garmin sync isn’t available here. Your saved measurements are still shown.</Body>:null}
+  {job&&activeGarminJob(job)?<><Action title="Check Garmin refresh status" secondary disabled={busy} onPress={refresh}/><Action title="Cancel Garmin request" secondary onPress={cancel}/></>:null}
+  {job&&['failed','cancelled'].includes(job.status)?<Action title="Retry Garmin request" secondary disabled={busy||!data?.fetchEnabled} onPress={refresh}/>:null}
   {message?<Body subdued>{message}</Body>:null}{error?<><Body subdued>{error}</Body><Action title="Try again" secondary disabled={busy} onPress={load}/></>:null}
  </Card>;
 }

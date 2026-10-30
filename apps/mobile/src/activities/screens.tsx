@@ -1,3 +1,6 @@
+import {trackGarminJob} from '../providers/track-garmin-job';
+import {useOperation} from '../providers/use-operation';
+import {garminJob,garminJobMessage,activeGarminJob,type GarminFetchJob} from '../providers/garmin-jobs';
 import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -254,9 +257,12 @@ function StrengthSets({rows}: {rows:GarminSetRows}) {
       </Card>;
 }
 
-export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<RootStack,'ActivityDetail'>) {
+export function ActivityDetailScreen(props:NativeStackScreenProps<RootStack,'ActivityDetail'>){return <ActivityDetail key={props.route.params.activityId} {...props}/>;}
+function ActivityDetail({route,navigation}:NativeStackScreenProps<RootStack,'ActivityDetail'>) {
   const id=route.params.activityId;
   const {read,mutate}=useSession();
+  const garminOperation=useOperation(),garminCancellation=useOperation();
+  const [currentGarminJob,setGarminJob]=useState<GarminFetchJob|null>(null);
   const [revision,setRevision] = useState(0);
   const [detail,setDetail] = useState<Load<ActivityDetail>>(initial());
   const [enrichment,setEnrichment] = useState<Enrichment|null>(null);
@@ -274,14 +280,14 @@ export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<R
   useFocusEffect(useCallback(()=>{
     const current=++generation.current;
     lapRequest.current++;setRequest.current++;
-    setDetail(initial());setEnrichment(null);setCoverageError(false);
+    setDetail(initial());setEnrichment(null);setGarminJob(null);setCoverageError(false);
     setSwim({kind:'idle',data:null});setLaps({kind:'idle',data:null,source:null});
     setSets({kind:'idle',data:null});setProviderOp(null);setProviderMessage(null);
     if (!validActivityId(id)) {setDetail({kind:'error',data:null});return ()=>{generation.current++};}
     void read<unknown>(activityDetailPath(id)).then(projectActivityDetail).then(row=>{
       if (generation.current!==current) return;
       setDetail({kind:'loaded',data:row});
-      void read<unknown>(activityDetailPath(id)+'/enrichment').then(projectEnrichment).then(result=>{
+      void read<unknown>(activityDetailPath(id)+'/enrichment').then(raw=>{const job=(raw as {garmin?:{activeJob?:unknown}}).garmin?.activeJob;if(job&&generation.current===current)setGarminJob(garminJob(job,{operation:'activity',activityId:id}));return projectEnrichment(raw)}).then(result=>{
         if(generation.current===current)setEnrichment(result);
       }).catch(()=>{if(generation.current===current)setCoverageError(true)});
       if (row.activity_type==='swim' && row.subtype!=='outdoor') {
@@ -312,6 +318,13 @@ export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<R
     }).catch(()=>{if(generation.current===current && setRequest.current===request)setSets({kind:'error',data:null})});
   };
   const fetchDetail=(source:'strava'|'garmin',refresh:boolean)=>{
+    if(source==='garmin'){
+      const target={operation:'activity' as const,activityId:id};
+      void garminOperation.run(async api=>{
+        const initial=currentGarminJob&&activeGarminJob(currentGarminJob)?garminJob(await api.read('/garmin/jobs/'+currentGarminJob.id),target):currentGarminJob&&['failed','cancelled'].includes(currentGarminJob.status)?garminJob(await api.mutate('/garmin/jobs/'+currentGarminJob.id+'/retry'),target):garminJob(await api.mutate(activityDetailPath(id)+'/garmin-detail',{refresh}),target);
+        return trackGarminJob(api,initial,target,next=>{setGarminJob(next);setProviderMessage(garminJobMessage(next))});
+      },latest=>{setGarminJob(latest);setProviderMessage(activeGarminJob(latest)?'Automatic checks paused. Check Garmin status to continue.':garminJobMessage(latest));if(latest.status==='succeeded')reload()},'Could not finish checking Garmin. The worker job may continue; check status.');return;
+    }
     if(providerInFlight.current) return;
     providerInFlight.current=true;
     const current=generation.current;
@@ -401,9 +414,16 @@ export function ActivityDetailScreen({route,navigation}:NativeStackScreenProps<R
             <Action title="Refresh Strava" secondary disabled={providerOp!==null} onPress={()=>fetchDetail('strava',true)}/>:null}
         </>:null}
         {enrichment && enrichment.garminFetchEnabled?<>
-          <Action title="Download Garmin details" disabled={providerOp!==null} onPress={()=>fetchDetail('garmin',false)}/>
-          {enrichment.garmin==='cached'?<Action title="Refresh Garmin" secondary disabled={providerOp!==null} onPress={()=>fetchDetail('garmin',true)}/>:null}
+          <Action title="Download Garmin details" disabled={providerOp!==null||garminOperation.busy} onPress={()=>fetchDetail('garmin',false)}/>
+          {enrichment.garmin==='cached'?<Action title="Refresh Garmin" secondary disabled={providerOp!==null||garminOperation.busy} onPress={()=>fetchDetail('garmin',true)}/>:null}
         </>:<Body subdued>Garmin sync isn’t available here.</Body>}
+        {currentGarminJob&&activeGarminJob(currentGarminJob)?<>
+          <Action title="Check Garmin status" secondary disabled={garminOperation.busy} onPress={()=>fetchDetail('garmin',true)}/>
+          <Action title="Cancel Garmin request" secondary disabled={garminCancellation.busy} onPress={()=>{void garminCancellation.run(api=>api.mutate('/garmin/jobs/'+currentGarminJob.id+'/cancel'),()=>setProviderMessage('Cancellation requested.'),'Could not request cancellation. Check status.')}}/>
+        </>:null}
+        {currentGarminJob&&['failed','cancelled'].includes(currentGarminJob.status)?<Action title="Retry Garmin request" secondary disabled={garminOperation.busy||!enrichment?.garminFetchEnabled} onPress={()=>fetchDetail('garmin',true)}/>:null}
+        {garminOperation.busy?<StatusPanel kind="loading" message="Garmin worker request in progress…"/>:null}
+        {garminOperation.error||garminCancellation.error?<Body subdued>{garminOperation.error||garminCancellation.error}</Body>:null}
         {providerOp?<StatusPanel kind="loading" message={'Downloading '+(providerOp==='strava'?'Strava':'Garmin')+' details…'}/>:null}
         {providerMessage?<Body subdued>{providerMessage}</Body>:null}
       </Card>

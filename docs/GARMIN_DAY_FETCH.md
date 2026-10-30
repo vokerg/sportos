@@ -18,6 +18,14 @@ canonical sessions. This badge is day-coverage evidence, not a claim of complete
 provider-resource coverage. Switching views does not reload coverage or fetch
 provider data. Original evidence and scoring precision are unchanged.
 
+## Worker-backed Fetch/Refresh (#226)
+
+API requests now return durable jobs instead of executing the local helper.
+Use [Garmin worker setup](GARMIN_WORKER.md) for encrypted session import, primary
+V144/detail V006, dedicated worker roles and separate-server operation. The API
+reports connection/worker availability. Closing a screen leaves queued work intact;
+web/native clients poll with bounded budgets and manual continuation.
+
 ## Setup and controls
 
 Use the existing [local Garmin setup/login](GARMIN_SINGLE_ACTIVITY.md):
@@ -27,10 +35,11 @@ pnpm garmin:setup
 pnpm garmin:login
 ```
 
-Enable `SPORTOS_GARMIN_LOCAL_FETCH_ENABLED=true` in the protected local `.env`.
-New downloads require non-production `dev-single-user` and the fixed legacy
-account. Hosted deployments and other accounts may read their own retained data;
-they cannot use workstation tokens. Passwords are entered by the user in the
+Import the authenticated Garmin session with `pnpm garmin:import-session -- --legacy-account`
+and enable the configured Garmin worker as documented above. Hosted APIs can now
+enqueue owner-scoped requests without workstation tokens or development mode.
+The local import command binds only the maintained account; other accounts cannot
+use that connection. Passwords are entered by the user in the
 terminal, and tokens remain outside Git and both databases.
 
 Apply primary V125 and separate activity-detail V003 using the existing,

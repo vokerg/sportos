@@ -1,13 +1,32 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/shared" },
-    { "path": "packages/domain" },
-    { "path": "packages/analytics" },
-    { "path": "packages/db" },
-    { "path": "packages/importers" },
-    { "path": "apps/api" },
-    { "path": "apps/worker" },
-    { "path": "apps/mcp" }
+    {
+      "path": "packages/shared"
+    },
+    {
+      "path": "packages/domain"
+    },
+    {
+      "path": "packages/analytics"
+    },
+    {
+      "path": "packages/db"
+    },
+    {
+      "path": "packages/importers"
+    },
+    {
+      "path": "packages/garmin-runtime"
+    },
+    {
+      "path": "apps/api"
+    },
+    {
+      "path": "apps/worker"
+    },
+    {
+      "path": "apps/mcp"
+    }
   ]
 }

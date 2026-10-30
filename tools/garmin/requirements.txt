@@ -1,4 +1,5 @@
-# Isolated local tooling only. No Garmin dependency in SportOS API/worker runtime.
+# Isolated targeted Garmin helper, used by local tools and optional durable workers.
+# No Python/Garmin dependency is required by the API process.
 garminconnect==0.3.17
 fitdecode==0.11.0
 requests==2.34.2

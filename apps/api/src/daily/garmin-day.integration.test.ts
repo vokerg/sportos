@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createDb, sql, DailyScoringRepository, GarminDayRepository, GarminActivityResourcesRepository, withAccountContext, type Database, type Kysely, type Json } from '@sportos/db';
-import { GarminDayService } from './garmin-day.service.js';
+import { GarminDayService } from '@sportos/garmin-runtime';
 import { GarminLocalIngestService } from '../activities/garmin-local-ingest.service.js';
 const primaryUrl=process.env.SPORTOS_OWNER_TEST_DATABASE_URL,detailUrl=process.env.SPORTOS_ACTIVITY_DETAIL_TEST_DATABASE_URL;
 const integration=primaryUrl && detailUrl ? describe : describe.skip;

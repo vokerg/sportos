@@ -1,3 +1,4 @@
+import {inRepositoryTransaction} from '../ownership-context.js';
 import { RUNNING_EFFORT_ALGORITHM_VERSION, RUNNING_EFFORT_TARGETS, unavailableEfforts, type RunningEffort } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Database } from '../schema.js';
@@ -48,7 +49,7 @@ export class RunningEffortsRepository {
   }
   async publish(write: EffortWrite): Promise<'newly_projected' | 'already_current' | 'stale'> {
     if (write.efforts.length !== RUNNING_EFFORT_TARGETS.length || write.efforts.some((e, i) => e.targetDistanceM !== RUNNING_EFFORT_TARGETS[i])) throw new Error('Invalid bounded effort catalog.');
-    return this.db.transaction().execute(async tx => {
+    return inRepositoryTransaction(this.db,async tx => {
       await lockActivityReconciliation(tx); const repo = new RunningEffortsRepository(tx), r = write.reference;
       if (!await this.accepts(tx, r, write.inspectedAt)) return 'stale';
       const intent = await tx.selectFrom('running_effort_heads').select('expected_resource_hash').where('activity_id','=',r.activityId).where('provider','=',r.provider).executeTakeFirst();
@@ -69,7 +70,7 @@ export class RunningEffortsRepository {
     });
   }
   async mark(ref: MetricReference, state: 'stale' | 'failed', inspectedAt: string, failure: 'retained_read_failed' | 'projection_failed' | null = null, expectedResourceHash?: string) {
-    await this.db.transaction().execute(async tx => {
+    await inRepositoryTransaction(this.db,async tx => {
       await lockActivityReconciliation(tx);
       if (!await this.accepts(tx, ref, inspectedAt)) return;
       const values = { activity_id: ref.activityId, provider: ref.provider, source_ref: ref.sourceRef, source_version: ref.sourceVersion,

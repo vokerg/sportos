@@ -8,8 +8,17 @@
     "moduleResolution": "NodeNext"
   },
   "references": [
-    { "path": "../../packages/db" },
-    { "path": "../../packages/importers" }
+    {
+      "path": "../../packages/db"
+    },
+    {
+      "path": "../../packages/importers"
+    },
+    {
+      "path": "../../packages/garmin-runtime"
+    }
   ],
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }

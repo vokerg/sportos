@@ -30,7 +30,8 @@ with `REACT_NATIVE_PACKAGER_HOSTNAME=127.0.0.1 pnpm dev:mobile -- --lan` and sel
 `http://127.0.0.1:8081` in the development client. This serves development bundles
 on the local network; never add private credentials to public Expo variables.
 
-The API needs V142. Native sign-in opens the system browser, approves the existing
+Native authentication needs V142; worker-backed Garmin needs primary V144 and
+separate detail V006. Native sign-in opens the system browser, approves the existing
 SportOS account, exchanges a one-use PKCE code and saves an origin-scoped opaque
 session in Keychain (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`). A change of API deployment
 requires fresh sign-in. Foundation v1 unscoped credentials are removed on upgrade.
@@ -74,9 +75,12 @@ with `node scripts/mobile-tab-icons.mjs`. Device and release gaps are tracked in
   a bounded calendar-day window, polls at most 24 times over two minutes, then
   recalculates only after success. Check refresh status continues the same job;
   an ambiguous enqueue checks exact-range jobs before another submission.
-  A running provider worker is required. Garmin refresh requires API-reported
-  `fetchEnabled`; the helper must be enabled on that API, independently of worker
-  availability. It retains evidence without changing scores. Recalculate uses
+  A running provider worker is required. Garmin refresh requires API-reported `fetchEnabled`: an account-bound
+  encrypted session and a recent configured Garmin worker heartbeat. The API
+  enqueues work; it does not need the desktop helper. It retains evidence without changing scores. Day/activity requests use durable
+  jobs with bounded polling, manual status continuation, cancellation and retry.
+  Jobs survive navigation; credentials remain encrypted server-side. See
+  [Garmin worker setup](../../docs/GARMIN_WORKER.md). Recalculate uses
   existing retained evidence and canonical activities. Manual entry loads existing
   facts, preserves run/bike subtype fields, accepts all-day steps for server-side
   running-step deduction and saves through the web's PUT endpoint. No official

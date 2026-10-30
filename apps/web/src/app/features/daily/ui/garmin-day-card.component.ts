@@ -14,6 +14,11 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
     <section class="garmin-day" aria-label="Garmin day evidence" [attr.aria-busy]="store.loading() || store.fetching()">
       <h2>Garmin Connect</h2>
       <p class="muted">Fetch and Refresh check Garmin for the latest day data, including later watch uploads. Use Recalculate to update daily totals and score.</p>
+      @if (store.jobMessage()) { <p role="status">{{store.jobMessage()}}</p> }
+      @if (store.job(); as job) {
+        @if (job.status === 'queued' || job.status === 'running') { <button type="button" (click)="store.checkJob()" [disabled]="store.fetching()">Check Garmin status</button><button type="button" (click)="store.cancelJob()">Cancel Garmin request</button> }
+        @if (job.status === 'failed' || job.status === 'cancelled') { <button type="button" (click)="store.retryJob()" [disabled]="store.fetching() || !store.data()?.fetchEnabled">Retry Garmin request</button> }
+      }
       @if (store.loading()) { <p role="status">Reading retained coverage…</p> }
       @if (store.data(); as day) {
         <p role="status">{{ day.state === 'missing' ? 'Not fetched' : day.completeness === 'in_progress' ? 'Incomplete — day in progress' : day.completeness === 'refresh_required' ? 'Incomplete — refresh required' : day.state === 'partial' ? 'Some data needs another attempt' : 'Saved day data' }}
@@ -33,7 +38,7 @@ import { GARMIN_CATEGORY_LABELS, type GarminDayCategoryState, type GarminDayEvid
           <button type="button" (click)="store.view()" [disabled]="day.state === 'missing'">{{ store.expanded() ? 'Hide metrics' : 'Show metrics' }}</button>
           <button type="button" (click)="store.fetch(true)" [disabled]="!day.fetchEnabled || day.state === 'missing' || store.fetching()">Refresh from Garmin</button>
         </div>
-        @if (!day.fetchEnabled) { <p class="muted">Fetching is unavailable here. Saved data remains available.</p> }
+        @if (!day.fetchEnabled) { <p class="muted">{{day.fetchAvailability === 'worker_offline' ? 'The Garmin worker is offline.' : 'Garmin needs a configured connection.'}} Saved data remains available.</p> }
         @if (store.expanded()) {
           <div class="categories">
             @for (item of visibleCategories(day.categories); track item.category) {
@@ -129,7 +134,7 @@ export class GarminDayCardComponent implements OnChanges {
     if ((!changes || changes['date'] || (changes['coverageRevision'] && !this.store.fetching())) && this.date()) this.store.load(this.date());
   }
   status(state: GarminDayCategoryState): string {
-    return { missing: 'Not fetched', available: 'Available', not_recorded: 'Not recorded for this date', unsupported: 'Unsupported by this endpoint/device', private: 'Private in Garmin', failed: 'Failed — retry available', authentication_required: 'Authentication required — run pnpm garmin:login locally', rate_limited: 'Rate limited — retry later' }[state];
+    return { missing: 'Not fetched', available: 'Available', not_recorded: 'Not recorded for this date', unsupported: 'Unsupported by this endpoint/device', private: 'Private in Garmin', failed: 'Failed — retry available', authentication_required: 'Authentication required — reconnect Garmin', rate_limited: 'Rate limited — retry later' }[state];
   }
   metricRows(evidence: GarminDayEvidence) {
     return Object.entries(evidence).filter(([,value]) => typeof value === 'number' || (this.inspection() && value === null)).map(([key,value]) => {

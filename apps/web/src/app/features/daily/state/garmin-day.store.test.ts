@@ -4,7 +4,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { GarminDayStore } from './garmin-day.store';
 const day={date:'2026-03-29',origin:'garmin_connect',evidenceOnly:true,fetchEnabled:true,state:'current',categories:[]};
-function setup(){const api={read:vi.fn(()=>of(day)),fetch:vi.fn(()=>of({...day,result:'cached'})),resource:vi.fn(()=>of({payload:{totalSteps:12}}))};return {api,store:new GarminDayStore(api as never)};}
+function setup(){const api={read:vi.fn(()=>of(day)),fetch:vi.fn((date:string)=>of({id:'job',operation:'day',date,activityId:null,status:'succeeded',phase:'succeeded',attemptCount:1,errorCode:null,refresh:true})),resource:vi.fn(()=>of({payload:{totalSteps:12}}))};return {api,store:new GarminDayStore(api as never)};}
 describe('Garmin day state',()=>{
   it('navigation reads coverage only and viewing reads no upstream data',()=>{
     const {api,store}=setup();store.load(day.date);expect(api.read).toHaveBeenCalledWith(day.date);expect(api.fetch).not.toHaveBeenCalled();expect(api.resource).not.toHaveBeenCalled();store.view();expect(store.expanded()).toBe(true);expect(api.fetch).not.toHaveBeenCalled();
@@ -40,4 +40,21 @@ it('keeps an unfetched day collapsed and ignores a prior day response after navi
   store.load('2026-03-30');
   pending.next({...day,categories:[{retainedAt:'2026-03-30T08:00:00Z'}]} as never);
   expect(store.expanded()).toBe(false);expect(pending.observed).toBe(false);
+});
+
+it('polls durable jobs, bounds automatic checks, resumes without reenqueuing and cancels explicitly',()=>{
+ vi.useFakeTimers();
+ try{
+  const {api,store}=setup();const queued={id:'job',operation:'day',date:day.date,activityId:null,status:'queued',phase:'queued',refresh:true,attemptCount:0,errorCode:null};
+  api.fetch.mockReturnValue(of(queued) as never);
+  Object.assign(api,{job:vi.fn(()=>of(queued)),cancel:vi.fn(()=>of({...queued,status:'cancelled'}))});
+  store.load(day.date);store.fetch(true);store.fetch(true);expect(api.fetch).toHaveBeenCalledTimes(1);
+  vi.advanceTimersByTime(601000);expect((api as typeof api&{job:ReturnType<typeof vi.fn>}).job).toHaveBeenCalledTimes(120);expect(store.fetching()).toBe(false);expect(store.error()).toContain('paused');
+  store.fetch(true);expect(api.fetch).toHaveBeenCalledTimes(1);store.cancelJob();expect(store.job()?.status).toBe('cancelled');
+  store.ngOnDestroy();expect(vi.getTimerCount()).toBe(0);
+ }finally{vi.useRealTimers()}
+});
+it('resumes existing date work from coverage and cancels only browser polling on navigation',()=>{
+ vi.useFakeTimers();
+ try{const{api,store}=setup();const job={id:'job',operation:'day',date:day.date,activityId:null,status:'running',phase:'fetching',refresh:true,attemptCount:1,errorCode:null};Object.assign(api,{job:vi.fn(()=>of(job))});api.read.mockReturnValue(of({...day,activeJob:job}) as never);store.load(day.date);vi.advanceTimersByTime(0);expect(store.job()?.id).toBe('job');expect(api.fetch).not.toHaveBeenCalled();store.ngOnDestroy();expect(vi.getTimerCount()).toBe(0)}finally{vi.useRealTimers()}
 });

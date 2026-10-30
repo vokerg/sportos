@@ -24,3 +24,8 @@ export function assertAccountId(accountId: string): void {
     throw new TypeError('Account identifier must be a UUID.');
   }
 }
+
+/** Repository transactions compose with a worker-owned lease-fencing transaction. */
+export async function inRepositoryTransaction<T>(db:Kysely<Database>,callback:(tx:Kysely<Database>)=>Promise<T>):Promise<T>{
+  return db.isTransaction?callback(db):db.transaction().execute(callback);
+}

@@ -1,3 +1,5 @@
+import { GarminJobRunner } from './garmin-job-runner.js';
+import { GarminSessionCipher } from '@sportos/importers';
 import { hostname } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
@@ -21,6 +23,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => 
 const dispatchDb = createDb(requiredUrl('SPORTOS_WORKER_DATABASE_URL'));
 const dataDb = createDb(requiredUrl('SPORTOS_WORKER_DATA_DATABASE_URL'));
 const storage = new LocalUploadStorage(resolve(repoRoot, process.env.SPORTOS_UPLOAD_DIR ?? 'data/uploads'));
+const garminDetail=process.env.SPORTOS_GARMIN_WORKER_ENABLED==='true'?createDb(requiredEnvironment('SPORTOS_ACTIVITY_DETAIL_WORKER_DATA_DATABASE_URL')):null;
 const runners: Promise<void>[] = [];
 try {
   const provider = providerRuntime();
@@ -29,14 +32,17 @@ try {
     new RuleChangeRunner(dispatchDb, dataDb, { workerId: `${processId}:rules`, leaseSeconds, pollIntervalMs }).run(controller.signal),
   );
   if (provider) runners.push(new ProviderSyncRunner(dispatchDb, dataDb, provider.adapter, provider.cipher, { workerId: `${processId}:providers`, leaseSeconds, pollIntervalMs, pageSize: 200 }).run(controller.signal));
+  if(garminDetail) runners.push(new GarminJobRunner(dispatchDb,dataDb,garminDetail,storage,new GarminSessionCipher(parseCredentialKeyRing(requiredEnvironment('SPORTOS_PROVIDER_CREDENTIAL_KEYS'),requiredEnvironment('SPORTOS_PROVIDER_ACTIVE_KEY_ID'))),`${processId}:garmin`).run(controller.signal));
   await Promise.all(runners);
 } catch (error) {
   controller.abort();
   await Promise.allSettled(runners);
   throw error;
-} finally { await Promise.all([dispatchDb.destroy(), dataDb.destroy()]); }
+} finally { await Promise.all([dispatchDb.destroy(), dataDb.destroy(),garminDetail?.destroy()]); }
 
 function providerRuntime(): { adapter: StravaAdapter; cipher: CredentialCipher } | null {
+  // The encryption key ring is also used by Garmin; it alone does not enable Strava.
+  if (!process.env.STRAVA_CLIENT_ID?.trim() && !process.env.STRAVA_CLIENT_SECRET?.trim()) return null;
   const names = ['STRAVA_CLIENT_ID', 'STRAVA_CLIENT_SECRET', 'SPORTOS_PROVIDER_CREDENTIAL_KEYS', 'SPORTOS_PROVIDER_ACTIVE_KEY_ID'] as const;
   const configured = names.filter((name) => Boolean(process.env[name]?.trim()));
   if (configured.length === 0) return null;

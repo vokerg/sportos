@@ -49,3 +49,18 @@ test('an unexpectedly stopped worker terminates the API and reports failure', as
   assert.equal(await result, 1);
   assert.equal(children[1].signalCode, 'SIGTERM');
 });
+
+test('Garmin execution configuration reaches only the worker', () => {
+  const configured = { ...env, SPORTOS_GARMIN_WORKER_ENABLED: 'true',
+    SPORTOS_GARMIN_PYTHON: '/opt/garmin/bin/python',
+    SPORTOS_ACTIVITY_DETAIL_WORKER_DATA_DATABASE_URL: 'postgresql://sportos_worker_data:example@detail/db',
+    SPORTOS_GARMIN_LOCAL_FETCH_ENABLED: 'true' };
+  const { api, worker } = childEnvironments(configured);
+  for (const key of ['SPORTOS_GARMIN_WORKER_ENABLED', 'SPORTOS_GARMIN_PYTHON',
+    'SPORTOS_ACTIVITY_DETAIL_WORKER_DATA_DATABASE_URL']) {
+    assert.equal(api[key], undefined);
+    assert.equal(worker[key], configured[key]);
+  }
+  assert.equal(api.SPORTOS_GARMIN_LOCAL_FETCH_ENABLED, undefined);
+  assert.equal(worker.SPORTOS_GARMIN_LOCAL_FETCH_ENABLED, undefined);
+});

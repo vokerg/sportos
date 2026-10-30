@@ -23,6 +23,13 @@ USER node
 CMD ["node", "dist/main.js"]
 
 FROM node:22-bookworm-slim AS worker
+RUN apt-get update && apt-get install --yes --no-install-recommends python3 python3-venv ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY tools/garmin/requirements.txt /opt/sportos-garmin-requirements.txt
+RUN python3 -m venv /opt/sportos-garmin \
+ && /opt/sportos-garmin/bin/pip install --no-cache-dir -r /opt/sportos-garmin-requirements.txt
+ENV SPORTOS_GARMIN_PYTHON=/opt/sportos-garmin/bin/python
+COPY --chown=node:node tools/garmin /workspace/tools/garmin
 LABEL org.opencontainers.image.source="https://github.com/vokerg/sportos"
 ENV NODE_ENV=production
 WORKDIR /workspace/apps/worker

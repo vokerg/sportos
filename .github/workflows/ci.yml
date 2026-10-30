@@ -228,3 +228,40 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  garmin-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: garmin-integration-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install disposable migration tools
+        env:
+          FLYWAY_VERSION: 10.20.1
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+            --output "$RUNNER_TEMP/flyway.tar.gz"
+          tar --extract --gzip --file "$RUNNER_TEMP/flyway.tar.gz" --directory "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
+      - run: pnpm --filter @sportos/worker build
+      - name: Garmin fresh/upgrade migrations and isolated runtime roles
+        env:
+          SPORTOS_GARMIN_DISPOSABLE_ADMIN_URL: postgresql://postgres:garmin-integration-only@127.0.0.1:5432/postgres
+        run: node scripts/test-garmin-worker-db.mjs

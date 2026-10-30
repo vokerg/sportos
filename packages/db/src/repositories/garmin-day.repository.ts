@@ -1,3 +1,4 @@
+import {inRepositoryTransaction} from '../ownership-context.js';
 import { sql, type Kysely } from 'kysely';
 import type { Database, Json } from '../schema.js';
 import { GARMIN_DAY_CATEGORIES, type GarminDayAvailability, type GarminDayCategory, type GarminDayState } from '../garmin-day-schema.js';
@@ -37,7 +38,7 @@ export class GarminDayRepository {
   async publish(date: string, input: GarminDayWrite) {
     validate(date, input.category, input.version?.hash);
     if (Buffer.byteLength(JSON.stringify(input.version?.projection ?? {})) > 60000 || Buffer.byteLength(JSON.stringify(input.attempt ?? {})) > 8000) throw new Error('Garmin projection exceeds bounds.');
-    return this.db.transaction().execute(async tx => {
+    return inRepositoryTransaction(this.db,async tx => {
       await sql`select pg_advisory_xact_lock(hashtextextended(sportos_current_account_id()::text || ':garmin-day:' || ${date}, 0))`.execute(tx);
       const current = await tx.selectFrom('garmin_day_heads').select(['version_id','attempted_at','attempt_json'])
         .where('calendar_date','=',date).where('category','=',input.category).executeTakeFirst();

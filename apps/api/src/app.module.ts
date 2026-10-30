@@ -1,3 +1,5 @@
+import {GarminJobsService} from './garmin/garmin-jobs.service.js';
+import {GarminJobsController} from './garmin/garmin-jobs.controller.js';
 import { ChatController } from './chat/chat.controller.js';
 import { ChatService } from './chat/chat.service.js';
 import { ActivityTimelineService } from './activities/activity-timeline.service.js';
@@ -44,6 +46,7 @@ import { ActivityDistanceCorrectionService } from './activities/activity-distanc
 
 @Module({
   controllers: [
+    GarminJobsController,
     ChatController,
     AuthController,
     HealthController,
@@ -64,6 +67,7 @@ import { ActivityDistanceCorrectionService } from './activities/activity-distanc
     GarminLocalIngestController,
   ],
   providers: [
+    GarminJobsService,
     ChatService,
     RunningEffortsService,
     DbProvider,

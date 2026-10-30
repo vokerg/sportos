@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, HttpCode, Get, Param, Post, Req, Res } from '@nestjs/common';
 import { GARMIN_DAY_CATEGORIES, LEGACY_ACCOUNT_ID, isIsoDate, type GarminDayCategory } from '@sportos/db';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
@@ -22,17 +22,13 @@ export class GarminDayController {
     return this.garmin.resource(account?.id ?? LEGACY_ACCOUNT_ID, value, category as GarminDayCategory);
   }
   @Post(':date/garmin')
+  @HttpCode(202)
   async fetch(@Param('date') value: string, @Body() raw: unknown, @CurrentAccount() account?: AuthenticatedAccount,
     @Req() request?: { on: (event: string, listener: () => void) => void; off: (event: string, listener: () => void) => void },
     @Res({ passthrough: true }) response?: { on: (event: string, listener: () => void) => void; off: (event: string, listener: () => void) => void }) {
     date(value);
     const body = raw ?? {};
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => key !== 'refresh') || ('refresh' in body && typeof body.refresh !== 'boolean')) throw new BadRequestException('Invalid Garmin day fetch request.');
-    // The local helper validates the same calendar boundary before login.
-    if (value > garminLocalDate()) throw new BadRequestException('Select today or an earlier Garmin calendar date.');
-    const cancellation = new AbortController(); const abort = () => cancellation.abort();
-    request?.on('aborted', abort); response?.on('close', abort);
-    try { return await this.garmin.fetch(account ?? { id: LEGACY_ACCOUNT_ID } as AuthenticatedAccount, value, 'refresh' in body && body.refresh === true, cancellation.signal); }
-    finally { request?.off('aborted', abort); response?.off('close', abort); }
+    return this.garmin.fetch(account ?? {id:LEGACY_ACCOUNT_ID} as AuthenticatedAccount,value,'refresh' in body && body.refresh===true);
   }
 }

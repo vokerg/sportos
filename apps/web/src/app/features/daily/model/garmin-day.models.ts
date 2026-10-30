@@ -1,3 +1,4 @@
+import type {GarminFetchJob} from '../../../shared/model/garmin-job';
 export type GarminDayCategory = 'summary' | 'weight' | 'sleep' | 'heart_rate' | 'hrv' | 'stress' | 'body_battery' | 'activities';
 export type GarminDayCategoryState = 'missing' | 'available' | 'not_recorded' | 'unsupported' | 'private' | 'failed' | 'authentication_required' | 'rate_limited';
 export interface GarminDayMeasurement {
@@ -14,6 +15,7 @@ export interface GarminDayCategoryEvidence {
   retainedAt: string | null; attemptedAt: string | null; resourceAvailable: boolean; evidence: GarminDayEvidence | null;
 }
 export interface GarminDay {
+  activeJob?:GarminFetchJob|null; fetchAvailability?:string;
   date: string; origin: 'garmin_connect'; evidenceOnly: true; fetchEnabled: boolean;
   state: 'missing' | 'partial' | 'current'; result: 'cached' | 'fetched' | null; categories: GarminDayCategoryEvidence[];
   completeness: 'in_progress' | 'refresh_required' | 'complete';

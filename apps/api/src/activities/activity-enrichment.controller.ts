@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, HttpCode, Get, Param, Post, Query } from '@nestjs/common';
 import { LEGACY_ACCOUNT_ID } from '@sportos/db';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
@@ -19,6 +19,7 @@ export class ActivityEnrichmentController {
     return this.enrichment.resource(account?.id ?? LEGACY_ACCOUNT_ID, id, query.resourceType, parseBoundedInteger(query.chunkIndex as string | undefined, { name: 'chunkIndex', defaultValue: 0, min: 0, max: 10000 }));
   }
   @Post(':activityId/garmin-detail')
+  @HttpCode(202)
   fetch(@Param('activityId') id: string, @Body() raw: unknown, @CurrentAccount() account?: AuthenticatedAccount) {
     assertUuid(id, 'INVALID_ACTIVITY_ID'); const body = raw ?? {};
     if (typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => key !== 'refresh') || ('refresh' in body && typeof body.refresh !== 'boolean')) throw new BadRequestException('Invalid Garmin fetch request.');
