@@ -21,10 +21,10 @@ import { RouterLink } from '@angular/router';
           <span class="report-link">Open monthly stats <span aria-hidden="true">→</span></span>
         </a>
         <a class="card report-card" routerLink="/stats/average-pace">
-          <span class="page-kicker">Coming soon</span>
+          <span class="page-kicker">Training trends</span>
           <h2>Average Pace / Speed</h2>
-          <p>Running pace or cycling speed. A new report is on the way.</p>
-          <span class="report-link">View placeholder <span aria-hidden="true">→</span></span>
+          <p>Distance-weighted running and swimming pace or cycling speed, alongside training volume.</p>
+          <span class="report-link">Open pace and speed <span aria-hidden="true">→</span></span>
         </a>
       </div>
     </section>
