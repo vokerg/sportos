@@ -50,3 +50,6 @@ deploy/docker/worker.env
 apps/mobile/.expo/
 apps/mobile/ios/
 apps/mobile/android/
+
+# Ephemeral Google GitHub Actions authentication files
+gha-creds-*.json

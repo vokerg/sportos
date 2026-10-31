@@ -42,6 +42,9 @@ jobs:
       - name: Fast Angular architecture guardrails
         run: pnpm check:web-architecture
 
+      - name: GCP worker deployment checks (no cloud access)
+        run: node --test deploy/gcp/*.test.mjs
+
       - name: Local development recovery checks
         run: pnpm test:dev-recovery
 
