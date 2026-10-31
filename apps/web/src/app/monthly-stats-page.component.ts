@@ -1,7 +1,7 @@
 import { ColorSchemeService } from './core/theme/color-scheme.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { inject, Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { Subject, takeUntil } from 'rxjs';
 import { DynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
@@ -54,8 +54,9 @@ const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
 @Component({
   selector: 'sportos-monthly-stats-page',
   standalone: true,
-  imports: [NgxEchartsDirective],
+  imports: [NgxEchartsDirective, RouterLink],
   template: `
+    <a class="stats-back-link" routerLink="/stats">← Stats</a>
     <section class="dynamics-heading" aria-labelledby="monthly-stats-title">
       <div><span class="page-kicker">Monthly Stats</span><h1 id="monthly-stats-title">Training by month</h1><p>Monthly totals, recorded-day averages, and selectable bucket trends from canonical SportOS facts.</p></div>
     </section>
@@ -178,6 +179,7 @@ const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
     }
   `,
   styles: [`
+    .stats-back-link { display: inline-block; margin-bottom: 12px; color: var(--link); font-size: 13px; font-weight: 700; }
     .dynamics-heading { margin: 6px 0 22px; }.dynamics-heading h1 { margin: 5px 0; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.035em; }.dynamics-heading p, .semantics, .axis-note, .section-title > span, .table-description { margin: 0; color: var(--text-muted); }
     .page-kicker { color: var(--link); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { margin: 0; padding: 12px; border: 1px solid var(--border-accent); border-radius: 12px; } legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 750; }

@@ -1,5 +1,5 @@
 import { Component, OnInit, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { WebAuthService } from './web-auth.service';
 
 @Component({
@@ -56,7 +56,7 @@ import { WebAuthService } from './web-auth.service';
           <a routerLink="/activities" routerLinkActive="active" ariaCurrentWhenActive="page">Activities</a>
           <a routerLink="/heatmap" routerLinkActive="active" ariaCurrentWhenActive="page">Heatmap</a>
           <a routerLink="/dynamics" routerLinkActive="active" ariaCurrentWhenActive="page">Dynamics</a>
-          <a routerLink="/monthly-stats" routerLinkActive="active" ariaCurrentWhenActive="page">Monthly Stats</a>
+          <a routerLink="/stats" [class.active]="statsActive()" [attr.aria-current]="statsActive() ? 'page' : null">Stats</a>
           <a routerLink="/run-lab" routerLinkActive="active" ariaCurrentWhenActive="page">Run Lab</a>
           <a routerLink="/chat" routerLinkActive="active" ariaCurrentWhenActive="page">Chat</a>
           <a routerLink="/services" routerLinkActive="active" ariaCurrentWhenActive="page">Services</a>
@@ -116,7 +116,11 @@ import { WebAuthService } from './web-auth.service';
 })
 export class AppComponent implements OnInit {
   readonly fullPage = signal(false);
-  constructor(readonly auth: WebAuthService) {}
+  constructor(readonly auth: WebAuthService, private readonly router: Router) {}
+
+  statsActive(): boolean {
+    return this.router.isActive('/stats', false) || this.router.isActive('/monthly-stats', false);
+  }
 
   ngOnInit(): void {
     this.auth.loadSession();
