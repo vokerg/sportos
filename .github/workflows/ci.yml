@@ -42,6 +42,9 @@ jobs:
       - name: Fast Angular architecture guardrails
         run: pnpm check:web-architecture
 
+      - name: GCP worker deployment checks (no cloud access)
+        run: node --test deploy/gcp/*.test.mjs
+
       - name: Local development recovery checks
         run: pnpm test:dev-recovery
 
@@ -265,3 +268,34 @@ jobs:
         env:
           SPORTOS_GARMIN_DISPOSABLE_ADMIN_URL: postgresql://postgres:garmin-integration-only@127.0.0.1:5432/postgres
         run: node scripts/test-garmin-worker-db.mjs
+
+  gcp-worker-package:
+    # Native release packaging and rollback tests; never authenticates to GCP.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pnpm install --frozen-lockfile
+      - run: node --test deploy/gcp/*.test.mjs
+      - run: bash deploy/gcp/package.sh "$RUNNER_TEMP/worker-artifact"
+      - name: Verify offline Python install and systemd unit syntax
+        run: |
+          mkdir -p "$RUNNER_TEMP/worker-smoke"
+          tar -xzf "$RUNNER_TEMP/worker-artifact/worker.tar.gz" -C "$RUNNER_TEMP/worker-smoke"
+          python3 -m venv "$RUNNER_TEMP/worker-smoke/venv"
+          "$RUNNER_TEMP/worker-smoke/venv/bin/pip" install --no-index --only-binary=:all: \
+            --find-links="$RUNNER_TEMP/worker-smoke/wheels" -r tools/garmin/requirements.txt
+          "$RUNNER_TEMP/worker-smoke/venv/bin/python" -c 'import garminconnect, fitdecode'
+          sed "s|/opt/sportos/current|$RUNNER_TEMP/worker-smoke|g" deploy/gcp/sportos-worker.service \
+            > "$RUNNER_TEMP/sportos-worker.service"
+          systemd-analyze verify "$RUNNER_TEMP/sportos-worker.service"

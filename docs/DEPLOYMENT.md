@@ -6,6 +6,10 @@ Render and Vercel setup. SportOS uses pnpm and opaque session cookies.
 Parallel Oracle preparation is documented in [ORACLE_DEPLOYMENT.md](ORACLE_DEPLOYMENT.md)
 (#147). It does not enable the deferred shared-storage/worker phase.
 
+Native deployment preparation for the existing GCP worker VM is documented in
+[gcp-worker-deployment.md](gcp-worker-deployment.md). It does not change the
+API/web topology or automatically solve shared source storage.
+
 ## Topology
 
 - Vercel serves Angular and proxies `/api/:path*` to the Render API.

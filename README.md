@@ -493,3 +493,10 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before changi
 Per-run [running efforts](docs/RUNNING_EFFORTS.md) compare independently calculated retained Strava/Garmin windows with clearly labeled Strava summary estimates. Processing is explicit and pause-excluded; canonical facts, scores and Run Lab remain independent. Primary V135 is required for bounded distance and pause qualifications.
 
 Distance leaderboard and private local reconciliation/catch-up operations: [guide](docs/DISTANCE_LEADERBOARDS.md).
+
+## GCP worker operations
+
+Native systemd deployment and GitHub start/stop/restart/status controls for the
+existing small GCP VM are documented in [GCP worker deployment](docs/gcp-worker-deployment.md).
+The pipeline is prepared only; activation requires the documented operator setup,
+including internet egress and source-storage availability.
