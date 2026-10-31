@@ -59,10 +59,7 @@ import { WebAuthService } from './web-auth.service';
           <a routerLink="/monthly-stats" routerLinkActive="active" ariaCurrentWhenActive="page">Monthly Stats</a>
           <a routerLink="/run-lab" routerLinkActive="active" ariaCurrentWhenActive="page">Run Lab</a>
           <a routerLink="/chat" routerLinkActive="active" ariaCurrentWhenActive="page">Chat</a>
-          <a routerLink="/rules" routerLinkActive="active" ariaCurrentWhenActive="page">Rules</a>
-          <a routerLink="/providers" routerLinkActive="active" ariaCurrentWhenActive="page">Providers</a>
-          <a routerLink="/imports" routerLinkActive="active" ariaCurrentWhenActive="page">Imports</a>
-          <a routerLink="/export" routerLinkActive="active" ariaCurrentWhenActive="page">Export</a>
+          <a routerLink="/services" routerLinkActive="active" ariaCurrentWhenActive="page">Services</a>
         </nav>
         <div class="account-actions">
           <span class="account-name">{{ auth.session()?.account?.displayName }}</span>

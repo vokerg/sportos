@@ -1,12 +1,13 @@
+import { ActivityCardComponent } from './ui/activity-card.component';
 import { ProviderMetricStatusComponent } from './ui/provider-metric-status.component';
 import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ActivityTypeIconComponent } from '../../shared/ui/activity-type-icon.component';
 import type { Activity } from './activities-api.service';
-import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, startTime, title, displayedSubtype } from './activity.view-model';
+import { compactActivityMetrics, startTime, title, displayedSubtype } from './activity.view-model';
 
 @Component({
-  selector: 'sportos-activity-list', standalone: true, imports: [RouterLink, ProviderMetricStatusComponent, ActivityTypeIconComponent],
+  selector: 'sportos-activity-list', standalone: true, imports: [RouterLink, ProviderMetricStatusComponent, ActivityTypeIconComponent, ActivityCardComponent],
   template: `
     @if (activities().length) { <p class="provider-key" aria-label="Provider icon key">Provider icons: <b>S</b> summary · <b>✓</b> detail · <b>?</b> not checked · <b>!</b> needs attention</p> }
     @if (compact()) {
@@ -29,13 +30,7 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
     } @else {
     <div class="activity-list">
       @for (activity of activities(); track activity.id) {
-        <a class="card activity" [attr.data-sport]="activity.activity_type" [routerLink]="['/activity', activity.id]">
-          <div class="heading"><div class="activity-heading"><sportos-activity-type-icon [activityType]="activity.activity_type" [attr.data-sport]="activity.activity_type" /><strong>{{ title(activity) }} @if (activity.historicalSummary) { <span class="muted">· Historical Excel summary</span> } @if (displayedSubtype(activity)) { <small [attr.title]="activity.runClassification ? 'Run type from Garmin' : null">· {{ displayedSubtype(activity) }}</small> } @if (activity.distanceCorrection) { <span class="correction-badge">Manual correction</span> }</strong></div><span>{{ activity.activity_date }} @if (startTime(activity.start_time)) { · {{ startTime(activity.start_time) }} }</span></div>
-          @if (activity.source === 'strava' && activity.notes) { <div class="description">{{ activity.notes }}</div> }
-          <sportos-provider-metric-status [statuses]="activity.providerMetrics ?? []" />
-          <div class="metrics highlights">@for (metric of listMetricHighlights(activity); track metric.label) { <span><b>{{ metric.value }}</b><small>{{ metric.label }}</small></span> }</div>
-          <div class="metrics secondary">@for (metric of listSecondaryMetrics(activity); track metric.label) { <span><b>{{ metric.value }}</b><small>{{ metric.label }}</small></span> }</div>
-        </a>
+        <sportos-activity-card [activity]="activity" />
       }
     </div>
     }
@@ -54,25 +49,14 @@ import { compactActivityMetrics, listMetricHighlights, listSecondaryMetrics, sta
     .muted, .row-name { color: var(--text-muted); font-weight: 400; }.muted { margin-left: 4px; }.correction-badge { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 10px; background: var(--accent-surface); color: var(--text-secondary); font-size: 11px; font-weight: 650; white-space: nowrap; }
     .row-name { display: inline-block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
     .number { font-variant-numeric: tabular-nums; }
+    .provider-key { margin: 0 0 10px; color: var(--text-muted); font-size: 11px; }.provider-key b { color: var(--text-secondary); }
     .activity-list { display: grid; gap: 10px; }
-    .activity { --accent: var(--sport-run); border-left: 4px solid var(--accent); display: grid; gap: 10px; color: inherit; text-decoration: none; }
-    .activity[data-sport=bike] { --accent: var(--sport-bike); }.activity[data-sport=swim] { --accent: var(--sport-swim); }
-    .activity:hover { border-color: var(--border-accent); background: var(--accent-surface); }
-    .heading { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }.activity-heading { display: flex; align-items: center; gap: 9px; min-width: 0; }.activity-heading strong { display: block; }
-    .heading strong { font-size: 18px; }.heading small { font-size: 13px; color: var(--text-muted); font-weight: 500; }
-    .heading span { color: var(--text-muted); font-size: 13px; }.provider-key{margin:0 0 10px;color:var(--text-muted);font-size:11px}.provider-key b{color:var(--text-secondary)}
-    .description { color: var(--text-secondary); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .metrics { display: flex; flex-wrap: wrap; gap: 10px 24px; }
-    .highlights { padding: 12px 0 4px; gap: 12px 32px; }.highlights b { font-size: 24px; color: var(--accent); font-variant-numeric: tabular-nums; }.secondary b { font-size: 13px; font-weight: 500; }.secondary:empty { display: none; }
-    .metrics span { display: grid; gap: 2px; }.metrics small { color: var(--text-muted); font-size: 11px; }
   `],
 })
 export class ActivityListComponent {
   readonly activities = input.required<Activity[]>();
   readonly compact = input(false);
   readonly compactActivityMetrics = compactActivityMetrics;
-  readonly listMetricHighlights = listMetricHighlights;
-  readonly listSecondaryMetrics = listSecondaryMetrics;
   readonly startTime = startTime;
   readonly title = title;
 
