@@ -1,17 +1,17 @@
 import '@angular/compiler';
 import { Injector, runInInjectionContext } from '@angular/core';
-import { convertToParamMap, type ActivatedRoute, type Router } from '@angular/router';
-import { BehaviorSubject, of, throwError } from 'rxjs';
+import { convertToParamMap, ActivatedRoute, Router } from '@angular/router';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { ColorSchemeService } from '../../../core/theme/color-scheme.service';
-import type { PaceSpeedApiService } from '../data-access/pace-speed-api.service';
+import { PaceSpeedApiService } from '../data-access/pace-speed-api.service';
 import type { PaceSpeedResponse } from '../model/pace-speed.models';
 import { AveragePacePageComponent } from './average-pace-page.component';
 
 const sample: PaceSpeedResponse = {
-  range: { from: '2026-01-01', to: '2026-01-31' }, sport: 'run', granularity: 'weekly', threshold: 360,
+  source: 'strava', range: { from: '2026-01-01', to: '2026-01-31' }, sport: 'run', granularity: 'weekly', threshold: 360,
   buckets: [{ key: '2025-12-29', totalDistanceM: 25000, includedDistanceM: 18000,
-    includedTimeS: 5400, activities: 4, includedActivities: 3, value: 300 }],
+    includedTimeS: 5400, missingTimeDistanceM: 2000, activities: 4, includedActivities: 3, value: 300 }],
 };
 
 describe('AveragePacePageComponent', () => {
@@ -24,8 +24,8 @@ describe('AveragePacePageComponent', () => {
     expect(api.trends).toHaveBeenCalledWith({ from: '2026-01-01', to: '2026-01-31', sport: 'run', granularity: 'weekly', threshold: 360 });
     expect(component.state()).toBe('loaded');
     expect(component.rows()[0]?.value).toBe(300);
-    expect(component.notUsed(component.rows()[0]!)).toBe(7000);
-    expect(component.activityQuery('2025-12-29')).toEqual({ from: '2026-01-01', to: '2026-01-04', activityType: 'run', source: 'all' });
+    expect(component.filteredDistanceM(component.rows()[0]!)).toBe(5000);
+    expect(component.activityQuery('2025-12-29')).toEqual({ from: '2026-01-01', to: '2026-01-04', activityType: 'run', source: 'strava' });
     component.setFilterEnabled(false);
     expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: expect.objectContaining({ filter: '0', threshold: 360 }) }));
     component.ngOnDestroy();
@@ -43,6 +43,63 @@ describe('AveragePacePageComponent', () => {
     component.ngOnDestroy();
   });
 
+  it('keeps loaded units and drilldowns tied to the response while controls are edited', () => {
+    const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31' }));
+    const api = { trends: vi.fn().mockReturnValue(of(sample)) };
+    const component = createComponent(api as unknown as PaceSpeedApiService, { queryParamMap: params } as unknown as ActivatedRoute,
+      { navigate: vi.fn().mockResolvedValue(true) } as unknown as Router);
+    component.ngOnInit();
+    component.setFrom('2026-01-20');
+    component.setGranularity('monthly');
+    component.setSport('bike');
+    expect(component.formatValue(300)).toBe('5:00 /km');
+    expect(component.bucketLabel('2025-12-29')).toBe('2025-12-29');
+    expect(component.activityQuery('2025-12-29')).toEqual({ from: '2026-01-01', to: '2026-01-04', activityType: 'run', source: 'strava' });
+    component.ngOnDestroy();
+  });
+
+  it('cancels replaced requests, invalid submissions and requests on destroy', () => {
+    const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31' }));
+    const first = new Subject<PaceSpeedResponse>();
+    const second = new Subject<PaceSpeedResponse>();
+    const third = new Subject<PaceSpeedResponse>();
+    const api = { trends: vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second).mockReturnValueOnce(third) };
+    const component = createComponent(api as unknown as PaceSpeedApiService, { queryParamMap: params } as unknown as ActivatedRoute,
+      { navigate: vi.fn().mockResolvedValue(true) } as unknown as Router);
+    component.ngOnInit();
+    params.next(convertToParamMap({ from: '2026-02-01', to: '2026-02-28' }));
+    expect(first.observed).toBe(false);
+    first.next(sample);
+    expect(component.data()).toBeNull();
+    component.setFrom('2026-03-01');
+    component.apply();
+    expect(second.observed).toBe(false);
+    second.next(sample);
+    expect(component.state()).toBe('error');
+    expect(component.data()).toBeNull();
+    component.setFrom('2026-02-01');
+    component.load();
+    expect(third.observed).toBe(true);
+    component.ngOnDestroy();
+    expect(third.observed).toBe(false);
+  });
+
+  it('refreshes when Apply navigates to the same URL and supports empty results', async () => {
+    const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31' }));
+    const api = { trends: vi.fn().mockReturnValue(of({ ...sample, buckets: [] })) };
+    const component = createComponent(api as unknown as PaceSpeedApiService, { queryParamMap: params } as unknown as ActivatedRoute,
+      { navigate: vi.fn().mockResolvedValue(false) } as unknown as Router);
+    component.ngOnInit();
+    expect(component.state()).toBe('empty');
+    component.apply();
+    await Promise.resolve();
+    expect(api.trends).toHaveBeenCalledTimes(2);
+    component.ngOnDestroy();
+    component.apply();
+    await Promise.resolve();
+    expect(api.trends).toHaveBeenCalledTimes(2);
+  });
+
   it('surfaces API failures and invalid date ranges', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', filter: '0' }));
     const api = { trends: vi.fn().mockReturnValue(throwError(() => new Error('offline'))) };
@@ -58,7 +115,12 @@ describe('AveragePacePageComponent', () => {
   });
 });
 
-function createComponent(...args: ConstructorParameters<typeof AveragePacePageComponent>) {
-  const injector = Injector.create({ providers: [{ provide: ColorSchemeService, useValue: { chartTheme: () => ({}) } }] });
-  return runInInjectionContext(injector, () => new AveragePacePageComponent(...args));
+function createComponent(api: PaceSpeedApiService, route: ActivatedRoute, router: Router) {
+  const injector = Injector.create({ providers: [
+    { provide: ColorSchemeService, useValue: { chartTheme: () => ({}) } },
+    { provide: PaceSpeedApiService, useValue: api },
+    { provide: ActivatedRoute, useValue: route },
+    { provide: Router, useValue: router },
+  ] });
+  return runInInjectionContext(injector, () => new AveragePacePageComponent());
 }

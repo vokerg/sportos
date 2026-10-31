@@ -5,15 +5,15 @@ import {
 } from './pace-speed.models';
 
 const response: PaceSpeedResponse = {
-  range: { from: '2026-01-07', to: '2026-01-27' },
+  source: 'strava', range: { from: '2026-01-07', to: '2026-01-27' },
   sport: 'run',
   granularity: 'weekly',
   threshold: 360,
   buckets: [
     { key: '2026-01-05', totalDistanceM: 15000, includedDistanceM: 12000,
-      includedTimeS: 3600, activities: 3, includedActivities: 2, value: 300 },
+      includedTimeS: 3600, missingTimeDistanceM: 1000, activities: 3, includedActivities: 2, value: 300 },
     { key: '2026-01-19', totalDistanceM: 3000, includedDistanceM: 0,
-      includedTimeS: 0, activities: 1, includedActivities: 0, value: null },
+      includedTimeS: 0, missingTimeDistanceM: 3000, activities: 1, includedActivities: 0, value: null },
   ],
 };
 
@@ -28,7 +28,7 @@ describe('pace speed trend view model', () => {
 
   it('supports month and day buckets, including leap days and clipped activity links', () => {
     expect(fillTrendBuckets({ ...response, granularity: 'monthly' }).map(b => b.key)).toEqual(['2026-01-01']);
-    expect(fillTrendBuckets({ ...response, range: { from: '2024-02-28', to: '2024-03-01' }, buckets: [], granularity: 'daily' }).map(b => b.key))
+    expect(fillTrendBuckets({ ...response, source: 'strava', range: { from: '2024-02-28', to: '2024-03-01' }, buckets: [], granularity: 'daily' }).map(b => b.key))
       .toEqual(['2024-02-28', '2024-02-29', '2024-03-01']);
     expect(bucketDateRange('2026-01-05', 'weekly', '2026-01-07', '2026-01-27')).toEqual({ from: '2026-01-07', to: '2026-01-11' });
     expect(bucketDateRange('2026-01-26', 'weekly', '2026-01-07', '2026-01-27')).toEqual({ from: '2026-01-26', to: '2026-01-27' });
@@ -48,10 +48,11 @@ describe('pace speed trend view model', () => {
     const rows = fillTrendBuckets(response);
     const chart = trendChartOptions(rows, 'run');
     const series = chart.series as Array<{ data: unknown[] }>;
-    expect(series).toHaveLength(3);
+    expect(series).toHaveLength(4);
     expect(series[0]?.data).toEqual([300, null, null, null]);
     expect(series[1]?.data).toEqual([12, 0, 0, 0]);
-    expect(series[2]?.data).toEqual([3, 0, 3, 0]);
+    expect(series[2]?.data).toEqual([2, 0, 0, 0]);
+    expect(series[3]?.data).toEqual([1, 0, 3, 0]);
     const bike = trendChartOptions(rows, 'bike');
     expect(bike.yAxis).toEqual(expect.arrayContaining([expect.objectContaining({ inverse: false })]));
   });

@@ -50,3 +50,7 @@ to this frontend task and was not used as an implementation requirement.
   return link. No provider fetch or score mutation was used for validation.
 - `git diff --check` passed. Backend/database suites are outside this frontend
   scope. PR #229 remains unmerged pending maintainer authorization.
+
+The report uses Strava as its fixed source of truth for both averages and volume;
+its activity drill-down uses the same source. Workbook/manual distance entries
+are excluded. See [report details](average-pace-speed-trends.md).

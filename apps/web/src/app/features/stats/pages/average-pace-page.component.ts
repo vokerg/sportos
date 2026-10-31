@@ -9,8 +9,8 @@ import {
 } from '../../../shared/util/analytics-query-state';
 import { PaceSpeedApiService } from '../data-access/pace-speed-api.service';
 import {
-  DEFAULT_THRESHOLDS, bucketDateRange, fillTrendBuckets, formatKm, formatTrendValue,
-  thresholdOptions, trendChartOptions, type PaceSpeedBucket, type PaceSpeedGranularity,
+  DEFAULT_THRESHOLDS, bucketDateRange, fillTrendBuckets, filteredDistanceM, formatKm, formatTrendValue,
+  thresholdOptions, trendChartOptions, type PaceSpeedGranularity,
   type PaceSpeedResponse, type PaceSpeedSport,
 } from '../model/pace-speed.models';
 
@@ -27,7 +27,7 @@ const DEFAULT_RANGE = '6m' as const;
       <header>
         <span class="page-kicker">Training reports</span>
         <h1 id="report-title">{{ sport() === 'bike' ? 'Average Speed' : 'Average Pace' }}</h1>
-        <p>Distance-weighted {{ sport() === 'bike' ? 'cycling speed' : sport() === 'swim' ? 'swimming pace' : 'running pace' }} alongside training volume.</p>
+        <p>Weighted {{ sport() === 'bike' ? 'cycling speed' : sport() === 'swim' ? 'swimming pace' : 'running pace' }} alongside training volume.</p>
       </header>
 
       <section class="card controls" aria-label="Average pace and speed controls">
@@ -68,7 +68,7 @@ const DEFAULT_RANGE = '6m' as const;
           </select>
           <button type="button" class="secondary reset-button" [disabled]="!filterEnabled() || threshold() === defaultThreshold()" (click)="resetThreshold()">Reset</button>
         </fieldset>
-        <p class="semantics">Averages use total eligible time ÷ eligible distance (speed uses distance ÷ time). Slower activities can be omitted from the average, but their distance remains visible in total volume. Activities without usable time are shown as not used.</p>
+        <p class="semantics">Averages use total eligible time ÷ eligible distance (speed uses distance ÷ time). Slower activities can be omitted from the average, but their distance remains visible in total volume. Distance without time or pace is shown separately as missing time. Only Strava activities contribute to this report.</p>
       </section>
 
       @if (state() === 'loading') {
@@ -76,21 +76,21 @@ const DEFAULT_RANGE = '6m' as const;
       } @else if (state() === 'error') {
         <section class="card state-card" role="alert"><p>{{ errorMessage() }}</p><button type="button" (click)="load()">Retry</button></section>
       } @else if (state() === 'empty') {
-        <section class="card state-card"><h2>No {{ sport() === 'bike' ? 'rides' : sport() === 'swim' ? 'swims' : 'runs' }} in this range</h2><p>Try a longer period or another sport.</p></section>
+        <section class="card state-card"><h2>No {{ reportSport() === 'bike' ? 'rides' : reportSport() === 'swim' ? 'swims' : 'runs' }} in this range</h2><p>Try a longer period or another sport.</p></section>
       } @else {
         <section class="card chart-card" aria-labelledby="pace-trend-title">
           <div class="section-title">
-            <div><span class="page-kicker">Trend</span><h2 id="pace-trend-title">{{ sport() === 'bike' ? 'Speed and volume' : 'Pace and volume' }}</h2></div>
-            <span>{{ from() }} → {{ to() }}</span>
+            <div><span class="page-kicker">Trend</span><h2 id="pace-trend-title">{{ reportSport() === 'bike' ? 'Speed and volume' : 'Pace and volume' }}</h2></div>
+            <span>{{ data()?.range?.from }} → {{ data()?.range?.to }}</span>
           </div>
-          <div echarts class="pace-chart" [theme]="colorScheme.chartTheme()" [options]="chartOptions()" role="img" [attr.aria-label]="sport() + ' weighted trend and volume'"></div>
-          <p class="chart-note">Blue = distance contributing to the average; gray = filtered out or missing time. Blank pace points mean no usable activities.</p>
+          <div echarts class="pace-chart" [theme]="colorScheme.chartTheme()" [options]="chartOptions()" role="img" [attr.aria-label]="reportSport() + ' weighted trend and volume'"></div>
+          <p class="chart-note">Blue = included distance; gray = excluded by pace/speed; amber = missing time or pace. {{ data()?.threshold === null ? 'Pace/speed filter is off.' : 'Pace/speed filter is on.' }} Source: Strava. Blank pace points mean no usable activities.</p>
         </section>
         <section class="card table-card" aria-labelledby="pace-table-title">
-          <div class="section-title"><div><span class="page-kicker">Breakdown</span><h2 id="pace-table-title">{{ granularity() === 'weekly' ? 'Weekly' : granularity() === 'monthly' ? 'Monthly' : 'Daily' }} activity ledger</h2></div></div>
+          <div class="section-title"><div><span class="page-kicker">Breakdown</span><h2 id="pace-table-title">{{ reportGranularity() === 'weekly' ? 'Weekly' : reportGranularity() === 'monthly' ? 'Monthly' : 'Daily' }} activity ledger</h2></div></div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Period</th><th>{{ sport() === 'bike' ? 'Speed' : 'Pace' }}</th><th>Total km</th><th>Included km</th><th>Not used km</th><th>Activities used</th><th></th></tr></thead>
+              <thead><tr><th>Period</th><th>{{ reportSport() === 'bike' ? 'Speed' : 'Pace' }}</th><th>Total km</th><th>Included km</th><th>Filtered km</th><th>Missing time km</th><th>Activities used</th><th></th></tr></thead>
               <tbody>
                 @for (bucket of rows(); track bucket.key) {
                   <tr>
@@ -98,7 +98,8 @@ const DEFAULT_RANGE = '6m' as const;
                     <td>{{ formatValue(bucket.value) }}</td>
                     <td>{{ formatKm(bucket.totalDistanceM) }}</td>
                     <td>{{ formatKm(bucket.includedDistanceM) }}</td>
-                    <td>{{ formatKm(notUsed(bucket)) }}</td>
+                    <td>{{ formatKm(filteredDistanceM(bucket)) }}</td>
+                    <td>{{ formatKm(bucket.missingTimeDistanceM) }}</td>
                     <td>{{ bucket.includedActivities }} / {{ bucket.activities }}</td>
                     <td><a routerLink="/activities" [queryParams]="activityQuery(bucket.key)" [attr.aria-label]="'View activities for ' + bucketLabel(bucket.key)">Activities →</a></td>
                   </tr>
@@ -157,15 +158,21 @@ export class AveragePacePageComponent implements OnInit, OnDestroy {
   readonly errorMessage = signal<string | null>(null);
   readonly data = signal<PaceSpeedResponse | null>(null);
   readonly rows = computed(() => this.data() ? fillTrendBuckets(this.data()!) : []);
-  readonly chartOptions = computed(() => trendChartOptions(this.rows(), this.sport()));
+  readonly reportSport = computed(() => this.data()?.sport ?? this.sport());
+  readonly reportGranularity = computed(() => this.data()?.granularity ?? this.granularity());
+  readonly chartOptions = computed(() => trendChartOptions(this.rows(), this.reportSport()));
   readonly defaultThreshold = computed(() => DEFAULT_THRESHOLDS[this.sport()]);
   readonly thresholdOptions = computed(() => thresholdOptions(this.sport()));
   readonly formatKm = formatKm;
+  readonly filteredDistanceM = filteredDistanceM;
 
+  private destroyed = false;
   private readonly destroyed$ = new Subject<void>();
   private readonly cancelled$ = new Subject<void>();
 
-  constructor(private readonly api: PaceSpeedApiService, private readonly route: ActivatedRoute, private readonly router: Router) {}
+  private readonly api = inject(PaceSpeedApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroyed$)).subscribe(params => {
@@ -184,6 +191,7 @@ export class AveragePacePageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.cancelled$.next();
     this.destroyed$.next();
     this.destroyed$.complete();
@@ -191,10 +199,12 @@ export class AveragePacePageComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
+    if (this.destroyed) return;
+    this.cancelled$.next();
     if (!isDateRangeOrdered(this.from(), this.to())) {
+      this.data.set(null);
       this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return;
     }
-    this.cancelled$.next();
     this.state.set('loading');
     this.errorMessage.set(null);
     this.data.set(null);
@@ -212,13 +222,17 @@ export class AveragePacePageComponent implements OnInit, OnDestroy {
 
   apply(): void {
     if (!isDateRangeOrdered(this.from(), this.to())) {
+      this.cancelled$.next(); this.data.set(null);
       this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return;
     }
     this.savePreferences();
     void this.router.navigate([], { relativeTo: this.route, queryParams: {
       from: this.from(), to: this.to(), sport: this.sport(),
       granularity: this.granularity(), filter: this.filterEnabled() ? '1' : '0', threshold: this.threshold(),
-    } });
+    } }).then(navigated => {
+      // Angular skips navigation to the current URL; Apply still refreshes it.
+      if (!navigated && !this.destroyed) this.load();
+    });
   }
 
   setSport(value: string): void {
@@ -252,12 +266,12 @@ export class AveragePacePageComponent implements OnInit, OnDestroy {
   resetThreshold(): void { this.threshold.set(this.defaultThreshold()); this.apply(); }
   inputValue(event: Event): string { return (event.target as HTMLSelectElement | HTMLInputElement).value; }
   checked(event: Event): boolean { return (event.target as HTMLInputElement).checked; }
-  formatValue(value: number | null): string { return formatTrendValue(value, this.sport()); }
-  notUsed(bucket: PaceSpeedBucket): number { return Math.max(0, bucket.totalDistanceM - bucket.includedDistanceM); }
-  bucketLabel(key: string): string { return this.granularity() === 'monthly' ? key.slice(0, 7) : key; }
+  formatValue(value: number | null): string { return formatTrendValue(value, this.reportSport()); }
+  bucketLabel(key: string): string { return this.reportGranularity() === 'monthly' ? key.slice(0, 7) : key; }
   activityQuery(key: string): Record<string, string> {
-    const dates = bucketDateRange(key, this.granularity(), this.from(), this.to());
-    return { ...dates, activityType: this.sport(), source: 'all' };
+    const report = this.data();
+    const dates = bucketDateRange(key, this.reportGranularity(), report?.range.from ?? this.from(), report?.range.to ?? this.to());
+    return { ...dates, activityType: this.reportSport(), source: 'strava' };
   }
 
   private readPreferences(sport: PaceSpeedSport): { enabled: boolean; threshold: number } {

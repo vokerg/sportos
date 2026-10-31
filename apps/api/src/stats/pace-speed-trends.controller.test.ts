@@ -26,13 +26,14 @@ describe('pace speed trends API', () => {
       { from: '2026-01-01', to: '2026-01-31', threshold: '-1' },
       { from: '2026-01-01', to: '2026-01-31', sport: 'bike', threshold: '250' },
       { from: '2026-01-01', to: '2026-01-31', ownerId: 'secret' },
+      { from: '2026-01-01', to: '2026-01-31', source: 'all' },
       { from: '2026-01-01', to: '2026-01-31', sport: ['run', 'bike'] },
     ]) expect(() => parsePaceSpeedQuery(raw)).toThrow(BadRequestException);
   });
 
   it('runs only inside authenticated account context', async () => {
     const accountId = '22222222-2222-4222-8222-222222222222';
-    const expected = { range: { from: '2026-01-01', to: '2026-02-01' }, sport: 'run',
+    const expected = { source: 'strava', range: { from: '2026-01-01', to: '2026-02-01' }, sport: 'run',
       granularity: 'weekly', threshold: 360, buckets: [] } satisfies PaceSpeedTrendResponse;
     const read = vi.spyOn(PaceSpeedTrendsRepository.prototype, 'read').mockResolvedValue(expected);
     const withAccount = vi.fn((_id: string, run: (db: Kysely<Database>) => Promise<unknown>) => run({} as Kysely<Database>));

@@ -8,6 +8,7 @@ export interface PaceSpeedBucket {
   totalDistanceM: number;
   includedDistanceM: number;
   includedTimeS: number;
+  missingTimeDistanceM: number;
   activities: number;
   includedActivities: number;
   value: number | null;
@@ -16,6 +17,7 @@ export interface PaceSpeedBucket {
 export interface PaceSpeedResponse {
   range: { from: string; to: string };
   sport: PaceSpeedSport;
+  source: 'strava';
   granularity: PaceSpeedGranularity;
   threshold: number | null;
   buckets: PaceSpeedBucket[];
@@ -59,7 +61,7 @@ export function fillTrendBuckets(response: PaceSpeedResponse): PaceSpeedBucket[]
   if (response.granularity === 'weekly') first.setUTCDate(first.getUTCDate() - ((first.getUTCDay() + 6) % 7));
   for (let date = first; date.toISOString().slice(0, 10) <= last && rows.length < 3700;) {
     const key = date.toISOString().slice(0, 10);
-    rows.push(byKey.get(key) ?? { key, totalDistanceM: 0, includedDistanceM: 0, includedTimeS: 0, activities: 0, includedActivities: 0, value: null });
+    rows.push(byKey.get(key) ?? { key, totalDistanceM: 0, includedDistanceM: 0, includedTimeS: 0, missingTimeDistanceM: 0, activities: 0, includedActivities: 0, value: null });
     const next = new Date(date.getTime());
     if (response.granularity === 'monthly') next.setUTCMonth(next.getUTCMonth() + 1);
     else next.setUTCDate(next.getUTCDate() + (response.granularity === 'weekly' ? 7 : 1));
@@ -77,13 +79,17 @@ export function bucketDateRange(key: string, granularity: PaceSpeedGranularity, 
   return { from: key < from ? from : key, to: end > to ? to : end };
 }
 
+export function filteredDistanceM(bucket: PaceSpeedBucket): number {
+  return Math.max(0, bucket.totalDistanceM - bucket.includedDistanceM - bucket.missingTimeDistanceM);
+}
+
 export function trendChartOptions(buckets: PaceSpeedBucket[], sport: PaceSpeedSport): EChartsOption {
   const labels = buckets.map(bucket => bucket.key);
   const pace = sport !== 'bike';
   return {
     animation: false,
     grid: [{ left: 62, right: 22, top: 40, height: '43%' }, { left: 62, right: 22, top: '69%', height: '20%' }],
-    legend: { top: 0, data: [pace ? 'Weighted pace' : 'Weighted speed', 'Included km', 'Not used km'] },
+    legend: { top: 0, data: [pace ? 'Weighted pace' : 'Weighted speed', 'Included km', 'Filtered km', 'Missing time km'] },
     tooltip: {
       trigger: 'axis',
       formatter: (params: unknown) => {
@@ -93,7 +99,8 @@ export function trendChartOptions(buckets: PaceSpeedBucket[], sport: PaceSpeedSp
         return bucket.key + '<br/>' +
           (pace ? 'Pace: ' : 'Speed: ') + formatTrendValue(bucket.value, sport) + '<br/>' +
           'Included: ' + formatKm(bucket.includedDistanceM) + ' km<br/>' +
-          'Not used: ' + formatKm(Math.max(0, bucket.totalDistanceM - bucket.includedDistanceM)) + ' km';
+          'Filtered: ' + formatKm(filteredDistanceM(bucket)) + ' km<br/>' +
+          'Missing time: ' + formatKm(bucket.missingTimeDistanceM) + ' km';
       },
     },
     xAxis: [
@@ -111,9 +118,11 @@ export function trendChartOptions(buckets: PaceSpeedBucket[], sport: PaceSpeedSp
         lineStyle: { width: 3, color: '#10a58c' }, itemStyle: { color: '#10a58c' } },
       { name: 'Included km', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, stack: 'volume',
         data: buckets.map(bucket => bucket.includedDistanceM / 1000), itemStyle: { color: '#4d81c8' } },
-      { name: 'Not used km', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, stack: 'volume',
-        data: buckets.map(bucket => Math.max(0, bucket.totalDistanceM - bucket.includedDistanceM) / 1000),
+      { name: 'Filtered km', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, stack: 'volume',
+        data: buckets.map(bucket => filteredDistanceM(bucket) / 1000),
         itemStyle: { color: '#b4bfce' } },
+      { name: 'Missing time km', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, stack: 'volume',
+        data: buckets.map(bucket => bucket.missingTimeDistanceM / 1000), itemStyle: { color: '#d49b4b' } },
     ],
   };
 }

@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, Get, Inject, Query } from '@nestjs/common';
-import { LEGACY_ACCOUNT_ID, PaceSpeedTrendsRepository, type PaceSpeedGrain, type PaceSpeedSport, type PaceSpeedTrendQuery } from '@sportos/db';
+import { PaceSpeedTrendsRepository, type PaceSpeedGrain, type PaceSpeedSport, type PaceSpeedTrendQuery } from '@sportos/db';
 import { CurrentAccount } from '../auth/current-account.decorator.js';
 import type { AuthenticatedAccount } from '../auth/auth.models.js';
 import { DbProvider } from '../db.provider.js';
@@ -40,8 +40,8 @@ export class PaceSpeedTrendsController {
   constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
 
   @Get('pace-speed')
-  trends(@Query() raw: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) {
+  trends(@Query() raw: Record<string, unknown>, @CurrentAccount() account: AuthenticatedAccount) {
     const query = parsePaceSpeedQuery(raw);
-    return this.dbProvider.withAccount(account?.id ?? LEGACY_ACCOUNT_ID, db => new PaceSpeedTrendsRepository(db).read(query));
+    return this.dbProvider.withAccount(account.id, db => new PaceSpeedTrendsRepository(db).read(query));
   }
 }
