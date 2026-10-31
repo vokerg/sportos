@@ -32,6 +32,7 @@ export * from './repositories/scoring.repository.js';
 export * from './repositories/analysis-audit.repository.js';
 export * from './repositories/dynamics.repository.js';
 export * from './repositories/activities.repository.js';
+export * from './repositories/pace-speed-trends.repository.js';
 export * from './repositories/activity-distance-corrections.repository.js';
 export * from './repositories/heatmap-routes.repository.js';
 export * from './repositories/activity-provider-resources.repository.js';

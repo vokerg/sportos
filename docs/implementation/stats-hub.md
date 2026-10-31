@@ -1,5 +1,10 @@
 # Stats hub
 
+> Follow-up: the Average Pace / Speed placeholder described below has now been
+> implemented; see [Average Pace / Speed trends](average-pace-speed-trends.md)
+> for its aggregate API, chart, table, and threshold controls. This document
+> retains the original Stats hub delivery history.
+
 Maintainer-directed frontend task, implemented from current `main` without
 selecting unrelated backlog work. Open issues and PRs and recent merged PRs
 (including #228) were reviewed; no competing Stats implementation was found.
@@ -45,3 +50,7 @@ to this frontend task and was not used as an implementation requirement.
   return link. No provider fetch or score mutation was used for validation.
 - `git diff --check` passed. Backend/database suites are outside this frontend
   scope. PR #229 remains unmerged pending maintainer authorization.
+
+The report uses Strava as its fixed source of truth for both averages and volume;
+its activity drill-down uses the same source. Workbook/manual distance entries
+are excluded. See [report details](average-pace-speed-trends.md).

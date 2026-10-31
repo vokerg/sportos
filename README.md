@@ -58,7 +58,7 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Multiply the highest qualifying moving-pace swim tier by each completed kilometre in that swim.
 - Export bounded, versioned `sportos.canonical-export.v3` JSON from one repeatable-read snapshot, including each daily score's authority status.
 - Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.
-- Open the web Stats hub for Monthly Stats and an Average Pace / Speed placeholder. The placeholder switches between Running (min/km) and Bike (km/h); calculations are not implemented yet.
+- Open the web Stats hub for Monthly Stats and the Average Pace / Speed report. The latter combines time/distance-weighted running and swimming pace or cycling speed from canonical Strava activities with total vs eligible training volume, shared date ranges, configurable thresholds, and activity drill-downs.
 - Review canonical score, steps, run, bike, swim, workout, and bonus totals in Monthly Stats, and graph their true day-by-day trailing 10/20/30/60/365-day totals, averages, or positive activity-day frequency in Dynamics with explicit data coverage and an authoritative stacked 30-day score-contribution view.
 
 ### Ask cited, read-only questions
