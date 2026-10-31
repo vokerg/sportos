@@ -4,7 +4,7 @@ import { APP_ROUTES } from './app.routes';
 describe('APP_ROUTES', () => {
   it('keeps every major workflow and the complete daily deep link addressable', () => {
     expect(APP_ROUTES.map((route) => route.path)).toEqual([
-      'chat', 'services', 'mobile-connect', 'overview', 'daily', 'daily/:date', 'monthly-stats', 'dynamics', 'run-lab', 'activities', 'heatmap', 'activity/:id/map', 'activity/:id', 'analysis', 'rules', 'providers', 'imports', 'export', '', '**',
+      'chat', 'services', 'mobile-connect', 'overview', 'daily', 'daily/:date', 'stats', 'stats/average-pace', 'monthly-stats', 'dynamics', 'run-lab', 'activities', 'heatmap', 'activity/:id/map', 'activity/:id', 'analysis', 'rules', 'providers', 'imports', 'export', '', '**',
     ]);
     expect(APP_ROUTES.filter((route) => route.path && route.path !== '**').every((route) => route.loadComponent)).toBe(true);
     expect(APP_ROUTES.find((route) => route.path === 'mobile-connect')?.title).toBe('Connect iPhone · SportOS');

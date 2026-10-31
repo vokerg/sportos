@@ -32,6 +32,16 @@ export const APP_ROUTES: Routes = [
     title: 'Daily score · SportOS',
   },
   {
+    path: 'stats',
+    loadComponent: () => import('./features/stats/pages/stats-page.component').then(module => module.StatsPageComponent),
+    title: 'Stats · SportOS',
+  },
+  {
+    path: 'stats/average-pace',
+    loadComponent: () => import('./features/stats/pages/average-pace-page.component').then(module => module.AveragePacePageComponent),
+    title: 'Average Pace / Speed · SportOS',
+  },
+  {
     path: 'monthly-stats',
     loadComponent: () => import('./monthly-stats-page.component').then((module) => module.MonthlyStatsPageComponent),
     title: 'Monthly Stats · SportOS',
