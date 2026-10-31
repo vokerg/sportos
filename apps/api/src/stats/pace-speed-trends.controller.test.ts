@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { PaceSpeedTrendsRepository, type Database, type Kysely } from '@sportos/db';
+import { PaceSpeedTrendsRepository, type Database, type Kysely, type PaceSpeedTrendResponse } from '@sportos/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DbProvider } from '../db.provider.js';
 import { PaceSpeedTrendsController, parsePaceSpeedQuery } from './pace-speed-trends.controller.js';
@@ -33,7 +33,7 @@ describe('pace speed trends API', () => {
   it('runs only inside authenticated account context', async () => {
     const accountId = '22222222-2222-4222-8222-222222222222';
     const expected = { range: { from: '2026-01-01', to: '2026-02-01' }, sport: 'run',
-      granularity: 'weekly', threshold: 360, buckets: [] } as const;
+      granularity: 'weekly', threshold: 360, buckets: [] } satisfies PaceSpeedTrendResponse;
     const read = vi.spyOn(PaceSpeedTrendsRepository.prototype, 'read').mockResolvedValue(expected);
     const withAccount = vi.fn((_id: string, run: (db: Kysely<Database>) => Promise<unknown>) => run({} as Kysely<Database>));
     const controller = new PaceSpeedTrendsController({ withAccount } as unknown as DbProvider);
