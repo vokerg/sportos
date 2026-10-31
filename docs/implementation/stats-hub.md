@@ -1,5 +1,10 @@
 # Stats hub
 
+> Follow-up: the Average Pace / Speed placeholder described below has now been
+> implemented; see [Average Pace / Speed trends](average-pace-speed-trends.md)
+> for its aggregate API, chart, table, and threshold controls. This document
+> retains the original Stats hub delivery history.
+
 Maintainer-directed frontend task, implemented from current `main` without
 selecting unrelated backlog work. Open issues and PRs and recent merged PRs
 (including #228) were reviewed; no competing Stats implementation was found.
