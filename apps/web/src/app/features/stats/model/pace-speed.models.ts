@@ -78,7 +78,7 @@ export function bucketDateRange(key: string, granularity: PaceSpeedGranularity, 
 }
 
 export function trendChartOptions(buckets: PaceSpeedBucket[], sport: PaceSpeedSport): EChartsOption {
-  const labels = buckets.map(bucket => sport === 'bike' ? bucket.key : bucket.key);
+  const labels = buckets.map(bucket => bucket.key);
   const pace = sport !== 'bike';
   return {
     animation: false,
@@ -97,7 +97,7 @@ export function trendChartOptions(buckets: PaceSpeedBucket[], sport: PaceSpeedSp
       },
     },
     xAxis: [
-      { type: 'category', data: labels, boundaryGap: false, gridIndex: 0, axisLabel: { show: false }, axisTick: { show: false } },
+      { type: 'category', data: labels, boundaryGap: true, gridIndex: 0, axisLabel: { show: false }, axisTick: { show: false } },
       { type: 'category', data: labels, gridIndex: 1, axisLabel: { hideOverlap: true } },
     ],
     yAxis: [
