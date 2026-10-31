@@ -257,7 +257,7 @@ export class AveragePacePageComponent implements OnInit, OnDestroy {
   bucketLabel(key: string): string { return this.granularity() === 'monthly' ? key.slice(0, 7) : key; }
   activityQuery(key: string): Record<string, string> {
     const dates = bucketDateRange(key, this.granularity(), this.from(), this.to());
-    return { ...dates, activityType: this.sport(), source: '' };
+    return { ...dates, activityType: this.sport(), source: 'all' };
   }
 
   private readPreferences(sport: PaceSpeedSport): { enabled: boolean; threshold: number } {
