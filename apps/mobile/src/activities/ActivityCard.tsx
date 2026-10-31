@@ -37,7 +37,7 @@ export function ActivityCard({activity,onOpen}: {activity:Activity;onOpen():void
     <Text style={[styles.mini,{color:palette.accent}]}>{sourceLabel(activity.source)}
       {activity.historicalSummary?' · Imported summary':''}
       {activity.distanceCorrection?' · Corrected distance':''}</Text>
-    
+
   </Pressable>;
 }
 
