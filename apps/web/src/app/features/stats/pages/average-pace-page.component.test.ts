@@ -25,7 +25,7 @@ describe('AveragePacePageComponent', () => {
     expect(component.state()).toBe('loaded');
     expect(component.rows()[0]?.value).toBe(300);
     expect(component.notUsed(component.rows()[0]!)).toBe(7000);
-    expect(component.activityQuery('2025-12-29')).toEqual({ from: '2026-01-01', to: '2026-01-04', activityType: 'run', source: '' });
+    expect(component.activityQuery('2025-12-29')).toEqual({ from: '2026-01-01', to: '2026-01-04', activityType: 'run', source: 'all' });
     component.setFilterEnabled(false);
     expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: expect.objectContaining({ filter: '0', threshold: 360 }) }));
     component.ngOnDestroy();
