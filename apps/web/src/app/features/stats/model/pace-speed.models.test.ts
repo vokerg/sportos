@@ -48,11 +48,10 @@ describe('pace speed trend view model', () => {
     const rows = fillTrendBuckets(response);
     const chart = trendChartOptions(rows, 'run');
     const series = chart.series as Array<{ data: unknown[] }>;
-    expect(series).toHaveLength(4);
+    expect(series).toHaveLength(3);
     expect(series[0]?.data).toEqual([300, null, null, null]);
     expect(series[1]?.data).toEqual([12, 0, 0, 0]);
     expect(series[2]?.data).toEqual([2, 0, 0, 0]);
-    expect(series[3]?.data).toEqual([1, 0, 3, 0]);
     const bike = trendChartOptions(rows, 'bike');
     expect(bike.yAxis).toEqual(expect.arrayContaining([expect.objectContaining({ inverse: false })]));
   });

@@ -48,6 +48,8 @@ describe('pace and speed report rendering', () => {
       buckets: [{ key: '2025-12-29', totalDistanceM: 15000, includedDistanceM: 12000, includedTimeS: 3600, missingTimeDistanceM: 1000, activities: 3, includedActivities: 2, value: 300 }] });
     fixture.detectChanges();
     expect(el.querySelector('tbody')?.textContent).toContain('5:00 /km');
+    expect(el.querySelector('thead')?.textContent).not.toContain('Missing time');
+    expect(el.querySelector('thead')?.textContent).toContain('Filtered km');
     const from = el.querySelector<HTMLInputElement>('input[type=date]')!;
     from.value = '2026-01-20';
     from.dispatchEvent(new Event('input'));

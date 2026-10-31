@@ -89,7 +89,7 @@ export function trendChartOptions(buckets: PaceSpeedBucket[], sport: PaceSpeedSp
   return {
     animation: false,
     grid: [{ left: 62, right: 22, top: 40, height: '43%' }, { left: 62, right: 22, top: '69%', height: '20%' }],
-    legend: { top: 0, data: [pace ? 'Weighted pace' : 'Weighted speed', 'Included km', 'Filtered km', 'Missing time km'] },
+    legend: { top: 0, data: [pace ? 'Weighted pace' : 'Weighted speed', 'Included km', 'Filtered km'] },
     tooltip: {
       trigger: 'axis',
       formatter: (params: unknown) => {
@@ -99,8 +99,7 @@ export function trendChartOptions(buckets: PaceSpeedBucket[], sport: PaceSpeedSp
         return bucket.key + '<br/>' +
           (pace ? 'Pace: ' : 'Speed: ') + formatTrendValue(bucket.value, sport) + '<br/>' +
           'Included: ' + formatKm(bucket.includedDistanceM) + ' km<br/>' +
-          'Filtered: ' + formatKm(filteredDistanceM(bucket)) + ' km<br/>' +
-          'Missing time: ' + formatKm(bucket.missingTimeDistanceM) + ' km';
+          'Filtered: ' + formatKm(filteredDistanceM(bucket)) + ' km';
       },
     },
     xAxis: [
@@ -121,8 +120,6 @@ export function trendChartOptions(buckets: PaceSpeedBucket[], sport: PaceSpeedSp
       { name: 'Filtered km', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, stack: 'volume',
         data: buckets.map(bucket => filteredDistanceM(bucket) / 1000),
         itemStyle: { color: '#b4bfce' } },
-      { name: 'Missing time km', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, stack: 'volume',
-        data: buckets.map(bucket => bucket.missingTimeDistanceM / 1000), itemStyle: { color: '#d49b4b' } },
     ],
   };
 }

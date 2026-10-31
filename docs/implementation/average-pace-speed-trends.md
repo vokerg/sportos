@@ -30,16 +30,16 @@ cycling, and swimming. The authenticated, account-scoped endpoint is
 - Total volume includes all positive-distance canonical Strava activities in the
   bucket. Eligible volume and time include only positive-distance activities
   with valid time and passing the selected threshold. The remaining volume
-  is split into **Filtered km** (excluded by the selected threshold) and
-  **Missing time km** (no positive moving time, duration, pace or speed). Turning
-  the filter off makes Filtered km zero; missing timing evidence remains separate.
+  excluded by the selected threshold is displayed as **Filtered km**. Turning
+  the filter off makes Filtered km zero. The API retains a missing-time coverage
+  field for validation; the report has no missing-time column or chart series.
   If no activity contributes, the metric is `null` (not zero).
 
 ## UI and investigation
 
 The page reuses `analytics-query-state` and the Monthly Stats quick range,
 local calendar dates, and grain controls. An ECharts line shows bucket pace or
-speed, with stacked included/filtered/missing-time volume bars below; sparse buckets remain
+speed, with stacked included/filtered volume bars below; sparse buckets remain
 gaps rather than interpolated lines. The table reports distance, activity
 coverage, and opens the existing Activities list for the clipped bucket range
 with `source=strava`, matching the exact source used by the report. Loaded
@@ -75,7 +75,7 @@ and `scripts/test-garmin-worker-db.mjs`.
 
 Passed locally:
 
-- Stats model/page/render tests (12 cases), including real Angular template
+- Stats model/page/render tests (13 cases), including real Angular template
   rendering with stubbed transport/chart, loaded-result consistency, safe errors,
   Retry, empty state, URL refresh and request cancellation.
 - API query/account-context and session-guard tests; API and web typechecks.

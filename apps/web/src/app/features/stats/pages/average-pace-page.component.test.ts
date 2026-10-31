@@ -2,7 +2,7 @@ import '@angular/compiler';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { convertToParamMap, ActivatedRoute, Router } from '@angular/router';
 import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ColorSchemeService } from '../../../core/theme/color-scheme.service';
 import { PaceSpeedApiService } from '../data-access/pace-speed-api.service';
 import type { PaceSpeedResponse } from '../model/pace-speed.models';
@@ -15,6 +15,20 @@ const sample: PaceSpeedResponse = {
 };
 
 describe('AveragePacePageComponent', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('defaults to enabled run exclusion at 6:00/km without saved or URL overrides', () => {
+    vi.stubGlobal('localStorage', { getItem: () => null });
+    const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31' }));
+    const api = { trends: vi.fn().mockReturnValue(of(sample)) };
+    const component = createComponent(api as unknown as PaceSpeedApiService, { queryParamMap: params } as unknown as ActivatedRoute,
+      { navigate: vi.fn().mockResolvedValue(true) } as unknown as Router);
+    component.ngOnInit();
+    expect(component.filterEnabled()).toBe(true);
+    expect(component.threshold()).toBe(360);
+    expect(api.trends).toHaveBeenCalledWith(expect.objectContaining({ sport: 'run', threshold: 360 }));
+    component.ngOnDestroy();
+  });
   it('loads filtered run trends with the shared URL-backed range and default 6:00 pace', () => {
     const params = new BehaviorSubject(convertToParamMap({ from: '2026-01-01', to: '2026-01-31', sport: 'run', filter: '1', threshold: '360' }));
     const api = { trends: vi.fn().mockReturnValue(of(sample)) };

@@ -68,7 +68,7 @@ const DEFAULT_RANGE = '6m' as const;
           </select>
           <button type="button" class="secondary reset-button" [disabled]="!filterEnabled() || threshold() === defaultThreshold()" (click)="resetThreshold()">Reset</button>
         </fieldset>
-        <p class="semantics">Averages use total eligible time ÷ eligible distance (speed uses distance ÷ time). Slower activities can be omitted from the average, but their distance remains visible in total volume. Distance without time or pace is shown separately as missing time. Only Strava activities contribute to this report.</p>
+        <p class="semantics">Averages use total eligible time ÷ eligible distance (speed uses distance ÷ time). Slower activities can be omitted from the average, but their distance remains visible in total volume. Only Strava activities contribute to this report.</p>
       </section>
 
       @if (state() === 'loading') {
@@ -84,13 +84,13 @@ const DEFAULT_RANGE = '6m' as const;
             <span>{{ data()?.range?.from }} → {{ data()?.range?.to }}</span>
           </div>
           <div echarts class="pace-chart" [theme]="colorScheme.chartTheme()" [options]="chartOptions()" role="img" [attr.aria-label]="reportSport() + ' weighted trend and volume'"></div>
-          <p class="chart-note">Blue = included distance; gray = excluded by pace/speed; amber = missing time or pace. {{ data()?.threshold === null ? 'Pace/speed filter is off.' : 'Pace/speed filter is on.' }} Source: Strava. Blank pace points mean no usable activities.</p>
+          <p class="chart-note">Blue = included distance; gray = excluded by pace/speed. {{ data()?.threshold === null ? 'Pace/speed filter is off.' : 'Pace/speed filter is on.' }} Source: Strava. Blank pace points mean no usable activities.</p>
         </section>
         <section class="card table-card" aria-labelledby="pace-table-title">
           <div class="section-title"><div><span class="page-kicker">Breakdown</span><h2 id="pace-table-title">{{ reportGranularity() === 'weekly' ? 'Weekly' : reportGranularity() === 'monthly' ? 'Monthly' : 'Daily' }} activity ledger</h2></div></div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Period</th><th>{{ reportSport() === 'bike' ? 'Speed' : 'Pace' }}</th><th>Total km</th><th>Included km</th><th>Filtered km</th><th>Missing time km</th><th>Activities used</th><th></th></tr></thead>
+              <thead><tr><th>Period</th><th>{{ reportSport() === 'bike' ? 'Speed' : 'Pace' }}</th><th>Total km</th><th>Included km</th><th>Filtered km</th><th>Activities used</th><th></th></tr></thead>
               <tbody>
                 @for (bucket of rows(); track bucket.key) {
                   <tr>
@@ -99,7 +99,6 @@ const DEFAULT_RANGE = '6m' as const;
                     <td>{{ formatKm(bucket.totalDistanceM) }}</td>
                     <td>{{ formatKm(bucket.includedDistanceM) }}</td>
                     <td>{{ formatKm(filteredDistanceM(bucket)) }}</td>
-                    <td>{{ formatKm(bucket.missingTimeDistanceM) }}</td>
                     <td>{{ bucket.includedActivities }} / {{ bucket.activities }}</td>
                     <td><a routerLink="/activities" [queryParams]="activityQuery(bucket.key)" [attr.aria-label]="'View activities for ' + bucketLabel(bucket.key)">Activities →</a></td>
                   </tr>
