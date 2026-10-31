@@ -5,8 +5,6 @@ set -euo pipefail
 login=${1:?Usage: bootstrap.sh OS_LOGIN_LINUX_USERNAME}
 [[ $login =~ ^[a-z_][a-z0-9_-]*\$?$ ]] || exit 2
 getent passwd "$login" >/dev/null
-[[ $(node -p 'process.versions.node.split(".")[0]') == 22 ]]
-[[ $(command -v node) == /usr/bin/node ]]
 python3 -c 'import sys; assert sys.version_info[:2] == (3, 13)'
 source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 getent group sportos-deploy >/dev/null || groupadd --system sportos-deploy

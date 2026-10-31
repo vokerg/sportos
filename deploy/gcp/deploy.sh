@@ -3,7 +3,6 @@
 set -euo pipefail
 umask 0022
 root=${SPORTOS_DEPLOY_ROOT:-/opt/sportos}
-node_bin=${SPORTOS_NODE_BIN:-/usr/bin/node}
 ready_file=${SPORTOS_READY_FILE:-/etc/sportos/worker-ready}
 operation=${1:-}
 release=${2:-}
@@ -75,16 +74,16 @@ PY
   tar -xzf "$archive" -C "$staged" --no-same-owner --no-same-permissions
   [[ $(cat "$staged/REVISION") == "${release:0:40}" ]]
   [[ -f $staged/apps/worker/dist/import-worker.js ]]
-  [[ $("$node_bin" -p 'process.versions.node.split(".")[0]') == 22 ]]
   python3 -c 'import sys; assert sys.version_info[:2] == (3, 13)'
   # Use final path before venv creation: venv scripts contain absolute paths.
   mv "$staged" "$target"
   staged=''
   created=true
+  [[ $("$target/runtime/node" -p 'process.versions.node.split(".")[0]') == 22 ]]
   python3 -m venv "$target/venv"
   "$target/venv/bin/pip" install --no-cache-dir --no-index --only-binary=:all: --find-links="$target/wheels" -r "$target/tools/garmin/requirements.txt"
   "$target/venv/bin/python" -c 'import garminconnect, fitdecode'
-  (cd "$target/apps/worker" && "$node_bin" --input-type=module -e "await Promise.all([import('@sportos/db'),import('@sportos/importers'),import('@sportos/garmin-runtime')])")
+  (cd "$target/apps/worker" && "$target/runtime/node" --input-type=module -e "await Promise.all([import('@sportos/db'),import('@sportos/importers'),import('@sportos/garmin-runtime')])")
   # Runtime account can read/execute code but cannot edit it.
   chmod -R go-w "$target"
   chmod -R a+rX "$target"

@@ -12,7 +12,10 @@ trap 'rm -rf "$stage"' EXIT
 pnpm --filter @sportos/worker build
 pnpm --filter @sportos/worker deploy --prod "$stage/apps/worker"
 # Preserve the monorepo-relative helper paths used by the built worker.
-mkdir -p "$stage/tools/garmin" "$stage/wheels"
+mkdir -p "$stage/tools/garmin" "$stage/wheels" "$stage/runtime"
+node_binary=$(node -p 'process.execPath')
+cp -L "$node_binary" "$stage/runtime/node"
+cp "$(dirname "$(dirname "$node_binary")")/LICENSE" "$stage/runtime/NODE-LICENSE"
 cp tools/garmin/*.py tools/garmin/requirements.txt "$stage/tools/garmin/"
 # Never compile Python dependencies on the VM. Fail if no compatible wheel exists.
 python3 -m pip download --only-binary=:all: --dest "$stage/wheels" -r tools/garmin/requirements.txt

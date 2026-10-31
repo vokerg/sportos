@@ -16,7 +16,7 @@ Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=SPORTOS_UPLOAD_DIR=/var/lib/sportos/uploads
 Environment=SPORTOS_GARMIN_PYTHON=/opt/sportos/current/venv/bin/python
 EnvironmentFile=/etc/sportos/worker.env
-ExecStart=/usr/bin/node /opt/sportos/current/apps/worker/dist/import-worker.js
+ExecStart=/opt/sportos/current/runtime/node /opt/sportos/current/apps/worker/dist/import-worker.js
 Restart=on-failure
 RestartSec=10
 KillSignal=SIGTERM
