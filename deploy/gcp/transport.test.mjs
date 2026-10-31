@@ -12,7 +12,7 @@ async function fixture(t) {
   await writeFile(join(dir, 'gcloud'), '#!/bin/bash\nprintf "%s\\n" "$*" >> "$CALL_LOG"\n', { mode: 0o755 });
   const env = { ...process.env, PATH: `${dir}:${process.env.PATH}`, CALL_LOG: log,
     GCP_PROJECT_ID: 'example-project', GCP_VM_NAME: 'example-vm', GCP_VM_ZONE: 'us-central1-c',
-    GCP_SSH_KNOWN_HOSTS: 'compute.123 ssh-ed25519 EXAMPLE' };
+    GCP_KNOWN_HOSTS_FILE: join(dir, 'known_hosts'), GCP_SSH_KNOWN_HOSTS: 'compute.123 ssh-ed25519 EXAMPLE' };
   return { env, log, dir };
 }
 for (const op of ['start', 'stop', 'restart', 'status']) {
@@ -23,7 +23,7 @@ for (const op of ['start', 'stop', 'restart', 'status']) {
     const call = await readFile(log, 'utf8');
     assert.match(call, /--tunnel-through-iap/);
     assert.match(call, /--strict-host-key-checking=yes/);
-    assert.match(call, /UserKnownHostsFile=/);
+    assert.equal(await readFile(env.GCP_KNOWN_HOSTS_FILE, 'utf8'), 'compute.123 ssh-ed25519 EXAMPLE\n');
     assert.match(call, new RegExp(`sportos-worker-control ${op}`));
     assert.doesNotMatch(call, /compute scp|worker-deploy|setMetadata|set-metadata/);
   });

@@ -7,12 +7,15 @@ for variable in GCP_PROJECT_ID GCP_VM_NAME GCP_VM_ZONE GCP_SSH_KNOWN_HOSTS; do
   [[ -n ${!variable:-} ]] || { echo "Missing $variable" >&2; exit 1; }
 done
 [[ $GCP_PROJECT_ID =~ ^[a-z][a-z0-9-]+$ && $GCP_VM_NAME =~ ^[a-z][a-z0-9-]+$ && $GCP_VM_ZONE =~ ^[a-z0-9-]+$ ]] || exit 2
-known_hosts=$(mktemp)
-trap 'rm -f "$known_hosts"' EXIT
+# gcloud supplies its own UserKnownHostsFile; seed that canonical file rather
+# than relying on duplicate OpenSSH options (the first value wins).
+known_hosts=${GCP_KNOWN_HOSTS_FILE:-$HOME/.ssh/google_compute_known_hosts}
+mkdir -p "$(dirname "$known_hosts")"
+touch "$known_hosts"
 chmod 0600 "$known_hosts"
 printf '%s\n' "$GCP_SSH_KNOWN_HOSTS" > "$known_hosts"
 common=(--project="$GCP_PROJECT_ID" --zone="$GCP_VM_ZONE" --tunnel-through-iap --quiet --strict-host-key-checking=yes --ssh-key-expire-after=10m)
-ssh_flags=(--ssh-flag="-o UserKnownHostsFile=$known_hosts" --ssh-flag='-o ConnectTimeout=30')
+ssh_flags=(--ssh-flag='-o ConnectTimeout=30')
 if [[ $operation == deploy ]]; then
   [[ ${RELEASE_SHA:-} =~ ^[0-9a-f]{40}$ && ${GITHUB_RUN_ID:-} =~ ^[0-9]+$ && ${GITHUB_RUN_ATTEMPT:-} =~ ^[0-9]+$ ]]
   release="$RELEASE_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
@@ -20,7 +23,7 @@ if [[ $operation == deploy ]]; then
   [[ $digest =~ ^[0-9a-f]{64}$ ]]
   (cd "$ARTIFACT_DIR" && sha256sum --check worker.tar.gz.sha256)
   gcloud compute scp "$ARTIFACT_DIR/worker.tar.gz" "$GCP_VM_NAME:/opt/sportos/incoming/$release.tar.gz" "${common[@]}" \
-    --scp-flag="-o UserKnownHostsFile=$known_hosts" --scp-flag='-o ConnectTimeout=30'
+    --scp-flag='-o ConnectTimeout=30'
   gcloud compute ssh "$GCP_VM_NAME" "${common[@]}" "${ssh_flags[@]}" \
     --command="/usr/local/bin/sportos-worker-deploy deploy $release $digest"
 else

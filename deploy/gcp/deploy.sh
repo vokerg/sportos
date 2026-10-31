@@ -11,7 +11,8 @@ exec 9>"$root/.operation.lock"
 flock -w 180 9
 [[ -f $ready_file ]] || { echo 'Operator must resolve egress, shared storage and DB configuration, then create /etc/sportos/worker-ready' >&2; exit 1; }
 target="$root/releases/$release"
-previous=$(readlink -f "$root/current" 2>/dev/null || true)
+previous=''
+if [[ -L $root/current ]]; then previous=$(readlink -f "$root/current"); fi
 staged=''
 created=false
 switched=false
@@ -32,6 +33,7 @@ cleanup() {
     fi
     code=1
   fi
+  rm -f -- "$root/current.next" "$root/current.rollback" "$root/previous.next"
   [[ -z $staged ]] || rm -rf -- "$staged"
   if [[ $created == true && $success != true && $(readlink -f "$root/current" 2>/dev/null || true) != "$target" ]]; then
     rm -rf -- "$target"
@@ -71,7 +73,11 @@ with tarfile.open(sys.argv[1], 'r:gz') as archive:
         if total > 786432000:
             raise SystemExit('Expanded archive exceeds 750 MiB')
 PY
-  tar -xzf "$archive" -C "$staged" --no-same-owner --no-same-permissions
+  python3 - "$archive" "$staged" <<'PYEXTRACT'
+import sys, tarfile
+with tarfile.open(sys.argv[1], 'r:gz') as archive:
+    archive.extractall(sys.argv[2], filter='data')
+PYEXTRACT
   [[ $(cat "$staged/REVISION") == "${release:0:40}" ]]
   [[ -f $staged/apps/worker/dist/import-worker.js ]]
   python3 -c 'import sys; assert sys.version_info[:2] == (3, 13)'
@@ -89,6 +95,7 @@ PY
   chmod -R a+rX "$target"
 else
   [[ -d $target && -f $target/REVISION && -x $target/venv/bin/python ]]
+  [[ $(cat "$target/REVISION") == "${release:0:40}" ]]
 fi
 # Atomic same-filesystem symlink replacement; configuration/data live elsewhere.
 ln -s "$target" "$root/current.next"
