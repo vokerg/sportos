@@ -36,5 +36,12 @@ to this frontend task and was not used as an implementation requirement.
 
 ## Validation
 
-Pending focused route/monthly-report tests, Angular architecture checks,
-web typecheck and production build.
+- Passed 10 focused route/monthly-report tests across `app.routes.test.ts`,
+  `monthly-stats-page.component.test.ts` and `monthly-stats.view-model.test.ts`.
+- Passed `pnpm check:web-architecture` (206 files and eight guardrail cases),
+  `pnpm --filter @sportos/web typecheck` and the web production build.
+- Browser review at mobile width confirmed ordered hub cards, navigation to the
+  placeholder, Running default, Bike switching to Average Speed / km/h, and the
+  return link. No provider fetch or score mutation was used for validation.
+- `git diff --check` passed. Backend/database suites are outside this frontend
+  scope. PR #229 remains unmerged pending maintainer authorization.
