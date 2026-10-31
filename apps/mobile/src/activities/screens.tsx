@@ -1,3 +1,4 @@
+import { ActivityCard } from './ActivityCard';
 import {trackGarminJob} from '../providers/track-garmin-job';
 import {useOperation} from '../providers/use-operation';
 import {garminJob,garminJobMessage,activeGarminJob,type GarminFetchJob} from '../providers/garmin-jobs';
@@ -10,7 +11,7 @@ import { MobileApiError } from '../../../../packages/shared/src/mobile-api';
 import { useScreenSession as useSession } from '../auth/useScreenSession';
 import type { MainTabs, RootStack } from '../navigation/routes';
 import { Action, Body, Card, NavigationRow, Screen, SourceBadge, StatusPanel } from '../ui/primitives';
-import { formatDuration, localToday } from '../ui/format.mjs';
+import { formatDuration, localToday, localActivityTime } from '../ui/format.mjs';
 import { useSportosTheme } from '../ui/theme';
 import { sourceLabel } from '../ui/source-label';
 import { ProviderStatus } from '../ui/ProviderStatus';
@@ -56,43 +57,6 @@ function TextRow({label,value}: {label:string;value:string}) {
     <Text style={[styles.rowKey,{color:palette.muted}]}>{label}</Text>
     <Text style={[styles.rowValue,{color:palette.text}]}>{value}</Text>
   </View>;
-}
-function localActivityTime(startTime:string|null) {
-  const parsed = startTime ? new Date(startTime) : null;
-  return parsed && Number.isFinite(parsed.getTime())
-    ? parsed.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : null;
-}
-function durationLabel(row:Activity) {
-  const moving = row.activity_type !== 'swim' && row.moving_time_s !== null;
-  const seconds = moving ? row.moving_time_s : row.duration_s;
-  return seconds===null ? null : (moving?'Moving ':'Elapsed ')+formatDuration(seconds);
-}
-function activityInfo(row:Activity) {
-  const extras = summaryMetrics(row).filter(m => ['Pace','Avg speed','Avg HR'].includes(m.label))
-    .map(m => m.label+': '+m.value).slice(0,2);
-  return [row.activity_date,localActivityTime(row.start_time),activityDistance(row),durationLabel(row),...extras]
-    .filter(Boolean).join(' · ');
-}
-function ActivityRow({activity,onOpen}: {activity:Activity;onOpen():void}) {
-  const {palette} = useSportosTheme();
-  const heading = title(activity.activity_type)+(activity.subtype && !['outdoor','unknown'].includes(activity.subtype)
-    ? ' · '+activity.subtype : '');
-  const subtitle = activityInfo(activity);
-  return <Pressable accessibilityRole="button" accessibilityLabel={heading+', '+subtitle+', source '+activity.source}
-    onPress={onOpen} style={[styles.activityRow,{borderColor:palette.border}]}>
-    <View style={{flexDirection:'row',alignItems:'center',gap:12}}>
-      <SportMark sport={activity.activity_type}/>
-      <View style={{flex:1,gap:4}}><Text style={[styles.rowTitle,{color:palette.text}]}>{heading}</Text>
-      <Text style={[styles.mini,{color:palette.muted}]}>{activity.activity_date}{localActivityTime(activity.start_time)?' · '+localActivityTime(activity.start_time):''}</Text></View>
-      <Text style={{color:palette.muted,fontSize:24}} accessible={false}>›</Text>
-    </View>
-    {activity.distance_m !== null ? <Text style={{color:palette.text,fontSize:27,fontWeight:'700',letterSpacing:-0.8,marginTop:4,fontVariant:['tabular-nums']}}>{activityDistance(activity)}</Text> : null}
-    <Text style={[styles.rowSub,{color:palette.muted}]}>{[durationLabel(activity),...summaryMetrics(activity).filter(m=>['Pace','Avg speed','Avg HR'].includes(m.label)).map(m=>m.label+': '+m.value)].filter(Boolean).join(' · ')}</Text>
-    <Text style={[styles.mini,{color:palette.accent}]}>{sourceLabel(activity.source)}
-      {activity.historicalSummary?' · Imported summary':''}
-      {activity.distanceCorrection?' · Corrected distance':''}</Text>
-    
-  </Pressable>;
 }
 
 export function ActivitiesScreen({navigation}: NativeBottomTabScreenProps<MainTabs,'Activities'>) {
@@ -159,7 +123,7 @@ export function ActivitiesScreen({navigation}: NativeBottomTabScreenProps<MainTa
     {data?<>
       <Body>{data.count.toLocaleString('en-US')} activities in your training history</Body>
       <Card title="Training sessions">
-        {data.items.map(row=><ActivityRow key={row.id} activity={row} onOpen={()=>navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('ActivityDetail',{activityId:row.id})}/>)}
+        {data.items.map(row=><ActivityCard key={row.id} activity={row} onOpen={()=>navigation.getParent<NativeStackNavigationProp<RootStack>>()?.navigate('ActivityDetail',{activityId:row.id})}/>)}
         {moreError?<Body subdued>Could not load the next page; existing rows remain available.</Body>:null}
         {moreLoading?<StatusPanel kind="loading" message="Loading older activities…" />:null}
         {hasMore?<Action title="Load older activities" secondary disabled={moreLoading} onPress={more}/>:null}

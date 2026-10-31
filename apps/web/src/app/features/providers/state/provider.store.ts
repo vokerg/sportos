@@ -23,7 +23,8 @@ export class ProviderStore implements OnDestroy {
   readonly job = signal<ProviderSyncJob | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly pollingPaused = signal(false);
-  readonly busy = computed(() => this.state() === 'working' || isActiveProviderJob(this.job()));
+  readonly recoveringLatestJob = signal(false);
+  readonly busy = computed(() => this.state() === 'working' || this.recoveringLatestJob() || isActiveProviderJob(this.job()));
 
   private initialized = false;
   private connectionSubscription?: Subscription;
@@ -51,6 +52,7 @@ export class ProviderStore implements OnDestroy {
   load(): void {
     this.stopJobPolling();
     this.stopTerminalRefresh();
+    this.recoveringLatestJob.set(false);
     this.pollingPaused.set(false);
     this.state.set('loading');
     this.errorMessage.set(null);
@@ -70,6 +72,7 @@ export class ProviderStore implements OnDestroy {
   }
 
   connect(redirect: (authorizationUrl: string) => void): void {
+    this.recoveringLatestJob.set(false);
     this.stopTerminalRefresh();
     this.state.set('working');
     this.errorMessage.set(null);
@@ -82,7 +85,7 @@ export class ProviderStore implements OnDestroy {
 
   sync(mode: 'initial_backfill' | 'incremental'): void {
     const connection = this.connection();
-    if (!connection) return;
+    if (!connection || this.recoveringLatestJob() || this.state() === 'working' || isActiveProviderJob(this.job())) return;
 
     this.stopTerminalRefresh();
     this.state.set('working');
@@ -102,7 +105,7 @@ export class ProviderStore implements OnDestroy {
 
   retry(): void {
     const job = this.job();
-    if (!job || job.status !== 'failed') return;
+    if (!job || job.status !== 'failed' || this.recoveringLatestJob() || this.state() === 'working') return;
 
     this.stopTerminalRefresh();
     this.state.set('working');
@@ -163,13 +166,15 @@ export class ProviderStore implements OnDestroy {
 
   private recoverLatestJob(connectionId: string): void {
     this.recoverySubscription?.unsubscribe();
+    this.recoveringLatestJob.set(true);
     this.recoverySubscription = this.api.syncJobs(connectionId, 1).subscribe({
       next: (jobs) => {
         const latest = jobs[0] ?? null;
         this.job.set(latest);
+        this.recoveringLatestJob.set(false);
         if (isActiveProviderJob(latest)) this.monitorJob(latest.id);
       },
-      error: () => this.job.set(null),
+      error: () => { this.job.set(null); this.recoveringLatestJob.set(false); },
     });
   }
 

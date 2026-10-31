@@ -7,6 +7,11 @@ export const APP_ROUTES: Routes = [
     title: 'Chat · SportOS',
   },
   {
+    path: 'services',
+    loadComponent: () => import('./features/services/pages/services-page.component').then(module => module.ServicesPageComponent),
+    title: 'Services · SportOS',
+  },
+  {
     path: 'mobile-connect',
     loadComponent: () => import('./mobile-connect.component').then((module) => module.MobileConnectComponent),
     title: 'Connect iPhone · SportOS',

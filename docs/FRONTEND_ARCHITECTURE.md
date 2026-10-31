@@ -443,3 +443,14 @@ scoring. Disabled and scheduled versions retain their own descriptions and are
 excluded from the current cards using the local calendar date. The audited
 backend rule-publication/recomputation API remains available for maintained
 workflows; this UI change does not disable it or modify rule definitions.
+
+## Reusing activity cards
+
+Activities owns `ui/activity-card.component.ts`, an input-only card used by its
+list and the application Overview. `features/activities/index.ts` exposes the
+card, existing canonical read client and response type as a small public
+composition boundary. Keep sport-specific formatting and provider badges owned
+by Activities; do not duplicate them in Home or move feature logic into `shared/`.
+The native client follows the same pattern with `activities/ActivityCard.tsx`
+and its public index. Both Home and Activities use the same safe canonical
+activity projection on native. Cards never fetch provider detail themselves.

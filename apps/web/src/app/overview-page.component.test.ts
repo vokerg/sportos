@@ -1,10 +1,12 @@
 import '@angular/compiler';
 import type { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
+import type { ActivitiesApiService } from './features/activities/activities-api.service';
 import type { DailyApiService } from './features/daily/data-access/daily-api.service';
 import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { OverviewPageComponent } from './overview-page.component';
+import type { ProviderStore } from './features/providers/state/provider.store';
 import type { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import type { DailyScoreBreakdown } from './score-breakdown.models';
 
@@ -31,10 +33,28 @@ describe('OverviewPageComponent', () => {
 
     component.selectDay(row);
 
-    expect(api.dailySummary).toHaveBeenCalledWith({ limit: 31 });
+    expect(api.dailySummary).toHaveBeenCalledWith({ ...component.range, limit: 30 });
     expect(component.state()).toBe('loaded');
     expect(scoreApi.getForDate).toHaveBeenCalledWith(row.metric_date);
     expect(component.breakdown()).toEqual(breakdown);
+  });
+
+  it('loads full sport summaries independently and keeps scores on an activity failure', () => {
+    const component = createComponent({ dailySummary: vi.fn().mockReturnValue(of([row])) },
+      { getForDate: vi.fn() });
+    const activities = vi.fn().mockImplementation(query => query.activityType === 'swim'
+      ? throwError(() => new Error('Unavailable'))
+      : of({ items: [], summary: { count: 12, distanceM: 65000 } }));
+    Object.assign(component, { overviewApi: { list: activities } });
+    component.ngOnInit();
+    expect(activities).toHaveBeenCalledTimes(4);
+    expect(activities).toHaveBeenCalledWith({ ...component.week, activityType: 'bike', limit: 1, offset: 0 });
+    expect(component.sportData().bike?.summary.distanceM).toBe(65000);
+    expect(component.sportData().swim).toBeUndefined();
+    expect(component.activityLoading()).toBe(false);
+    expect(component.activityError()).toBe(true);
+    expect(component.state()).toBe('loaded');
+    expect(component.recent()).toHaveLength(1);
   });
 
   it('routes the selected day to the complete edit workspace', () => {
@@ -61,5 +81,7 @@ function createComponent(
     api as unknown as DailyApiService,
     scoreApi as unknown as ScoreBreakdownApiService,
     router as unknown as Router,
+    { initialize: vi.fn() } as unknown as ProviderStore,
+    { list: vi.fn().mockReturnValue(of({ items: [], summary: { count: 0, distanceM: 0 } })) } as unknown as ActivitiesApiService,
   );
 }

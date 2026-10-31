@@ -32,3 +32,9 @@ export function localToday(now = new Date()) {
   return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'),
     String(now.getDate()).padStart(2, '0')].join('-');
 }
+
+export function localActivityTime(startTime) {
+  const parsed = startTime ? new Date(startTime) : null;
+  return parsed && Number.isFinite(parsed.getTime())
+    ? parsed.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : null;
+}
