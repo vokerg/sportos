@@ -1,7 +1,9 @@
 name: GCP worker deploy after PR merge
 
 on:
-  pull_request:
+  # Target event supplies environment access even for merged fork PRs.
+  # Jobs remain gated on merged=true and execute only the immutable merged SHA.
+  pull_request_target:
     types: [closed]
     branches: [main]
 

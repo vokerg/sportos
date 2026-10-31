@@ -53,9 +53,11 @@ interactive Garmin login remain separate; no production DB secrets enter CI.
 
 ## Deployment and control behavior
 
-- `gcp-worker-deploy.yml` listens only to `pull_request: closed` targeting `main`,
+- `gcp-worker-deploy.yml` listens only to `pull_request_target: closed` targeting `main`,
   and requires `merged == true`, base `main`, and the expected base repository.
   Unmerged closes, opened/updated PRs, direct pushes and tags cannot deploy.
+  The target event supports production environment/OIDC access for merged fork
+  PRs too; it never checks out an unmerged PR head.
 - It checks out the exact immutable merge/squash/rebase result SHA, requires it
   still be `main`, installs locked dependencies, runs existing type/tests/guards
   and offline Garmin tests, and packages only after success. It checks `main`
@@ -122,7 +124,7 @@ gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
   --project="$PROJECT_ID" --location=global --workload-identity-pool="$POOL_ID" \
   --issuer-uri=https://token.actions.githubusercontent.com \
   --attribute-mapping='google.subject=assertion.sub,attribute.repository_id=assertion.repository_id' \
-  --attribute-condition="assertion.repository_id == '$REPOSITORY_ID' && assertion.repository_owner_id == '$OWNER_ID' && assertion.ref == 'refs/heads/main' && assertion.sub == 'repo:$REPOSITORY:environment:gcp-worker-production' && ((assertion.event_name == 'pull_request' && assertion.workflow_ref == '$REPOSITORY/.github/workflows/gcp-worker-deploy.yml@refs/heads/main') || (assertion.event_name == 'workflow_dispatch' && assertion.workflow_ref == '$REPOSITORY/.github/workflows/gcp-worker-control.yml@refs/heads/main'))"
+  --attribute-condition="assertion.repository_id == '$REPOSITORY_ID' && assertion.repository_owner_id == '$OWNER_ID' && assertion.ref == 'refs/heads/main' && assertion.sub == 'repo:$REPOSITORY:environment:gcp-worker-production' && ((assertion.event_name == 'pull_request_target' && assertion.workflow_ref == '$REPOSITORY/.github/workflows/gcp-worker-deploy.yml@refs/heads/main') || (assertion.event_name == 'workflow_dispatch' && assertion.workflow_ref == '$REPOSITORY/.github/workflows/gcp-worker-control.yml@refs/heads/main'))"
 
 gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" --project="$PROJECT_ID" \
   --role=roles/iam.workloadIdentityUser \
@@ -430,7 +432,7 @@ Budget alerts notify and do not impose a hard spending cap.
 
 Official references checked 2026-10-31:
 
-- [PR merged events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)
+- [PR merged events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_target)
 - [Google GitHub authentication](https://github.com/google-github-actions/auth)
 - [WIF deployment pipelines](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)
 - [OS Login roles/setup](https://docs.cloud.google.com/compute/docs/oslogin/set-up-oslogin)
