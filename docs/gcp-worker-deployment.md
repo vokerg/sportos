@@ -300,9 +300,11 @@ Optional required reviewers add a human approval before each deployment/control;
 without reviewers, a successful eligible PR merge deploys automatically once
 enabled. Protect workflow/deployment file review as production code.
 
-Set the following environment variables (these identifiers are not secrets):
+Set the following **environment secrets**. These identifiers are not authentication
+credentials, but using GitHub Secrets ensures they are redacted in this public
+repository's Actions logs; ordinary variables are not masked.
 
-| Variable | Value |
+| Environment secret | Value |
 | --- | --- |
 | `GCP_PROJECT_ID` | `YOUR_GCP_PROJECT_ID` |
 | `GCP_VM_NAME` | `YOUR_GCP_VM_NAME` |
@@ -334,14 +336,15 @@ The transport writes this line into gcloud's canonical
 `~/.ssh/google_compute_known_hosts` and requires strict host checking. If the VM is
 recreated or its host keys rotate, verify the new key through a trusted channel
 and update the secret. The repository needs no GCP JSON key, SSH private-key
-secret, or worker runtime secrets. Existing CI test secrets remain optional and
+secret, or worker runtime secrets. Infrastructure settings above use Secrets for
+log redaction; `GCP_WORKER_DEPLOY_ENABLED` remains a non-sensitive repository variable. Existing CI test secrets remain optional and
 must point only at test databases.
 
 ## First and subsequent deployment
 
 1. Keep this implementation on a reviewed PR; no merge/deploy is performed by
    this task. Complete/approve the one-time cloud and VM setup separately.
-2. Configure the GitHub environment/variables/host key. If the workflow is already
+2. Configure the GitHub environment/secrets/host key. If the workflow is already
    on `main` with deployment disabled, use manual **status** to validate access
    (a not-yet-deployed service is correctly reported inactive/failure). Otherwise
    validate through an already authorized operator impersonation connection; the
