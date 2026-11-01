@@ -64,3 +64,10 @@ test('Garmin execution configuration reaches only the worker', () => {
   assert.equal(api.SPORTOS_GARMIN_LOCAL_FETCH_ENABLED, undefined);
   assert.equal(worker.SPORTOS_GARMIN_LOCAL_FETCH_ENABLED, undefined);
 });
+
+test('uploaded-file queue switch reaches only the worker and stays unset by default', () => {
+  assert.equal(childEnvironments(env).worker.SPORTOS_IMPORT_WORKER_ENABLED, undefined);
+  const { api, worker } = childEnvironments({ ...env, SPORTOS_IMPORT_WORKER_ENABLED: 'false' });
+  assert.equal(worker.SPORTOS_IMPORT_WORKER_ENABLED, 'false');
+  assert.equal(api.SPORTOS_IMPORT_WORKER_ENABLED, undefined);
+});

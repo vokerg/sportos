@@ -44,6 +44,8 @@ Configure the worker's private environment:
 
 ```dotenv
 SPORTOS_GARMIN_WORKER_ENABLED=true
+# Optional: disable only uploaded CSV/XLSX imports on a separate provider worker.
+SPORTOS_IMPORT_WORKER_ENABLED=false
 SPORTOS_WORKER_DATABASE_URL=<primary-dispatcher-login>
 SPORTOS_WORKER_DATA_DATABASE_URL=<primary-owner-scoped-worker-login>
 SPORTOS_ACTIVITY_DETAIL_WORKER_DATA_DATABASE_URL=<separate-detail-worker-login>
@@ -56,7 +58,9 @@ SPORTOS_UPLOAD_DIR=<persistent-private-original-storage-directory>
 
 Run `pnpm dev:worker` or the built worker entry. The worker must have the pinned
 `tools/garmin/requirements.txt` environment, repository helper code and persistent
-original-file storage. Retained JSON remains in the separate detail database;
+original-file storage. `SPORTOS_IMPORT_WORKER_ENABLED=false` leaves Garmin
+execution and original retention enabled; it only prevents uploaded-file job polling.
+Retained JSON remains in the separate detail database;
 original FIT/ZIP bytes remain outside Postgres. An operator moving/replacing a
 worker must preserve the blob backend or allow explicit original recovery before
 claiming its cache is complete. Hosted source views read retained database

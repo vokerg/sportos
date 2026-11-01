@@ -13,6 +13,7 @@ import { RuleChangeRunner } from './rule-change-runner.js';
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 loadEnvFromNearestFile(repoRoot);
 
+const importsEnabled = importWorkerEnabled(process.env.SPORTOS_IMPORT_WORKER_ENABLED);
 const concurrency = clampInteger(Number(process.env.IMPORT_WORKER_CONCURRENCY ?? 1), 1, 4);
 const leaseSeconds = clampInteger(Number(process.env.IMPORT_JOB_LEASE_SECONDS ?? 60), 15, 600);
 const pollIntervalMs = clampInteger(Number(process.env.IMPORT_JOB_POLL_MS ?? 1000), 100, 60_000);
@@ -27,10 +28,8 @@ const garminDetail=process.env.SPORTOS_GARMIN_WORKER_ENABLED==='true'?createDb(r
 const runners: Promise<void>[] = [];
 try {
   const provider = providerRuntime();
-  runners.push(
-    ...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(dispatchDb, dataDb, storage, { workerId: `${processId}:import:${index + 1}`, leaseSeconds, pollIntervalMs }).run(controller.signal)),
-    new RuleChangeRunner(dispatchDb, dataDb, { workerId: `${processId}:rules`, leaseSeconds, pollIntervalMs }).run(controller.signal),
-  );
+  if (importsEnabled) runners.push(...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(dispatchDb, dataDb, storage, { workerId: `${processId}:import:${index + 1}`, leaseSeconds, pollIntervalMs }).run(controller.signal)));
+  runners.push(new RuleChangeRunner(dispatchDb, dataDb, { workerId: `${processId}:rules`, leaseSeconds, pollIntervalMs }).run(controller.signal));
   if (provider) runners.push(new ProviderSyncRunner(dispatchDb, dataDb, provider.adapter, provider.cipher, { workerId: `${processId}:providers`, leaseSeconds, pollIntervalMs, pageSize: 200 }).run(controller.signal));
   if(garminDetail) runners.push(new GarminJobRunner(dispatchDb,dataDb,garminDetail,storage,new GarminSessionCipher(parseCredentialKeyRing(requiredEnvironment('SPORTOS_PROVIDER_CREDENTIAL_KEYS'),requiredEnvironment('SPORTOS_PROVIDER_ACTIVE_KEY_ID'))),`${processId}:garmin`).run(controller.signal));
   await Promise.all(runners);
@@ -53,5 +52,10 @@ function providerRuntime(): { adapter: StravaAdapter; cipher: CredentialCipher }
   };
 }
 function requiredUrl(name: 'SPORTOS_WORKER_DATABASE_URL' | 'SPORTOS_WORKER_DATA_DATABASE_URL'): string { const value = process.env[name]?.trim(); if (!value) throw new Error(`${name} is required; the worker must not fall back to API or schema-owner credentials.`); return value; }
+function importWorkerEnabled(value: string | undefined): boolean {
+  if (value === undefined || value.trim() === 'true') return true;
+  if (value.trim() === 'false') return false;
+  throw new Error('SPORTOS_IMPORT_WORKER_ENABLED must be true or false.');
+}
 function requiredEnvironment(name: string): string { const value = process.env[name]?.trim(); if (!value) throw new Error(`${name} is required for provider sync.`); return value; }
 function clampInteger(value: number, minimum: number, maximum: number): number { if (!Number.isFinite(value)) return minimum; return Math.min(maximum, Math.max(minimum, Math.trunc(value))); }
