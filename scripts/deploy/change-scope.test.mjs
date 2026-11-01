@@ -115,7 +115,7 @@ test('worker file reporter matches shared scope classification', () => {
   withRepo(({ dir }) => {
     const file = join(dir, 'paths.txt');
     const run = paths => {
-      writeFileSync(file, paths.join('\\n') + '\\n');
+      writeFileSync(file, paths.join('\n') + '\n');
       return spawnSync(process.execPath, [reporter, file], {
         cwd: dir, encoding: 'utf8',
       });
