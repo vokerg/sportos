@@ -130,3 +130,11 @@ CONNECT grants, and executes the non-owner worker suite. CI runs this without
 private database secrets. The normal Neon migration/role gates remain in place.
 
 Implementation and sanitized live validation: [issue 226](implementation/issue-226.md).
+
+## GCP hosting
+
+See [native GCP worker deployment](gcp-worker-deployment.md) for GitHub merged-PR
+deployment, systemd and manual service controls. The package includes the pinned
+Python helper and installs its wheels offline. This is prepared infrastructure,
+not evidence of a deployed worker; egress, credentials, migrations and source
+availability must be verified before activation.
