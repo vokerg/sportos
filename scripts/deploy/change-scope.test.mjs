@@ -1,0 +1,87 @@
+import assert from 'node:assert/strict';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { test } from 'node:test';
+import { affectedServices } from './change-scope.mjs';
+
+const scope = (...files) => affectedServices(files);
+test('frontend-only, backend-only and mixed changes', () => {
+  assert.deepEqual(scope('apps/web/src/app/home.component.ts'), { frontend: true, backend: false });
+  assert.deepEqual(scope('vercel.json'), { frontend: true, backend: false });
+  for (const path of [
+    'apps/api/src/main.ts', 'apps/worker/src/import-worker.ts',
+    'apps/mcp/src/index.ts', 'packages/db/src/schema.ts',
+    'flyway/sql/V999__test.sql', 'tools/garmin/fetch_day.py', 'deploy/gcp/package.sh',
+  ]) {
+    assert.deepEqual(scope(path), { frontend: false, backend: true }, path);
+  }
+  assert.deepEqual(scope('apps/web/src/app/page.ts', 'apps/api/src/main.ts'),
+    { frontend: true, backend: true });
+});
+test('global build inputs deploy both; documents, mobile and inactive hosts deploy neither', () => {
+  for (const path of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
+    'tsconfig.json', '.node-version', 'scripts/deploy/change-scope.mjs']) {
+    assert.deepEqual(scope(path), { frontend: true, backend: true }, path);
+  }
+  for (const path of ['README.md', 'AGENTS.md', 'docs/DEPLOYMENT.md',
+    'apps/mobile/package.json', 'deploy/oracle/control.sh',
+    'deploy/docker/compose.yml', '.github/workflows/ci.yml', 'Dockerfile']) {
+    assert.deepEqual(scope(path), { frontend: false, backend: false }, path);
+  }
+});
+test('unknown paths fail open rather than skipping a necessary deploy', () => {
+  assert.deepEqual(scope('scripts/new-build-tool.mjs'), { frontend: true, backend: true });
+  assert.deepEqual(scope('apps/new-app/src/index.ts'), { frontend: true, backend: true });
+  assert.deepEqual(scope('../outside'), { frontend: true, backend: true });
+});
+
+const vercelScript = resolve('scripts/deploy/vercel-ignore-build.mjs');
+function withRepo(run) {
+  const dir = mkdtempSync(join(tmpdir(), 'sportos-deploy-test-'));
+  const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
+  const commit = (filename, contents) => {
+    const target = join(dir, filename);
+    mkdirSync(join(target, '..'), { recursive: true });
+    writeFileSync(target, contents);
+    git('add', '.');
+    git('-c', 'user.name=CI', '-c', 'user.email=ci@example.invalid', 'commit', '-m', 'test');
+    return git('rev-parse', 'HEAD');
+  };
+  try {
+    git('init', '-q');
+    const first = commit('apps/web/page.ts', 'one');
+    run({ dir, git, commit, first });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+test('Vercel compares to last successful release across multiple commits', () => {
+  withRepo(({ dir, first, commit }) => {
+    commit('apps/api/src/main.ts', 'two');
+    const apiSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+    const frontendSha = commit('apps/web/page.ts', 'three');
+    const invoke = (previous, head) => spawnSync(process.execPath, [vercelScript], {
+      cwd: dir, encoding: 'utf8',
+      env: { ...process.env, VERCEL_GIT_PREVIOUS_SHA: previous, VERCEL_GIT_COMMIT_SHA: head },
+    });
+    assert.equal(invoke(first, apiSha).status, 0, 'backend-only skips frontend');
+    assert.equal(invoke(first, frontendSha).status, 1, 'intervening frontend change builds');
+    assert.equal(invoke(apiSha, frontendSha).status, 1);
+    assert.equal(invoke('', frontendSha).status, 1, 'first Vercel deployment builds');
+    assert.equal(invoke('a'.repeat(40), frontendSha).status, 1, 'missing history builds');
+  });
+});
+test('Vercel sees original path when a file moves out of frontend', () => {
+  withRepo(({ dir, first, git }) => {
+    mkdirSync(join(dir, 'apps/api'), { recursive: true });
+    git('mv', 'apps/web/page.ts', 'apps/api/page.ts');
+    git('-c', 'user.name=CI', '-c', 'user.email=ci@example.invalid', 'commit', '-m', 'move');
+    const result = spawnSync(process.execPath, [vercelScript], {
+      cwd: dir, encoding: 'utf8',
+      env: { ...process.env, VERCEL_GIT_PREVIOUS_SHA: first, VERCEL_GIT_COMMIT_SHA: git('rev-parse', 'HEAD') },
+    });
+    assert.equal(result.status, 1);
+  });
+});
