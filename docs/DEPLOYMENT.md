@@ -6,15 +6,15 @@ Render and Vercel setup. SportOS uses pnpm and opaque session cookies.
 Parallel Oracle preparation is documented in [ORACLE_DEPLOYMENT.md](ORACLE_DEPLOYMENT.md)
 (#147). It does not enable the deferred shared-storage/worker phase.
 
-Native deployment preparation for the existing GCP worker VM is documented in
+Native deployment and operations for the existing GCP worker VM are documented in
 [gcp-worker-deployment.md](gcp-worker-deployment.md). It does not change the
 API/web topology or automatically solve shared source storage.
 
 ## Topology
 
 - Vercel serves Angular and proxies `/api/:path*` to the Render API.
-- One free Render web service runs the API only. The API does not run a worker. A separately deployed GCP worker can process
-  provider synchronization and rule recomputation with
+- One free Render web service runs the API only. A separate GCP systemd worker
+  is deployed for provider synchronization and rule recomputation with
   `SPORTOS_IMPORT_WORKER_ENABLED=false`; uploaded CSV/XLSX jobs remain unclaimed
   by that worker until shared storage is available. See [GCP worker setup](gcp-worker-deployment.md).
 - Existing primary and activity-detail Neon projects retain their separate

@@ -1,9 +1,26 @@
 # GCP worker deployment (native systemd)
 
-This prepares the existing GCP VM for the SportOS background worker without
-Docker. **Nothing in this change provisions cloud infrastructure, changes IAM,
-modifies the VM, runs migrations, or deploys production.** The setup commands
-below are explicit operator actions. Keep deployment disabled until ready.
+This guide covers the existing GCP VM's native SportOS worker without Docker.
+One-time cloud/host setup is an explicit operator action; application CI does not
+provision infrastructure or run migrations. Keep a new target's deployment gate
+false until its readiness checks and production activation are approved.
+
+## Verified operating status — 2026-11-01
+
+The first approved merged-PR deployment completed successfully in
+[run 41281910050](https://github.com/vokerg/sportos/actions/runs/41281910050).
+The non-root systemd service passed stable-process checks, private environment
+validation and a new Garmin database heartbeat check. Uploaded CSV/XLSX polling
+is explicitly disabled; Strava/Garmin and rule processing remain configured.
+Runtime configuration stays outside releases/CI and is root-owned 0600.
+
+No provider job was queued during activation, so this verifies service/database
+readiness rather than a completed provider download. Use a bounded Fetch/Refresh
+in the application to verify that separately. An existing local development
+worker was left running; leases coordinate claims, and the VM's new heartbeat was
+checked against a pre-activation baseline. Stop local execution deliberately if
+an exclusively hosted worker is desired; do not kill a whole development stack
+as an automatic deployment side effect. Actual cloud inventory remains private.
 
 ## What runs
 

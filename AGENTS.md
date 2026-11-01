@@ -75,7 +75,7 @@ Individual GitHub issues are the work backlog; no master issue or roadmap checkl
 
 - Public deployment documentation must use placeholders for project IDs/numbers, VM names/zones, account identities, network names and host keys. Keep actual deployment inventory in private operations documentation and GitHub environment settings. Never commit credentials to either public or private repositories.
 
-- `docs/gcp-worker-deployment.md` and `deploy/gcp/` — native Node/Python worker releases, WIF/IAP, systemd, rollback, and manual controls for the existing GCP VM. Prepared only; do not modify IAM/VM or deploy without explicit approval. Resolve egress and source availability for enabled queues before activation; GCP uses `SPORTOS_IMPORT_WORKER_ENABLED=false` for provider/rule processing without API upload access; Oracle holds remain unchanged.
+- `docs/gcp-worker-deployment.md` and `deploy/gcp/` — native Node/Python worker releases, WIF/IAP, systemd, rollback, and manual controls for the existing GCP VM. The first approved provider/rule activation passed on 2026-11-01; cloud/host changes and production operations still require applicable authorization. Resolve egress and source availability for enabled queues before activation; GCP uses `SPORTOS_IMPORT_WORKER_ENABLED=false` for provider/rule processing without API upload access; Oracle holds remain unchanged.
 
 - `.env.example` — API, dispatcher, worker-data, legacy, OIDC, session, provider, encryption-key, optional AI-generator, and storage settings.
 - `scripts/flyway.mjs` — Neon schema-owner migration configuration and Flyway CLI bridge.
