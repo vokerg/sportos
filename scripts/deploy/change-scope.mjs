@@ -32,11 +32,14 @@ export function affectedServices(paths) {
       affected.frontend = affected.backend = true;
     } else if (path === 'vercel.json' || path.startsWith('apps/web/')) {
       affected.frontend = true;
+    } else if (path.startsWith('packages/')) {
+      // Angular imports shared source directly (for example home-summary.ts).
+      // Keep all packages conservative as consumers evolve across runtimes.
+      affected.frontend = affected.backend = true;
     } else if (
       path.startsWith('apps/api/') ||
       path.startsWith('apps/worker/') ||
       path.startsWith('apps/mcp/') ||
-      path.startsWith('packages/') ||
       path.startsWith('flyway/') ||
       path.startsWith('tools/garmin/') ||
       path.startsWith('deploy/gcp/')

@@ -12,7 +12,7 @@ test('frontend-only, backend-only and mixed changes', () => {
   assert.deepEqual(scope('vercel.json'), { frontend: true, backend: false });
   for (const path of [
     'apps/api/src/main.ts', 'apps/worker/src/import-worker.ts',
-    'apps/mcp/src/index.ts', 'packages/db/src/schema.ts',
+    'apps/mcp/src/index.ts',
     'flyway/sql/V999__test.sql', 'tools/garmin/fetch_day.py', 'deploy/gcp/package.sh',
   ]) {
     assert.deepEqual(scope(path), { frontend: false, backend: true }, path);
@@ -22,7 +22,8 @@ test('frontend-only, backend-only and mixed changes', () => {
 });
 test('global build inputs deploy both; documents, mobile and inactive hosts deploy neither', () => {
   for (const path of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
-    'tsconfig.json', '.node-version', 'scripts/deploy/change-scope.mjs']) {
+    'tsconfig.json', '.node-version', 'scripts/deploy/change-scope.mjs',
+    'packages/shared/src/home-summary.ts', 'packages/db/src/schema.ts']) {
     assert.deepEqual(scope(path), { frontend: true, backend: true }, path);
   }
   for (const path of ['README.md', 'AGENTS.md', 'docs/DEPLOYMENT.md',
@@ -81,6 +82,17 @@ test('Vercel sees original path when a file moves out of frontend', () => {
     const result = spawnSync(process.execPath, [vercelScript], {
       cwd: dir, encoding: 'utf8',
       env: { ...process.env, VERCEL_GIT_PREVIOUS_SHA: first, VERCEL_GIT_COMMIT_SHA: git('rev-parse', 'HEAD') },
+    });
+    assert.equal(result.status, 1);
+  });
+});
+
+test('Vercel rebuilds shared source consumed directly by Angular', () => {
+  withRepo(({ dir, first, commit }) => {
+    const head = commit('packages/shared/src/home-summary.ts', 'export const changed = true;');
+    const result = spawnSync(process.execPath, [vercelScript], {
+      cwd: dir, encoding: 'utf8',
+      env: { ...process.env, VERCEL_GIT_PREVIOUS_SHA: first, VERCEL_GIT_COMMIT_SHA: head },
     });
     assert.equal(result.status, 1);
   });

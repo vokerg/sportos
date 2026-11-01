@@ -167,10 +167,11 @@ alternative; do not enable two competing skip strategies without validation.
 ```text
 apps/web/**, vercel.json             -> Vercel frontend
 apps/api/**, apps/worker/**,         -> Render API + GCP worker
-apps/mcp/**, packages/**,
+apps/mcp/**,
 tools/garmin/**, flyway/**,
 deploy/gcp/**
-root build/dependency configuration -> both frontend and backend
+packages/**, root build/dependency  -> both frontend and backend
+configuration
 docs, mobile, inactive Oracle files -> neither
 unknown/unclassified paths         -> both (conservative)
 ```
@@ -194,7 +195,9 @@ Do not run Flyway from these deployment workflows.
 
 Once both dashboards are configured, merge separately: a frontend-only PR
 (Vercel yes, Render/GCP no), an API-only PR (Render/GCP yes, Vercel no),
-and a shared backend package PR (Render/GCP yes). A docs-only PR should
+and a shared package PR (Vercel/Render/GCP yes). Angular currently imports
+shared source directly, so package changes conservatively rebuild both sides.
+A docs-only PR should
 trigger none of the three hosted deployments. The full repository CI remains
 required for every PR regardless of deployment scope.
 
