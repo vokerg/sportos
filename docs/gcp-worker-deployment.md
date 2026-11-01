@@ -37,15 +37,19 @@ repository's architecture guards, TypeScript checks and tests.
    may be reusable; IPv6 requires subnet/routes and endpoint compatibility checks.
    This change creates neither a NAT gateway nor a public IPv4. If an external
    IPv4 is chosen later, approve its recurring cost first.
-2. **Shared source storage:** imports always poll in the current entry point.
+2. **Queue scope and original storage:** this VM runs Strava/Garmin provider sync
+   and rule recomputation with `SPORTOS_IMPORT_WORKER_ENABLED=false`. This prevents
+   construction/polling of uploaded CSV/XLSX import consumers; queued uploads remain
+   untouched. The normal worker default is `true` when unset, preserving existing
+   deployments. Only exact `true`/`false` values are accepted (surrounding whitespace
+   is ignored); a typo fails startup before opening a DB connection.
    `LocalUploadStorage` cannot read the Render API's ephemeral upload directory
-   from this VM. A local VM directory is persistent across releases but is not
-   automatically shared with the API. Resolve source availability and recovery
-   for every queue this worker can claim before enabling it. Do not start a
-   supposedly Garmin-only worker while inaccessible import jobs can be claimed.
-   This deployment task does not implement shared storage or lift the existing
-   Oracle worker hold. See [hosted topology](DEPLOYMENT.md) and
-   [Garmin original retention](GARMIN_WORKER.md).
+   from this VM. Do not enable file-import polling until shared source access and
+   recovery are provided. This switch does not disable Strava, Garmin or rules and
+   does not remove the upload API/UI. Garmin still requires the persistent private
+   `SPORTOS_UPLOAD_DIR` for downloaded FIT/ZIP originals; do not delete that path.
+   This task does not implement shared storage or lift the existing Oracle worker
+   hold. See [hosted topology](DEPLOYMENT.md) and [Garmin original retention](GARMIN_WORKER.md).
 
 Also verify the primary/detail schema, non-owner role grants, encryption key ring
 and Garmin session import with the existing operator procedures. Migrations and
@@ -222,7 +226,7 @@ traffic can still incur charges beyond applicable allowances. See Google's
 [migration procedure](https://docs.cloud.google.com/compute/docs/instances/migrating-interfaces-between-networks)
 and [IPv6 configuration](https://docs.cloud.google.com/compute/docs/ip-addresses/configure-ipv6-address).
 Network transport checks do not authorize bootstrap or enable the deployment gate;
-shared source availability and the remaining readiness checks still apply.
+queue scope, persistent provider originals and the remaining readiness checks still apply.
 
 ## One-time Linux setup — operator only
 
@@ -295,7 +299,9 @@ boot startup but does **not** start the service. It also caps the existing
 host-wide journal at 100 MB persistent / 30 MB runtime / seven days; review this
 host-wide log retention choice before running it. Reconnect CI after group changes.
 
-`worker.env.example` lists the configuration. Always supply the two separate
+`worker.env.example` selects `SPORTOS_IMPORT_WORKER_ENABLED=false` for this VM.
+Keep it false for provider/rule processing without shared API upload storage.
+Always supply the two separate
 primary database URLs. Configure Strava client credentials plus the existing
 versioned encryption key ring together to enable provider sync. For Garmin,
 also set `SPORTOS_GARMIN_WORKER_ENABLED=true` and the dedicated detail worker-data
@@ -310,7 +316,7 @@ concurrency at one. Large XLSX imports may still exceed this machine's memory.
 The user must deliberately review persistent-source backups and disk growth;
 release pruning never deletes uploaded originals.
 
-Only after egress, source availability, role grants, migrations and configuration
+Only after egress, source availability for enabled queues, role grants, migrations and configuration
 have been verified by the operator, create the readiness marker:
 
 ```sh

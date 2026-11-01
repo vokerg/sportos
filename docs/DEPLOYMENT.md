@@ -13,9 +13,10 @@ API/web topology or automatically solve shared source storage.
 ## Topology
 
 - Vercel serves Angular and proxies `/api/:path*` to the Render API.
-- One free Render web service runs the API only. The worker is intentionally
-  postponed, so queued imports, provider synchronization and rule recomputation
-  do not progress in this deployment.
+- One free Render web service runs the API only. The API does not run a worker. A separately deployed GCP worker can process
+  provider synchronization and rule recomputation with
+  `SPORTOS_IMPORT_WORKER_ENABLED=false`; uploaded CSV/XLSX jobs remain unclaimed
+  by that worker until shared storage is available. See [GCP worker setup](gcp-worker-deployment.md).
 - Existing primary and activity-detail Neon projects retain their separate
   runtime identities. Schema-owner credentials never enter Render or Vercel.
 
