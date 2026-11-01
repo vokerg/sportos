@@ -1,6 +1,7 @@
 name: ci
 
 on:
+  workflow_call:
   pull_request:
   push:
     branches: [main]
@@ -24,6 +25,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merge_commit_sha || github.sha }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -41,6 +44,9 @@ jobs:
 
       - name: Fast Angular architecture guardrails
         run: pnpm check:web-architecture
+
+      - name: GCP worker deployment checks (no cloud access)
+        run: node --test deploy/gcp/*.test.mjs
 
       - name: Local development recovery checks
         run: pnpm test:dev-recovery
@@ -87,6 +93,7 @@ jobs:
               echo "### Database validation not configured"
               echo
               echo "Static validation will continue. Neon migration and database integration steps are skipped because these CI secret values are missing:"
+              # shellcheck disable=SC2016 # Markdown backticks are literal.
               printf -- '- `%s`\n' "${missing[@]}"
             } >> "$GITHUB_STEP_SUMMARY"
             echo "::warning::Neon database validation skipped; missing CI secret values: ${missing[*]}"
@@ -243,6 +250,8 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merge_commit_sha || github.sha }}
       - uses: pnpm/action-setup@v4
         with:
           version: 9.12.0
@@ -265,3 +274,46 @@ jobs:
         env:
           SPORTOS_GARMIN_DISPOSABLE_ADMIN_URL: postgresql://postgres:garmin-integration-only@127.0.0.1:5432/postgres
         run: node scripts/test-garmin-worker-db.mjs
+
+  gcp-worker-package:
+    # Native release packaging and rollback tests; never authenticates to GCP.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merge_commit_sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pnpm install --frozen-lockfile
+      - run: node --test deploy/gcp/*.test.mjs
+      - run: bash deploy/gcp/package.sh "$RUNNER_TEMP/worker-artifact"
+      - name: Exercise real release installation and verify systemd syntax
+        run: |
+          set -euo pipefail
+          export SPORTOS_DEPLOY_ROOT="$RUNNER_TEMP/worker-smoke"
+          export SPORTOS_READY_FILE="$RUNNER_TEMP/worker-ready"
+          mkdir -p "$SPORTOS_DEPLOY_ROOT/releases" "$SPORTOS_DEPLOY_ROOT/incoming"
+          touch "$SPORTOS_READY_FILE"
+          release="$(git rev-parse HEAD)-1-1"
+          cp "$RUNNER_TEMP/worker-artifact/worker.tar.gz" "$SPORTOS_DEPLOY_ROOT/incoming/$release.tar.gz"
+          digest=$(cut -d' ' -f1 "$RUNNER_TEMP/worker-artifact/worker.tar.gz.sha256")
+          # The actual unprivileged release manager runs in an isolated runner
+          # directory. Mock only the privileged service boundary; no GCP/VM use.
+          function sudo() {
+            test "$*" = '-n /usr/local/sbin/sportos-worker-control restart'
+          }
+          export -f sudo
+          bash deploy/gcp/deploy.sh deploy "$release" "$digest"
+          "$SPORTOS_DEPLOY_ROOT/current/venv/bin/python" -m unittest discover -s tools/garmin -p 'test_*.py'
+          sed "s|/opt/sportos/current|$SPORTOS_DEPLOY_ROOT/current|g" deploy/gcp/sportos-worker.service \
+            > "$RUNNER_TEMP/sportos-worker.service"
+          systemd-analyze verify "$RUNNER_TEMP/sportos-worker.service"
