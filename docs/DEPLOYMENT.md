@@ -227,5 +227,12 @@ detail including the separate activity-detail database. The GCP worker is now
 active for provider synchronization and rule processing as documented in
 [gcp-worker-deployment.md](gcp-worker-deployment.md); uploaded CSV/XLSX
 polling remains disabled pending durable shared upload storage.
-Deployment filtering requires the one-time Render/Vercel dashboard steps above;
-this repository change alone does not activate those hosted build filters.
+On 2026-11-01, the Render ignored paths above were saved and verified with
+no included paths, the repository root, branch `main`, and On Commit auto-deploy.
+Vercel's ignored build command was saved and verified after reloading settings;
+system environment variable access was already enabled, and the project root
+remains the repository root. These dashboard settings are active separately
+from repository configuration; future services/projects need the setup above.
+Local Git-fixture tests cover frontend/backend/shared scopes, renames, missing
+history and stale worker releases. The separate production merge scenarios in
+the smoke checklist remain ongoing operational checks, not completed evidence.
