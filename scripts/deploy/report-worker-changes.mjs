@@ -11,4 +11,4 @@ if (!filename) {
   process.exit(2);
 }
 const files = readFileSync(filename, 'utf8').split(/\r?\n/).filter(Boolean);
-console.log('backend=' + affectedServices(files).backend);
+console.log('backend=' + (files.length === 0 || affectedServices(files).backend));
