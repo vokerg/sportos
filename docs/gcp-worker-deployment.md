@@ -325,6 +325,35 @@ sudo install -o root -g root -m 0644 /dev/null /etc/sportos/worker-ready
 
 It is an operator acknowledgment, not an automated connectivity/backup test.
 
+## Provider/rule first-activation checklist
+
+For the separate GCP worker, use this scope before enabling deployment:
+
+1. Confirm the deployed revision includes `SPORTOS_IMPORT_WORKER_ENABLED` and the
+   protected VM environment explicitly sets it to `false`. An unset flag retains
+   normal imports; do not rely on the general default for this VM.
+2. Keep `/var/lib/sportos/uploads` private and persistent for Garmin downloads.
+   The switch does not make Garmin's FIT/ZIP originals disposable. Do not delete
+   existing API uploads or queued import jobs; this worker leaves them unclaimed.
+3. Validate the primary dispatcher, primary worker-data and separate detail login
+   with read-only checks. Confirm non-superuser/non-bypass roles, required schema
+   and grants. Validate the existing encryption ring against the stored provider
+   envelopes privately; never expose tokens, keys or envelope contents in CI/logs.
+4. Install only the required runtime configuration on the VM through authenticated
+   IAP, root-owned 0600. Keep CI deployment credentials separate from DB/provider
+   configuration. Validate the parsed environment without printing its values.
+5. After all prerequisites pass, create the readiness marker. Obtain production
+   activation approval, enable the deployment gate, and merge a reviewed PR to
+   main. Existing queued Strava/Garmin and rule jobs may run as soon as the service
+   starts; file-import jobs remain excluded.
+6. Require successful workflow activation/stability checks, then manual status.
+   Check the private application journal, Garmin worker heartbeat and resource
+   usage. A stable process/heartbeat does not prove that a provider download has
+   succeeded; verify a bounded real job separately without exposing private data.
+7. If activation fails, keep or restore the gate to false, inspect private
+   diagnostics, and use the documented release recovery. Do not repeatedly start
+   a failing worker or widen permissions/network access as a workaround.
+
 ## GitHub environment, variables and secret
 
 Create environment **`gcp-worker-production`** in SportOS → Settings →
