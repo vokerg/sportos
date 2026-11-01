@@ -48,6 +48,9 @@ jobs:
       - name: GCP worker deployment checks (no cloud access)
         run: node --test deploy/gcp/*.test.mjs
 
+      - name: Hosted deployment scope and release freshness checks
+        run: node --test scripts/deploy/*.test.mjs
+
       - name: Local development recovery checks
         run: pnpm test:dev-recovery
 

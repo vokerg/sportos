@@ -79,14 +79,23 @@ interactive Garmin login remain separate; no production DB secrets enter CI.
   Unmerged closes, opened/updated PRs, direct pushes and tags cannot deploy.
   The target event supports production environment/OIDC access for merged fork
   PRs too; it never checks out an unmerged PR head.
-- It checks out the exact immutable merge/squash/rebase result SHA, requires it
-  still be `main`, and calls the existing CI as a reusable workflow on the exact
-  merged SHA. All its jobs must pass, including disposable Garmin DB integration
-  and conditional Neon gates. It then installs locked dependencies, runs Python
-  3.13 offline tests and packages only after success. It checks `main`
-  again immediately before deployment, so an old delayed run fails safely instead
-  of overwriting a newer release. If superseded, merge a subsequent PR rather
-  than deploying an arbitrary branch. Protect `main` against direct pushes.
+- A read-only changed-file gate inspects the merged PR's GitHub file list
+  (including renamed source paths) using trusted merged code. A frontend-only,
+  mobile-only or docs-only merge skips the reusable CI/package/deploy jobs;
+  ordinary `ci.yml` still runs on every PR. API, worker, MCP, shared packages,
+  Garmin helper, migrations and shared build files trigger the same full CI and
+  worker packaging/deployment as before. See `scripts/deploy/change-scope.mjs`
+  and [hosted build filters](DEPLOYMENT.md#production-deployment-scopes).
+- It checks out the exact immutable merge/squash/rebase result SHA and calls
+  the existing CI as a reusable workflow only for backend changes. All its
+  jobs must pass, including disposable Garmin DB integration and conditional
+  Neon gates. It then installs locked dependencies, runs Python 3.13 offline
+  tests and packages only after success. Before packaging and again immediately
+  before deployment, it verifies the exact release SHA is an ancestor of
+  current `main` and that no **newer backend** change intervened. Later
+  frontend-only merges are allowed, avoiding spurious stale-release failures;
+  later backend merges still reject the older release. Protect `main` against
+  direct pushes (which do not trigger this worker workflow).
 - Only the deploy job has `id-token: write` and enters `gcp-worker-production`.
   Repository variable `GCP_WORKER_DEPLOY_ENABLED=true` enables that job. While
   false/unset, merged code is checked/packaged but no GCP authentication occurs.

@@ -89,6 +89,44 @@ Keep the existing encryption key ring when using existing provider connections.
 Set Strava's authorization callback domain to the Vercel production hostname.
 Existing local provider connections retain their encrypted credentials.
 
+### Render build filtering (one-time dashboard action)
+
+In the **Render API service** → **Settings** → **Build & Deploy** → **Build Filters**,
+configure the following **Ignored Paths** (not Included Paths):
+
+```text
+apps/web/**
+apps/mobile/**
+docs/**
+.github/**
+deploy/docker/**
+deploy/oracle/**
+vercel.json
+README.md
+AGENTS.md
+CONTRIBUTING.md
+Dockerfile
+.dockerignore
+.env.example
+.gitignore
+.gitattributes
+.editorconfig
+```
+
+Keep Root Directory at the **repository root**, auto-deploy enabled, and the
+service branch at `main`. With only ignored paths, any backend change
+(`apps/api/**`, `apps/worker/**`, `apps/mcp/**`, `packages/**`,
+`tools/garmin/**`, `flyway/**`, `deploy/gcp/**`, shared lockfiles,
+or an unclassified new build input) triggers **Render API redeployment**.
+This is intentionally fail-open for new backend dependencies. A change under
+`apps/web/**` alone does not redeploy the API. Do not add a blanket
+`packages/**` exclusion.
+
+These settings are **not** committed to this repository: configure/verify them
+in the Render dashboard before relying on selective deployments. Render build
+filters affect automatic Git deployments, not manual deploys or service-setting
+changes. Updating filters may itself cause a deployment.
+
 ## Vercel settings
 
 Import the repository root as an **Other** project. `vercel.json` provides install,
@@ -102,9 +140,66 @@ exact origin for API CORS, browser redirects, and the Strava callback URL.
 The Render API hostname is `https://sportos-api-5qdc.onrender.com`; Vercel's
 `/api` rewrite targets that exact service.
 
-Deploy the same reviewed commit to both hosts. Production deployments on both
-hosts must follow `main`: keep Render's service branch and Vercel's Production
-Branch set to `main`, and keep every other Git branch disabled for deployment.
+### Vercel build filtering (one-time dashboard action)
+
+In the **Vercel frontend project** → **Settings** → **Build and Deployment**
+→ **Ignored Build Step**, choose a custom Node script and set:
+
+```sh
+node scripts/deploy/vercel-ignore-build.mjs
+```
+
+Keep the project Root Directory at the **repository root** and Production
+Branch at `main`; `vercel.json` already disables non-main Git deployments.
+Vercel must expose the system environment variable
+`VERCEL_GIT_PREVIOUS_SHA` to the ignored-build script (enable automatic
+system variables if necessary). The script compares the current commit against
+the **last successful** frontend deployment, not just `HEAD^`, so consecutive
+backend-only merges cannot hide a later frontend change. Missing history
+(Vercel shallow clone), initial deployments and unknown paths **build** instead
+of skipping. Vercel's exit convention is 0 = skip and 1 = build.
+A skipped build shows as canceled and may still count toward Vercel deployment
+limits. The platform's automatic monorepo skip feature may be a future
+alternative; do not enable two competing skip strategies without validation.
+
+### Production deployment scopes
+
+```text
+apps/web/**, vercel.json             -> Vercel frontend
+apps/api/**, apps/worker/**,         -> Render API + GCP worker
+apps/mcp/**,
+tools/garmin/**, flyway/**,
+deploy/gcp/**
+packages/**, root build/dependency  -> both frontend and backend
+configuration
+docs, mobile, inactive Oracle files -> neither
+unknown/unclassified paths         -> both (conservative)
+```
+
+The source-of-truth classifier for Vercel and the GCP workflow is
+`scripts/deploy/change-scope.mjs`, checked by
+`scripts/deploy/change-scope.test.mjs`. Keep the manually configured Render
+ignore list above aligned with it. Merged backend PRs trigger GCP packaging
+only after the existing CI passes; the worker deploy is still gated by
+`GCP_WORKER_DEPLOY_ENABLED`. Vercel/Render deploy independently from `main`
+and are **not atomically coupled** to GCP. Validate cross-version API/worker,
+queued-job and schema compatibility before making breaking changes.
+
+A later frontend-only merge does not invalidate a pending GCP worker release.
+A later backend merge does: its own deployment must supersede the older
+worker release. Direct pushes to `main` are not an automatic GCP worker
+deploy trigger; protect `main` against direct pushes and use merged PRs.
+Do not run Flyway from these deployment workflows.
+
+### Deployment smoke checks
+
+Once both dashboards are configured, merge separately: a frontend-only PR
+(Vercel yes, Render/GCP no), an API-only PR (Render/GCP yes, Vercel no),
+and a shared package PR (Vercel/Render/GCP yes). Angular currently imports
+shared source directly, so package changes conservatively rebuild both sides.
+A docs-only PR should
+trigger none of the three hosted deployments. The full repository CI remains
+required for every PR regardless of deployment scope.
 
 ## Database, backup and rollback
 
@@ -128,6 +223,16 @@ remain compatible with persisted schema and queued jobs.
 The Vercel frontend and free Render API are live. Authenticated browser
 verification covered the Vercel-to-Render health proxy, password sign-in,
 session-backed Overview, canonical Activities, provider status and an activity
-detail including the separate activity-detail database. The worker remains
-intentionally undeployed; queued imports, synchronization and recomputation do
-not progress until worker hosting and durable shared upload storage are added.
+detail including the separate activity-detail database. The GCP worker is now
+active for provider synchronization and rule processing as documented in
+[gcp-worker-deployment.md](gcp-worker-deployment.md); uploaded CSV/XLSX
+polling remains disabled pending durable shared upload storage.
+On 2026-11-01, the Render ignored paths above were saved and verified with
+no included paths, the repository root, branch `main`, and On Commit auto-deploy.
+Vercel's ignored build command was saved and verified after reloading settings;
+system environment variable access was already enabled, and the project root
+remains the repository root. These dashboard settings are active separately
+from repository configuration; future services/projects need the setup above.
+Local Git-fixture tests cover frontend/backend/shared scopes, renames, missing
+history and stale worker releases. The separate production merge scenarios in
+the smoke checklist remain ongoing operational checks, not completed evidence.
