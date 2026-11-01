@@ -196,6 +196,34 @@ gcloud compute firewall-rules create sportos-worker-iap-ssh --project="$PROJECT_
 Do not add `0.0.0.0/0`, an external IPv4, or a NAT gateway for CI transport.
 Inspect existing broad rules separately; this procedure does not delete them.
 
+## IPv6 egress option — operator only
+
+External IPv6 can provide outbound connectivity without an external IPv4 address
+or Cloud NAT. GCP's default auto-mode network does not support IPv6 subnets. A
+separate custom VPC with a dual-stack subnet preserves the original network for
+rollback; moving an existing IPv4-only VM requires stopping it first. Approve the
+network/firewall and VM lifecycle changes before executing them. Keep actual
+network inventory and the migration/rollback record in private operations docs.
+
+Allow inbound TCP/22 only from IAP's documented source range for the intended
+VM; unsolicited IPv6 internet access should remain denied. Preserve strict host
+key checking after migration. Check both cloud routes and the guest DHCPv6 address
+and default route, then test IPv6 DNS and certificate-verified TLS from the VM to
+all configured DB endpoints, provider auth/API/download hosts and package mirrors.
+A Mac DNS check or an unauthenticated HTTP response is insufficient to establish
+worker readiness: authenticated operations and redirects can require other hosts.
+The token-based Garmin helper's path differs from legacy browser/password login;
+verify the configured session flow rather than assuming every Garmin host supports
+IPv6. Do not add a charged IPv4/NAT fallback automatically if a dependency fails.
+
+External IPv6 addresses on VMs and IPv6 ranges on subnets have no address charge
+under current [VPC pricing](https://cloud.google.com/vpc/pricing), but internet
+traffic can still incur charges beyond applicable allowances. See Google's
+[migration procedure](https://docs.cloud.google.com/compute/docs/instances/migrating-interfaces-between-networks)
+and [IPv6 configuration](https://docs.cloud.google.com/compute/docs/ip-addresses/configure-ipv6-address).
+Network transport checks do not authorize bootstrap or enable the deployment gate;
+shared source availability and the remaining readiness checks still apply.
+
 ## One-time Linux setup — operator only
 
 The VM needs Debian 13 x86_64, Python 3.13/venv, CA certificates, systemd, OpenSSH
