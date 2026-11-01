@@ -85,3 +85,43 @@ test('Vercel sees original path when a file moves out of frontend', () => {
     assert.equal(result.status, 1);
   });
 });
+
+test('worker release guard allows later frontend changes but rejects later backend', () => {
+  const bare = mkdtempSync(join(tmpdir(), 'sportos-deploy-origin-'));
+  const guard = resolve('scripts/deploy/assert-worker-release-current.mjs');
+  try {
+    execFileSync('git', ['init', '--bare', '-q', bare]);
+    withRepo(({ dir, git, commit }) => {
+      git('remote', 'add', 'origin', bare);
+      git('push', '-q', 'origin', 'HEAD:main');
+      const backendRelease = commit('apps/api/src/main.ts', 'backend-v1');
+      git('push', '-q', 'origin', 'HEAD:main');
+      commit('apps/web/page.ts', 'frontend-v2');
+      git('push', '-q', 'origin', 'HEAD:main');
+      const check = () => spawnSync(process.execPath, [guard, backendRelease], {
+        cwd: dir, encoding: 'utf8',
+      });
+      assert.equal(check().status, 0, 'frontend update must not block worker');
+      commit('packages/db/src/schema.ts', 'backend-v2');
+      git('push', '-q', 'origin', 'HEAD:main');
+      assert.equal(check().status, 1, 'newer backend invalidates stale worker');
+    });
+  } finally {
+    rmSync(bare, { recursive: true, force: true });
+  }
+});
+test('worker file reporter matches shared scope classification', () => {
+  const reporter = resolve('scripts/deploy/report-worker-changes.mjs');
+  withRepo(({ dir }) => {
+    const file = join(dir, 'paths.txt');
+    const run = paths => {
+      writeFileSync(file, paths.join('\\n') + '\\n');
+      return spawnSync(process.execPath, [reporter, file], {
+        cwd: dir, encoding: 'utf8',
+      });
+    };
+    assert.equal(run(['apps/web/src/app/page.ts']).stdout.trim(), 'backend=false');
+    assert.equal(run(['apps/worker/src/import-worker.ts']).stdout.trim(), 'backend=true');
+    assert.equal(run(['README.md']).stdout.trim(), 'backend=false');
+  });
+});
