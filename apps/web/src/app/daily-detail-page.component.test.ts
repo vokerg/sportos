@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
 import { convertToParamMap, type ActivatedRoute, type Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { DailyDetailPageComponent } from './daily-detail-page.component';
 import type { ProviderApiService } from './provider-api.service';
@@ -23,6 +23,59 @@ const breakdown: DailyScoreBreakdown = {
 };
 
 describe('DailyDetailPageComponent', () => {
+  it.each([
+    ['2026-11-02', '2026-11-01', '2026-11-03'],
+    ['2026-01-01', '2025-12-31', '2026-01-02'],
+    ['2024-03-01', '2024-02-29', '2024-03-02'],
+    ['2026-03-29', '2026-03-28', '2026-03-30'],
+    ['0099-12-31', '0099-12-30', '0100-01-01'],
+  ])('navigates by calendar day from %s without carrying edit mode', (selected, previous, next) => {
+    const router = { navigate: vi.fn().mockResolvedValue(true) };
+    const component = createComponent({ getForDate: vi.fn() }, { edit: 'true' }, router);
+    component.date.set(selected);
+
+    component.navigateDay(-1);
+    component.navigateDay(1);
+
+    expect(router.navigate.mock.calls).toEqual([[['/daily', previous]], [['/daily', next]]]);
+  });
+
+  it('does not navigate from an invalid date', () => {
+    const router = { navigate: vi.fn() };
+    const component = createComponent({ getForDate: vi.fn() }, {}, router);
+    component.date.set('2026-02-30');
+    component.navigateDay(1);
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('cancels old day requests and clears busy state when the route date changes', () => {
+    const dates = new Subject<ReturnType<typeof convertToParamMap>>();
+    const oldEvidence = new Subject<{ date: string; garminObservations: []; sourceRecords: [] }>();
+    const api = {
+      getForDate: vi.fn()
+        .mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 404 })))
+        .mockReturnValueOnce(of({ ...breakdown, date: '2026-09-12' })),
+      getEvidence: vi.fn().mockReturnValue(oldEvidence),
+    };
+    const component = createComponent(api, {}, undefined, undefined, dates);
+    component.ngOnInit();
+    dates.next(convertToParamMap({ date }));
+    component.recalculating.set(true);
+    component.savingManual.set(true);
+    component.garminActivityIds.set(['old-activity']);
+
+    dates.next(convertToParamMap({ date: '2026-09-12' }));
+    oldEvidence.next({ date, garminObservations: [], sourceRecords: [] });
+
+    expect(api.getForDate).toHaveBeenLastCalledWith('2026-09-12');
+    expect(component.breakdown()?.date).toBe('2026-09-12');
+    expect(component.evidence()).toBeNull();
+    expect(component.recalculating()).toBe(false);
+    expect(component.savingManual()).toBe(false);
+    expect(component.garminActivityIds()).toEqual([]);
+    component.ngOnDestroy();
+  });
+
   it('loads the complete day from the route and requests edit mode', () => {
     const api = { getForDate: vi.fn().mockReturnValue(of(breakdown)) };
     const component = createComponent(api, { edit: 'true' });
@@ -121,9 +174,10 @@ function createComponent(
   query: Record<string, string> = {},
   router: { navigate: ReturnType<typeof vi.fn> } | undefined = undefined,
   providerApi: { connections: ReturnType<typeof vi.fn>; enqueueSync?: ReturnType<typeof vi.fn>; syncJob?: ReturnType<typeof vi.fn> } = { connections: vi.fn().mockReturnValue(of([])) },
+  dates = of(convertToParamMap({ date })),
 ): DailyDetailPageComponent {
   const route = {
-    paramMap: of(convertToParamMap({ date })),
+    paramMap: dates,
     snapshot: { queryParamMap: convertToParamMap(query) },
   };
   return new DailyDetailPageComponent(
