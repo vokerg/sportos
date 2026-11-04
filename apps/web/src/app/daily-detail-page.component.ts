@@ -15,6 +15,7 @@ import type {
   ScoreBreakdownViewState,
 } from './score-breakdown.models';
 import { stravaCalendarDateWindow } from './strava-day-refresh';
+import { isCalendarDate, shiftCalendarDays } from './shared/util/analytics-query-state';
 
 @Component({
   selector: 'sportos-daily-detail-page',
@@ -25,7 +26,13 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
       <a routerLink="/daily">Daily Log</a><span aria-hidden="true">›</span><span>{{ date() || 'Daily score' }}</span>
     </nav>
     <section class="main-actions" aria-label="Day actions">
-      <h2>Day actions</h2>
+      <div class="actions-heading">
+        <h2>Day actions</h2>
+        <nav class="day-navigation" aria-label="Day navigation">
+          <button type="button" class="secondary" (click)="navigateDay(-1)" [disabled]="!adjacentDate(-1)">← Previous day</button>
+          <button type="button" class="secondary" (click)="navigateDay(1)" [disabled]="!adjacentDate(1)">Next day →</button>
+        </nav>
+      </div>
       <div class="action-buttons">
         <button type="button" (click)="recalculate()" [disabled]="state() !== 'loaded' || recalculating() || savingManual() || refreshingFromStrava()">
           {{ recalculating() ? 'Recalculating…' : 'Recalculate from activities' }}
@@ -63,7 +70,9 @@ import { stravaCalendarDateWindow } from './strava-day-refresh';
   `,
   styles: [`
     .main-actions { margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-accent); border-radius: 12px; background: var(--accent-surface); }
-    .main-actions h2 { margin: 0 0 12px; color: var(--text); font-size: 16px; }
+    .actions-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    .main-actions h2 { margin: 0; color: var(--text); font-size: 16px; }
+    .day-navigation { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
     .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
     .action-help { margin: 10px 0 0; color: var(--text-muted); font-size: 12px; }
     .breadcrumb { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--text-muted); font-size: 12px; }
@@ -111,6 +120,10 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
     this.routeSubscription = this.route.paramMap.subscribe((params) => {
       const date = params.get('date');
       this.clearStravaRefresh();
+      this.evidenceSubscription?.unsubscribe();
+      this.recalculating.set(false);
+      this.savingManual.set(false);
+      this.garminActivityIds.set([]);
       this.date.set(date);
       this.load();
       this.loadStravaConnection();
@@ -265,6 +278,18 @@ export class DailyDetailPageComponent implements OnInit, OnDestroy {
 
   close(): void {
     void this.router.navigate(['/daily']);
+  }
+
+  adjacentDate(offset: -1 | 1): string | null {
+    const date = this.date();
+    if (!isCalendarDate(date)) return null;
+    const adjacent = shiftCalendarDays(date, offset);
+    return isCalendarDate(adjacent) ? adjacent : null;
+  }
+
+  navigateDay(offset: -1 | 1): void {
+    const date = this.adjacentDate(offset);
+    if (date) void this.router.navigate(['/daily', date]);
   }
 
   private loadStravaConnection(): void {

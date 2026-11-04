@@ -139,11 +139,12 @@ function shiftCalendarMonths(value: string, months: number): string {
   return formatCalendarDate(targetYear, targetMonth, Math.min(day, daysInMonth(targetYear, targetMonth)));
 }
 
-function shiftCalendarDays(value: string, days: number): string {
+export function shiftCalendarDays(value: string, days: number): string {
   const year = Number(value.slice(0, 4));
   const month = Number(value.slice(5, 7));
   const day = Number(value.slice(8, 10));
-  const date = new Date(Date.UTC(year, month - 1, day));
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
   date.setUTCDate(date.getUTCDate() + days);
   return formatCalendarDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
 }
