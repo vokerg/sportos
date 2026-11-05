@@ -8,12 +8,12 @@ The SportOS API does not receive or persist the chat transcript.
 
 ## Status
 
-Implementation and local verification are on PR #241. Production V145,
-Render activation, private plugin creation, SportOS browser approval and an
-actual ChatGPT read remain pending. The existing production `/mcp` probe
-returned 404 before this change. Package creation alone does not make the
-server available. Do not claim the plugin is connected until the live steps
-below pass. Merge and production operations require maintainer authorization.
+PR #241 was squash-merged after all three CI jobs passed and explicit maintainer
+approval. Production Flyway V145 is applied. The separate MCP-origin setting has
+been saved on the existing Render API; deployment/live verification and private
+plugin creation are in progress. The existing browser API origin is unchanged.
+The connection is not yet claimed to work in ChatGPT. This status will be
+updated with the observed live result; package creation alone is not verification.
 
 ## Tools and privacy boundary
 

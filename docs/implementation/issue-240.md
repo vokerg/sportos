@@ -7,11 +7,14 @@ point to the existing Render setup, requested repository documentation, and
 selected existing SportOS branding. PR #241 implements the required remote
 transport/authentication and reproducible private package.
 
-Implementation and the local checks below are complete. The PR remains a draft
-pending authorization for squash merge and production activation. V145 has not
-been applied to production, Render settings have not changed, and the plugin
-has not been created/installed or authenticated in ChatGPT. Do not close #240 or
-claim the end-to-end connection works until that live verification is recorded.
+PR #241 passed all three CI jobs on c083d00 and was squash-merged as 58f87ea
+after the maintainer explicitly approved all remaining activation work.
+Production Flyway validated 54 migrations and applied only V145 successfully
+from V144. The existing Render service's separate MCP-origin setting was saved;
+its deployment and live verification are in progress. No credentials or existing
+browser API-origin settings were changed. Private plugin creation and actual
+ChatGPT sign-in/read verification remain pending. Keep #240 open until the live
+result is recorded below.
 
 ## Investigation before implementation
 
@@ -147,3 +150,19 @@ archive. Install/approve and perform one bounded read; verify revocation before
 recording completion. Keep returned plugin/release IDs and deployment inventory
 in private operations notes. Update this record and close #240 only after the
 requested live connection is verified.
+
+## Authorized activation record
+
+On 2026-11-05, explicit maintainer approval covered squash merge, production V145,
+Render activation and private plugin creation. CI run 42090510156 passed build,
+disposable Garmin integration and Linux worker packaging. Its Neon-secret-dependent
+gates were skipped because those CI secrets are not configured; local disposable
+MCP database evidence above remains the direct validation for this migration.
+
+PR #241 was squash-merged as 58f87ea. Primary production migration advanced from
+V144 to V145 with all checksums validated; no canonical/scoring data migration was
+involved. The existing Render service automatically built the merge, and the
+separate non-secret MCP public-origin setting was saved through the dashboard.
+The existing Vercel-proxied API origin, runtime roles, credentials, encryption keys,
+storage and worker topology were preserved. Deployment/live connection verification
+is ongoing.
