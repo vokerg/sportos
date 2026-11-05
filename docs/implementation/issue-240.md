@@ -36,7 +36,7 @@ Files inspected:
   `public.decorator.ts`, `session.guard.ts`, `session.guard.test.ts`,
   `mobile-auth.test.ts`, `single-user-auth.test.ts`;
 - `apps/api/src/chat/chat.service.ts`, `chat-evidence.ts`, `chat.test.ts`;
-- `apps/web/package.json`, `apps/web/src/app/app.routes.ts`,
+- `apps/web/package.json`, `apps/web/src/app/app.routes.ts`, `app.routes.test.ts`,
   `mobile-connect.component.ts`, `web-auth.service.ts`,
   `daily-detail-page.component.test.ts`,
   `features/mobile-auth/data-access/mobile-connect-api.service.ts`,
@@ -117,7 +117,8 @@ canonical/scoring/provider side effects were added.
   five-tool discovery, successful deterministic volume read, rejected unknown
   fields, rejection on ordinary authenticated API routes, and disconnect followed
   by read denial all passed with disposable databases and synthetic sessions.
-- Web approval workflow: **4 passed**; web typecheck/build passed. Architecture
+- Web suite: **396 passed across 72 files**, including four approval workflow
+  cases and the updated route-list assertion; web typecheck/build passed. Architecture
   scan checked **216 source files**, with **8 guardrail tests passed**.
 - API typecheck and backend build (API + worker and referenced packages) passed.
 - Private package tests: **2 passed**. Generated and inspected both a synthetic
@@ -129,8 +130,11 @@ canonical/scoring/provider side effects were added.
 Not verified: live Render deployment/configuration, production migration,
 ChatGPT package ingestion/tool discovery, the actual user's browser login and
 consent, ChatGPT's final answer, or browser visual QA. The browser access host
-was unavailable. Full GitHub CI must still pass on the final pushed head; local
-checks are not a claim that the unrelated full repository matrix ran.
+was unavailable; a native Chrome fallback later reached the existing Render
+dashboard through routine GitHub sign-in, without changing settings. The first full GitHub run caught the existing route-list assertion missing the
+new consent route; that test was updated. Full GitHub CI must still pass on the
+final pushed head; local checks are not a claim that the unrelated full repository
+matrix ran.
 
 ## Activation handoff
 

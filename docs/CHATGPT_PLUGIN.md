@@ -199,7 +199,7 @@ Local focused commands:
 ```sh
 pnpm --filter @sportos/api exec vitest run src/mcp src/auth/session.guard.test.ts src/auth/mobile-auth.test.ts src/auth/single-user-auth.test.ts
 pnpm --filter @sportos/mcp exec vitest run src/server.test.ts
-pnpm --filter @sportos/web exec vitest run src/app/features/mcp-connect/state/mcp-connect.store.test.ts
+pnpm --filter @sportos/web exec vitest run src/app/features/mcp-connect/state/mcp-connect.store.test.ts src/app/app.routes.test.ts
 pnpm --filter @sportos/api typecheck
 pnpm --filter @sportos/web typecheck
 pnpm --filter @sportos/web build
