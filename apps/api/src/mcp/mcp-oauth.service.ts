@@ -48,10 +48,11 @@ export class McpOAuthService {
   }
   async authorize(input: unknown) {
     const c = this.config();
-    const v = fields(input, ['client_id', 'redirect_uri', 'resource', 'response_type', 'scope', 'state', 'code_challenge', 'code_challenge_method']);
+    const v = fields(input, ['client_id', 'redirect_uri', 'resource', 'response_type', 'scope', 'state', 'code_challenge', 'code_challenge_method', 'ui_locales']);
     if (v.client_id !== c.clientId || v.redirect_uri !== CHATGPT_REDIRECT || v.resource !== c.resource
       || v.response_type !== 'code' || v.scope !== MCP_SCOPE || v.code_challenge_method !== 'S256'
       || !/^[A-Za-z0-9_-]{43}$/.test(v.code_challenge ?? '')
+      || (v.ui_locales !== undefined && (v.ui_locales.length > 100 || !/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*(?: [A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)*$/.test(v.ui_locales)))
       || !v.state || v.state.length > 500 || /[\x00-\x20\x7f]/.test(v.state)) throw invalid();
     this.rateLimit();
     const requestId = random();

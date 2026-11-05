@@ -54,6 +54,19 @@ describe('ChatGPT OAuth boundary', () => {
     expect(input).toMatchObject({ clientId: 'sportos-chatgpt', redirectUri: CHATGPT_REDIRECT, resource: origin + '/mcp', codeChallenge: challenge });
     expect(input).not.toHaveProperty('accountId');
   });
+  it('accepts ChatGPT locale hints without retaining them or changing authorization', async () => {
+    await service.authorize({ ...authorize(), ui_locales: 'en-US da' });
+    const retained = vi.mocked(McpOAuthRepository.prototype.create).mock.calls[0]![0];
+    expect(retained).not.toHaveProperty('ui_locales');
+    expect(retained).not.toHaveProperty('locale');
+    expect(retained.clientId).toBe('sportos-chatgpt');
+  });
+  it('rejects malformed or oversized locale hints', async () => {
+    for (const ui_locales of ['https://evil.example', 'en-US<script>', 'a'.repeat(101), 'en\nUS', '']) {
+      await expect(service.authorize({ ...authorize(), ui_locales })).rejects.toBeInstanceOf(BadRequestException);
+    }
+    expect(McpOAuthRepository.prototype.create).not.toHaveBeenCalled();
+  });
   it.each([
     { redirect_uri: 'https://evil.example/callback' }, { client_id: 'evil' }, { resource: 'https://evil.example/mcp' },
     { scope: 'athlete:write' }, { code_challenge_method: 'plain' }, { response_type: 'token' }, { state: '' },
