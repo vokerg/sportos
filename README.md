@@ -83,6 +83,12 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 - Return the same generic result for foreign and nonexistent identifiers to reduce account enumeration.
 - Separate the narrow cross-account queue dispatcher from owner-scoped worker-data execution.
 
+## ChatGPT plugin
+
+The [ChatGPT plugin guide](docs/CHATGPT_PLUGIN.md) covers the optional authenticated
+read-only MCP connection on the existing Render API, private SportOS packaging,
+consent/revocation, deployment checks and current activation status.
+
 ## Local read-only athlete MCP
 
 The [athlete MCP guide](docs/ATHLETE_MCP.md) documents five bounded local stdio

@@ -2,6 +2,11 @@ import type { Routes } from '@angular/router';
 
 export const APP_ROUTES: Routes = [
   {
+    path: 'mcp-connect',
+    loadComponent: () => import('./features/mcp-connect/pages/mcp-connect-page.component').then(module => module.McpConnectPageComponent),
+    title: 'Connect ChatGPT · SportOS',
+  },
+  {
     path: 'chat',
     loadComponent: () => import('./features/chat/pages/chat-page.component').then(module => module.ChatPageComponent),
     title: 'Chat · SportOS',

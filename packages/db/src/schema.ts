@@ -1,3 +1,4 @@
+import type { McpOAuthGrantsTable } from './mcp-oauth-schema.js';
 import type {GarminConnectionsTable,GarminCredentialsTable,GarminJobsTable,GarminWorkerStatusTable} from './garmin-jobs-schema.js';
 import type { PerformanceMatchDecisionsTable, PerformanceMatchHeadsTable } from './performance-match-schema.js';
 import type { RunningEffortProjectionsTable, RunningEffortValuesTable, RunningEffortHeadsTable } from './running-effort-schema.js';
@@ -491,6 +492,7 @@ export interface Database {
   auth_sessions: AuthSessionsTable;
   auth_transactions: AuthTransactionsTable;
   mobile_auth_requests: MobileAuthRequestsTable;
+  mcp_oauth_grants: McpOAuthGrantsTable;
   uploaded_files: UploadedFilesTable;
   import_batches: ImportBatchesTable;
   import_jobs: ImportJobsTable;

@@ -68,6 +68,15 @@ hosts the existing athlete MCP server over an in-memory transport bound to each
 session account, with bounded model tool use, citation validation and redacted
 append-only audit metadata; see [CHAT.md](CHAT.md). Fixed account-scoped tools return sanitized facts, deterministic calculations, citations, and data-quality flags. An optional generator may summarize those results but cannot invoke repositories, issue SQL, select an owner, or write official data. The only analysis write is an append-only audit insert through a repository whose database grant is limited to `SELECT, INSERT` on `analysis_runs`.
 
+The optional remote [ChatGPT plugin](CHATGPT_PLUGIN.md) hosts the same five athlete
+read tools on the API over stateless Streamable HTTP. Its separate OAuth code/PKCE
+flow binds a real browser-approved account to expiring MCP-only credentials; it
+does not expose the stdio fixed-account runtime. The model sees only retained
+evidence and cannot use those credentials on ordinary API routes. V145 is an
+API-only authentication control plane; canonical reads retain account context
+and read-only transaction boundaries. External ChatGPT prose is outside the
+internal Chat citation validator and answer-audit boundary.
+
 ## Architectural invariants
 
 1. External `(issuer, subject)` maps to one immutable internal account UUID; mutable profile attributes are not ownership identity.

@@ -1,4 +1,6 @@
+import { mcpConfig } from './mcp/mcp-oauth.service.js';
 export function validateHostedEnvironment(env: NodeJS.ProcessEnv): void {
+  mcpConfig(env);
   if (env.NODE_ENV !== 'production') return;
   if (env.SPORTOS_AUTH_MODE === 'dev-single-user' || env.SPORTOS_DEV_AUTH_TOKEN) {
     throw new Error('Development authentication is forbidden in production.');

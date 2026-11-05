@@ -44,7 +44,8 @@
     "mobile:smoke": "tsx scripts/mobile-smoke.mts",
     "mcp": "pnpm --filter @sportos/mcp start",
     "athlete:snapshot": "pnpm --filter @sportos/mcp snapshot",
-    "garmin:import-session": "pnpm --filter @sportos/worker exec tsx src/garmin-session-import.ts"
+    "garmin:import-session": "pnpm --filter @sportos/worker exec tsx src/garmin-session-import.ts",
+    "plugin:package": "node scripts/package-chatgpt-plugin.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

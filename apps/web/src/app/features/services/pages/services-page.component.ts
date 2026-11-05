@@ -20,6 +20,12 @@ import { RouterLink } from '@angular/router';
           <p>Connect Strava, sync activities and check sync status.</p>
           <span class="service-link">Open providers <span aria-hidden="true">→</span></span>
         </a>
+        <a class="card service-card" routerLink="/mcp-connect">
+          <span class="service-kind">Connections</span>
+          <h2>ChatGPT</h2>
+          <p>Manage read-only access to your retained training history and revoke ChatGPT connections.</p>
+          <span class="service-link">Manage ChatGPT access <span aria-hidden="true">→</span></span>
+        </a>
         <a class="card service-card" routerLink="/imports">
           <span class="service-kind">Data intake</span>
           <h2>Imports</h2>

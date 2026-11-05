@@ -1,3 +1,7 @@
+import { McpOAuthService } from './mcp/mcp-oauth.service.js';
+import { McpOAuthController } from './mcp/mcp-oauth.controller.js';
+import { McpHttpService } from './mcp/mcp-http.service.js';
+import { McpHttpController } from './mcp/mcp-http.controller.js';
 import {GarminJobsService} from './garmin/garmin-jobs.service.js';
 import {GarminJobsController} from './garmin/garmin-jobs.controller.js';
 import { ChatController } from './chat/chat.controller.js';
@@ -47,6 +51,7 @@ import { ActivityDistanceCorrectionService } from './activities/activity-distanc
 
 @Module({
   controllers: [
+    McpOAuthController, McpHttpController,
     GarminJobsController,
     ChatController,
     AuthController,
@@ -69,6 +74,7 @@ import { ActivityDistanceCorrectionService } from './activities/activity-distanc
     GarminLocalIngestController,
   ],
   providers: [
+    McpOAuthService, McpHttpService,
     GarminJobsService,
     ChatService,
     RunningEffortsService,
