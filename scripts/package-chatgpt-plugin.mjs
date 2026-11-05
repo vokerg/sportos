@@ -7,12 +7,16 @@ import { spawnSync } from 'node:child_process';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // No credentials are accepted. Only an origin and a private output archive path.
 const args = process.argv.slice(2).filter(v => v !== '--');
-if (args.length !== 4 || args[0] !== '--origin' || args[2] !== '--out') {
-  throw Error('Usage: pnpm plugin:package -- --origin https://<render-api-host> --out /private/path/sportos.zip');
+if (args.length !== 4 || !['--origin', '--app-id'].includes(args[0]) || args[2] !== '--out') {
+  throw Error('Usage: pnpm plugin:package -- (--origin https://<render-api-host> | --app-id VERIFIED_APP_ID) --out /private/path/sportos.zip');
 }
-const origin = new URL(args[1]);
-if (origin.protocol !== 'https:' || origin.origin !== args[1] || origin.username || origin.password) {
+const appId = args[0] === '--app-id' ? args[1] : null;
+const origin = args[0] === '--origin' ? new URL(args[1]) : null;
+if (origin && (origin.protocol !== 'https:' || origin.origin !== args[1] || origin.username || origin.password)) {
   throw Error('Use an exact HTTPS API origin, without a path, credentials or query.');
+}
+if (appId && !/^(?:asdk_app_|connector_|templated_apps_)[A-Za-z0-9][A-Za-z0-9_-]*$/.test(appId)) {
+  throw Error('Use the verified backend App ID, not a plugin ID or URL.');
 }
 const out = resolve(args[3]);
 const rel = relative(root, out);
@@ -32,7 +36,11 @@ try {
   for (const file of ['plugin.json', 'assets/icon.png', 'skills/athlete-chat/SKILL.md']) {
     await copyFile(resolve(source, file), resolve(plugin, file));
   }
-  await writeFile(resolve(plugin, 'mcp.json'), JSON.stringify({
+  if (appId) {
+    manifest.extensions['com.openai'].apps = './.app.json';
+    await writeFile(resolve(plugin, 'plugin.json'), JSON.stringify(manifest, null, 2) + '\n');
+    await writeFile(resolve(plugin, '.app.json'), JSON.stringify({ apps: { 'sportos-mcp': { id: appId } } }, null, 2) + '\n');
+  } else await writeFile(resolve(plugin, 'mcp.json'), JSON.stringify({
     $schema: 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',
     mcpServers: { sportos: {
       type: 'streamable-http', url: `${origin.origin}/mcp`,
@@ -50,9 +58,9 @@ try {
   if (zip.status !== 0) throw Error('ZIP creation failed. Install zip and retry with a fresh output path.');
   const listing = spawnSync('unzip', ['-Z1', out], { encoding: 'utf8' });
   const files = listing.stdout.split('\n').filter(s => s && !s.endsWith('/')).sort();
-  const expected = ['sportos/assets/icon.png', 'sportos/mcp.json', 'sportos/plugin.json', 'sportos/skills/athlete-chat/SKILL.md'];
+  const expected = [`sportos/${appId ? '.app.json' : 'mcp.json'}`, 'sportos/assets/icon.png', 'sportos/plugin.json', 'sportos/skills/athlete-chat/SKILL.md'].sort();
   if (listing.status !== 0 || JSON.stringify(files) !== JSON.stringify(expected)) throw Error('Unexpected archive contents.');
-  for (const file of ['plugin.json', 'mcp.json']) {
+  for (const file of ['plugin.json', appId ? '.app.json' : 'mcp.json']) {
     const content = spawnSync('unzip', ['-p', out, `sportos/${file}`], { encoding: 'utf8' });
     JSON.parse(content.stdout);
   }

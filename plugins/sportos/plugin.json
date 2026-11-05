@@ -1,9 +1,11 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "sportos",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Chat with your retained SportOS training history using authenticated read-only athlete tools.",
-  "author": { "name": "SportOS" },
+  "author": {
+    "name": "SportOS"
+  },
   "extensions": {
     "com.openai": {
       "interface": {
@@ -15,7 +17,11 @@
         "capabilities": [],
         "logo": "./assets/icon.png",
         "composerIcon": "./assets/icon.png",
-        "defaultPrompt": ["Summarize my recent training with coverage caveats.", "Show my retained running personal bests.", "Compare my weekly training volume using SportOS evidence."]
+        "defaultPrompt": [
+          "Summarize my recent training with coverage caveats.",
+          "Show my retained running personal bests.",
+          "Compare my weekly training volume using SportOS evidence."
+        ]
       }
     }
   }

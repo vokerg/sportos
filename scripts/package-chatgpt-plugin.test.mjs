@@ -33,3 +33,18 @@ test('rejects insecure or ambiguous origins and refuses tracked output', () => {
   }
   assert.notEqual(run('https://api.sportos.example', resolve(root, 'sportos-should-not-exist.zip')).status, 0);
 });
+
+test('binds the existing registered MCP App without a second remote server declaration', async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'sportos-binding-test-'));
+  try {
+    const out = resolve(directory, 'bound.zip');
+    const result = spawnSync(process.execPath, [script, '--app-id', 'asdk_app_synthetic_fixture', '--out', out], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const read = name => JSON.parse(spawnSync('unzip', ['-p', out, `sportos/${name}`], { encoding: 'utf8' }).stdout);
+    assert.equal(read('plugin.json').extensions['com.openai'].apps, './.app.json');
+    assert.equal(read('.app.json').apps['sportos-mcp'].id, 'asdk_app_synthetic_fixture');
+    const names = spawnSync('unzip', ['-Z1', out], { encoding: 'utf8' }).stdout.split('\n');
+    assert.ok(!names.includes('sportos/mcp.json'));
+    assert.notEqual(spawnSync(process.execPath, [script, '--app-id', 'plugin_asdk_app_not_an_app_id', '--out', resolve(directory, 'invalid.zip')]).status, 0);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
