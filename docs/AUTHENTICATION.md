@@ -104,6 +104,19 @@ universal-link or custom-scheme interception, expiry/replay, cross-account
 authorization and device logout on simulator/iPhone. This branch adds code and
 fixture tests but claims **no on-device or production verification**.
 
+## Remote ChatGPT MCP authentication
+
+The optional [ChatGPT plugin](CHATGPT_PLUGIN.md) uses a separate public-client
+OAuth code + S256 PKCE flow, browser cookie/CSRF approval, exact resource and
+callback binding, and opaque `smc_` credentials stored only as digests. These
+credentials authorize only the five retained-evidence MCP tools, never normal
+API or mobile routes. Approval is bounded by its real browser session and can
+be revoked from Services → ChatGPT. V145 adds an explicitly documented API-only
+authentication control plane; it is unavailable to dispatcher, worker-data,
+legacy and shared roles. It is disabled unless `SPORTOS_MCP_PUBLIC_ORIGIN` is set.
+Production activation and live ChatGPT verification are tracked separately in
+[the plugin guide](CHATGPT_PLUGIN.md#status).
+
 ## Runtime identities
 
 Flyway runs as the schema owner. Runtime processes must not use that superuser or table owner because PostgreSQL superusers and table owners can bypass row-level security.

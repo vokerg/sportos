@@ -1,5 +1,9 @@
 # Local read-only athlete MCP and private IronMan handoff
 
+For the optional authenticated remote ChatGPT connection hosted by the existing
+API, see [CHATGPT_PLUGIN.md](CHATGPT_PLUGIN.md). The local binding below must
+never be exposed as an unauthenticated remote server.
+
 The web [athlete chat](CHAT.md) also reuses these tools through an authenticated
 in-process host. It does not use the local operator account binding or expose
 this stdio server remotely.

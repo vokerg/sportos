@@ -59,6 +59,10 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+    devDependencies:
+      '@sportos/analytics':
+        specifier: workspace:^
+        version: link:../../packages/analytics
 
   apps/mcp:
     dependencies:

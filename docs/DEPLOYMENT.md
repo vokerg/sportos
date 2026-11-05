@@ -127,6 +127,14 @@ in the Render dashboard before relying on selective deployments. Render build
 filters affect automatic Git deployments, not manual deploys or service-setting
 changes. Updating filters may itself cause a deployment.
 
+## Optional ChatGPT connection
+
+The existing API can also host the authenticated read-only ChatGPT MCP endpoint.
+See [CHATGPT_PLUGIN.md](CHATGPT_PLUGIN.md) for V145, the separate direct Render
+`SPORTOS_MCP_PUBLIC_ORIGIN`, private plugin packaging, browser consent, verification
+and disable/rollback steps. Do not change the existing Vercel-proxied
+`SPORTOS_API_ORIGIN` or deploy a second service for this connection.
+
 ## Vercel settings
 
 Import the repository root as an **Other** project. `vercel.json` provides install,

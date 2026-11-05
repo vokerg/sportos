@@ -51,6 +51,9 @@ jobs:
       - name: Hosted deployment scope and release freshness checks
         run: node --test scripts/deploy/*.test.mjs
 
+      - name: Private ChatGPT plugin package checks (no remote access)
+        run: node --test scripts/package-chatgpt-plugin.test.mjs
+
       - name: Local development recovery checks
         run: pnpm test:dev-recovery
 

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "sportos",
+  "version": "0.1.0",
+  "description": "Chat with your retained SportOS training history using authenticated read-only athlete tools.",
+  "author": { "name": "SportOS" },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "SportOS",
+        "shortDescription": "Chat with your training",
+        "longDescription": "Read your retained running, cycling and swimming history, training volume, personal bests and activity metrics from your own SportOS account. Requires SportOS sign-in and explicit approval. Does not change data or fetch providers.",
+        "developerName": "SportOS",
+        "category": "Data & Analytics",
+        "capabilities": [],
+        "logo": "./assets/icon.png",
+        "composerIcon": "./assets/icon.png",
+        "defaultPrompt": ["Summarize my recent training with coverage caveats.", "Show my retained running personal bests.", "Compare my weekly training volume using SportOS evidence."]
+      }
+    }
+  }
+}

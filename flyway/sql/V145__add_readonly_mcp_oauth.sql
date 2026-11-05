@@ -53,7 +53,10 @@ CREATE TRIGGER immutable_mcp_grant BEFORE UPDATE ON mcp_oauth_grants
 DO $$
 DECLARE role_name text;
 BEGIN
-  IF NOT has_table_privilege('sportos_app', 'mcp_oauth_grants', 'SELECT, INSERT, UPDATE, DELETE') THEN
+  IF NOT (has_table_privilege('sportos_app', 'mcp_oauth_grants', 'SELECT')
+    AND has_table_privilege('sportos_app', 'mcp_oauth_grants', 'INSERT')
+    AND has_table_privilege('sportos_app', 'mcp_oauth_grants', 'UPDATE')
+    AND has_table_privilege('sportos_app', 'mcp_oauth_grants', 'DELETE')) THEN
     RAISE EXCEPTION 'Missing MCP API privileges';
   END IF;
   FOREACH role_name IN ARRAY ARRAY['sportos_worker','sportos_worker_data','sportos_data','sportos_legacy'] LOOP

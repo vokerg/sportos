@@ -24,6 +24,10 @@ describe('SessionGuard', () => {
     await expect(new SessionGuard(reflector, auth).canActivate(context(bearer))).rejects.toBeInstanceOf(UnauthorizedException);
     const approve = request('POST'); approve.url = '/auth/mobile/approve';
     await expect(new SessionGuard(reflector, auth).canActivate(context(approve))).rejects.toBeInstanceOf(UnauthorizedException);
+    for (const url of ['/mcp/oauth/approve', '/mcp/oauth/disconnect']) {
+      const connection = request('POST'); connection.url = url;
+      await expect(new SessionGuard(reflector, auth).canActivate(context(connection))).rejects.toBeInstanceOf(UnauthorizedException);
+    }
     expect(auth.getDevelopmentSession).not.toHaveBeenCalled();
   });
   it('allows explicitly public routes without reading cookies', async () => {
