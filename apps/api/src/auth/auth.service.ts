@@ -288,6 +288,7 @@ export class AuthService {
   }
 
   async authenticate(sessionToken: string | null, transport: 'browser' | 'mobile' = 'browser'): Promise<AuthenticatedSession | null> {
+    if ((sessionToken ?? '').startsWith('smc_')) return null;
     if (transport === 'mobile' && !/^smo_[A-Za-z0-9_-]{64}$/.test(sessionToken ?? '')) return null;
     if (transport === 'browser' && (sessionToken ?? '').startsWith('smo_')) return null;
 

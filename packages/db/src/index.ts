@@ -74,3 +74,5 @@ export * from './repositories/athlete-swim-lengths.repository.js';
 
 export * from './garmin-jobs-schema.js';
 export * from './repositories/garmin-jobs.repository.js';
+
+export * from './repositories/mcp-oauth.repository.js';
