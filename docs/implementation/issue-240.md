@@ -138,21 +138,18 @@ ingestion, actual browser consent and a ChatGPT read were not yet verified;
 the completed results are recorded below. The browser access host
 was unavailable; a native Chrome fallback later reached the existing Render
 dashboard through routine GitHub sign-in, without changing settings. The first full GitHub run caught the existing route-list assertion missing the
-new consent route; that test was updated. Full GitHub CI must still pass on the
-final pushed head; local checks are not a claim that the unrelated full repository
-matrix ran.
+new consent route; that test was updated. Full GitHub CI subsequently passed
+for both implementation PRs before their merges.
 
-## Activation handoff
+## Activation procedure reference
 
-Follow [CHATGPT_PLUGIN.md](../CHATGPT_PLUGIN.md) for exact operator steps and
-rollback. Obtain explicit squash-merge/production authorization under
-`AGENTS.md`, apply V145 with the separate migration identity, deploy the existing
-API and frontend, set the separate direct MCP origin on Render, verify metadata
-and the 401 challenge, then create one private SportOS plugin from the inspected
-archive. Install/approve and perform one bounded read; verify revocation before
-recording completion. Keep returned plugin/release IDs and deployment inventory
-in private operations notes. Update this record and close #240 only after the
-requested live connection is verified.
+[CHATGPT_PLUGIN.md](../CHATGPT_PLUGIN.md) contains the repeatable operator setup
+and rollback. The authorized activation below completed V145, the existing
+API/frontend deployment, the separate Render MCP origin, public metadata/401
+checks, private package/App setup, browser consent and a bounded ChatGPT read.
+Revocation and expiry were verified locally; live revocation was left unexercised
+after the successful read to retain the user's working connection. Keep returned
+plugin/release IDs and deployment inventory in private operations notes.
 
 ## Authorized activation record
 
@@ -167,8 +164,8 @@ V144 to V145 with all checksums validated; no canonical/scoring data migration w
 involved. The existing Render service automatically built the merge, and the
 separate non-secret MCP public-origin setting was saved through the dashboard.
 The existing Vercel-proxied API origin, runtime roles, credentials, encryption keys,
-storage and worker topology were preserved. Deployment/live connection verification
-is ongoing.
+storage and worker topology were preserved. Live connection verification was
+completed as recorded below.
 
 ### Live host compatibility and App binding
 
