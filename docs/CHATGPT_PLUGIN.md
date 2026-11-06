@@ -8,12 +8,24 @@ The SportOS API does not receive or persist the chat transcript.
 
 ## Status
 
-PR #241 was squash-merged after all three CI jobs passed and explicit maintainer
-approval. Production Flyway V145 is applied. The separate MCP-origin setting has
-been saved on the existing Render API; deployment/live verification and private
-plugin creation are in progress. The existing browser API origin is unchanged.
-The connection is not yet claimed to work in ChatGPT. This status will be
-updated with the observed live result; package creation alone is not verification.
+**Live and verified on 2026-11-06.** PRs #241 and #242 were squash-merged
+after their three CI jobs passed. Production V145 is applied, and the existing
+Render API serves authenticated MCP with the separate public-origin setting.
+The existing browser API origin and credentials are unchanged.
+
+The private SportOS package is version 0.1.1 and reuses the registered SportOS MCP
+App connection. Browser consent and the OAuth callback completed successfully.
+A real ChatGPT chat invoked a bounded retained running-volume read and returned
+its verification acknowledgement. Personal values and generated personal content
+were not copied into this repository or GitHub. The connection is left active.
+
+To use it, open the private **SportOS** plugin, connect its **SportOS MCP**
+dependency if prompted, and choose **Try in chat**. In a chat, select
+**@SportOS MCP** for the verified tool connection. Access expires after at most
+twelve hours or earlier browser-session expiry/sign-out; reconnect when prompted.
+Live revoke/reconnect was not exercised after the successful read so the working
+connection remains available; revocation and expiry passed local HTTP/database
+integration tests. See the implementation record for the precise evidence.
 
 ## Tools and privacy boundary
 
@@ -129,47 +141,82 @@ control plane limits valid start/exchange/revoke requests to 60/minute per API
 process. These in-memory limits reset on restart; scale-out would need a shared
 limiter. No proxy CORS expansion or anonymous tool discovery is required.
 
-## Build and create the private plugin
+## Register and package the private plugin
 
-Tracked source is in `plugins/sportos/`: Agent Plugins 1.0 manifest, existing
-SportOS icon and the athlete-chat skill. Actual deployment inventory is supplied
-only when packaging and is not written into tracked source.
+For ChatGPT, register the MCP connection first through
+[the supported custom MCP flow](https://developers.openai.com/api/docs/guides/custom-mcp-server):
+**Plugins → + → Add custom MCP server**. Use name **SportOS MCP**, URL
+`https://<render-api-host>/mcp`, OAuth and advanced settings:
+
+- User-defined public client ID `sportos-chatgpt`; no client secret.
+- Token endpoint authentication `none`.
+- Default and base scope `athlete:read`.
+- Discovered issuer/resource/endpoints exactly matching the direct Render host.
+- Callback exactly `https://chatgpt.com/connector_platform_oauth_redirect`.
+
+Create the private connection, choose **Connect**, complete SportOS browser
+approval and **Return to ChatGPT**. The language hint `ui_locales` is accepted
+only as a bounded language-tag list and is ignored before retention; other
+unknown authorization fields remain rejected. No authentication downgrade is
+needed. If ChatGPT shows a different callback, stop and verify metadata/host
+compatibility rather than widening the redirect allowlist.
+
+This produces a registered MCP App and its private connection entry. Use that
+same connection for the branded skills package. Read its `.app.json` through
+Plugin Creator to obtain the actual backend App ID. Do not invent an ID or
+strip a prefix from a plugin URL: the verified App ID is a different identifier.
+Keep account-specific IDs in private operations notes, outside Git.
+
+Tracked package source is in `plugins/sportos/`: Agent Plugins 1.0 manifest,
+existing SportOS icon and the athlete-chat skill. Generate a bound private
+archive with the verified App ID:
 
 ```sh
-pnpm plugin:package -- --origin https://<render-api-host> --out /private/path/sportos.zip
+pnpm plugin:package -- --app-id asdk_app_<verified-id> --out /private/path/sportos.zip
 ```
 
 The output path must be outside the repository and not already exist. The
-packager creates and inspects one plugin with exactly these files:
+packager creates and inspects exactly four files:
 
 ```text
 sportos/plugin.json
-sportos/mcp.json
+sportos/.app.json
 sportos/assets/icon.png
 sportos/skills/athlete-chat/SKILL.md
 ```
 
-`mcp.json` uses `streamable-http`, the exact origin plus `/mcp`, OAuth scope
-`athlete:read`, and the provided public client `sportos-chatgpt` with auth method
-`none`. The ZIP has no credentials. It is a private account/workspace plugin;
-no public-directory submission or sharing is requested.
+The manifest references `./.app.json`, which reuses the registered App's OAuth
+connection. It does not declare another raw MCP transport. This is a private
+account/workspace package; public-directory submission or sharing is not requested.
 
-Once the live endpoint is verified, use Plugin Creator's private creation flow
-with the absolute archive path. Keep its returned plugin/release IDs and link
-in private operations notes for future updates. Reuse that plugin after creation;
-do not create duplicates to refresh tools. Install it, complete SportOS sign-in
-and explicit approval, and check that all five tools appear.
+Create the branded package once with Plugin Creator, or update the existing
+SportOS package using its exact ID/current release. Preserve the icon, skill,
+prompts and private audience. If updating a direct-transport package, remove
+its obsolete `mcp.json` and generated `.mcp.json` declarations in the same update;
+then verify inventory, App binding, release and retained assets. Do not create
+replacement packages merely to refresh tools.
 
-Alternatively, [ChatGPT's custom MCP setup](https://developers.openai.com/api/docs/guides/custom-mcp-server)
-can connect directly: **Plugins → + → Add custom MCP server**, name **SportOS**,
-URL `https://<render-api-host>/mcp`, OAuth, static client ID `sportos-chatgpt`,
-no client secret, public-client token auth `none`, scope `athlete:read`.
-This direct path does not install the packaged skill and branding. Do not use
-No authentication. The callback choice depends on issuer metadata; if the host
-shows a different callback, stop and verify metadata/host compatibility rather
-than widening the redirect allowlist or guessing a URL. The relevant current
-[OpenAI authentication guidance](https://developers.openai.com/plugins/build/auth)
-explains the stable callback, issuer parameter, PKCE and resource binding.
+Open **SportOS**, connect its **SportOS MCP** dependency if needed, then use
+**Try in chat** or select the connected plugin with `@`. An unrelated existing
+project or custom GPT named Sportos is not the MCP connection. Verify the five
+actual tools, then perform a bounded read. Installation or archive ingestion
+alone is not proof that authentication or tool execution works.
+
+For other MCP-aware hosts, the packager also retains direct-transport mode:
+
+```sh
+pnpm plugin:package -- --origin https://<render-api-host> --out /private/path/sportos-portable.zip
+```
+
+This emits `mcp.json` instead of `.app.json`, with `streamable-http`, OAuth,
+`athlete:read` and public-client auth `none`. It does not register an App in
+ChatGPT. The live verification identified that distinction; a raw MCP archive
+alone was saved successfully but did not expose the connected tools in web chat.
+
+The current [OpenAI authentication guidance](https://developers.openai.com/plugins/build/auth)
+explains the stable callback, issuer identification, PKCE and resource binding;
+[packaging guidance](https://developers.openai.com/plugins/build/plugins) covers
+registering the connection before wiring its App into a skills package.
 
 ## Verification
 
