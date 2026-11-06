@@ -7,14 +7,17 @@ point to the existing Render setup, requested repository documentation, and
 selected existing SportOS branding. PR #241 implements the required remote
 transport/authentication and reproducible private package.
 
-PR #241 passed all three CI jobs on c083d00 and was squash-merged as 58f87ea
-after the maintainer explicitly approved all remaining activation work.
-Production Flyway validated 54 migrations and applied only V145 successfully
-from V144. The existing Render service's separate MCP-origin setting was saved;
-its deployment and live verification are in progress. No credentials or existing
-browser API-origin settings were changed. Private plugin creation and actual
-ChatGPT sign-in/read verification remain pending. Keep #240 open until the live
-result is recorded below.
+The requested connection is live and verified on 2026-11-06. PR #241 was
+squash-merged as 58f87ea after CI and explicit maintainer approval. Production
+V145 applied successfully. PR #242 fixed the observed ChatGPT locale hint and
+registered-App packaging, passed all CI jobs and was squash-merged as 2f087bb.
+Render deployed the fixes; the separate MCP origin is enabled.
+
+The private SportOS package is version 0.1.1, bound to the verified registered
+SportOS MCP App. Fresh browser approval, the issuer-identified OAuth callback and
+an actual bounded ChatGPT training-volume read succeeded. The connection is left
+active for the user. No private training values, prompts, generated personal
+content, credentials or account-specific plugin/App IDs are included here.
 
 ## Investigation before implementation
 
@@ -130,26 +133,23 @@ canonical/scoring/provider side effects were added.
   credentials were confirmed. The source manifest subtitle is within 30 characters.
 - `git diff --check` passed.
 
-Not verified: live Render deployment/configuration, production migration,
-ChatGPT package ingestion/tool discovery, the actual user's browser login and
-consent, ChatGPT's final answer, or browser visual QA. The browser access host
+At the initial implementation checkpoint, live Render activation, package
+ingestion, actual browser consent and a ChatGPT read were not yet verified;
+the completed results are recorded below. The browser access host
 was unavailable; a native Chrome fallback later reached the existing Render
 dashboard through routine GitHub sign-in, without changing settings. The first full GitHub run caught the existing route-list assertion missing the
-new consent route; that test was updated. Full GitHub CI must still pass on the
-final pushed head; local checks are not a claim that the unrelated full repository
-matrix ran.
+new consent route; that test was updated. Full GitHub CI subsequently passed
+for both implementation PRs before their merges.
 
-## Activation handoff
+## Activation procedure reference
 
-Follow [CHATGPT_PLUGIN.md](../CHATGPT_PLUGIN.md) for exact operator steps and
-rollback. Obtain explicit squash-merge/production authorization under
-`AGENTS.md`, apply V145 with the separate migration identity, deploy the existing
-API and frontend, set the separate direct MCP origin on Render, verify metadata
-and the 401 challenge, then create one private SportOS plugin from the inspected
-archive. Install/approve and perform one bounded read; verify revocation before
-recording completion. Keep returned plugin/release IDs and deployment inventory
-in private operations notes. Update this record and close #240 only after the
-requested live connection is verified.
+[CHATGPT_PLUGIN.md](../CHATGPT_PLUGIN.md) contains the repeatable operator setup
+and rollback. The authorized activation below completed V145, the existing
+API/frontend deployment, the separate Render MCP origin, public metadata/401
+checks, private package/App setup, browser consent and a bounded ChatGPT read.
+Revocation and expiry were verified locally; live revocation was left unexercised
+after the successful read to retain the user's working connection. Keep returned
+plugin/release IDs and deployment inventory in private operations notes.
 
 ## Authorized activation record
 
@@ -164,5 +164,57 @@ V144 to V145 with all checksums validated; no canonical/scoring data migration w
 involved. The existing Render service automatically built the merge, and the
 separate non-secret MCP public-origin setting was saved through the dashboard.
 The existing Vercel-proxied API origin, runtime roles, credentials, encryption keys,
-storage and worker topology were preserved. Deployment/live connection verification
-is ongoing.
+storage and worker topology were preserved. Live connection verification was
+completed as recorded below.
+
+### Live host compatibility and App binding
+
+ChatGPT's actual authorization request included `ui_locales=en-US`. The strict
+allowlist rejected that standard UI hint before writing any grant. PR #242
+accepts bounded language-tag lists without retaining them or changing the
+client/resource/scope/PKCE/owner binding; malformed hints and unknown fields
+still fail closed. Twenty-four focused OAuth/transport cases, API typecheck and
+three packaging cases passed. CI run 42093425646 passed all three jobs, and the
+authorized fix was squash-merged as 2f087bb. Its Render deployment subsequently succeeded.
+
+A standalone raw-MCP archive was saved as a private SportOS package, but web
+ChatGPT needed a registered MCP App connection. One private SportOS MCP connection
+was registered using the discovered exact callback, public client auth `none`,
+PKCE, resource and only `athlete:read`. The original branded SportOS package was
+updated in place to version 0.1.1 with that verified App dependency. Read-back
+confirmed the App binding, icon, skill, prompt order, private audience and absence
+of obsolete direct MCP declarations. No additional standalone package was created
+to refresh tools. OAuth completion/read verification subsequently passed as recorded below. Account-specific IDs and archive configuration remain
+outside the repository.
+
+### Completed live verification — 2026-11-06
+
+- The existing Render service deployed 2f087bb. Protected resource and
+  authorization-server metadata return the exact configured issuer/audience.
+  Anonymous POST `/mcp` returns 401 with its resource-metadata challenge and
+  `no-store`; the Vercel API health proxy also returned 200.
+- ChatGPT registered the existing endpoint with static public client
+  `sportos-chatgpt`, token endpoint auth `none`, the stable exact callback and
+  only `athlete:read`. No password or token was extracted into a tool or file.
+- An old five-minute request was replaced through **Continue connecting app**.
+  A fresh authenticated SportOS consent showed read-only access, approval
+  succeeded, and **Return to ChatGPT** completed the callback. The connection
+  entry then displayed **Manage** with no pending Connect action.
+- **Try in chat** selected the registered SportOS MCP connection. A bounded
+  completed-week running-volume request executed in a real ChatGPT conversation;
+  its tool trace displayed the completed volume operation and the answer
+  acknowledged verification. The test requested no personal numbers or activity
+  details in its displayed answer. Neither question/answer content nor evidence
+  values were copied into GitHub or tracked files.
+- The original branded package was read back after its in-place 0.1.1 update:
+  verified App dependency, retained icon/skill/prompts/private audience, no raw
+  `mcp.json` or generated `.mcp.json` duplicates. Registered connection and branded
+  skills package are separate host components, not replacement packages.
+- Live revoke/reconnect was not repeated after this success; the working
+  connection remains active. Revocation, expiry, replay and cross-owner isolation
+  were proven in the local HTTP and non-owner database integration evidence above.
+
+The final documentation update is limited to the setup guide and this record.
+Validation: link, diff and privacy checks; no unrelated heavy suites were rerun.
+Future reconnects reuse the existing private App and package; credentials remain
+inside ChatGPT's connection flow and SportOS's digest-only control plane.
