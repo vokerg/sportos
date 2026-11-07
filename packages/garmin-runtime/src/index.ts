@@ -9,3 +9,5 @@ export * from './activity-route.js';
 export * from './activity-route-projection.js';
 export * from './garmin-day-projection.js';
 export * from './garmin-day-completeness.js';
+
+export * from './garmin-auto-rich-policy.js';

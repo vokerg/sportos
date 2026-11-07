@@ -48,6 +48,13 @@ integration('one-day evidence through real non-owner retention and reconciliatio
     });
     const official=()=>withAccountContext(db,owner,async ctx=>({activities:await ctx.selectFrom('activities').selectAll().orderBy('id').execute(),scores:await ctx.selectFrom('daily_metrics').selectAll().execute(),ledger:await ctx.selectFrom('score_ledger').selectAll().execute(),snapshots:await ctx.selectFrom('daily_score_snapshots').selectAll().execute()}));
     const before=await official();const account={id:owner,displayName:'Synthetic',email:null};
+    // A pre-upgrade immutable version must survive identical discovery bytes.
+    const identities=summaries.map((_,index)=>`native:${native+index}`);
+    await withAccountContext(db,owner,ctx=>new GarminDayRepository(ctx).publish(date,{
+      category:'activities',state:'available',attemptedAt:new Date('2026-03-29T12:00:00Z'),
+      version:{hash:createHash('sha256').update(JSON.stringify(payloads.activities)).digest('hex'),availability:'available',
+        projection:{identities,complete:true,workoutComplete:true}},
+    }));
     const first=await service.fetch(account,date,false);
     expect(first.state).toBe('current');expect(first.categories.find(c=>c.category==='weight')?.evidence).toMatchObject({measurements:[{weightKg:70},{weightKg:70.5}]});
     expect(first.categories.find(c=>c.category==='activities')?.evidence).toMatchObject({count:4,activities:[{reconciliation:'strong_unique'},{reconciliation:'ambiguous',activityId:null},{reconciliation:'unmatched',activityId:null},{reconciliation:'exact'}]});

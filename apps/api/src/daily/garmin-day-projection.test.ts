@@ -1,3 +1,4 @@
+import { autoRichGarminIdentities } from '@sportos/garmin-runtime';
 import { describe, expect, it } from 'vitest';
 import { projectGarminDay, publicGarminPayload, hasGarminDayEvidence, nonScoringGarminDayIdentities } from './garmin-day-projection.js';
 const date='2026-03-29';
@@ -21,7 +22,7 @@ describe('Garmin day projection', () => {
     expect(projectGarminDay('body_battery',[{date,charged:70,drained:30}],date)).toEqual({charged:70,drained:30});
   });
   it('retains compact activity identities with local calendar semantics', () => {
-    expect(projectGarminDay('activities',{items:[{activityId:123,startTimeLocal:`${date} 00:05:00`,startTimeGMT:'2026-03-28 23:05:00'}],complete:true},date)).toEqual({identities:['native:123'],autoRichIdentities:[],complete:true,workoutComplete:true});
+    expect(projectGarminDay('activities',{items:[{activityId:123,startTimeLocal:`${date} 00:05:00`,startTimeGMT:'2026-03-28 23:05:00'}],complete:true},date)).toEqual({identities:['native:123'],complete:true,workoutComplete:true});
     expect(() => projectGarminDay('activities',{items:[{activityId:123,startTimeLocal:'2026-03-28 23:05:00'}],complete:true},date)).toThrow();
   });
   it('excludes credentials, account references, hashes and paths from resource disclosure', () => {
@@ -46,11 +47,11 @@ it('whitelists only sports with automatic retained-rich consumers', () => {
   const types=['running','treadmill_running','track_running','trail_running','cycling','indoor_cycling','lap_swimming','open_water_swimming','strength_training',
     'walking','indoor_rowing','rowing','stand_up_paddleboarding','unknown'];
   const items=types.map((typeKey,index)=>({activityId:index+1,startTimeLocal:`${date} 12:00:00`,activityType:{typeKey}}));
+  expect(autoRichGarminIdentities({items})).toEqual(types.slice(0,9).map((_,i)=>`native:${i+1}`));
   const output=projectGarminDay('activities',{items,complete:true},date);
   expect(output).toMatchObject({
     identities:types.map((_,i)=>`native:${i+1}`),
-    autoRichIdentities:types.slice(0,9).map((_,i)=>`native:${i+1}`),
   });
   expect(projectGarminDay('activities',{items:[{activityId:1,startTimeLocal:`${date} 10:00:00`}],complete:true},date))
-    .toMatchObject({identities:['native:1'],autoRichIdentities:[]});
+    .toEqual({identities:['native:1'],complete:true,workoutComplete:true});
 });

@@ -34,10 +34,11 @@ force refresh. Explicit single-activity retrieval can discover/match from a
 Strava-backed canonical session; Garmin-only unlinked identities still require
 the separate review/matching workflow.
 
-The recorded day projection includes `autoRichIdentities` so cache-aware
+The mutable day attempt metadata includes `autoRichIdentities` so cache-aware
 requests can tell which identities require complete rich coverage. Historical
-projections without this field continue the conservative prior check until
-their next refresh.
+attempts without this field continue the conservative prior check until
+their next refresh. Immutable source projections stay unchanged so identical
+pre-upgrade source bytes can be reused without a version conflict.
 
 ## Complete downstream use-case inventory
 

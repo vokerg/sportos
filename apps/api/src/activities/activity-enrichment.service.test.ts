@@ -23,6 +23,19 @@ describe('ActivityEnrichmentService', () => {
     vi.spyOn(GarminLocalIngestService.prototype,'cachedBundle').mockResolvedValue(true); vi.spyOn(subject,'read').mockResolvedValue({ provider:'garmin' } as never); const bridge=vi.spyOn(subject,'bridge');
     await expect(subject.fetch({ id: LEGACY_ACCOUNT_ID } as never,id,false)).resolves.toMatchObject({ cacheStatus:'hit' }); expect(bridge).not.toHaveBeenCalled();
   });
+  it('explicit full refresh bypasses cached coverage for a linked walk',async()=>{
+    process.env.SPORTOS_GARMIN_LOCAL_FETCH_ENABLED='true';
+    const subject=service();
+    vi.spyOn(subject,'reference').mockResolvedValue({activity:{...summary,activity_type:'walk'},garmin:{identity_key:'native:123',current_hash:'a'.repeat(64)}} as never);
+    const cached=vi.spyOn(GarminLocalIngestService.prototype,'cachedBundle').mockResolvedValue(true);
+    const bundle={bundle:{files:[],resources:[],snapshot:{providerActivityId:'123',summary:{activityType:'walk',subtype:'outdoor',startTime:summary.start_time,elapsedTimeS:1800,movingTimeS:1800,distanceM:5000}}}};
+    const bridge=vi.spyOn(subject,'bridge').mockResolvedValue(bundle);
+    vi.spyOn(GarminLocalIngestService.prototype,'retainBundle').mockResolvedValue({activityId:id} as never);
+    vi.spyOn(subject,'read').mockResolvedValue({provider:'garmin'} as never);
+    await subject.fetch({id:LEGACY_ACCOUNT_ID},id,true);
+    expect(cached).not.toHaveBeenCalled();
+    expect(bridge).toHaveBeenCalledWith({operation:'extract',providerActivityId:'123',refresh:true});
+  });
   it('disables workstation tokens for production and other accounts even with the flag enabled', async () => {
     process.env.SPORTOS_GARMIN_LOCAL_FETCH_ENABLED='true'; const subject=service(false); expect(subject.localEnabled(LEGACY_ACCOUNT_ID)).toBe(false); expect(service().localEnabled(id)).toBe(false);
     vi.spyOn(subject,'reference').mockResolvedValue({ activity:summary } as never); const bridge=vi.spyOn(subject,'bridge');
