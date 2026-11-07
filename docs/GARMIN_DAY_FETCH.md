@@ -51,8 +51,11 @@ have no access to the new day tables.
   been saved, the main action becomes **Refresh from Garmin** and also requests
   fresh evidence, including day totals uploaded later from the watch. Both UI
   actions send `refresh: true`; a complete saved day is never silently reused
-  instead of checking Garmin. This can take a few minutes because activity
-  resources are refreshed too. Navigation still reads saved data only.
+  instead of checking Garmin. **Refresh checks all eight daily categories and
+  activity discovery, but reuses complete retained FIT bundles.** Full FIT
+  extraction is automatic only for missing whitelisted running, cycling,
+  swimming and strength sessions. Other sports stay in day discovery and may
+  be explicitly fetched on their activity page. Navigation still reads saved data only.
 - A partial day also offers **Refresh from Garmin**. Successful retained evidence
   survives failures. Missing Strava coverage makes the day partial even when
   Garmin discovery was complete; Strava-only sessions can remain unpaired.
@@ -63,9 +66,11 @@ have no access to the new day tables.
   response is explicitly labelled as saved data reused in the UI.
 - **Show metrics** expands compact evidence already read from
   SportOS. It works without local Garmin authorization.
-- **Refresh from Garmin** explicitly reads all categories again and refreshes
-  selected activity resources. Changed content gets a new immutable version;
-  identical content converges to the existing version.
+- **Refresh from Garmin** explicitly reads all categories again, retaining
+  new versions for changed day evidence. It reuses complete activity FIT
+  resources and does not detect FIT-only edits absent from day discovery;
+  use the activity-page **Redownload full Garmin FIT** to force a specific
+  activity. See [sport policy and FIT consumer audit](GARMIN_RICH_ACQUISITION.md).
 - **View source JSON**, in the day’s **Sources** view, reads one bounded auxiliary payload on demand.
   Upstream account/auth/storage fields are removed from browser disclosure.
 
