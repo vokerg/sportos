@@ -1,3 +1,4 @@
+import { autoRichGarminIdentities } from './garmin-auto-rich-policy.js';
 import { BadRequestException } from '@nestjs/common';
 import type { GarminDayCategory, Json } from '@sportos/db';
 type ObjectValue = Record<string, unknown>;
@@ -60,7 +61,7 @@ export function projectGarminDay(category: GarminDayCategory, raw: Json, date: s
   const workoutComplete = value.complete || (value.discoveryTruncated === false
     && Array.isArray(value.unresolvedItems) && Array.isArray(value.deferredItems)
     && [...value.unresolvedItems, ...value.deferredItems].every(walking));
-  return { identities, complete: value.complete, workoutComplete };
+  return { identities, autoRichIdentities: autoRichGarminIdentities(value), complete: value.complete, workoutComplete };
 }
 /** Explicit disclosure removes upstream account/auth/storage fields recursively. */
 export function publicGarminPayload(value: Json, depth = 0): Json {
