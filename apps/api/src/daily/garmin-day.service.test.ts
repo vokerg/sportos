@@ -129,7 +129,7 @@ describe('Garmin day workflow',()=>{
     const input=bundle();input.categories[7]={category:'activities',state:'available',sourceHash:hash,byteSize:100} as never;
     enrichment.bridge.mockImplementation(async request=>request.operation==='day'?input:{bundle:{snapshot:{providerActivityId:request.providerActivityId}}});
     vi.spyOn(service,'localPayload').mockResolvedValue({items:[{activityId:123,startTimeLocal:`${date} 00:05:00`,activityType:{typeKey:'running'}},{activityId:456,startTimeLocal:`${date} 20:00:00`,activityType:{typeKey:'running'}}],complete:true});
-    const chain={select:()=>chain,where:()=>chain,executeTakeFirst:async()=>null};
+    const chain={select:()=>chain,where:()=>chain,limit:()=>chain,execute:async()=>[],executeTakeFirst:async()=>null};
     (service as unknown as {primary:{withAccount:ReturnType<typeof vi.fn>}}).primary.withAccount.mockImplementation(async (_owner,fn)=>fn({selectFrom:()=>chain}));
     const ingest=vi.spyOn(GarminLocalIngestService.prototype,'retainBundle').mockImplementation(async input=>{if(input.bundle.snapshot.providerActivityId==='456')throw new Error('private');return {activityId:'canonical',status:'strong_unique'} as never;});
     await service.fetch(account,date,false);
@@ -146,7 +146,7 @@ describe('Garmin day workflow',()=>{
       {activityId:3,startTimeLocal:`${date} 10:00:00`,activityType:{typeKey:'strength_training'}},
       {activityId:4,startTimeLocal:`${date} 11:00:00`,activityType:{typeKey:'unknown'}},
     ],complete:true});
-    const query={select:()=>query,where:()=>query,executeTakeFirst:async()=>null};
+    const query={select:()=>query,where:()=>query,limit:()=>query,execute:async()=>[],executeTakeFirst:async()=>null};
     (service as unknown as {primary:{withAccount:ReturnType<typeof vi.fn>}}).primary.withAccount.mockImplementation(async (_owner,fn)=>fn({selectFrom:()=>query}));
     vi.spyOn(GarminLocalIngestService.prototype,'retainBundle').mockResolvedValue({activityId:null,status:'unmatched'} as never);
     await service.fetch(account,date,true);
@@ -165,7 +165,7 @@ describe('Garmin day workflow',()=>{
     vi.spyOn(service,'localPayload').mockResolvedValue({items:[
       {activityId:5,startTimeLocal:`${date} 09:00:00`,activityType:{typeKey:'lap_swimming'}},
     ],complete:true});
-    const query={select:()=>query,where:()=>query,executeTakeFirst:async()=>({identity_key:'native:5',current_hash:hash})};
+    const query={select:()=>query,where:()=>query,limit:()=>query,execute:async()=>[],executeTakeFirst:async()=>({identity_key:'native:5',current_hash:hash})};
     (service as unknown as {primary:{withAccount:ReturnType<typeof vi.fn>}}).primary.withAccount.mockImplementation(async (_owner,fn)=>fn({selectFrom:()=>query}));
     const cached=vi.spyOn(GarminLocalIngestService.prototype,'cachedBundle').mockResolvedValue(true);
     await service.fetch(account,date,true);
