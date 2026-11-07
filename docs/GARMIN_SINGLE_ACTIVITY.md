@@ -117,11 +117,12 @@ Garmin fetch action. Bulk rich Strava requests remain excluded.
 
 After setup/login, enable `SPORTOS_GARMIN_LOCAL_FETCH_ENABLED=true` in your
 protected local `.env` and restart the API/dev session. On `/activity/:id`,
-**Fetch Garmin detail** reuses retained data first, otherwise performs bounded
+**Fetch full Garmin FIT** reuses retained data first, otherwise performs bounded
 compact discovery and targeted extraction; **View Garmin data** reads retained
-session/lap/set data and never contacts Garmin. **Refresh from Garmin** is
+session/lap/set data and never contacts Garmin. **Redownload full Garmin FIT** is
 explicit and retains prior versions. The same Fetch/View/Refresh distinction
-applies to Strava. Navigation itself fetches neither provider's rich data.
+applies to Strava. The full-FIT action is independent of the automatic
+[Garmin day sport whitelist](GARMIN_RICH_ACQUISITION.md). Navigation itself fetches neither provider's rich data.
 
 New downloads are restricted to non-production `dev-single-user` and the fixed
 legacy account. Hosted/other owners can read their retained resources without

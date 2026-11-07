@@ -116,7 +116,17 @@ class GarminExtractionTests(unittest.TestCase):
             self.assertEqual(transport.calls, ['metadata'])
             transport.calls.clear()
             extract(transport, '12345', directory, force=True, remote_cache=lambda *_: True)
-            self.assertEqual(transport.calls, ['metadata', 'original', 'detail', 'sets'])
+            self.assertEqual(transport.calls, ['metadata', 'original', 'detail'])
+
+    def test_only_strength_requests_exercise_sets(self):
+        with tempfile.TemporaryDirectory(dir=Path(tempfile.gettempdir()).resolve()) as directory:
+            workout = StubGarmin()
+            workout.data = {**workout.data, 'activityTypeDTO': {'typeKey': 'strength_training'}}
+            extract(workout, '12345', directory, force=True)
+            self.assertEqual(workout.calls, ['metadata', 'original', 'detail', 'sets'])
+            run = StubGarmin()
+            extract(run, '12345', directory, force=True)
+            self.assertEqual(run.calls, ['metadata', 'original', 'detail'])
 
     def test_failure_does_not_advance_cache_or_replace_prior_versions(self):
         with tempfile.TemporaryDirectory(dir=Path(tempfile.gettempdir()).resolve()) as directory:

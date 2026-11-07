@@ -34,6 +34,7 @@ export class GarminDayService {
       let projection = row?.projection_json ?? null;
       if (category === 'activities' && projection && typeof projection === 'object' && !Array.isArray(projection)) {
         const ids = activityIdentityKeys(projection);
+        const automaticIds = new Set(autoRichIdentityKeys(projection));
         uncoveredStravaActivities = await this.primary.withAccount(owner, db => new GarminDayRepository(db).hasUncoveredStravaActivities(date, ids));
         const attempt = row?.attempt_json;
         const identities = ids.length ? await this.primary.withAccount(owner, db => db.selectFrom('garmin_activity_identities')
@@ -43,7 +44,7 @@ export class GarminDayService {
           const identity = identities.find(item => item.identity_key === key);
           const failure = failures.find(item => item && typeof item === 'object' && !Array.isArray(item) && item.identityKey === key);
           return { ordinal: index + 1, activityId: identity?.activity_id ?? null, reconciliation: identity?.status ?? 'staged',
-            resourceState: failure && typeof failure === 'object' && !Array.isArray(failure) ? failure.state ?? 'failed' : identity ? 'retained' : 'missing' };
+            resourceState: failure && typeof failure === 'object' && !Array.isArray(failure) ? failure.state ?? 'failed' : identity ? 'retained' : automaticIds.has(key) ? 'missing' : 'on_demand' };
         }) };
       }
       const recorded = projection !== null && hasGarminDayEvidence(category, projection);
@@ -87,7 +88,7 @@ export class GarminDayService {
         let complete = Boolean(row && !retryable(row.state) && garminDayCheckedAfterEnd(date, row,new Date(),this.timeZone));
         if (complete && row?.source_hash) complete = Boolean(await this.detail.withAccount(account.id, db => new GarminDayResourcesRepository(db).read(date, category, row.source_hash!)));
         if (complete && category === 'activities' && row?.projection_json && typeof row.projection_json === 'object' && !Array.isArray(row.projection_json) && Array.isArray(row.projection_json.identities)) {
-          for (const key of row.projection_json.identities) {
+          for (const key of autoRichIdentityKeys(row.projection_json)) {
             if (typeof key !== 'string') { complete = false; break; }
             const identity = await this.primary.withAccount(account.id, db => db.selectFrom('garmin_activity_identities').select(['current_hash']).where('identity_key','=',key).executeTakeFirst());
             if (!identity || !await retention.cachedBundle(key, identity.current_hash, account)) { complete = false; break; }
@@ -132,18 +133,22 @@ export class GarminDayService {
           let attempt: Json = {};
           if (entry.category === 'activities') {
             const ids = projection && typeof projection === 'object' && !Array.isArray(projection) && Array.isArray(projection.identities) ? projection.identities : [];
+            const automaticIds = new Set(autoRichIdentityKeys(projection));
             const failures: Json[] = [];
             // The legacy field excludes only workout completeness, never retention.
             const nonScoringIdentities = nonScoringGarminDayIdentities(payload);
             for (const identityKey of ids) {
               this.checkCancelled(cancellation.signal);
               if (typeof identityKey !== 'string') throw new BadRequestException('Invalid Garmin identity.');
+              // Day refresh always updates discovery, not the retained full FIT.
+              // Skipped sports remain discoverable for an explicit activity fetch.
+              if (!automaticIds.has(identityKey)) continue;
 
               try {
                 const reference = await this.primary.withAccount(account.id, db => db.selectFrom('garmin_activity_identities')
                   .select(['identity_key','current_hash']).where('identity_key','=',identityKey).executeTakeFirst());
-                if (!refresh && reference && await retention.cachedBundle(reference.identity_key, reference.current_hash, account)) continue;
-                const bundle = await this.enrichment.bridge({ operation: 'extract', providerActivityId: identityKey.slice(7), refresh }, cancellation.signal) as LocalGarminBundle;
+                if (reference && await retention.cachedBundle(reference.identity_key, reference.current_hash, account)) continue;
+                const bundle = await this.enrichment.bridge({ operation: 'extract', providerActivityId: identityKey.slice(7), refresh: false }, cancellation.signal) as LocalGarminBundle;
                 if (bundle?.bundle?.snapshot?.providerActivityId !== identityKey.slice(7)) throw new BadRequestException('Invalid Garmin activity bundle.');
                 await retention.retainBundle(bundle, account);
               } catch (error) {
@@ -214,6 +219,13 @@ function parseDayBundle(raw: unknown, date: string, requested: GarminDayCategory
     } else if (entry.byteSize !== undefined || ['available','not_recorded','private'].includes(entry.state)) throw new BadRequestException('Missing Garmin day source.');
   }
   return value.categories;
+}
+
+/** Old retained projections predate the policy; keep their conservative coverage behavior. */
+function autoRichIdentityKeys(projection: Json): string[] {
+  if (!projection || typeof projection !== 'object' || Array.isArray(projection)) return [];
+  if (!Array.isArray(projection.autoRichIdentities)) return activityIdentityKeys(projection);
+  return projection.autoRichIdentities.filter((key): key is string => typeof key === 'string' && /^native:[0-9]{1,20}$/.test(key)).slice(0, 20);
 }
 
 function activityIdentityKeys(projection: Json): string[] {

@@ -331,15 +331,22 @@ def extract(transport, identifier, output, force=False, remote_cache=None):
     records, counts, session = decode_fit(fit)
     summary = normalized_summary(metadata, session)
     detail = transport.details(identifier)
-    # Unsupported exercise-set endpoint is explicit; auth/rate limits are fatal.
-    try:
-        sets = transport.sets(identifier)
-    except Exception as error:
-        from garminconnect import GarminConnectNotFoundError
-        if isinstance(error, GarminConnectNotFoundError):
-            sets = {'availability': 'unavailable'}
-        else:
-            raise
+    # The sets endpoint is only meaningful for strength workouts. Keep the
+    # mandatory retained sets resource as a non-scoring empty envelope for
+    # other sports without spending another Garmin request.
+    sport = (metadata.get('activityTypeDTO') or {}).get('typeKey')
+    if sport != 'strength_training':
+        sets = {'availability': 'not_applicable', 'exerciseSets': []}
+    else:
+        # Unsupported exercise-set endpoint is explicit; auth/rate limits are fatal.
+        try:
+            sets = transport.sets(identifier)
+        except Exception as error:
+            from garminconnect import GarminConnectNotFoundError
+            if isinstance(error, GarminConnectNotFoundError):
+                sets = {'availability': 'unavailable'}
+            else:
+                raise
     resources = [('detail', 0, {'metadataHash': metadata_hash, 'metadata': metadata, 'details': detail}), ('sets', 0, sets)]
     # Keep every FIT message and unknown/developer field in bounded chunks.
     chunk = []; size = 0; index = 0
