@@ -1,3 +1,4 @@
+import { autoRichGarminIdentities } from '@sportos/garmin-runtime';
 import { describe, expect, it } from 'vitest';
 import { projectGarminDay, publicGarminPayload, hasGarminDayEvidence, nonScoringGarminDayIdentities } from './garmin-day-projection.js';
 const date='2026-03-29';
@@ -40,4 +41,17 @@ it('distinguishes partial walk history from incomplete workout discovery',()=>{
  expect(projectGarminDay('activities',base,'2026-03-29')).toMatchObject({complete:false,workoutComplete:true});
  expect(projectGarminDay('activities',{...base,discoveryTruncated:true},'2026-03-29')).toMatchObject({workoutComplete:false});
  expect(projectGarminDay('activities',{...base,deferredItems:[{activityType:{typeKey:'strength_training'}}]},'2026-03-29')).toMatchObject({workoutComplete:false});
+});
+
+it('whitelists only sports with automatic retained-rich consumers', () => {
+  const types=['running','treadmill_running','track_running','trail_running','cycling','indoor_cycling','lap_swimming','open_water_swimming','strength_training',
+    'walking','indoor_rowing','rowing','stand_up_paddleboarding','unknown'];
+  const items=types.map((typeKey,index)=>({activityId:index+1,startTimeLocal:`${date} 12:00:00`,activityType:{typeKey}}));
+  expect(autoRichGarminIdentities({items})).toEqual(types.slice(0,9).map((_,i)=>`native:${i+1}`));
+  const output=projectGarminDay('activities',{items,complete:true},date);
+  expect(output).toMatchObject({
+    identities:types.map((_,i)=>`native:${i+1}`),
+  });
+  expect(projectGarminDay('activities',{items:[{activityId:1,startTimeLocal:`${date} 10:00:00`}],complete:true},date))
+    .toEqual({identities:['native:1'],complete:true,workoutComplete:true});
 });

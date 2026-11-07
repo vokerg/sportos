@@ -101,7 +101,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
           <p>This replays already-retained FIT/Strava detail into comparison metrics. It does not contact a provider or change canonical distance, raw records, or scores.</p>
         }
         @if (store.metricError()) { <p role="alert">{{ store.metricError() }}</p> }
-        <p>Fetch downloads detail for this activity. View reads retained data. Canonical activity facts and scores stay unchanged.</p>
+        <p>Fetch downloads provider detail for this activity. View reads retained data. Garmin's full FIT download is an explicit option even for sports excluded from automatic day enrichment. Canonical activity facts and scores stay unchanged.</p>
         @if (store.coverageError()) { <p role="alert">Could not check retained data. <button type="button" (click)="store.refreshCoverage()">Check again</button></p> }
         @else if (!store.coverage()) { <p role="status">Checking retained data…</p> }
         @if (item.providerDetail?.provider === 'strava') {
@@ -121,9 +121,9 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         }
         <div class="provider-heading"><h3>Garmin</h3><span class="badge">{{ store.coverage()?.garmin?.state === 'cached' ? 'Rich data retained' : store.coverage()?.garmin?.linked ? 'Linked · detail missing' : 'Not linked' }}</span></div>
         <div class="provider-actions">
-          <button type="button" [disabled]="store.garminState() === 'loading' || !store.coverage() || !store.coverage()?.garmin?.fetchEnabled" (click)="store.garminDetail(true)">{{ store.garminState() === 'loading' ? 'Loading Garmin…' : 'Fetch Garmin detail' }}</button>
+          <button type="button" [disabled]="store.garminState() === 'loading' || !store.coverage() || !store.coverage()?.garmin?.fetchEnabled" (click)="store.garminDetail(true)">{{ store.garminState() === 'loading' ? 'Loading Garmin…' : 'Fetch full Garmin FIT' }}</button>
           <button type="button" [disabled]="store.garminState() === 'loading' || store.coverage()?.garmin?.state !== 'cached'" (click)="store.garminDetail()">View Garmin data</button>
-          @if (store.coverage()?.garmin?.linked && store.coverage()?.garmin?.fetchEnabled) { <button type="button" [disabled]="store.garminState() === 'loading'" (click)="store.garminDetail(true, true)">Refresh from Garmin</button> }
+          @if (store.coverage()?.garmin?.linked && store.coverage()?.garmin?.fetchEnabled) { <button type="button" [disabled]="store.garminState() === 'loading'" (click)="store.garminDetail(true, true)">Redownload full Garmin FIT</button> }
         </div>
         @if (store.coverage() && !store.coverage()?.garmin?.fetchEnabled) { <p>New Garmin downloads require the local desktop helper. Retained Garmin data can still be viewed.</p> }
         @if (store.garminJobMessage()) { <p role="status">{{store.garminJobMessage()}}</p> }

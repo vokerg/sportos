@@ -31,7 +31,7 @@ integration('one-day evidence through real non-owner retention and reconciliatio
     const primary=provider(db),detail=provider(detailDb);
     const storage={store:vi.fn(async input=>{const key=`${input.sha256.slice(0,2)}/${input.uploadId}.fit`;originals.set(key,input.bytes);return {provider:'local',objectKey:key};}),read:vi.fn(async key=>{if(!originals.has(key))throw new Error('missing');return originals.get(key)!;}),delete:vi.fn(async key=>{originals.delete(key);})};
     const retention=new GarminLocalIngestService(primary as never,detail as never,storage as never);
-    const payloads:Record<string,Json>={summary:{calendarDate:date,totalSteps:12345,totalDistanceMeters:8000,totalKilocalories:2400},weight:{dateWeightList:[{calendarDate:date,timestampGMT:1774774800000,weight:70000},{calendarDate:date,timestampGMT:1774803600000,weight:70500}]},sleep:{dailySleepDTO:{calendarDate:date,sleepTimeSeconds:28800}},heart_rate:{restingHeartRate:55},hrv:{hrvSummary:{calendarDate:date,lastNightAvg:60}},stress:{avgStressLevel:20},body_battery:[{date,charged:70,drained:30}],activities:{items:summaries.map((s,index)=>({activityId:native+index,startTimeLocal:s.startTime.slice(0,19)})),complete:true}};
+    const payloads:Record<string,Json>={summary:{calendarDate:date,totalSteps:12345,totalDistanceMeters:8000,totalKilocalories:2400},weight:{dateWeightList:[{calendarDate:date,timestampGMT:1774774800000,weight:70000},{calendarDate:date,timestampGMT:1774803600000,weight:70500}]},sleep:{dailySleepDTO:{calendarDate:date,sleepTimeSeconds:28800}},heart_rate:{restingHeartRate:55},hrv:{hrvSummary:{calendarDate:date,lastNightAvg:60}},stress:{avgStressLevel:20},body_battery:[{date,charged:70,drained:30}],activities:{items:summaries.map((s,index)=>({activityId:native+index,startTimeLocal:s.startTime.slice(0,19),activityType:{typeKey:index===3?'strength_training':'running'}})),complete:true}};
 
     const bridge=vi.fn(async request=>request.operation==='day'?{schema:'sportos.garmin-day.v1',date,categories:request.categories.map((category:string)=>({category,state:'available',sourceHash:createHash('sha256').update(JSON.stringify(payloads[category])).digest('hex'),byteSize:100}))}:{bundle:{snapshot:{providerActivityId:request.providerActivityId}}});
     const enrichment={localEnabled:()=>true,bridge};
@@ -48,6 +48,13 @@ integration('one-day evidence through real non-owner retention and reconciliatio
     });
     const official=()=>withAccountContext(db,owner,async ctx=>({activities:await ctx.selectFrom('activities').selectAll().orderBy('id').execute(),scores:await ctx.selectFrom('daily_metrics').selectAll().execute(),ledger:await ctx.selectFrom('score_ledger').selectAll().execute(),snapshots:await ctx.selectFrom('daily_score_snapshots').selectAll().execute()}));
     const before=await official();const account={id:owner,displayName:'Synthetic',email:null};
+    // A pre-upgrade immutable version must survive identical discovery bytes.
+    const identities=summaries.map((_,index)=>`native:${native+index}`);
+    await withAccountContext(db,owner,ctx=>new GarminDayRepository(ctx).publish(date,{
+      category:'activities',state:'available',attemptedAt:new Date('2026-03-29T12:00:00Z'),
+      version:{hash:createHash('sha256').update(JSON.stringify(payloads.activities)).digest('hex'),availability:'available',
+        projection:{identities,complete:true,workoutComplete:true}},
+    }));
     const first=await service.fetch(account,date,false);
     expect(first.state).toBe('current');expect(first.categories.find(c=>c.category==='weight')?.evidence).toMatchObject({measurements:[{weightKg:70},{weightKg:70.5}]});
     expect(first.categories.find(c=>c.category==='activities')?.evidence).toMatchObject({count:4,activities:[{reconciliation:'strong_unique'},{reconciliation:'ambiguous',activityId:null},{reconciliation:'unmatched',activityId:null},{reconciliation:'exact'}]});

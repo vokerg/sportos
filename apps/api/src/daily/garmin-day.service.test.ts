@@ -128,13 +128,76 @@ describe('Garmin day workflow',()=>{
     const {service,enrichment,publish}=setup();
     const input=bundle();input.categories[7]={category:'activities',state:'available',sourceHash:hash,byteSize:100} as never;
     enrichment.bridge.mockImplementation(async request=>request.operation==='day'?input:{bundle:{snapshot:{providerActivityId:request.providerActivityId}}});
-    vi.spyOn(service,'localPayload').mockResolvedValue({items:[{activityId:123,startTimeLocal:`${date} 00:05:00`},{activityId:456,startTimeLocal:`${date} 20:00:00`}],complete:true});
-    const chain={select:()=>chain,where:()=>chain,executeTakeFirst:async()=>null};
+    vi.spyOn(service,'localPayload').mockResolvedValue({items:[{activityId:123,startTimeLocal:`${date} 00:05:00`,activityType:{typeKey:'running'}},{activityId:456,startTimeLocal:`${date} 20:00:00`,activityType:{typeKey:'running'}}],complete:true});
+    const chain={select:()=>chain,where:()=>chain,limit:()=>chain,execute:async()=>[],executeTakeFirst:async()=>null};
     (service as unknown as {primary:{withAccount:ReturnType<typeof vi.fn>}}).primary.withAccount.mockImplementation(async (_owner,fn)=>fn({selectFrom:()=>chain}));
     const ingest=vi.spyOn(GarminLocalIngestService.prototype,'retainBundle').mockImplementation(async input=>{if(input.bundle.snapshot.providerActivityId==='456')throw new Error('private');return {activityId:'canonical',status:'strong_unique'} as never;});
     await service.fetch(account,date,false);
     expect(ingest).toHaveBeenCalledTimes(2);
-    expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({category:'activities',state:'failed',version:expect.objectContaining({projection:{identities:['native:123','native:456'],complete:true,workoutComplete:true}}),attempt:{failures:[{identityKey:'native:456',state:'failed'}]}}));
+    expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({category:'activities',state:'failed',version:expect.objectContaining({projection:{identities:['native:123','native:456'],complete:true,workoutComplete:true}}),attempt:{autoRichIdentities:['native:123','native:456'],failures:[{identityKey:'native:456',state:'failed'}]}}));
+  });
+  it('day refresh skips walking and unlisted sports while retaining eligible runs and strength', async () => {
+    const {service,enrichment,publish}=setup();
+    const input=bundle();input.categories[7]={category:'activities',state:'available',sourceHash:hash,byteSize:100} as never;
+    enrichment.bridge.mockImplementation(async request => request.operation==='day'?input:{bundle:{snapshot:{providerActivityId:request.providerActivityId}}});
+    vi.spyOn(service,'localPayload').mockResolvedValue({items:[
+      {activityId:1,startTimeLocal:`${date} 08:00:00`,activityType:{typeKey:'walking'}},
+      {activityId:2,startTimeLocal:`${date} 09:00:00`,activityType:{typeKey:'running'}},
+      {activityId:3,startTimeLocal:`${date} 10:00:00`,activityType:{typeKey:'strength_training'}},
+      {activityId:4,startTimeLocal:`${date} 11:00:00`,activityType:{typeKey:'unknown'}},
+    ],complete:true});
+    const query={select:()=>query,where:()=>query,limit:()=>query,execute:async()=>[],executeTakeFirst:async()=>null};
+    (service as unknown as {primary:{withAccount:ReturnType<typeof vi.fn>}}).primary.withAccount.mockImplementation(async (_owner,fn)=>fn({selectFrom:()=>query}));
+    vi.spyOn(GarminLocalIngestService.prototype,'retainBundle').mockResolvedValue({activityId:null,status:'unmatched'} as never);
+    await service.fetch(account,date,true);
+    const extracts=enrichment.bridge.mock.calls.filter(([request])=>request.operation==='extract').map(([request])=>request);
+    expect(extracts).toEqual([
+      {operation:'extract',providerActivityId:'2',refresh:false},
+      {operation:'extract',providerActivityId:'3',refresh:false},
+    ]);
+    expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({category:'activities',state:'available',
+      attempt:expect.objectContaining({autoRichIdentities:['native:2','native:3']}),
+      version:expect.objectContaining({projection:{identities:['native:1','native:2','native:3','native:4'],complete:true,workoutComplete:true}})}));
+  });
+  it('reuses complete rich FIT on a forced day check',async()=>{
+    const {service,enrichment}=setup();
+    const input=bundle();input.categories[7]={category:'activities',state:'available',sourceHash:hash,byteSize:100} as never;
+    enrichment.bridge.mockResolvedValue(input);
+    vi.spyOn(service,'localPayload').mockResolvedValue({items:[
+      {activityId:5,startTimeLocal:`${date} 09:00:00`,activityType:{typeKey:'lap_swimming'}},
+    ],complete:true});
+    const query={select:()=>query,where:()=>query,limit:()=>query,execute:async()=>[],executeTakeFirst:async()=>({identity_key:'native:5',current_hash:hash})};
+    (service as unknown as {primary:{withAccount:ReturnType<typeof vi.fn>}}).primary.withAccount.mockImplementation(async (_owner,fn)=>fn({selectFrom:()=>query}));
+    const cached=vi.spyOn(GarminLocalIngestService.prototype,'cachedBundle').mockResolvedValue(true);
+    await service.fetch(account,date,true);
+    expect(cached).toHaveBeenCalledWith('native:5',hash,account);
+    expect(enrichment.bridge).toHaveBeenCalledTimes(1);
+  });
+  it('keeps on-demand discoveries visible and cached without requiring rich resources',async()=>{
+    const {service,enrichment,rows,detail}=setup(false);
+    rows.mockResolvedValue(GARMIN_DAY_CATEGORIES.map(category=>({category,state:category==='activities'?'available':'unsupported',
+      source_hash:category==='activities'?hash:null,
+      projection_json:category==='activities'?{identities:['native:1'],complete:true,workoutComplete:true}:null,
+      attempt_json:category==='activities'?{autoRichIdentities:[],failures:[]}:null,
+      attempted_at:new Date(),retrieved_at:new Date(),availability:'available'})) as never);
+    const read=await service.read(account.id,date);
+    expect(read.categories.find(c=>c.category==='activities')?.evidence).toMatchObject({activities:[{resourceState:'on_demand'}]});
+    expect(detail.withAccount).not.toHaveBeenCalled();
+    const cached=vi.spyOn(GarminLocalIngestService.prototype,'cachedBundle');
+    expect((await service.fetch(account,date,false)).result).toBe('cached');
+    expect(cached).not.toHaveBeenCalled();expect(enrichment.bridge).not.toHaveBeenCalled();
+  });
+  it('does not label on-demand activities as failed after a rich-download rate limit',async()=>{
+    const {service,enrichment,publish}=setup();
+    const input=bundle();input.categories[7]={category:'activities',state:'available',sourceHash:hash,byteSize:100} as never;
+    enrichment.bridge.mockImplementation(async request=>{if(request.operation==='day')return input;throw new Error('GARMIN_RATE_LIMITED');});
+    vi.spyOn(service,'localPayload').mockResolvedValue({items:['running','walking','lap_swimming','unknown'].map((typeKey,i)=>({
+      activityId:i+1,startTimeLocal:`${date} 10:00:00`,activityType:{typeKey}})),complete:true});
+    await service.fetch(account,date,true);
+    expect(publish).toHaveBeenCalledWith(date,expect.objectContaining({category:'activities',attempt:{
+      autoRichIdentities:['native:1','native:3'],excludedIdentities:['native:2'],
+      failures:[{identityKey:'native:1',state:'rate_limited'},{identityKey:'native:3',state:'rate_limited'}],
+    }}));
   });
   it('serializes repeated clicks and cancels helper work',async()=>{
     const {service,enrichment}=setup(); let resolve: (value:unknown)=>void=()=>{};
