@@ -336,7 +336,7 @@ function ActivityDetail({route,navigation}:NativeStackScreenProps<RootStack,'Act
       {activity.activity_type==='run'?<Card title="Distance efforts">
         {effortRows(activity.bestEfforts).length?effortRows(activity.bestEfforts).map((e,i)=>
           <TextRow key={i+'-'+e.provider} label={(e.distanceM/1000).toLocaleString('en-US',{maximumFractionDigits:3})+' km · '+e.provider}
-            value={formatDuration(e.durationS)+' · '+e.status+' · '+(e.method==='summary_estimate'?'Avg pace estimate':e.method==='fit_calculated'?'Recorded timer':'Recorded GPS timing')}/>)
+            value={formatDuration(e.durationS)+' · '+e.status+' · '+(e.method==='summary_estimate'?'Avg pace estimate':(e.method==='fit_calculated'||e.method==='json_calculated')?'Recorded timer':'Recorded GPS timing')}/>)
           :<Body subdued>No current measured or explicitly estimated best-effort projections are available. No split time is inferred.</Body>}
         {activity.bestEfforts.some(p=>p.state!=='current')?<Body subdued>Some provider effort projections are missing, stale or not calculated.</Body>:null}
       </Card>:null}

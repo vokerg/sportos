@@ -99,7 +99,9 @@ export class ActivityRouteProjectionService {
    const native=await this.detail.withAccount(owner,async db=>{
     const repo=new GarminActivityResourcesRepository(db);
     if(await repo.read(reference,'fit_manifest'))return null;
-    return repo.read(reference,'detail');
+    const [detail,coverage,expected]=await Promise.all([repo.read(reference,'detail'),repo.coverage(reference),repo.expectedResources(reference)]);
+    if(!Array.isArray(expected)||expected.length!==3||!expected.every(item=>item&&typeof item==='object'&&!Array.isArray(item)&&coverage.some(row=>row.resourceType===item.resourceType&&row.chunkIndex===item.chunkIndex)))return null;
+    return detail;
    });
    const nativeRoot=native?.payload;
    const nativeRoute=nativeRoot && typeof nativeRoot==='object' && !Array.isArray(nativeRoot) ? projectGarminJsonRoute(nativeRoot.details) : null;

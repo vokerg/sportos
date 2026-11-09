@@ -1,3 +1,4 @@
+import {ActivityTimelineService} from './activity-timeline.service.js';
 import {createHash} from 'node:crypto';
 import {afterAll,beforeAll,describe,expect,it,vi} from 'vitest';
 import {createDb,withAccountContext,GarminActivityResourcesRepository,ActivityMetricsRepository,RunningEffortsRepository,retainedLaps,type Database,type Kysely} from '@sportos/db';
@@ -46,6 +47,9 @@ integration('native JSON publication through non-owner primary/detail boundaries
     const efforts=await withAccountContext(primary,owner,db=>new RunningEffortsRepository(db).read(canonical.id));
     expect(efforts?.providers.find(p=>p.provider==='garmin')?.efforts[0]).toMatchObject({method:'json_calculated',status:'calculated',durationS:1000});
    }
+   const timelines=new ActivityTimelineService(provider(primary) as never,provider(detail) as never);
+   expect(await timelines.read(owner,canonical.id,'garmin')).toMatchObject({status:'available',sampleCount:601});
+   if(type==='swim')expect(await timelines.swimLengths(owner,canonical.id)).toMatchObject({status:'available',sourceKind:'json',complete:true,effectiveDistanceM:6000,lengths:[{kind:'active'},{kind:'rest'},{kind:'active'}]});
    if(type==='run'||type==='bike')expect(await new ActivityRouteProjectionService(provider(primary),provider(detail)).read(owner,canonical.id)).toMatchObject({status:'available',resolution:'json'});
    if(type!=='workout'){
     const laps=await withAccountContext(detail,owner,db=>retainedLaps(db,canonical.id,null,{identity_key:ref.identityKey,current_hash:sourceHash},{limit:100,offset:0,provider:'garmin'}));

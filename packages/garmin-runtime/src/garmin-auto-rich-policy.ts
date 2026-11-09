@@ -1,10 +1,11 @@
 /**
  * Automatic Garmin rich-data ingestion is deliberately opt-in by sport.
  *
- * These sports currently have retained-FIT consumers (running efforts,
- * swim lengths, timelines/route, detailed metrics or strength scoring).
+ * These sports have rich JSON consumers (efforts, lengths, timelines/routes,
+ * detailed metrics or strength evidence). The native acquisition policy checks
+ * each required capability and selects FIT only for an evidenced gap.
  * Walking, rowing, SUP and unknown provider types remain visible in the
- * day discovery, but are never full-FIT downloaded by a day refresh.
+ * day discovery, but are never rich-downloaded by a day refresh.
  * The explicit single-activity fetch remains available for every sport
  * supported by the Garmin extractor.
  */

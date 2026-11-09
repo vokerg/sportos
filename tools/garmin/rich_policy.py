@@ -67,11 +67,11 @@ def decision(metadata, detail, splits, sets):
             timer = columns.get('sumDuration', []) if columns else []
             timestamps = columns.get('directTimestamp', []) if columns else []
             distance = columns.get('sumDistance', []) if columns else []
-            continuous = len(timer) == len(timestamps) == len(distance) and len(timer) >= 2 and all(number(v) for v in timer+distance)
+            continuous = len(timer) == len(timestamps) == len(distance) and len(timer) >= 2 and all(number(v) and 0<=v<=604800 for v in timer) and all(number(v) and 0<=v<=1000000 for v in distance)
             if continuous:
                 for a,b,x,y,d,e in zip(timer,timer[1:],timestamps,timestamps[1:],distance,distance[1:]):
                     active=b-a; elapsed=(y-x)/1000
-                    if e<d or not (abs(active)<=.000001 or (elapsed<=30 and abs(active-elapsed)<=.000001)):
+                    if e<d or not (abs(active)<=.000001 or (elapsed<=30 and abs(active-elapsed)<=.000001 and active>0 and (e-d)/active<=12)):
                         continuous=False;break
             features['efforts'] = 'available' if continuous else 'incomplete'
             if not continuous: reasons.append('running_timer_transitions_unverified')

@@ -32,8 +32,8 @@ export function connectRunTimerCoverage(summary: unknown, chart: Record<string,(
   if(typeof s.duration!=='number'||!Number.isFinite(s.duration)||s.duration<=0)return false;
   const times=chart.directTimestamp,timer=chart.sumDuration,distance=chart.sumDistance;
   return Boolean(times&&timer&&distance&&times.length===timer.length&&times.length===distance.length
-    && timer.every((value,i)=>value!==null&&distance[i]!==null&&(i===0||distance[i]!>=distance[i-1]!
-      && (Math.abs(value-timer[i-1]!)<=.000001 || times[i]!-times[i-1]!<=30000&&Math.abs(value-timer[i-1]!-(times[i]!-times[i-1]!)/1000)<=.000001))));
+    && timer.every((value,i)=>value!==null&&value>=0&&value<=604800&&distance[i]!==null&&distance[i]!>=0&&distance[i]!<=1000000&&(i===0||distance[i]!>=distance[i-1]!
+      && (Math.abs(value-timer[i-1]!)<=.000001 || times[i]!-times[i-1]!<=30000&&Math.abs(value-timer[i-1]!-(times[i]!-times[i-1]!)/1000)<=.000001&&(distance[i]!-distance[i-1]!)/(value-timer[i-1]!)<=12))));
 }
 /** Check the executable JSON publication contract rather than trusting a caller's
  * feature labels. All expected native resources must precede primary publish. */
