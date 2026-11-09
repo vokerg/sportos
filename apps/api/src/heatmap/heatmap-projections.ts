@@ -46,7 +46,7 @@ export async function readHeatmapProjectionUpgrades(owner: string, candidates: H
         if (!evidence) continue;
       } else if (row.provider === 'garmin') {
         if (candidate.stravaLinked !== false || candidate.garminIdentityKey !== row.source_ref ||
-            candidate.garminCurrentHash !== row.source_version || row.resolution !== 'fit' ||
+            candidate.garminCurrentHash !== row.source_version || !['fit','json'].includes(row.resolution) ||
             !retainedFits.has(JSON.stringify([row.source_ref, row.source_version]))) continue;
       } else continue;
       const route = decodeStoredRoute(row);

@@ -42,6 +42,22 @@ def execute(request, transport):
     elif request.get('operation') == 'day':
         from fetch_day import fetch_day
         result = fetch_day(transport, request['date'], request.get('categories'))
+    elif request.get('operation') == 'extract_many':
+        identifiers = request.get('providerActivityIds')
+        if not isinstance(identifiers,list) or not 1 <= len(identifiers) <= 4 or len(set(identifiers)) != len(identifiers):
+            raise ExtractionError('INVALID_BRIDGE_INPUT')
+        identifiers = [activity_id(value) for value in identifiers]
+        items=[]; stopped=None
+        for identifier in identifiers:
+            try:
+                if stopped: raise ExtractionError(stopped)
+                item=extract(transport,identifier,DEFAULT_HOME/'sources',automatic=True)
+                items.append({'providerActivityId':identifier,'result':{'folder':str(item['folder']),'bundle':item['bundle']}})
+            except Exception as error:
+                code=error.code if isinstance(error,ExtractionError) else 'GARMIN_LOGIN_OR_FETCH_FAILED'
+                if 'RATE_LIMIT' in code or 'REAUTHENTICATE' in code or 'LOGIN' in code: stopped=code
+                items.append({'providerActivityId':identifier,'error':code})
+        result={'items':items}
     elif request.get('operation') == 'extract':
         result = extract(transport, activity_id(request['providerActivityId']), DEFAULT_HOME / 'sources', request.get('refresh') is True, automatic=request.get('automatic') is True)
         result = {'folder': str(result['folder']), 'bundle': result['bundle']}
@@ -56,9 +72,9 @@ def main():
         if len(data) > 16384:
             raise ExtractionError('INVALID_BRIDGE_INPUT')
         request = json.loads(data)
-        if not isinstance(request, dict) or request.get('operation') not in ('discover', 'extract', 'day'):
+        if not isinstance(request, dict) or request.get('operation') not in ('discover', 'extract', 'extract_many', 'day'):
             raise ExtractionError('INVALID_BRIDGE_INPUT')
-        allowed = {'discover': {'operation', 'startTime'}, 'extract': {'operation', 'providerActivityId', 'refresh', 'automatic'}, 'day': {'operation', 'date', 'categories'}}[request['operation']]
+        allowed = {'discover': {'operation', 'startTime'}, 'extract': {'operation', 'providerActivityId', 'refresh', 'automatic'}, 'extract_many': {'operation','providerActivityIds'}, 'day': {'operation', 'date', 'categories'}}[request['operation']]
         if set(request) - allowed or any(key in request and not isinstance(request[key], bool) for key in ('refresh','automatic')):
             raise ExtractionError('INVALID_BRIDGE_INPUT')
         if request['operation'] == 'day':

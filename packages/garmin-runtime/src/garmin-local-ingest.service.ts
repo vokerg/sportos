@@ -36,7 +36,7 @@ export class GarminLocalIngestService {
     private readonly storage: UploadStorage,
     private readonly metrics: Pick<ActivityMetricsService,'project'> = new ActivityMetricsService(primary,detail),
     private readonly efforts: Pick<RunningEffortsService,'project'> = new RunningEffortsService(primary,detail),
-    private readonly routes?: Pick<ActivityRouteProjectionService,'project'>,
+    private readonly routes: Pick<ActivityRouteProjectionService,'project'> = new ActivityRouteProjectionService(primary,detail),
   ) {}
 
   async retainBundle(input: LocalGarminBundle, account: AuthenticatedAccount) {
@@ -93,12 +93,12 @@ export class GarminLocalIngestService {
     });
   }
 
-  async cachedBundle(identityKey: string, sourceHash: string, account: AuthenticatedAccount) {
+  async cachedBundle(identityKey: string, sourceHash: string, account: AuthenticatedAccount, requireOriginal = false) {
     const summary = await this.withAccount(this.detail, account.id, async db => {
       const repo = new GarminActivityResourcesRepository(db);
       const ref = { identityKey, sourceHash };
       const [coverage, manifest] = await Promise.all([repo.coverage(ref), repo.read(ref, 'fit_manifest')]);
-      if (!await this.ready(repo, ref, manifest?.payload, coverage)) return null;
+      if ((requireOriginal && !manifest) || !await this.ready(repo, ref, manifest?.payload, coverage)) return null;
       const payloads: Json[] = [];
       for (const resource of coverage.filter(item => item.resourceType === 'sets')) {
         const retained = await repo.read(ref, 'sets', resource.chunkIndex);
@@ -118,7 +118,7 @@ export class GarminLocalIngestService {
       if (version) await new GarminStrengthRepository(db).retain(version.id, sourceHash, version.origin, summary);
       return new GarminActivitiesRepository(db).reconsider(identityKey, sourceHash);
     });
-    if (identity?.activityId) await this.efforts.project(account.id, identity.activityId, 'garmin');
+    if (identity?.activityId) {await this.efforts.project(account.id, identity.activityId, 'garmin');await this.metrics.project(account.id,identity.activityId);await this.routes.project(account.id,identity.activityId).catch(()=>undefined);}
     return true;
   }
 

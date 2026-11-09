@@ -51,7 +51,7 @@ import type { HeatmapDataset } from '../model/heatmap-geometry';
             {{ store.coverage().quality.summary }} Strava summary (approximate) ·
             {{ store.coverage().quality.streams }} Strava streams ·
             {{ store.coverage().quality.detail }} Strava detail ·
-            {{ store.coverage().quality.fit }} Garmin FIT (retained)
+            {{ store.coverage().quality.fit }} Garmin FIT (retained) · {{ store.coverage().quality.json ?? 0 }} Garmin JSON (retained)
           </span>
         }
       </div>

@@ -15,6 +15,7 @@ describe('ActivityEnrichmentService', () => {
     const subject = service(); vi.spyOn(subject,'reference').mockResolvedValue({ activity: summary, garmin: { identity_key: 'native:123', current_hash: 'a'.repeat(64), status: 'manual' } } as never);
     vi.spyOn(GarminActivityResourcesRepository.prototype, 'coverage').mockResolvedValue([{ resourceType: 'detail', chunkIndex: 0 }, { resourceType: 'sets', chunkIndex: 0 }, { resourceType: 'records', chunkIndex: 0 }] as never);
     vi.spyOn(GarminActivityResourcesRepository.prototype, 'expectedResources').mockResolvedValue([{ resourceType:'detail',chunkIndex:0 },{ resourceType:'sets',chunkIndex:0 },{ resourceType:'records',chunkIndex:0 }]);
+    vi.spyOn(GarminActivityResourcesRepository.prototype,'acquisition').mockResolvedValue(null);
     const read = vi.spyOn(GarminActivityResourcesRepository.prototype, 'read'); const bridge = vi.spyOn(subject,'bridge');
     await expect(subject.status(LEGACY_ACCOUNT_ID,id)).resolves.toMatchObject({ garmin: { state:'cached', linked:true } }); expect(read).not.toHaveBeenCalled(); expect(bridge).not.toHaveBeenCalled();
   });

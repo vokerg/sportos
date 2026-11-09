@@ -3,6 +3,7 @@
 export type SwimLengthKind = 'active' | 'rest' | 'unknown';
 export interface SwimLength {
   row: number;
+  lapNumber?: number;
   lengthNumber: number | null;
   kind: SwimLengthKind;
   durationS: number | null;
@@ -14,6 +15,7 @@ export interface SwimLength {
 }
 export interface SwimLengths {
   status: 'available' | 'unavailable';
+  sourceKind?:'fit'|'json';
   reason?: string;
   poolLengthM: number | null;
   poolLengthDisplay: string | null;

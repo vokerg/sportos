@@ -117,11 +117,11 @@ export interface ActivitiesResponse {
 
 export interface EnrichmentStatus {
   strava: { state: 'cached' | 'missing' | 'stale' | 'unavailable' };
-  garmin: { state: 'cached' | 'linked' | 'missing'; linked: boolean; fetchEnabled: boolean;fetchAvailability?:string;activeJob?:GarminFetchJob|null };
+  garmin: { state: 'cached' | 'linked' | 'missing'; linked: boolean; fetchEnabled: boolean;richKind?:'summary_only'|'json_rich'|'fit_retained'|'incomplete';acquisition?:{version:number;features:Record<string,string>;optionalGaps?:string[];fallbackReasons:string[]}|null;fetchAvailability?:string;activeJob?:GarminFetchJob|null };
 }
 export interface FitMessage { message: string; fields: { name: string; units: string | null; value: unknown }[] }
 export interface GarminDetail {
-  provider: 'garmin'; retainedAt: string; cacheStatus?: 'hit' | 'miss';
+  provider: 'garmin'; sourceKind?:'fit'|'json';connectSummary?:unknown;connectLaps?:unknown[]; retainedAt: string; cacheStatus?: 'hit' | 'miss';
   sessions: FitMessage[]; laps: FitMessage[]; sets: unknown;
   resources: { resourceType: string; chunkIndex: number }[];
 }

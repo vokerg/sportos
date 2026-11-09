@@ -40,13 +40,21 @@ export class GarminActivityResourcesRepository {
     validate(reference);
     const fit = await this.read(reference, 'fit_manifest');
     if (fit?.payload && typeof fit.payload==='object' && !Array.isArray(fit.payload)) return fit.payload.expectedResources ?? null;
-    const detail = await this.read(reference, 'detail');
-    const root = detail?.payload;
-    if (!root || typeof root!=='object' || Array.isArray(root)) return null;
-    const acquisition=root.acquisition;
+    const acquisition = await this.acquisition(reference);
     return acquisition && typeof acquisition==='object' && !Array.isArray(acquisition) && acquisition.version===1 && acquisition.kind==='json' ? acquisition.expectedResources ?? null : null;
   }
-
+  async acquisition(reference: GarminResourceReference) {
+    validate(reference);
+    const row=await this.db.selectFrom('garmin_activity_resources').select(sql<Json>`payload_json->'acquisition'`.as('acquisition'))
+      .where('identity_key','=',reference.identityKey).where('source_hash','=',reference.sourceHash).where('resource_type','=','detail').where('chunk_index','=',0).executeTakeFirst();
+    return row?.acquisition ?? null;
+  }
+  async nativeSummary(reference:GarminResourceReference) {
+    validate(reference);
+    const row=await this.db.selectFrom('garmin_activity_resources').select(sql<Json>`payload_json->'metadata'->'summaryDTO'`.as('summary'))
+      .where('identity_key','=',reference.identityKey).where('source_hash','=',reference.sourceHash).where('resource_type','=','detail').where('chunk_index','=',0).executeTakeFirst();
+    return row?.summary ?? null;
+  }
   async messages(reference: GarminResourceReference, message: 'session' | 'lap', limit = 100) {
     validate(reference);
     const rows = await sql<{ message: Json }>`select value as message

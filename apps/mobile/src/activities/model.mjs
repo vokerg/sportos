@@ -6,7 +6,7 @@ const SOURCES = ['manual','my_sport_xlsx','run_db_xlsx','google_sheets','strava'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STATES = ['not_linked','linked_unprocessed','linked_no_rich_data','raw_retained_unprocessed','processed','partial','failed','stale'];
 const EFFORT_STATES = ['current','unprocessed','stale','failed','not_linked'];
-const METHODS = ['summary_estimate','stream_calculated','fit_calculated'];
+const METHODS = ['summary_estimate','stream_calculated','fit_calculated','json_calculated'];
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const invalid = () => { throw new Error('Invalid SportOS activity response'); };
 const required = (value, max = 160) => {
@@ -223,18 +223,19 @@ export function projectLaps(raw, source) {
     laps = resource?.availability === 'available' ? resource.payload : [];
   } else {
     if (!object(raw)) invalid();
-    laps = raw.laps;
+    laps = raw.sourceKind === 'json' ? raw.connectLaps : raw.laps;
   }
   const bounded = list(laps,source === 'strava' ? 10000 : 200);
   const cap = source === 'strava' ? 1000 : 100;
   const rows = [];
   for (const [index, lap] of bounded.slice(0,cap).entries()) {
     if (!object(lap)) continue;
-    const fit = source === 'garmin' ? fitFields(lap) : null;
-    if (source === 'garmin' && !fit) continue;
+    const native = source === 'garmin' && raw.sourceKind === 'json';
+    const fit = source === 'garmin' && !native ? fitFields(lap) : null;
+    if (source === 'garmin' && !native && !fit) continue;
     const get = (key, unit, max) => source === 'strava'
       ? splitNum(lap[key],max)
-      : fit.get(key)?.units === unit ? splitNum(fit.get(key).value,max) : null;
+      : native ? splitNum(lap[({total_distance:'distance',total_timer_time:'duration',total_elapsed_time:'elapsedDuration',avg_heart_rate:'averageHR'})[key]],max) : fit.get(key)?.units === unit ? splitNum(fit.get(key).value,max) : null;
     const distanceM = get(source === 'strava'?'distance':'total_distance','m',1e6);
     const moving = get(source === 'strava'?'moving_time':'total_timer_time','s',604800);
     const elapsed = get(source === 'strava'?'elapsed_time':'total_elapsed_time','s',604800);

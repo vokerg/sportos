@@ -20,3 +20,11 @@ export function exerciseSetRows(payload: unknown) {
     .filter(([, value]) => ['string','number','boolean'].includes(typeof value) && value !== null)
     .slice(0, 20).map(([name,value]) => ({ label: name.replace(/([A-Z])/g, ' $1').replaceAll('_',' ').trim(), value: String(value).slice(0, 160) })));
 }
+
+/** Allowlisted native JSON display. Values retain source field names/units. */
+export function connectMetrics(payload:unknown) {
+ if(!payload||typeof payload!=='object'||Array.isArray(payload))return [];
+ const row=payload as Record<string,unknown>;
+ const fields:Record<string,string>={distance:'m',duration:'s',elapsedDuration:'s',movingDuration:'s',averageHR:'bpm',maxHR:'bpm',averageRunCadence:'steps/min',averageBikeCadence:'rpm',averagePower:'W',normalizedPower:'W',trainingStressScore:'tss',trainingEffect:'TE',anaerobicTrainingEffect:'TE',strideLength:'cm',verticalOscillation:'cm',verticalRatio:'%',groundContactTime:'ms',groundContactBalance:'%',averageSpeed:'m/s',maxSpeed:'m/s',calories:'kcal'};
+ return Object.entries(fields).flatMap(([key,unit])=>typeof row[key]==='number'&&Number.isFinite(row[key])?[{label:key.replace(/([A-Z])/g,' $1'),value:`${Number(row[key]).toLocaleString(undefined,{maximumFractionDigits:2})} ${unit}`}]:[]);
+}

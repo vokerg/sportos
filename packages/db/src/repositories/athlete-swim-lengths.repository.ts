@@ -1,4 +1,4 @@
-import { parseSwimLengths, unavailableSwimLengths } from '@sportos/domain';
+import { parseConnectSwimLengths, parseSwimLengths, unavailableSwimLengths } from '@sportos/domain';
 import type { Kysely } from 'kysely';
 import type { Database } from '../schema.js';
 import { GarminActivityResourcesRepository } from './garmin-activity-resources.repository.js';
@@ -33,11 +33,15 @@ export async function retainedAthleteSwimLengths(
   if (!garmin) return unavailableAthleteSwimLengths('no_current_garmin_reference', input);
   const repo = new GarminActivityResourcesRepository(db),
     reference = { identityKey: garmin.identity_key, sourceHash: garmin.current_hash };
-  const [sessions, messages] = await Promise.all([
-    repo.messages(reference, 'session', 1),
-    repo.swimLengthMessages(reference, 2001),
-  ]);
-  const parsed = parseSwimLengths(sessions[0], messages.slice(0, 2000), messages.length > 2000);
+  const coverage=await repo.coverage(reference);
+  let parsed;
+  if(!coverage.some(c=>c.resourceType==='fit_manifest')){
+    const [summary,laps]=await Promise.all([repo.nativeSummary(reference),repo.read(reference,'laps')]);
+    parsed=parseConnectSwimLengths(summary,laps?.payload);
+  }else{
+    const [sessions,messages]=await Promise.all([repo.messages(reference,'session',1),repo.swimLengthMessages(reference,2001)]);
+    parsed=parseSwimLengths(sessions[0],messages.slice(0,2000),messages.length>2000);
+  }
   const allowed = new Set([
     'freestyle',
     'backstroke',

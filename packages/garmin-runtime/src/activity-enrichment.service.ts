@@ -38,11 +38,14 @@ export class ActivityEnrichmentService {
     const { garmin } = await this.reference(accountId, activityId);
     const retained = garmin ? await this.detail.withAccount(accountId, async db => {
       const repo = new GarminActivityResourcesRepository(db); const ref = { identityKey: garmin.identity_key, sourceHash: garmin.current_hash };
-      const [coverage, expected] = await Promise.all([repo.coverage(ref), repo.expectedResources(ref)]);
-      return Array.isArray(expected) && expected.length >= 3 && expected.length <= 100 && expected.every(item => item && typeof item === 'object' && !Array.isArray(item) && coverage.some(row => row.resourceType === item.resourceType && row.chunkIndex === item.chunkIndex));
-    }) : false;
+      const [coverage, expected, acquisition] = await Promise.all([repo.coverage(ref), repo.expectedResources(ref), repo.acquisition(ref)]);
+      const fit=coverage.some(x=>x.resourceType==='fit_manifest');
+      const complete = Array.isArray(expected) && expected.length >= 3 && expected.length <= 100 && expected.every(item => item && typeof item === 'object' && !Array.isArray(item) && coverage.some(row => row.resourceType === item.resourceType && row.chunkIndex === item.chunkIndex));
+      return {complete,kind:fit ? 'fit_retained' : complete ? 'json_rich' : coverage.length ? 'incomplete' : 'summary_only', acquisition};
+    }) : null;
     return { strava: await this.strava.status(accountId, activityId), garmin: {
-      state: retained ? 'cached' : garmin ? 'linked' : 'missing',
+      state: retained?.complete ? 'cached' : garmin ? 'linked' : 'missing',
+      richKind:retained?.kind ?? 'summary_only', acquisition:publicAcquisition(retained?.acquisition),
       linked: Boolean(garmin), fetchEnabled: this.localEnabled(accountId),
     } };
   }
@@ -54,8 +57,10 @@ export class ActivityEnrichmentService {
       const ref = { identityKey: garmin.identity_key, sourceHash: garmin.current_hash };
       const coverage = await repo.coverage(ref);
       if (!coverage.length) throw new NotFoundException('Garmin detail is not retained for this activity.');
-      const [sessions, laps, sets] = await Promise.all([repo.messages(ref, 'session', 1), repo.messages(ref, 'lap', 100), repo.read(ref, 'sets')]);
-      return { provider: 'garmin', sessions, laps, sets: sets?.payload ?? null,
+      const [sessions, laps, sets, nativeSummary, split] = await Promise.all([repo.messages(ref, 'session', 1), repo.messages(ref, 'lap', 100), repo.read(ref, 'sets'),repo.nativeSummary(ref),repo.read(ref,'laps')]);
+      const nativeLaps=split?.payload;
+      const hasFit=coverage.some(r=>r.resourceType==='fit_manifest');
+      return { provider: 'garmin', sourceKind:hasFit?'fit':'json', connectSummary:nativeSummary, connectLaps:nativeLaps && typeof nativeLaps==='object' && !Array.isArray(nativeLaps)?nativeLaps.lapDTOs:null, sessions, laps, sets: sets?.payload ?? null,
         resources: coverage.filter(r => r.resourceType !== 'fit_manifest').map(r => ({ resourceType: r.resourceType, chunkIndex: r.chunkIndex })),
         retainedAt: coverage.reduce((last, row) => row.retainedAt > last ? row.retainedAt : last, coverage[0]!.retainedAt).toISOString() };
     });
@@ -80,7 +85,7 @@ export class ActivityEnrichmentService {
       const { activity: canonical, garmin } = await this.reference(account.id, activityId);
       const activity = canonical as typeof canonical & Record<string, unknown>;
       const retention = new GarminLocalIngestService(this.primary, this.detail, this.storage, undefined, undefined, this.routes);
-      if (!refresh && garmin && await retention.cachedBundle(garmin.identity_key, garmin.current_hash, account)) {
+      if (!refresh && garmin && await retention.cachedBundle(garmin.identity_key, garmin.current_hash, account, true)) {
         if (this.routes) await this.routes.project(account.id,activityId).catch(() => undefined);
         return { ...(await this.read(account.id, activityId)), cacheStatus: 'hit', effortProjection: await this.efforts.project(account.id,activityId,'garmin'), metricProjection: await this.metrics.project(account.id,activityId) };
       }
@@ -127,4 +132,15 @@ export class ActivityEnrichmentService {
       child.stdin.on('error', () => undefined); child.stdin.end(JSON.stringify(request));
     });
   }
+}
+
+function publicAcquisition(value:unknown) {
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const a=value as Record<string,unknown>;
+ if(a.version!==1)return null;
+ const features:Record<string,string>={};
+ const raw=a.features && typeof a.features==='object'&&!Array.isArray(a.features)?a.features as Record<string,unknown>:{};
+ for(const key of ['summary','original','timeline','laps','strength','efforts','poolLengths','route','metrics'])if(['available','incomplete','partial','not_recorded','on_demand'].includes(String(raw[key])))features[key]=String(raw[key]);
+ const allowed=['chart_sample_coverage_unverified','lap_timer_coverage_unverified','running_timer_transitions_unverified','pool_idle_length_semantics_unverified'];
+ return {version:1,features,optionalGaps:Array.isArray(a.optionalGaps)?a.optionalGaps.filter(x=>x==='total_work_unit_unverified'):[],fallbackReasons:Array.isArray(a.fallbackReasons)?a.fallbackReasons.filter(x=>allowed.includes(String(x))):[]};
 }

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { RUNNING_EFFORT_ALGORITHM_VERSION, RUNNING_EFFORT_LIMITS, RUNNING_EFFORT_TARGETS, estimateStravaEfforts, garminFitEfforts, runningEffortDistanceTolerance, stravaStreamEfforts, unavailableEfforts, type RunningEffort } from '@sportos/domain';
+import { RUNNING_EFFORT_ALGORITHM_VERSION, RUNNING_EFFORT_LIMITS, RUNNING_EFFORT_TARGETS, estimateStravaEfforts, garminJsonEfforts, garminFitEfforts, runningEffortDistanceTolerance, stravaStreamEfforts, unavailableEfforts, type RunningEffort } from '@sportos/domain';
 import { sql, type Kysely } from 'kysely';
 import type { Database, Json } from './schema.js';
 import type { DetailExecutor } from './activity-metric-projector.js';
@@ -75,7 +75,16 @@ export class RetainedRunningEffortProjector {
     return { inputHash: signature([ref, summary.distance, metadata]), calculate: async () => {
       const distance = typeof summary.distance === 'number' && Number.isFinite(summary.distance) && summary.distance >= 0 ? summary.distance : null;
       // Compact preflight avoids large record reads for known short runs.
-      if (distance !== null && distance < RUNNING_EFFORT_TARGETS[0] - runningEffortDistanceTolerance(RUNNING_EFFORT_TARGETS[0])) return unavailableEfforts('fit_calculated', 'too_short', distance);
+      if (distance !== null && distance < RUNNING_EFFORT_TARGETS[0] - runningEffortDistanceTolerance(RUNNING_EFFORT_TARGETS[0])) return unavailableEfforts(metadata.chunks.some(r=>r.resource_type==='fit_manifest')?'fit_calculated':'json_calculated', 'too_short', distance);
+      if (!metadata.chunks.some(r=>r.resource_type==='fit_manifest')) {
+        if(!completeResources(metadata.expected,metadata.chunks))return unavailableEfforts('json_calculated','incomplete_json_resources',distance);
+        const native=await this.withDetail(db=>new GarminActivityResourcesRepository(db).read(resourceRef,'detail'));
+        const payload=native?.payload;
+        if (payload && typeof payload==='object' && !Array.isArray(payload)) {
+          const m=payload.metadata;
+          return garminJsonEfforts(m && typeof m==='object' && !Array.isArray(m) ? m.summaryDTO : null,payload.details);
+        }
+      }
       const recordChunks = metadata.chunks.filter(r => r.resource_type === 'records');
       if (!recordChunks.length) return unavailableEfforts('fit_calculated', 'no_fit_records', distance);
       if (!completeResources(metadata.expected, metadata.chunks)) return unavailableEfforts('fit_calculated', 'incomplete_fit_resources', distance);

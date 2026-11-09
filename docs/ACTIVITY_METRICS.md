@@ -265,3 +265,16 @@ under **Source and provenance → Normalized metric provenance (advanced)**,
 separate from the metrics component. Canonical cards omit fields already in the
 comparison while retaining steps, effort points and stopped time. Provider data,
 normalization, Fetch/View/Refresh and explicit raw-resource access remain intact.
+
+
+## Native Garmin JSON provenance (#246)
+
+Primary V146 permits `garmin_summary` provenance; metric parser v2 reads bounded
+native summary scalars alongside historical FIT observations. Native steps/min
+cadence and centimetre dynamics have explicit mappings. FIT observations retain
+their existing precedence. Native JSON retention, feature gaps, pool/effort/route
+readers, safe fallback and measured local evidence are specified in
+[GARMIN_RICH_ACQUISITION.md](GARMIN_RICH_ACQUISITION.md). JSON never becomes
+fabricated FIT messages or canonical/scoring authority. `totalWork` has no native
+mapping until its units are verified; that optional gap is visible in acquisition
+coverage and an explicit full FIT can provide the original observation.

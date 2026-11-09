@@ -12,7 +12,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ActivitiesApiService } from './activities-api.service';
 import { ActivityDetailStore } from './state/activity-detail.store';
-import { exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.view-model';
+import { connectMetrics, exerciseSetRows, fitMetrics, stravaMetrics } from './provider-detail.view-model';
 import { startTime, title, displayedSubtype } from './activity.view-model';
 
 @Component({
@@ -119,12 +119,17 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
             <details class="provider-json"><summary>Strava detail, streams, laps and zones (advanced)</summary><pre>{{ providerJson() }}</pre></details>
           }
         }
-        <div class="provider-heading"><h3>Garmin</h3><span class="badge">{{ store.coverage()?.garmin?.state === 'cached' ? 'Rich data retained' : store.coverage()?.garmin?.linked ? 'Linked · detail missing' : 'Not linked' }}</span></div>
+        <div class="provider-heading"><h3>Garmin</h3><span class="badge">{{ store.coverage()?.garmin?.richKind === 'json_rich' ? 'JSON-rich retained' : store.coverage()?.garmin?.richKind === 'fit_retained' ? 'FIT retained' : store.coverage()?.garmin?.state === 'cached' ? 'Rich data retained' : store.coverage()?.garmin?.linked ? 'Linked · detail missing' : 'Not linked' }}</span></div>
         <div class="provider-actions">
           <button type="button" [disabled]="store.garminState() === 'loading' || !store.coverage() || !store.coverage()?.garmin?.fetchEnabled" (click)="store.garminDetail(true)">{{ store.garminState() === 'loading' ? 'Loading Garmin…' : 'Fetch full Garmin FIT' }}</button>
           <button type="button" [disabled]="store.garminState() === 'loading' || store.coverage()?.garmin?.state !== 'cached'" (click)="store.garminDetail()">View Garmin data</button>
           @if (store.coverage()?.garmin?.linked && store.coverage()?.garmin?.fetchEnabled) { <button type="button" [disabled]="store.garminState() === 'loading'" (click)="store.garminDetail(true, true)">Redownload full Garmin FIT</button> }
         </div>
+        @if (store.coverage()?.garmin?.acquisition; as acquisition) {
+          <p>JSON feature coverage: @for (feature of coverageFeatures(acquisition.features); track feature.key) { <span>{{feature.key}}: {{feature.value}} · </span> }</p>
+          @if (acquisition.optionalGaps?.length) { <p>Optional JSON gaps: {{acquisition.optionalGaps?.join(', ')?.replaceAll('_',' ')}}</p> }
+          @if (acquisition.fallbackReasons.length) { <p>FIT fallback: {{acquisition.fallbackReasons.join(', ').replaceAll('_',' ')}}</p> }
+        }
         @if (store.coverage() && !store.coverage()?.garmin?.fetchEnabled) { <p>New Garmin downloads require the local desktop helper. Retained Garmin data can still be viewed.</p> }
         @if (store.garminJobMessage()) { <p role="status">{{store.garminJobMessage()}}</p> }
         @if (store.garminJob(); as job) {
@@ -137,7 +142,8 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
         @if (store.garmin(); as garmin) {
           <p>Retained Garmin data · {{ garmin.retainedAt }} @if (garmin.cacheStatus) { · {{ garmin.cacheStatus === 'hit' ? 'cache hit' : 'fetched from Garmin' }} }</p>
           <h4>{{ item.activity_type === 'swim' ? 'Garmin swim session' : 'Garmin session and running dynamics' }}</h4>
-          <dl class="metrics">@for (metric of fitMetrics(garmin.sessions[0], item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> } @empty { <p>No supported session metrics were provided.</p> }</dl>
+          <dl class="metrics">@for (metric of garmin.sourceKind === 'json' ? connectMetrics(garmin.connectSummary) : fitMetrics(garmin.sessions[0], item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> } @empty { <p>No supported session metrics were provided.</p> }</dl>
+          @if (garmin.sourceKind === 'json') { <details class="provider-json"><summary>Garmin JSON laps</summary>@for (lap of garmin.connectLaps ?? []; track $index) { <h4>Lap {{$index+1}}</h4><dl class="metrics">@for (metric of connectMetrics(lap); track metric.label) { <div><dt>{{metric.label}}</dt><dd>{{metric.value}}</dd></div> }</dl> }</details> }
           <details class="provider-json"><summary>Garmin laps ({{ garmin.laps.length }} shown, up to 100)</summary>
             @for (lap of garmin.laps; track $index) { <h4>Lap {{ $index + 1 }}</h4><dl class="metrics">@for (metric of fitMetrics(lap, item.activity_type); track metric.label) { <div><dt>{{ metric.label }}</dt><dd>{{ metric.value }}</dd></div> }</dl> }
           </details>
@@ -192,7 +198,8 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
 export class ActivityDetailPageComponent implements OnInit, OnDestroy {
   readonly startTime = startTime;
   readonly displayedSubtype = displayedSubtype; readonly title = title;
-  readonly exerciseSetRows = exerciseSetRows; readonly fitMetrics = fitMetrics; readonly stravaMetrics = stravaMetrics;
+  coverageFeatures(value:Record<string,string>) { return Object.entries(value).map(([key,value])=>({key,value})); }
+  readonly connectMetrics = connectMetrics; readonly exerciseSetRows = exerciseSetRows; readonly fitMetrics = fitMetrics; readonly stravaMetrics = stravaMetrics;
   readonly resourceIndex = signal(0);
   readonly editingDistance = signal(false);
   readonly distanceDraft = signal('');

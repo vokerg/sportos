@@ -28,13 +28,14 @@ const strengthLabels = {
 const CONNECT_METRICS: Record<string,[string,string,number?]> = {
  distance:['distance','m'], elapsed_duration:['elapsedDuration','s'], moving_duration:['movingDuration','s'], timer_duration:['duration','s'],
  average_speed:['averageSpeed','m/s'], maximum_speed:['maxSpeed','m/s'], average_heart_rate:['averageHR','bpm'], maximum_heart_rate:['maxHR','bpm'],
+ pool_length:['poolLength','m'],active_length_count:['numberOfActiveLengths','lengths'],stroke_count:['totalNumberOfStrokes','strokes'],swolf:['averageSWOLF','SWOLF'],
  calories:['calories','kcal'], ascent:['elevationGain','m'], descent:['elevationLoss','m'],
  running_cadence:['averageRunCadence','steps/min'], maximum_running_cadence:['maxRunCadence','steps/min'],
  average_cadence:['averageBikeCadence','rpm'], maximum_cadence:['maxBikeCadence','rpm'],
  step_length:['strideLength','cm',.01], vertical_oscillation:['verticalOscillation','cm',10], vertical_ratio:['verticalRatio','%'],
  ground_contact_time:['groundContactTime','ms'], ground_contact_balance:['groundContactBalance','%'],
  average_power:['averagePower','W'], maximum_power:['maxPower','W'], normalized_power:['normalizedPower','W'], training_stress:['trainingStressScore','tss'],
- aerobic_training_effect:['trainingEffect','TE'], anaerobic_training_effect:['anaerobicTrainingEffect','TE'], total_work:['totalWork','J',.001],
+ aerobic_training_effect:['trainingEffect','TE'], anaerobic_training_effect:['anaerobicTrainingEffect','TE'],
 };
 function metric(key: string, label: string, dimension: string, unit: string, max: number, mappings: MetricMapping[], options: Partial<MetricDefinition> = {}): MetricDefinition {
   const native = CONNECT_METRICS[key];
@@ -110,7 +111,10 @@ export function inspectActivityMetrics(sport: string, inputs: readonly MetricInp
           const matches = root.fields.filter(f => { const field = object(f); return field.name === mapping.field && (field.developerIndex === null || field.developerIndex === undefined); });
           if (matches.length !== 1) { if (matches.length) rejected++; continue; }
           const field = object(matches[0]); value = field.value; unit = typeof field.units === 'string' ? field.units : field.units === null || field.units === undefined ? '' : 'unknown';
-        } else value = root[mapping.field];
+        } else {
+          if(input.sourceKind==='garmin_summary'&&definition.key==='pool_length'&&object(root.unitOfPoolLength).unitKey!=='meter')continue;
+          value = root[mapping.field];
+        }
         if (value === null || value === undefined) continue;
         const normalized = typeof value === 'number' ? value * mapping.factor : NaN;
         if (!Number.isFinite(normalized) || unit !== mapping.sourceUnit || normalized < definition.min || normalized > definition.max || (definition.integer && !Number.isInteger(normalized))) { rejected++; continue; }

@@ -1,7 +1,7 @@
 // Display-only, bounded private geometry. No disk persistence or provider requests.
 const fail = () => { throw new Error('Invalid retained map response.'); };
 const sources = ['strava', 'garmin'];
-const resolutions = ['summary', 'streams', 'detail', 'fit'];
+const resolutions = ['summary', 'streams', 'detail', 'fit', 'json'];
 export function geometry(value) {
   if (!value || !['LineString', 'MultiLineString'].includes(value.type)) return fail();
   const parts = value.type === 'LineString' ? [value.coordinates] : value.coordinates;

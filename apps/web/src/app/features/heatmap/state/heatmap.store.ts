@@ -72,7 +72,8 @@ export class HeatmapStore implements OnDestroy {
                 page.coverage.budgetExceeded].every(v => Number.isSafeInteger(v) && v >= 0) ||
               !page.coverage.quality || !['summary','streams','detail','fit'].every(key =>
                 Number.isSafeInteger(page.coverage.quality[key as keyof typeof page.coverage.quality]) &&
-                page.coverage.quality[key as keyof typeof page.coverage.quality] >= 0) ||
+                (page.coverage.quality[key as keyof typeof page.coverage.quality] ?? 0) >= 0) ||
+              (page.coverage.quality.json !== undefined && (!Number.isSafeInteger(page.coverage.quality.json) || page.coverage.quality.json<0)) ||
               Object.values(page.coverage.quality).reduce((sum, value) => sum + value, 0) !== page.coverage.usable ||
               page.coverage.usable !== page.items.length ||
               page.coverage.eligibleScanned !== page.coverage.usable +
@@ -97,6 +98,7 @@ export class HeatmapStore implements OnDestroy {
               streams: coverage.quality.streams + page.coverage.quality.streams,
               detail: coverage.quality.detail + page.coverage.quality.detail,
               fit: coverage.quality.fit + page.coverage.quality.fit,
+              json:(coverage.quality.json??0)+(page.coverage.quality.json??0),
             },
           };
           builder.add(page.items);

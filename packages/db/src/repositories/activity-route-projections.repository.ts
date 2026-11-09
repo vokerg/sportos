@@ -16,7 +16,7 @@ export class ActivityRouteProjectionsRepository {
   return this.db.selectFrom('activity_route_projections').selectAll()
    .where('activity_id','in',activityIds).execute();
  }
- /** Check existence of the retained FIT manifest, not its raw payload. */
+ /** Check retained FIT manifest or native JSON acquisition metadata, never telemetry. */
  async availableGarminFits(refs:{identityKey:string;sourceHash:string}[]) {
   if(!refs.length)return [];
   if(refs.length>200)throw new Error('Garmin route batch exceeds page limit');
@@ -25,7 +25,7 @@ export class ActivityRouteProjectionsRepository {
    .where(eb=>eb.or(refs.map(ref=>eb.and([
     eb('identity_key','=',ref.identityKey),eb('source_hash','=',ref.sourceHash),
    ]))))
-   .where('resource_type','=','fit_manifest').distinct().limit(200).execute();
+   .where(eb=>eb.or([eb('resource_type','=','fit_manifest'),eb.and([eb('resource_type','=','detail'),sql<boolean>`payload_json->'acquisition'->>'kind' = 'json'`])])).distinct().limit(200).execute();
  }
  async get(activityId:string) {
   return this.db.selectFrom('activity_route_projections').selectAll()

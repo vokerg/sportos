@@ -111,13 +111,14 @@ export class RetainedActivityMetricsProjector {
       inputs.push({provider:'garmin',sourceKind:'compact',fields:version.summary_json});
       const retained=await this.withDetail(async db=> {
         const resources=new GarminActivityResourcesRepository(db); const reference={identityKey:ref.identityKey!,sourceHash:ref.sourceVersion};
-        const [coverage,expected,sessions]=await Promise.all([resources.coverage(reference),resources.expectedResources(reference),resources.messages(reference,'session',2)]);
+        const [coverage,expected,sessions,native]=await Promise.all([resources.coverage(reference),resources.expectedResources(reference),resources.messages(reference,'session',2),resources.nativeSummary(reference)]);
         const complete=Array.isArray(expected) && expected.length>=3 && expected.length<=100 && expected.every(item=>item && typeof item==='object' && !Array.isArray(item) && coverage.some(r=>r.resourceType===item.resourceType && r.chunkIndex===item.chunkIndex));
-        return {sessions,complete,hasRaw:coverage.some(r=>r.resourceType==='records')};
+        return {sessions,complete,native,hasRaw:coverage.some(r=>r.resourceType==='records'||r.resourceType==='detail')};
       });
-      richRetained=retained.hasRaw; incomplete=!retained.complete || retained.sessions.length!==1;
+      richRetained=retained.hasRaw; incomplete=!retained.complete || (retained.sessions.length!==1 && !retained.native);
       if (retained.sessions.length===1) inputs.push({provider:'garmin',sourceKind:'fit_session',fields:retained.sessions[0]});
-      signatures.push(retained.sessions,retained.complete,retained.hasRaw);
+      if(retained.native) inputs.push({provider:'garmin',sourceKind:'garmin_summary',fields:retained.native});
+      signatures.push(retained.sessions,retained.complete,retained.hasRaw,retained.native);
       // Reuse existing compact strength semantics; detailed exercise rows never
       // become competing scalar values or affect official scores here.
       if (sport==='workout') {

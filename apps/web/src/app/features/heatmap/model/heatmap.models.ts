@@ -10,7 +10,7 @@ export interface HeatmapRoute {
   activityId: string; date: string; sport: HeatmapSport;
   source: 'strava' | 'garmin'; resolution: string; geometry: RouteGeometry;
 }
-export interface HeatmapQuality { summary: number; streams: number; detail: number; fit: number }
+export interface HeatmapQuality { summary: number; streams: number; detail: number; fit: number; json?: number }
 export interface HeatmapCoverage {
   eligibleScanned: number; usable: number; missingGps: number; invalidGeometry: number; budgetExceeded: number;
   quality: HeatmapQuality;

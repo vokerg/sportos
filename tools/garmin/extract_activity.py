@@ -199,6 +199,7 @@ class GarminTransport:
         self.client = client
         class BoundedSession(requests.Session):
             count = 0
+            byte_count = 0
             last = 0
             def request(self, method, url, **kwargs):
                 from urllib.parse import urlsplit
@@ -227,6 +228,7 @@ class GarminTransport:
                         body.extend(chunk)
                         if len(body) > maximum:
                             raise ExtractionError('GARMIN_RESPONSE_TOO_LARGE')
+                    self.byte_count += len(body)
                     response._content = bytes(body)
                     response._content_consumed = True
                     return response
@@ -286,6 +288,14 @@ def login(tokenstore, interactive=False):
     return transport
 
 
+def optional_json(operation):
+    try: return operation()
+    except Exception as error:
+        from garminconnect import GarminConnectNotFoundError
+        if isinstance(error,GarminConnectNotFoundError): return {'availability':'unavailable'}
+        raise
+
+
 def extract(transport, identifier, output, force=False, remote_cache=None, automatic=False):
     identifier = activity_id(identifier)
     output = protected_directory(output)
@@ -306,29 +316,34 @@ def extract(transport, identifier, output, force=False, remote_cache=None, autom
         if cache.get('metadataHash') == metadata_hash and re.fullmatch('[a-f0-9]{64}', cache.get('sourceHash', '')) and (folder / 'bundle.json').is_file():
             bundle = read_json(folder / 'bundle.json')
             # A deleted/truncated resource must not be treated as a complete copy.
-            if verify_bundle(folder, bundle):
+            if verify_bundle(folder, bundle) and (automatic or bundle.get('original')):
                 return {'cached': True, 'remote': False, 'folder': folder, 'bundle': bundle}
     acquisition = None
     detail = None
     sets = None
     splits = None
     if automatic and not force:
-        from rich_policy import AUTO_TYPES, decision
+        from rich_policy import AUTO_TYPES, decision, mandatory_preflight
         sport = (metadata.get('activityTypeDTO') or {}).get('typeKey')
         if sport not in AUTO_TYPES:
             raise ExtractionError('GARMIN_AUTO_SPORT_ON_DEMAND')
         # Preserve native endpoint JSON before projection and before any FIT
         # fallback. Authentication/rate limits always propagate, without retries.
-        try:
-            detail = transport.rich_details(identifier)
-        except ExtractionError as error:
-            if error.code != 'GARMIN_RESPONSE_TOO_LARGE': raise
-            detail = {'availability': 'response_too_large'}
-        sets = transport.sets(identifier) if sport == 'strength_training' else {'availability': 'not_applicable', 'exerciseSets': []}
-        splits = transport.splits(identifier) if sport != 'strength_training' else {'availability': 'not_applicable'}
-        acquisition = decision(metadata, detail, splits, sets)
-        if acquisition['kind'] == 'json':
-            return retain_json_bundle(output, identifier, metadata, metadata_hash, detail, splits, sets, acquisition, cache_path)
+        acquisition = mandatory_preflight(metadata)
+        if acquisition is None:
+            try:
+                detail = optional_json(lambda: transport.rich_details(identifier))
+            except ExtractionError as error:
+                if error.code != 'GARMIN_RESPONSE_TOO_LARGE': raise
+                detail = {'availability': 'response_too_large'}
+            sets = optional_json(lambda: transport.sets(identifier)) if sport == 'strength_training' else {'availability': 'not_applicable', 'exerciseSets': []}
+            splits = optional_json(lambda: transport.splits(identifier)) if sport != 'strength_training' else {'availability': 'not_applicable'}
+            native_bytes=encoded({'metadata':metadata,'details':detail,'splits':splits,'sets':sets})
+            native_folder=protected_directory(output/'raw-json'/digest(native_bytes))
+            write_private(native_folder/'endpoints.json',native_bytes)
+            acquisition = decision(metadata, detail, splits, sets)
+            if acquisition['kind'] == 'json':
+                return retain_json_bundle(output, identifier, metadata, metadata_hash, detail, splits, sets, acquisition, cache_path)
     original = None
     # Reuse raw-before-normalized retention after a parser fix or transient detail
     # failure. A force refresh still asks Garmin for the original explicitly.
@@ -412,7 +427,8 @@ def extract(transport, identifier, output, force=False, remote_cache=None, autom
               'files': files, 'resources': [{'resourceType': kind, 'chunkIndex': index, 'file': f'{kind}-{index}.json'} for kind, index, _ in resources],
               'counts': counts, 'original': files[0]}
     if (folder / 'bundle.json').exists():
-        bundle = read_json(folder / 'bundle.json')
+        retained_bundle = read_json(folder / 'bundle.json')
+        bundle = {**retained_bundle, 'snapshot': {**retained_bundle['snapshot'], 'sourceUpdatedAt': snapshot['sourceUpdatedAt']}}
     else:
         write_private(folder / 'bundle.json', encoded(bundle))
     write_private(cache_path, encoded({'metadataHash': metadata_hash, 'sourceHash': source_hash}))
@@ -437,7 +453,9 @@ def retain_json_bundle(output, identifier, metadata, metadata_hash, detail, spli
                 'summary':normalized_summary(metadata,{})}
     bundle = {'schema':'sportos.garmin-single.v2','snapshot':snapshot,'metadataHash':metadata_hash,
               'files':files,'resources':[{'resourceType':key,'chunkIndex':0,'file':f'{key}-0.json'} for key,_ in resources], 'counts':{}, 'original':None}
-    if (folder/'bundle.json').exists(): bundle = read_json(folder/'bundle.json')
+    if (folder/'bundle.json').exists():
+        retained_bundle=read_json(folder/'bundle.json')
+        bundle={**retained_bundle,'snapshot':{**retained_bundle['snapshot'],'sourceUpdatedAt':snapshot['sourceUpdatedAt']}}
     else: write_private(folder/'bundle.json',encoded(bundle))
     write_private(cache_path,encoded({'metadataHash':metadata_hash,'sourceHash':source_hash}))
     return {'cached':False,'remote':False,'folder':folder,'bundle':bundle}

@@ -49,9 +49,9 @@ describe('activity timeline authorization and retained-only reads',()=>{
   it('reads pool splits through owner-bound current Garmin FIT evidence only',async()=>{
     const {service,detail}=setup({identity_key:'native:1',current_hash:'a'.repeat(64)});
     vi.spyOn(ActivitiesRepository.prototype,'get').mockResolvedValue({id,activity_type:'swim',subtype:'indoor'} as never);
-    vi.spyOn(GarminActivityResourcesRepository.prototype,'coverage').mockResolvedValue([{resourceType:'records',chunkIndex:0},{resourceType:'sets',chunkIndex:0},{resourceType:'detail',chunkIndex:0}] as never);
+    vi.spyOn(GarminActivityResourcesRepository.prototype,'coverage').mockResolvedValue([{resourceType:'fit_manifest',chunkIndex:0},{resourceType:'records',chunkIndex:0},{resourceType:'sets',chunkIndex:0},{resourceType:'detail',chunkIndex:0}] as never);
     vi.spyOn(GarminActivityResourcesRepository.prototype,'expectedResources').mockResolvedValue(
-      [{resourceType:'records',chunkIndex:0},{resourceType:'sets',chunkIndex:0},{resourceType:'detail',chunkIndex:0}]);
+      [{resourceType:'fit_manifest',chunkIndex:0},{resourceType:'records',chunkIndex:0},{resourceType:'sets',chunkIndex:0},{resourceType:'detail',chunkIndex:0}]);
     vi.spyOn(GarminActivityResourcesRepository.prototype,'messages').mockResolvedValue([{message:'session',fields:[{name:'pool_length',value:25,units:'m'}]}] as never);
     vi.spyOn(GarminActivityResourcesRepository.prototype,'swimLengthMessages').mockResolvedValue(
       [{message:'length',fields:[{name:'length_type',value:'active',units:null},{name:'total_timer_time',value:24,units:'s'}]}] as never);
@@ -61,11 +61,11 @@ describe('activity timeline authorization and retained-only reads',()=>{
   it('requires complete current Garmin resources before reading bounded native records',async()=>{
     const {service,detail}=setup({identity_key:'native:1',current_hash:'a'.repeat(64)});
     vi.spyOn(ActivitiesRepository.prototype,'get').mockResolvedValue({id} as never);
-    vi.spyOn(GarminActivityResourcesRepository.prototype,'coverage').mockResolvedValue([{resourceType:'records',chunkIndex:0}] as never);
-    const expected=vi.spyOn(GarminActivityResourcesRepository.prototype,'expectedResources').mockResolvedValue([{resourceType:'records',chunkIndex:0},{resourceType:'sets',chunkIndex:0},{resourceType:'detail',chunkIndex:0}]);
+    vi.spyOn(GarminActivityResourcesRepository.prototype,'coverage').mockResolvedValue([{resourceType:'fit_manifest',chunkIndex:0},{resourceType:'records',chunkIndex:0}] as never);
+    const expected=vi.spyOn(GarminActivityResourcesRepository.prototype,'expectedResources').mockResolvedValue([{resourceType:'fit_manifest',chunkIndex:0},{resourceType:'records',chunkIndex:0},{resourceType:'sets',chunkIndex:0},{resourceType:'detail',chunkIndex:0}]);
     const records=vi.spyOn(GarminActivityResourcesRepository.prototype,'timelineRecords').mockResolvedValue([]);
     expect(await service.read(owner,id,'garmin')).toMatchObject({reason:'incomplete_resources'});expect(records).not.toHaveBeenCalled();
-    expected.mockResolvedValue(new Array(3).fill({resourceType:'records',chunkIndex:0}));
+    expected.mockResolvedValue([{resourceType:'fit_manifest',chunkIndex:0},{resourceType:'records',chunkIndex:0},{resourceType:'records',chunkIndex:0}]);
     await service.read(owner,id,'garmin');expect(records).toHaveBeenCalledWith({identityKey:'native:1',sourceHash:'a'.repeat(64)},0,150001);
     expect(detail.withAccount).toHaveBeenCalledWith(owner,expect.any(Function));
   });

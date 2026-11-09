@@ -3,7 +3,7 @@ import { ActivityProviderResourcesRepository, ActivityRouteProjectionsRepository
  ActivitiesRepository, GarminActivityResourcesRepository, sql, type Json } from '@sportos/db';
 import type { AccountDatabase as ActivityDetailDbProvider, AccountDatabase as DbProvider } from './context.js';
 import { stravaSummaryRoute, type ActivityRouteResponse } from './activity-route.js';
-import { decodeStoredRoute, projectGarminRoute, projectStravaRoute,
+import { decodeStoredRoute, projectGarminJsonRoute, projectGarminRoute, projectStravaRoute,
  ROUTE_ALGORITHM_VERSION, type ProjectedRoute } from './activity-route-projection.js';
 type RouteRefs = {
  summary: Awaited<ReturnType<ActivitiesRepository['getStravaRouteEvidence']>>;
@@ -96,7 +96,14 @@ export class ActivityRouteProjectionService {
   }else if(refs.garmin){
    const garmin=refs.garmin;
    const reference={identityKey:garmin.identity_key,sourceHash:garmin.current_hash};
-   const messages=await this.detail.withAccount(owner,async db=>{
+   const native=await this.detail.withAccount(owner,async db=>{
+    const repo=new GarminActivityResourcesRepository(db);
+    if(await repo.read(reference,'fit_manifest'))return null;
+    return repo.read(reference,'detail');
+   });
+   const nativeRoot=native?.payload;
+   const nativeRoute=nativeRoot && typeof nativeRoot==='object' && !Array.isArray(nativeRoot) ? projectGarminJsonRoute(nativeRoot.details) : null;
+   const messages=nativeRoute ? [] : await this.detail.withAccount(owner,async db=>{
     const repo=new GarminActivityResourcesRepository(db);
     const [coverage,expected]=await Promise.all([repo.coverage(reference),repo.expectedResources(reference)]);
     if(!Array.isArray(expected)||expected.length<3||expected.length>100
@@ -128,7 +135,7 @@ export class ActivityRouteProjectionService {
     return result;
    });
    if(!messages)return {status:'unavailable'};
-   route=projectGarminRoute(messages);
+   route=nativeRoute ?? projectGarminRoute(messages);
    sourceRef=garmin.identity_key;sourceVersion=garmin.current_hash;
   }else return {status:'unavailable'};
   if(!route)return {status:'unavailable'};
