@@ -240,6 +240,10 @@ class GarminTransport:
         return self.client.download_activity(identifier, self.client.ActivityDownloadFormat.ORIGINAL)
     def details(self, identifier):
         return self.client.get_activity_details(identifier, maxchart=2000, maxpoly=0)
+    def splits(self, identifier):
+        return self.client.get_activity_splits(identifier)
+    def rich_details(self, identifier):
+        return self.client.get_activity_details(identifier, maxchart=150000, maxpoly=0)
     def sets(self, identifier):
         return self.client.get_activity_exercise_sets(identifier)
 
@@ -282,7 +286,7 @@ def login(tokenstore, interactive=False):
     return transport
 
 
-def extract(transport, identifier, output, force=False, remote_cache=None):
+def extract(transport, identifier, output, force=False, remote_cache=None, automatic=False):
     identifier = activity_id(identifier)
     output = protected_directory(output)
     metadata = transport.metadata(identifier)
@@ -304,6 +308,27 @@ def extract(transport, identifier, output, force=False, remote_cache=None):
             # A deleted/truncated resource must not be treated as a complete copy.
             if verify_bundle(folder, bundle):
                 return {'cached': True, 'remote': False, 'folder': folder, 'bundle': bundle}
+    acquisition = None
+    detail = None
+    sets = None
+    splits = None
+    if automatic and not force:
+        from rich_policy import AUTO_TYPES, decision
+        sport = (metadata.get('activityTypeDTO') or {}).get('typeKey')
+        if sport not in AUTO_TYPES:
+            raise ExtractionError('GARMIN_AUTO_SPORT_ON_DEMAND')
+        # Preserve native endpoint JSON before projection and before any FIT
+        # fallback. Authentication/rate limits always propagate, without retries.
+        try:
+            detail = transport.rich_details(identifier)
+        except ExtractionError as error:
+            if error.code != 'GARMIN_RESPONSE_TOO_LARGE': raise
+            detail = {'availability': 'response_too_large'}
+        sets = transport.sets(identifier) if sport == 'strength_training' else {'availability': 'not_applicable', 'exerciseSets': []}
+        splits = transport.splits(identifier) if sport != 'strength_training' else {'availability': 'not_applicable'}
+        acquisition = decision(metadata, detail, splits, sets)
+        if acquisition['kind'] == 'json':
+            return retain_json_bundle(output, identifier, metadata, metadata_hash, detail, splits, sets, acquisition, cache_path)
     original = None
     # Reuse raw-before-normalized retention after a parser fix or transient detail
     # failure. A force refresh still asks Garmin for the original explicitly.
@@ -330,12 +355,15 @@ def extract(transport, identifier, output, force=False, remote_cache=None):
     fit = unpack_original(original)
     records, counts, session = decode_fit(fit)
     summary = normalized_summary(metadata, session)
-    detail = transport.details(identifier)
+    if detail is None:
+        detail = transport.details(identifier)
     # The sets endpoint is only meaningful for strength workouts. Keep the
     # mandatory retained sets resource as a non-scoring empty envelope for
     # other sports without spending another Garmin request.
     sport = (metadata.get('activityTypeDTO') or {}).get('typeKey')
-    if sport != 'strength_training':
+    if sets is not None:
+        pass
+    elif sport != 'strength_training':
         sets = {'availability': 'not_applicable', 'exerciseSets': []}
     else:
         # Unsupported exercise-set endpoint is explicit; auth/rate limits are fatal.
@@ -347,7 +375,9 @@ def extract(transport, identifier, output, force=False, remote_cache=None):
                 sets = {'availability': 'unavailable'}
             else:
                 raise
-    resources = [('detail', 0, {'metadataHash': metadata_hash, 'metadata': metadata, 'details': detail}), ('sets', 0, sets)]
+    resources = [('detail', 0, {'metadataHash': metadata_hash, 'metadata': metadata, 'details': detail, **({'acquisition': acquisition} if acquisition else {})}), ('sets', 0, sets)]
+    if splits is not None:
+        resources.append(('laps', 0, splits))
     # Keep every FIT message and unknown/developer field in bounded chunks.
     chunk = []; size = 0; index = 0
     for record in records:
@@ -389,13 +419,37 @@ def extract(transport, identifier, output, force=False, remote_cache=None):
     return {'cached': False, 'remote': False, 'folder': folder, 'bundle': bundle}
 
 
+def retain_json_bundle(output, identifier, metadata, metadata_hash, detail, splits, sets, acquisition, cache_path):
+    resources = [('detail', {'metadataHash': metadata_hash, 'metadata': metadata, 'details': detail,
+                              'acquisition': {**acquisition, 'expectedResources': [{'resourceType': key, 'chunkIndex': 0} for key in ('detail','sets','laps')]}}),
+                 ('sets', sets), ('laps', splits)]
+    raw_files = [(f'{key}-0.json', encoded(value)) for key,value in resources]
+    if any(len(data) > MAX_JSON for _,data in raw_files): raise ExtractionError('GARMIN_RESOURCE_TOO_LARGE')
+    source_hash = digest(encoded([(name,digest(data)) for name,data in raw_files]))
+    folder = protected_directory(output / source_hash)
+    files = []
+    for name,data in raw_files:
+        if (folder/name).exists() and digest((folder/name).read_bytes()) != digest(data): raise ExtractionError('LOCAL_SOURCE_VERSION_CONFLICT')
+        write_private(folder/name, data)
+        files.append({'file':name, 'sha256':digest(data), 'size':len(data)})
+    snapshot = {'providerActivityId': identifier, 'contentHash': source_hash, 'origin':'connect',
+                'sourceUpdatedAt':dt.datetime.now(dt.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z'),
+                'summary':normalized_summary(metadata,{})}
+    bundle = {'schema':'sportos.garmin-single.v2','snapshot':snapshot,'metadataHash':metadata_hash,
+              'files':files,'resources':[{'resourceType':key,'chunkIndex':0,'file':f'{key}-0.json'} for key,_ in resources], 'counts':{}, 'original':None}
+    if (folder/'bundle.json').exists(): bundle = read_json(folder/'bundle.json')
+    else: write_private(folder/'bundle.json',encoded(bundle))
+    write_private(cache_path,encoded({'metadataHash':metadata_hash,'sourceHash':source_hash}))
+    return {'cached':False,'remote':False,'folder':folder,'bundle':bundle}
+
+
 def verify_bundle(folder, bundle):
-    if folder.is_symlink() or bundle.get('schema') != 'sportos.garmin-single.v1' or len(bundle.get('files', [])) > 100:
+    if folder.is_symlink() or bundle.get('schema') not in ('sportos.garmin-single.v1', 'sportos.garmin-single.v2') or len(bundle.get('files', [])) > 100:
         return False
     total = 0
     for item in bundle.get('files', []):
         name = item.get('file', '')
-        if not re.fullmatch(r'(original\.(zip|fit)|activity\.fit|(detail|sets|records)-[0-9]{1,5}\.json)', name):
+        if not re.fullmatch(r'(original\.(zip|fit)|activity\.fit|(detail|sets|records|laps)-[0-9]{1,5}\.json)', name):
             return False
         target = folder / name
         if target.is_symlink() or not target.is_file() or target.stat().st_size > MAX_ORIGINAL:

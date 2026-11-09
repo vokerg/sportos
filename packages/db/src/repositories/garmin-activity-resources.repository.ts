@@ -38,12 +38,15 @@ export class GarminActivityResourcesRepository {
   }
   async expectedResources(reference: GarminResourceReference) {
     validate(reference);
-    const row = await this.db.selectFrom('garmin_activity_resources')
-      .select(sql<Json>`payload_json->'expectedResources'`.as('expected'))
-      .where('identity_key', '=', reference.identityKey).where('source_hash', '=', reference.sourceHash)
-      .where('resource_type', '=', 'fit_manifest').where('chunk_index', '=', 0).executeTakeFirst();
-    return row?.expected ?? null;
+    const fit = await this.read(reference, 'fit_manifest');
+    if (fit?.payload && typeof fit.payload==='object' && !Array.isArray(fit.payload)) return fit.payload.expectedResources ?? null;
+    const detail = await this.read(reference, 'detail');
+    const root = detail?.payload;
+    if (!root || typeof root!=='object' || Array.isArray(root)) return null;
+    const acquisition=root.acquisition;
+    return acquisition && typeof acquisition==='object' && !Array.isArray(acquisition) && acquisition.version===1 && acquisition.kind==='json' ? acquisition.expectedResources ?? null : null;
   }
+
   async messages(reference: GarminResourceReference, message: 'session' | 'lap', limit = 100) {
     validate(reference);
     const rows = await sql<{ message: Json }>`select value as message

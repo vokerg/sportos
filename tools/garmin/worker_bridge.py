@@ -20,8 +20,8 @@ def request(value):
     operation = value['request']
     if not isinstance(operation, dict) or operation.get('operation') not in ('discover', 'extract', 'day'):
         raise ExtractionError('INVALID_WORKER_INPUT')
-    allowed = {'discover': {'operation', 'startTime'}, 'extract': {'operation', 'providerActivityId', 'refresh'}, 'day': {'operation', 'date', 'categories'}}[operation['operation']]
-    if set(operation) - allowed or ('refresh' in operation and not isinstance(operation['refresh'], bool)):
+    allowed = {'discover': {'operation', 'startTime'}, 'extract': {'operation', 'providerActivityId', 'refresh', 'automatic'}, 'day': {'operation', 'date', 'categories'}}[operation['operation']]
+    if set(operation) - allowed or any(key in operation and not isinstance(operation[key], bool) for key in ('refresh','automatic')):
         raise ExtractionError('INVALID_WORKER_INPUT')
     if operation['operation'] == 'day':
         from fetch_day import calendar_date

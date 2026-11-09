@@ -43,7 +43,7 @@ def execute(request, transport):
         from fetch_day import fetch_day
         result = fetch_day(transport, request['date'], request.get('categories'))
     elif request.get('operation') == 'extract':
-        result = extract(transport, activity_id(request['providerActivityId']), DEFAULT_HOME / 'sources', request.get('refresh') is True)
+        result = extract(transport, activity_id(request['providerActivityId']), DEFAULT_HOME / 'sources', request.get('refresh') is True, automatic=request.get('automatic') is True)
         result = {'folder': str(result['folder']), 'bundle': result['bundle']}
     else:
         raise ExtractionError('INVALID_BRIDGE_INPUT')
@@ -58,8 +58,8 @@ def main():
         request = json.loads(data)
         if not isinstance(request, dict) or request.get('operation') not in ('discover', 'extract', 'day'):
             raise ExtractionError('INVALID_BRIDGE_INPUT')
-        allowed = {'discover': {'operation', 'startTime'}, 'extract': {'operation', 'providerActivityId', 'refresh'}, 'day': {'operation', 'date', 'categories'}}[request['operation']]
-        if set(request) - allowed or ('refresh' in request and not isinstance(request['refresh'], bool)):
+        allowed = {'discover': {'operation', 'startTime'}, 'extract': {'operation', 'providerActivityId', 'refresh', 'automatic'}, 'day': {'operation', 'date', 'categories'}}[request['operation']]
+        if set(request) - allowed or any(key in request and not isinstance(request[key], bool) for key in ('refresh','automatic')):
             raise ExtractionError('INVALID_BRIDGE_INPUT')
         if request['operation'] == 'day':
             from fetch_day import calendar_date

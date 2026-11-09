@@ -1,7 +1,7 @@
 import { RunningEffortsService } from './projections.js';
 import { ActivityRouteProjectionService } from './activity-route-projection.service.js';
 import { ActivityMetricsService } from './projections.js';
-import { normalizeGarminStrength } from '@sportos/domain';
+import { completeConnectBundle, normalizeGarminStrength } from '@sportos/domain';
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { lstat, readFile } from 'node:fs/promises';
@@ -17,7 +17,7 @@ export interface LocalGarminBundle {
   folder: string;
   bundle: { snapshot: { providerActivityId: string; contentHash: string; origin: string; sourceUpdatedAt: string; summary: { startTime: string } };
     resources: { file: string; resourceType: string; chunkIndex: number }[];
-    original: { file: string }; files: { file: string; sha256: string; size: number }[] };
+    original: { file: string } | null; files: { file: string; sha256: string; size: number }[] };
 }
 interface LocalFile { buffer: Buffer; size: number; }
 function record(value: unknown, allowed: string[]) {
@@ -53,7 +53,7 @@ export class GarminLocalIngestService {
     if (bundle.snapshot.contentHash !== folder.slice(root.length + 1) || createHash('sha256').update(JSON.stringify(bundle.files.map(file => [file.file, file.sha256]))).digest('hex') !== bundle.snapshot.contentHash) throw new BadRequestException('Invalid local Garmin source version.');
     const contents = new Map<string, Buffer>(); let total = 0;
     for (const file of bundle.files) {
-      if (!/^(original\.(fit|zip)|activity\.fit|(detail|sets|records)-\d{1,5}\.json)$/.test(file.file)) throw new BadRequestException('Invalid local Garmin artifact.');
+      if (!/^(original\.(fit|zip)|activity\.fit|(detail|sets|records|laps)-\d{1,5}\.json)$/.test(file.file)) throw new BadRequestException('Invalid local Garmin artifact.');
       const info = await lstat(join(folder, file.file));
       if (!info.isFile() || info.isSymbolicLink() || info.size !== file.size || info.size > 20 * 1024 * 1024) throw new BadRequestException('Invalid local Garmin artifact.');
       const bytes = await readFile(join(folder,file.file)); total += bytes.length;
@@ -66,6 +66,7 @@ export class GarminLocalIngestService {
       const envelope = Buffer.from(JSON.stringify({ snapshot: bundle.snapshot, resourceType: item.resourceType, chunkIndex: item.chunkIndex, payload: JSON.parse(bytes.toString('utf8')) as Json }));
       await this.retainResource({ buffer: envelope, size: envelope.length }, account);
     }
+    if (!bundle.original) return this.commit(bundle.snapshot, account);
     const original = contents.get(bundle.original.file); if (!original) throw new BadRequestException('Missing Garmin original.');
     await this.retainOriginal({ buffer: original, size: original.length }, { snapshot: JSON.stringify(bundle.snapshot), resources: JSON.stringify(bundle.resources.map(item => ({ resourceType: item.resourceType, chunkIndex: item.chunkIndex }))) }, account);
     return this.commit(bundle.snapshot, account);
@@ -97,7 +98,7 @@ export class GarminLocalIngestService {
       const repo = new GarminActivityResourcesRepository(db);
       const ref = { identityKey, sourceHash };
       const [coverage, manifest] = await Promise.all([repo.coverage(ref), repo.read(ref, 'fit_manifest')]);
-      if (!this.coverageComplete(manifest?.payload, coverage) || !await this.originalPresent(manifest?.payload)) return null;
+      if (!await this.ready(repo, ref, manifest?.payload, coverage)) return null;
       const payloads: Json[] = [];
       for (const resource of coverage.filter(item => item.resourceType === 'sets')) {
         const retained = await repo.read(ref, 'sets', resource.chunkIndex);
@@ -181,7 +182,7 @@ export class GarminLocalIngestService {
       const repo = new GarminActivityResourcesRepository(db);
       const coverage = await repo.coverage(ref);
       const manifest = await repo.read(ref, 'fit_manifest');
-      if (!await this.originalPresent(manifest?.payload) || !this.coverageComplete(manifest?.payload, coverage)) return null;
+      if (!await this.ready(repo, ref, manifest?.payload, coverage)) return null;
       const sets: Json[] = [];
       for (const resource of coverage.filter(item => item.resourceType === 'sets')) {
         const retained = await repo.read(ref, 'sets', resource.chunkIndex);
@@ -222,6 +223,13 @@ export class GarminLocalIngestService {
     const keys = descriptors.map((item) => `${item.resourceType}:${item.chunkIndex}`);
     if (new Set(keys).size !== keys.length || !['detail:0', 'sets:0', 'records:0'].every((key) => keys.includes(key))) throw new BadRequestException('Garmin resources are incomplete or repeated.');
     return descriptors;
+  }
+
+  private async ready(repo: GarminActivityResourcesRepository, ref: {identityKey:string;sourceHash:string}, manifest: Json | undefined, coverage: {resourceType:string;chunkIndex:number}[]) {
+    if (manifest) return this.coverageComplete(manifest,coverage) && await this.originalPresent(manifest);
+    if (!['detail','sets','laps'].every(key=>coverage.some(x=>x.resourceType===key && x.chunkIndex===0))) return false;
+    const [detail,laps,sets]=await Promise.all([repo.read(ref,'detail'),repo.read(ref,'laps'),repo.read(ref,'sets')]);
+    return completeConnectBundle(detail?.payload,laps?.payload,sets?.payload);
   }
 
   private coverageComplete(payload: Json | undefined, coverage: { resourceType: string; chunkIndex: number }[]) {
