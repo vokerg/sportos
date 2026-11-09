@@ -26,3 +26,9 @@ it('maps missing and foreign jobs to the same generic result',async()=>{
  const subject=new GarminJobsService({withAccount:async(_owner:string,fn:(db:unknown)=>unknown)=>fn({})} as never);
  await expect(subject.get(owner,owner)).rejects.toMatchObject({status:404,message:'Garmin job was not found.'});
 });
+it('accepts only empty general sync input and derives its owner and date window server-side',()=>{
+ const jobs={enqueue:vi.fn()};const controller=new GarminJobsController(jobs as never);
+ controller.sync({}, {id:owner} as never);expect(jobs.enqueue).toHaveBeenCalledWith(owner,{operation:'sync'});
+ for(const body of [{from:'2000-01-01'},{cursor:'today'},{ownerId:owner},null,[]])expect(()=>controller.sync(body,{id:owner} as never)).toThrow();
+ expect(jobs.enqueue).toHaveBeenCalledTimes(1);
+});

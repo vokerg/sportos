@@ -1,3 +1,4 @@
+import {GarminSyncCard} from '../providers/GarminSyncCard';
 import { ActivityCard, projectActivityList, type ActivityList } from '../activities';
 import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -123,6 +124,7 @@ export function HomeScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 
       </Card>
     </> : null}
     <StravaQuickSyncCard />
+    <GarminSyncCard />
     {view.data ? <Card title="Recent sessions">
       {view.data.activityLoading ? <StatusPanel kind="loading" message="Reading recent activity summary…" />
         : view.data.activityError ? <><Body subdued>Some activity data is unavailable.</Body><Action title="Retry activities" secondary onPress={retry}/></>

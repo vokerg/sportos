@@ -19,7 +19,7 @@ import { ProviderStore } from './features/providers/state/provider.store';
         <p class="state-message error" role="alert">{{ store.errorMessage() }}</p>
         <button type="button" class="secondary" (click)="store.load()">Retry</button>
       } @else if (!store.connection()) {
-        <p>No provider is connected.</p>
+        <p>Strava is not connected.</p>
         <button type="button" (click)="connect()" [disabled]="store.state() === 'working'">Connect Strava</button>
       } @else {
         <div class="provider-summary">

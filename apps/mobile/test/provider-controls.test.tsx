@@ -13,6 +13,7 @@ vi.mock('../src/ui/primitives',()=>{
  return{Screen:Container,Card:Container,Body:Container,Action:(p:object)=>React.createElement('Action',p),SourceBadge:(p:object)=>React.createElement('Badge',p),StatusPanel:(p:object)=>React.createElement('Status',p)};
 });
 import {ProvidersScreen} from '../src/providers/screens';
+import {GarminSyncCard} from '../src/providers/GarminSyncCard';
 import {GarminDayCard} from '../src/daily/GarminDayCard';
 import {connections,garminDay,job} from '../src/providers/model';
 import {useOperation} from '../src/providers/use-operation';
@@ -31,8 +32,8 @@ it('projects minimal owner-free provider state and rejects foreign jobs or corru
  expect(garminDay({...day,categories:[{...day.categories[0],evidence:{private:'raw'}}]},day.date).categories[0]).not.toHaveProperty('evidence');
  expect(()=>garminDay(day,'2026-10-28')).toThrow();expect(()=>garminDay({...day,fetchEnabled:'true'},day.date)).toThrow();
 });
-it('submits one incremental sync, polls the job to success and never downloads Garmin',async()=>{
- vi.useFakeTimers();read.mockImplementation(async(p:string)=>p==='/providers/connections'?[connection]:p.includes('/jobs?')?[]:{...queued,status:'succeeded',progressPercent:100});
+it('submits one incremental sync, polls to success and reads only Garmin capability',async()=>{
+ vi.useFakeTimers();read.mockImplementation(async(p:string)=>p==='/providers/connections'?[connection]:p==='/garmin/connection'?{enabled:false,reason:'not_connected',cursor:null,activeJob:null}:p.includes('/jobs?')?[]:{...queued,status:'succeeded',progressPercent:100});
  let finish!:(v:unknown)=>void;mutate.mockImplementation(()=>new Promise(r=>{finish=r}));
  await mount(<ProvidersScreen/>);
  const submit=button('Sync changes');await act(async()=>{submit.props.onPress();submit.props.onPress()});
@@ -40,7 +41,8 @@ it('submits one incremental sync, polls the job to success and never downloads G
  await act(async()=>finish(queued));await act(async()=>{await vi.advanceTimersByTimeAsync(5000)});
  expect(read.mock.calls.some(([p])=>p==='/providers/jobs/'+jobId)).toBe(true);
  expect(tree!.root.findByType('Badge' as never)).toBeTruthy();
- expect(read.mock.calls.some(([p])=>p.includes('garmin'))).toBe(false);
+ expect(read.mock.calls.filter(([p])=>p.includes('garmin')).map(([p])=>p)).toEqual(['/garmin/connection']);
+ expect(mutate.mock.calls.some(([p])=>p.includes('garmin'))).toBe(false);
 });
 it('stops job polling after its budget and removes the wait on unmount',async()=>{
  vi.useFakeTimers();read.mockImplementation(async(p:string)=>p==='/providers/connections'?[connection]:p.includes('/jobs?')?[queued]:queued);
@@ -87,4 +89,25 @@ it('discards a Garmin fetch result when the displayed date changes',async()=>{
  // Day-detail keys the card by date, so replacement must abort the old route-bound operation.
  await act(async()=>{tree!.update(<GarminDayCard key="next" date="2026-10-28"/>)});expect(signal.aborted).toBe(true);
  await act(async()=>{finish({...day,state:'current',completeness:'complete'})});expect(JSON.stringify(tree!.toJSON())).not.toContain('retained');
+});
+
+const syncJob={id:jobId,operation:'sync',date:null,activityId:null,refresh:true,status:'queued',phase:'queued',attemptCount:0,errorCode:null,from:'2026-10-28',to:'2026-10-29',nextDate:'2026-10-28',processedDays:0,totalDays:2};
+const garminConnection={enabled:true,reason:'ready',cursor:{date:'2026-10-28',at:'2026-10-28T19:00:00Z',completed:true},activeJob:null};
+it('refreshes Garmin explicitly, polls completion, and permits another same-day sync',async()=>{
+ vi.useFakeTimers();read.mockImplementation(async(p:string)=>p==='/garmin/connection'?garminConnection:{...syncJob,status:'succeeded',phase:'succeeded',processedDays:2});mutate.mockResolvedValue(syncJob);
+ await mount(<GarminSyncCard/>);expect(mutate).not.toHaveBeenCalled();
+ const start=button('Sync Garmin');await act(async()=>{start.props.onPress();start.props.onPress()});expect(mutate).toHaveBeenCalledTimes(1);expect(mutate.mock.calls[0][0]).toBe('/garmin/sync');
+ await act(async()=>{await vi.advanceTimersByTimeAsync(5000)});expect(button('Sync Garmin').props.disabled).toBe(false);
+ await act(async()=>{button('Sync Garmin').props.onPress()});expect(mutate).toHaveBeenCalledTimes(2);
+ await act(async()=>tree!.unmount());tree=null;expect(vi.getTimerCount()).toBe(0);
+});
+it('recovers an active Garmin sync, cancels it, and offers retry',async()=>{
+ read.mockResolvedValue({...garminConnection,activeJob:syncJob});mutate.mockResolvedValue({...syncJob,status:'cancelled',phase:'cancelled'});
+ await mount(<GarminSyncCard/>);expect(button('Sync Garmin').props.disabled).toBe(true);
+ await act(async()=>{button('Cancel Garmin sync').props.onPress()});expect(mutate.mock.calls[0][0]).toBe('/garmin/jobs/'+jobId+'/cancel');expect(button('Retry Garmin sync')).toBeTruthy();
+});
+it('requires a Garmin capability reload after an ambiguous request and does not expose errors',async()=>{
+ read.mockResolvedValue(garminConnection);mutate.mockRejectedValue(new Error('private Garmin response'));await mount(<GarminSyncCard/>);
+ await act(async()=>{button('Sync Garmin').props.onPress()});expect(button('Sync Garmin').props.disabled).toBe(true);expect(JSON.stringify(tree!.toJSON())).not.toContain('private Garmin response');
+ await act(async()=>{button('Check Garmin status').props.onPress()});expect(button('Sync Garmin').props.disabled).toBe(false);
 });

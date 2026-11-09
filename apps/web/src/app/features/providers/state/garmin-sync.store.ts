@@ -27,7 +27,7 @@ export class GarminSyncStore implements OnDestroy {
  retry(){const job=this.job();if(!job||this.working()||activeGarminJob(job))return;this.submit(()=>this.api.retry(job.id))}
  cancel(){const job=this.job();if(!job||this.working()||!activeGarminJob(job))return;this.submit(()=>this.api.cancel(job.id))}
  private submit(request:()=>ReturnType<GarminSyncApiService['sync']>){
-  this.poll?.unsubscribe();this.action?.unsubscribe();this.working.set(true);this.error.set('');const generation=this.generation;
+  this.generation++;const generation=this.generation;this.read?.unsubscribe();this.poll?.unsubscribe();this.action?.unsubscribe();this.working.set(true);this.error.set('');
   this.action=request().subscribe({next:job=>{if(generation!==this.generation)return;this.working.set(false);this.job.set(job);this.check()},error:()=>{if(generation===this.generation){this.working.set(false);this.ambiguous=true;this.error.set('Could not confirm the Garmin request. Check status before trying again.')}}});
  }
  check(){
