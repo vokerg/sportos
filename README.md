@@ -7,6 +7,14 @@ SportOS is a local-first, account-scoped sports-data cockpit for importing train
 
 > **Project status:** the foundational roadmap is complete through issue [#16](https://github.com/vokerg/sportos/issues/16), and routed frontend follow-ups are complete through #54. The primary schema is defined through Flyway V144, with the dedicated activity-detail database initialized by its own migration set. The [open GitHub issues](https://github.com/vokerg/sportos/issues) are the active work backlog; [AGENTS.md](AGENTS.md) defines eligibility, selection, and maintainer-only exclusions.
 
+## Release versioning
+
+Every commit merged into `main` gets an immutable `rNNNNNN` Git tag, beginning
+with the merge that introduces the versioning workflow. Web, API and worker
+continue to deploy independently; a Git tag identifies source, not proof of a
+successful deployment. See [Main-commit release versions](docs/RELEASE_VERSIONING.md)
+for tagging, recovery and how to match deployed SHAs to releases.
+
 ## What SportOS can do
 
 ### Import and preserve training data

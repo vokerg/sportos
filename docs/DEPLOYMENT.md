@@ -10,6 +10,17 @@ Native deployment and operations for the existing GCP worker VM are documented i
 [gcp-worker-deployment.md](gcp-worker-deployment.md). It does not change the
 API/web topology or automatically solve shared source storage.
 
+## Main commit versions
+
+Every first-parent commit on `main` since the versioning workflow was introduced
+receives an immutable `rNNNNNN` Git tag. It covers frontend-only, backend-only,
+docs-only and combined merges without changing the selective deployment rules
+below. A source version does **not** mean every runtime has deployed that SHA.
+Use [Main-commit release versions](RELEASE_VERSIONING.md) to identify tags,
+recover missed tags, and match a Vercel/Render/GCP/Oracle deployed SHA to its
+release. Flyway migration versions are tracked separately. No deployment status
+registry or runtime version endpoint is added by the tagging workflow.
+
 ## Topology
 
 - Vercel serves Angular and proxies `/api/:path*` to the Render API.
