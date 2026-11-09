@@ -1,3 +1,4 @@
+import { connectChart } from '@sportos/domain';
 import { createHash } from 'node:crypto';
 import { stravaSummaryRoute, type ActivityRouteResponse } from './activity-route.js';
 export const ROUTE_ALGORITHM_VERSION=1;
@@ -5,7 +6,7 @@ const MAX_INPUT=150000, MAX_OUTPUT=3000;
 type Point=[number,number]; // longitude,latitude
 type Fix={point:Point|null; time?:number};
 export type ProjectedRoute={
- provider:'strava'|'garmin';resolution:'streams'|'detail'|'fit';polylines:string[];
+ provider:'strava'|'garmin';resolution:'streams'|'detail'|'fit'|'json';polylines:string[];
  bounds:[number,number,number,number];pointCount:number;resourceHash:string;
 };
 function obj(v:unknown):Record<string,unknown>|null {
@@ -140,6 +141,12 @@ function fitNumber(field:unknown):number|null{
  if(typeof v!=='number'||!Number.isFinite(v))return null;
  return x?.units==='semicircles'?v*180/2**31:x?.units==='deg'||x?.units==='degrees'?v:null;
 }
+export function projectGarminJsonRoute(detail:unknown):ProjectedRoute|null {
+ const columns=connectChart(detail);
+ if(!columns?.directLatitude||!columns.directLongitude)return null;
+ const fixes:Fix[]=columns.directTimestamp!.map((t,i)=>({time:t!/1000,point:coord(columns.directLatitude![i],columns.directLongitude![i])}));
+ return build('garmin','json',fixes,detail);
+}
 export function projectGarminRoute(messages:unknown):ProjectedRoute|null{
  if(!Array.isArray(messages)||messages.length<2||messages.length>MAX_INPUT)return null;
  const fixes:Fix[]=[];
@@ -155,7 +162,7 @@ export function projectGarminRoute(messages:unknown):ProjectedRoute|null{
  }
  return build('garmin','fit',fixes,messages);
 }
-export function decodeStoredRoute(row:{provider:'strava'|'garmin';resolution:'streams'|'detail'|'fit';
+export function decodeStoredRoute(row:{provider:'strava'|'garmin';resolution:'streams'|'detail'|'fit'|'json';
  polylines:unknown;bounds:unknown;point_count:number}):ActivityRouteResponse|null{
  if(!Array.isArray(row.polylines)||row.polylines.length<1||row.polylines.length>50
   ||!Array.isArray(row.bounds)||row.bounds.length!==4||row.bounds.some(x=>typeof x!=='number'||!Number.isFinite(x))

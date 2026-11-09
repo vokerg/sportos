@@ -1,21 +1,22 @@
+import { connectChart, connectRunTimerCoverage } from './garmin-connect.js';
 /** Independent analytical running windows. No canonical/scoring dependency. */
-export const RUNNING_EFFORT_ALGORITHM_VERSION = 5;
+export const RUNNING_EFFORT_ALGORITHM_VERSION = 6;
 export const RUNNING_EFFORT_TARGETS = [5000, 10000, 15000, 20000, 21097.5, 25000, 42195] as const;
 export const RUNNING_EFFORT_LIMITS = { samples: 200000, events: 10000, gapS: 30, speedMps: 12, distanceM: 1000000, durationS: 604800, pauseBoundaryDistanceM: 10 } as const;
 export function runningEffortDistanceTolerance(targetM: number): number { return Math.min(10, targetM * .001); }
-export type EffortMethod = 'summary_estimate' | 'stream_calculated' | 'fit_calculated';
+export type EffortMethod = 'summary_estimate' | 'stream_calculated' | 'fit_calculated' | 'json_calculated';
 export type EffortStatus = 'estimated' | 'calculated' | 'unavailable';
 export interface RunningEffort {
   targetDistanceM: number; method: EffortMethod; status: EffortStatus; reason: string | null;
   durationS: number | null; sourceDistanceM: number | null; coverageDistanceM: number | null;
   startOffsetS: number | null; endOffsetS: number | null;
-  pausePolicy: 'summary_moving' | 'moving_flags' | 'timer_events'; pauseCoverage: 'summary' | 'validated' | 'unknown';
+  pausePolicy: 'summary_moving' | 'moving_flags' | 'timer_events' | 'cumulative_timer'; pauseCoverage: 'summary' | 'validated' | 'unknown';
 }
 interface Point { t: number; d: number; active: number; boundedPauses?: number; }
 export function unavailableEfforts(method: EffortMethod, reason: string, distance: number | null = null): RunningEffort[] {
   return RUNNING_EFFORT_TARGETS.map(targetDistanceM => ({ targetDistanceM, method, status: 'unavailable', reason,
     durationS: null, sourceDistanceM: distance, coverageDistanceM: null, startOffsetS: null, endOffsetS: null,
-    pausePolicy: method === 'fit_calculated' ? 'timer_events' : method === 'stream_calculated' ? 'moving_flags' : 'summary_moving', pauseCoverage: 'unknown' }));
+    pausePolicy: method === 'json_calculated' ? 'cumulative_timer' : method === 'fit_calculated' ? 'timer_events' : method === 'stream_calculated' ? 'moving_flags' : 'summary_moving', pauseCoverage: 'unknown' }));
 }
 export function estimateStravaEfforts(distance: unknown, moving: unknown, reason = 'streams_not_retained'): RunningEffort[] {
   if (!positive(distance, RUNNING_EFFORT_LIMITS.distanceM) || !positive(moving, RUNNING_EFFORT_LIMITS.durationS) || distance / moving > RUNNING_EFFORT_LIMITS.speedMps)
@@ -136,6 +137,29 @@ export function garminFitEfforts(messages: readonly unknown[]): RunningEffort[] 
     }
     return windows(points, 'fit_calculated', records.at(-1)!.d);
   } catch (error) { return unavailableEfforts('fit_calculated', reason(error)); }
+}
+/** Measured native JSON windows only for proven cumulative timer intervals.
+ * Never convert JSON to FIT messages or infer pauses from speed/GPS. */
+export function garminJsonEfforts(summary: unknown, detail: unknown): RunningEffort[] {
+  try {
+    const chart=connectChart(detail);
+    if (!chart || !connectRunTimerCoverage(summary,chart)) return unavailableEfforts('json_calculated','unverified_json_timer_coverage');
+    const times=chart.directTimestamp!, distance=chart.sumDistance!, timer=chart.sumDuration!;
+    const start=times[0]!/1000;
+    const points:Point[]=[];let stoppedDistance=0,active=0;
+    for(let i=0;i<times.length;i++) {
+      const t=times[i]!/1000-start;
+      if(i){
+        const dt=(times[i]!-times[i-1]!)/1000,dd=distance[i]!-distance[i-1]!,da=timer[i]!-timer[i-1]!;
+        progression(dt,dd);
+        const stopped=Math.abs(da)<=.000001;
+        interval(dt,stopped?0:dd,stopped?0:dt);
+        if(stopped)stoppedDistance+=dd;else active+=da;
+      }
+      points.push({t,d:distance[i]!-stoppedDistance,active});
+    }
+    return windows(points,'json_calculated',distance.at(-1)!);
+  } catch(error) { return unavailableEfforts('json_calculated',reason(error)); }
 }
 function windows(points: Point[], method: EffortMethod, sourceDistance: number, firstTime = points[0].t): RunningEffort[] {
   const first = points[0], last = points.at(-1)!; const coverage = last.d - first.d;

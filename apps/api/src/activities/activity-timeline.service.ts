@@ -1,8 +1,9 @@
+import {parseConnectSwimLengths} from '@sportos/domain';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { parseSwimLengths, unavailableSwimLengths } from './activity-swim-lengths.js';
 import { ActivitiesRepository, ActivityProviderResourcesRepository, GarminActivityResourcesRepository } from '@sportos/db';
 import { ActivityDetailDbProvider, DbProvider } from '../db.provider.js';
-import { garminTimeline, MAX_TIMELINE_SAMPLES, stravaTimeline, unavailableTimeline, type TimelineSource } from './activity-timeline.js';
+import { garminConnectTimeline, garminTimeline, MAX_TIMELINE_SAMPLES, stravaTimeline, unavailableTimeline, type TimelineSource } from './activity-timeline.js';
 
 /** Retained reads only: no provider client, helper, credential, scoring or write dependency. */
 @Injectable()
@@ -42,6 +43,12 @@ export class ActivityTimelineService {
         || !expected.every(item => item && typeof item === 'object' && !Array.isArray(item)
           && coverage.some(c => c.resourceType === item.resourceType && c.chunkIndex === item.chunkIndex)))
         return unavailableSwimLengths('incomplete_resources');
+      if(!coverage.some(c=>c.resourceType==='fit_manifest')) {
+        const [summary,laps]=await Promise.all([repo.nativeSummary(ref),repo.read(ref,'laps')]);
+        const parsed=parseConnectSwimLengths(summary,laps?.payload);
+        const effectiveActiveLengths=parsed.poolLengthM && refs.effectiveDistanceM ? Number((refs.effectiveDistanceM/parsed.poolLengthM).toFixed(2)):null;
+        return {...parsed,recordedDistanceM:refs.recordedDistanceM,effectiveDistanceM:refs.effectiveDistanceM,effectiveActiveLengths};
+      }
       const sessions = await repo.messages(ref,'session',2);
       if (sessions.length !== 1) return unavailableSwimLengths('missing_session');
       const raw = await repo.swimLengthMessages(ref,2001);
@@ -86,6 +93,10 @@ export class ActivityTimelineService {
       if (!coverage.length) return unavailableTimeline(source, 'not_retained');
       if (!Array.isArray(expected) || expected.length < 3 || expected.length > 100 || !expected.every(item => item && typeof item === 'object' && !Array.isArray(item)
         && coverage.some(c => c.resourceType === item.resourceType && c.chunkIndex === item.chunkIndex))) return unavailableTimeline(source, 'incomplete_resources');
+      if(!coverage.some(c=>c.resourceType==='fit_manifest')) {
+        const native=await repo.read(ref,'detail'),root=native?.payload;
+        return garminConnectTimeline(root && typeof root==='object' && !Array.isArray(root)?root.details:null,refs.swimming);
+      }
       const chunks = coverage.filter(c => c.resourceType === 'records').sort((a,b) => a.chunkIndex-b.chunkIndex);
       if (!chunks.length || chunks.length > 100 || chunks.some((c,i) => c.chunkIndex !== i)) return unavailableTimeline(source, 'incomplete_resources');
       const messages: unknown[] = [];

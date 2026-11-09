@@ -1,9 +1,9 @@
 export interface RunningEffort {
-  targetDistanceM: number; method: 'summary_estimate' | 'stream_calculated' | 'fit_calculated';
+  targetDistanceM: number; method: 'summary_estimate' | 'stream_calculated' | 'fit_calculated' | 'json_calculated';
   status: 'estimated' | 'calculated' | 'unavailable'; reason: string | null;
   durationS: number | null; sourceDistanceM: number | null; coverageDistanceM: number | null;
   startOffsetS: number | null; endOffsetS: number | null;
-  pausePolicy: 'summary_moving' | 'moving_flags' | 'timer_events'; pauseCoverage: 'summary' | 'validated' | 'unknown';
+  pausePolicy: 'summary_moving' | 'moving_flags' | 'timer_events' | 'cumulative_timer'; pauseCoverage: 'summary' | 'validated' | 'unknown';
 }
 export interface EffortProvider {
   provider: 'strava' | 'garmin'; state: 'current' | 'unprocessed' | 'stale' | 'failed' | 'not_linked';
@@ -20,7 +20,7 @@ export function effortProviderState(provider: EffortProvider): string {
   return { current: '', unprocessed: 'Not calculated', stale: 'Stale', failed: 'Failed', not_linked: 'Not linked' }[provider.state];
 }
 export function effortMethod(method: RunningEffort['method']) {
-  return method === 'summary_estimate' ? 'Strava summary · average pace' : method === 'stream_calculated' ? 'Strava streams · moving time' : 'Garmin FIT · timer-active time';
+  return method === 'summary_estimate' ? 'Strava summary · average pace' : method === 'stream_calculated' ? 'Strava streams · moving time' : method === 'json_calculated' ? 'Garmin JSON · cumulative timer time' : 'Garmin FIT · timer-active time';
 }
 export function effortStatus(provider: EffortProvider, effort: RunningEffort) {
   return provider.state === 'stale' ? 'Stale' : provider.state === 'failed' ? 'Failed' : effort.status === 'calculated' ? 'Calculated' : effort.status === 'estimated' ? 'Estimated' : 'Unavailable';

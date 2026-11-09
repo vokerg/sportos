@@ -52,9 +52,9 @@ have no access to the new day tables.
   fresh evidence, including day totals uploaded later from the watch. Both UI
   actions send `refresh: true`; a complete saved day is never silently reused
   instead of checking Garmin. **Refresh checks all eight daily categories and
-  activity discovery, but reuses complete retained FIT bundles.** Full FIT
-  extraction is automatic only for missing whitelisted running, cycling,
-  swimming and strength sessions. Other sports stay in day discovery and may
+  activity discovery, but reuses sufficient retained JSON or FIT bundles.**
+  Running, cycling, validated pool/open-water swimming and strength use native
+  JSON first; full FIT is limited to explicit feature coverage fallbacks. Other sports stay in day discovery and may
   be explicitly fetched on their activity page. Navigation still reads saved data only.
 - A partial day also offers **Refresh from Garmin**. Successful retained evidence
   survives failures. Missing Strava coverage makes the day partial even when
@@ -67,7 +67,7 @@ have no access to the new day tables.
 - **Show metrics** expands compact evidence already read from
   SportOS. It works without local Garmin authorization.
 - **Refresh from Garmin** explicitly reads all categories again, retaining
-  new versions for changed day evidence. It reuses complete activity FIT
+  new versions for changed day evidence. It reuses sufficient native JSON/FIT
   resources and does not detect FIT-only edits absent from day discovery;
   use the activity-page **Redownload full Garmin FIT** to force a specific
   activity. See [sport policy and FIT consumer audit](GARMIN_RICH_ACQUISITION.md).

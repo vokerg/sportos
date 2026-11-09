@@ -1,8 +1,8 @@
 /** Activity-level catalog only. FIT input has already been decoded/scaled;
  * no telemetry, narrative, developer fields or scoring enter this boundary. */
-export const ACTIVITY_METRIC_PARSER_VERSION = 1;
+export const ACTIVITY_METRIC_PARSER_VERSION = 2;
 export type MetricProvider = 'strava' | 'garmin';
-export type MetricSourceKind = 'compact' | 'strava_detail' | 'fit_session' | 'strength_summary' | 'canonical_fallback';
+export type MetricSourceKind = 'garmin_summary' | 'compact' | 'strava_detail' | 'fit_session' | 'strength_summary' | 'canonical_fallback';
 export type MetricSport = 'walk' | 'run' | 'bike' | 'swim' | 'workout' | 'rowing' | 'sup' | 'hiit';
 export interface MetricMapping {
   provider: MetricProvider; sourceKind: MetricSourceKind; field: string; sourceUnit: string;
@@ -23,7 +23,23 @@ const strengthLabels = {
   workingSets: 'Working sets', totalRecordedSets: 'Total recorded sets', restMarkers: 'Rest markers',
   warmupSets: 'Warmup sets', unknownSets: 'Unknown sets', exerciseCount: 'Exercise count',
 };
+// Summary DTO fields verified against native JSON and retained FIT. Cadence is
+// already steps/min; fractional sensor cadence may differ from FIT integer fields.
+const CONNECT_METRICS: Record<string,[string,string,number?]> = {
+ distance:['distance','m'], elapsed_duration:['elapsedDuration','s'], moving_duration:['movingDuration','s'], timer_duration:['duration','s'],
+ average_speed:['averageSpeed','m/s'], maximum_speed:['maxSpeed','m/s'], average_heart_rate:['averageHR','bpm'], maximum_heart_rate:['maxHR','bpm'],
+ pool_length:['poolLength','m'],active_length_count:['numberOfActiveLengths','lengths'],stroke_count:['totalNumberOfStrokes','strokes'],swolf:['averageSWOLF','SWOLF'],
+ calories:['calories','kcal'], ascent:['elevationGain','m'], descent:['elevationLoss','m'],
+ running_cadence:['averageRunCadence','steps/min'], maximum_running_cadence:['maxRunCadence','steps/min'],
+ average_cadence:['averageBikeCadence','rpm'], maximum_cadence:['maxBikeCadence','rpm'],
+ step_length:['strideLength','cm',.01], vertical_oscillation:['verticalOscillation','cm',10], vertical_ratio:['verticalRatio','%'],
+ ground_contact_time:['groundContactTime','ms'], ground_contact_balance:['groundContactBalance','%'],
+ average_power:['averagePower','W'], maximum_power:['maxPower','W'], normalized_power:['normalizedPower','W'], training_stress:['trainingStressScore','tss'],
+ aerobic_training_effect:['trainingEffect','TE'], anaerobic_training_effect:['anaerobicTrainingEffect','TE'],
+};
 function metric(key: string, label: string, dimension: string, unit: string, max: number, mappings: MetricMapping[], options: Partial<MetricDefinition> = {}): MetricDefinition {
+  const native = CONNECT_METRICS[key];
+  if (native) mappings.push({provider:'garmin',sourceKind:'garmin_summary',field:native[0],sourceUnit:native[1],factor:native[2] ?? 1,origin:'provider_derived',precedence:25});
   return { key, label, dimension, unit, max, min: 0, sports: all, priority: ['strava','garmin'], missing: 'absent_is_missing', mappings, ...options };
 }
 /** Official Strava API reference and Garmin FIT session profile. Unitless FIT
@@ -95,7 +111,10 @@ export function inspectActivityMetrics(sport: string, inputs: readonly MetricInp
           const matches = root.fields.filter(f => { const field = object(f); return field.name === mapping.field && (field.developerIndex === null || field.developerIndex === undefined); });
           if (matches.length !== 1) { if (matches.length) rejected++; continue; }
           const field = object(matches[0]); value = field.value; unit = typeof field.units === 'string' ? field.units : field.units === null || field.units === undefined ? '' : 'unknown';
-        } else value = root[mapping.field];
+        } else {
+          if(input.sourceKind==='garmin_summary'&&definition.key==='pool_length'&&object(root.unitOfPoolLength).unitKey!=='meter')continue;
+          value = root[mapping.field];
+        }
         if (value === null || value === undefined) continue;
         const normalized = typeof value === 'number' ? value * mapping.factor : NaN;
         if (!Number.isFinite(normalized) || unit !== mapping.sourceUnit || normalized < definition.min || normalized > definition.max || (definition.integer && !Number.isInteger(normalized))) { rejected++; continue; }

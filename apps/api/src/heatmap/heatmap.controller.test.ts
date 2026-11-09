@@ -60,7 +60,7 @@ describe('heatmap routes API', () => {
     }]);
     expect(result.coverage).toEqual({
       eligibleScanned: 3, usable: 1, missingGps: 1, invalidGeometry: 1, budgetExceeded: 0,
-      quality: { summary: 1, streams: 0, detail: 0, fit: 0 },
+      quality: { summary: 1, streams: 0, detail: 0, fit: 0, json: 0 },
     });
     expect(result.nextCursor).toBe(encodeHeatmapCursor('2026-01-02', first));
     expect(result.hasMore).toBe(true);
@@ -84,7 +84,7 @@ describe('heatmap routes API', () => {
     const mixed = assembleHeatmapRoutes([candidate(first,'2026-01-05'), candidate(second,'2026-01-04')],
       false, 2, new Map([[second, rich]]));
     expect(mixed.items[1]).toMatchObject({source:'strava',resolution:'streams',geometry:{type:'MultiLineString'}});
-    expect(mixed.coverage.quality).toEqual({summary:1,streams:1,detail:0,fit:0});
+    expect(mixed.coverage.quality).toEqual({summary:1,streams:1,detail:0,fit:0,json:0});
     const oversizedRich = { ...rich, pointCount: 15_001 };
     const preserved = assembleHeatmapRoutes([candidate(first,'2026-01-05')],false,1,
       new Map([[first, oversizedRich]]));
@@ -112,7 +112,7 @@ describe('heatmap routes API', () => {
     expect(detail.withAccount).toHaveBeenCalledOnce();
     expect(result.items).toMatchObject([{ activityId: first, source: 'strava', resolution: 'summary' }]);
     expect(result.coverage).toMatchObject({
-      eligibleScanned: 2, usable: 1, missingGps: 1, quality: { summary: 1, streams: 0, detail: 0, fit: 0 },
+      eligibleScanned: 2, usable: 1, missingGps: 1, quality: { summary: 1, streams: 0, detail: 0, fit: 0, json: 0 },
     });
   });
 

@@ -13,11 +13,11 @@ const numeric = (value: unknown, max: number) => typeof value === 'number' && Nu
 /** Keep provider order and partial/rest laps. Never derive splits from totals or streams. */
 export function runLaps(source: LapSource, strava: ActivityProviderDetailResponse | null, garmin: GarminDetail | null): RunLaps {
   const resource = strava?.resources['laps'];
-  const raw = source === 'strava' ? resource?.availability === 'available' && Array.isArray(resource.payload) ? resource.payload : [] : garmin?.laps ?? [];
+  const raw = source === 'strava' ? resource?.availability === 'available' && Array.isArray(resource.payload) ? resource.payload : [] : garmin?.sourceKind === 'json' ? garmin.connectLaps ?? [] : garmin?.laps ?? [];
   const limit = source === 'garmin' ? 100 : 1000;
   const rows: RunLap[] = [];
   for (const [index, lap] of raw.slice(0, limit).entries()) {
-    if (!object(lap) || (source === 'garmin' && lap['message'] !== 'lap')) continue;
+    if (!object(lap) || (source === 'garmin' && garmin?.sourceKind !== 'json' && lap['message'] !== 'lap')) continue;
     const fields = new Map<string, { value: unknown; units: unknown }>();
     const seen = new Set<string>();
     if (source === 'garmin' && Array.isArray(lap['fields'])) for (const field of lap['fields']) {
@@ -27,6 +27,10 @@ export function runLaps(source: LapSource, strava: ActivityProviderDetailRespons
     }
     const value = (name: string, unit: string, max: number) => {
       if (source === 'strava') return numeric(lap[name], max);
+      if(garmin?.sourceKind==='json') {
+        const mapping:Record<string,string>={total_distance:'distance',total_elapsed_time:'elapsedDuration',total_timer_time:'duration',avg_heart_rate:'averageHR'};
+        return numeric(lap[mapping[name] ?? name],max);
+      }
       const field = fields.get(name);
       return field?.units === unit ? numeric(field.value, max) : null;
     };

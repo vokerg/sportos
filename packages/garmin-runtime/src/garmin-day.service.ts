@@ -136,33 +136,57 @@ export class GarminDayService {
             const ids = projection && typeof projection === 'object' && !Array.isArray(projection) && Array.isArray(projection.identities) ? projection.identities : [];
             const automaticIds = new Set(autoRichGarminIdentities(payload));
             const failures: Json[] = [];
+            const discoverySignatures: Record<string,string> = {};
+            if(payload && typeof payload==='object' && !Array.isArray(payload) && Array.isArray(payload.items)) for(const item of payload.items) {
+              if(item && typeof item==='object' && !Array.isArray(item) && item.activityId!=null) discoverySignatures[`native:${item.activityId}`]=createHash('sha256').update(JSON.stringify(item)).digest('hex');
+            }
+            const previous=rows.find(row=>row.category==='activities')?.attempt_json;
+            const previousSignatures=previous && typeof previous==='object' && !Array.isArray(previous) ? previous.discoverySignatures : null;
             // The legacy field excludes only workout completeness, never retention.
             const nonScoringIdentities = nonScoringGarminDayIdentities(payload);
+            const pending:string[]=[];
             for (const identityKey of ids) {
               this.checkCancelled(cancellation.signal);
-              if (typeof identityKey !== 'string') throw new BadRequestException('Invalid Garmin identity.');
-              // Day refresh always updates discovery, not the retained full FIT.
-              // Skipped sports remain discoverable for an explicit activity fetch.
-              if (!automaticIds.has(identityKey)) continue;
-
+              if(typeof identityKey!=='string')throw new BadRequestException('Invalid Garmin identity.');
+              if(!automaticIds.has(identityKey))continue;
+              const reference=await this.primary.withAccount(account.id,db=>db.selectFrom('garmin_activity_identities')
+                .select(['identity_key','current_hash']).where('identity_key','=',identityKey).executeTakeFirst());
+              if(reference && previousSignatures && typeof previousSignatures==='object' && !Array.isArray(previousSignatures)
+                && previousSignatures[identityKey]===discoverySignatures[identityKey] && await retention.cachedBundle(reference.identity_key,reference.current_hash,account))continue;
+              pending.push(identityKey);
+            }
+            let stopped:GarminDayState|null=null;
+            for(let offset=0;offset<pending.length;offset+=4) {
+              const group=pending.slice(offset,offset+4);
+              if(stopped) {for(const identityKey of group)failures.push({identityKey,state:stopped});continue;}
               try {
-                const reference = await this.primary.withAccount(account.id, db => db.selectFrom('garmin_activity_identities')
-                  .select(['identity_key','current_hash']).where('identity_key','=',identityKey).executeTakeFirst());
-                if (reference && await retention.cachedBundle(reference.identity_key, reference.current_hash, account)) continue;
-                const bundle = await this.enrichment.bridge({ operation: 'extract', providerActivityId: identityKey.slice(7), refresh: false }, cancellation.signal) as LocalGarminBundle;
-                if (bundle?.bundle?.snapshot?.providerActivityId !== identityKey.slice(7)) throw new BadRequestException('Invalid Garmin activity bundle.');
-                await retention.retainBundle(bundle, account);
-              } catch (error) {
-                const failedState = errorState(error);
-                failures.push({ identityKey, state: failedState });
-                if (cancellation.signal.aborted) throw error;
-                if (failedState === 'authentication_required' || failedState === 'rate_limited') {
-                  for (const remaining of ids.slice(ids.indexOf(identityKey) + 1).filter(key => typeof key === 'string' && automaticIds.has(key))) failures.push({ identityKey: remaining, state: failedState });
-                  break;
+                this.checkCancelled(cancellation.signal);
+                // One SDK login/process per bounded group, rather than per activity.
+                const raw=group.length===1
+                  ? {items:[{providerActivityId:group[0]!.slice(7),result:await this.enrichment.bridge({operation:'extract',providerActivityId:group[0]!.slice(7),refresh:false,automatic:true},cancellation.signal)}]}
+                  : await this.enrichment.bridge({operation:'extract_many',providerActivityIds:group.map(key=>key.slice(7))},cancellation.signal);
+                const items=(raw as {items?:{providerActivityId:string;result?:LocalGarminBundle;error?:string}[]})?.items;
+                if(!Array.isArray(items)||items.length!==group.length||items.some((item,i)=>item.providerActivityId!==group[i]!.slice(7)))throw new BadRequestException('Invalid Garmin activity group.');
+                for(const item of items) {
+                  const identityKey=`native:${item.providerActivityId}`;
+                  try {
+                    if(item.error)throw new Error(item.error);
+                    const bundle=item.result;
+                    if(bundle?.bundle?.snapshot?.providerActivityId!==item.providerActivityId)throw new BadRequestException('Invalid Garmin activity bundle.');
+                    await retention.retainBundle(bundle,account);
+                  }catch(error){
+                    const state=errorState(error);failures.push({identityKey,state});
+                    if(state==='authentication_required'||state==='rate_limited')stopped=state;
+                  }
                 }
+              }catch(error){
+                const state=errorState(error);
+                for(const identityKey of group)failures.push({identityKey,state});
+                if(cancellation.signal.aborted)throw error;
+                if(state==='authentication_required'||state==='rate_limited')stopped=state;
               }
             }
-            attempt = { autoRichIdentities: [...automaticIds], failures, ...(nonScoringIdentities.length ? { excludedIdentities: nonScoringIdentities } : {}) };
+            attempt = { discoverySignatures, autoRichIdentities: [...automaticIds], failures, ...(nonScoringIdentities.length ? { excludedIdentities: nonScoringIdentities } : {}) };
             const complete = projection && typeof projection === 'object' && !Array.isArray(projection) && projection.complete === true;
             if (failures.length || !complete) state = 'failed';
           }

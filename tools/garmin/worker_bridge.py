@@ -18,11 +18,16 @@ def request(value):
     if not isinstance(value, dict) or set(value) != {'request', 'session'}:
         raise ExtractionError('INVALID_WORKER_INPUT')
     operation = value['request']
-    if not isinstance(operation, dict) or operation.get('operation') not in ('discover', 'extract', 'day'):
+    if not isinstance(operation, dict) or operation.get('operation') not in ('discover', 'extract', 'extract_many', 'day'):
         raise ExtractionError('INVALID_WORKER_INPUT')
-    allowed = {'discover': {'operation', 'startTime'}, 'extract': {'operation', 'providerActivityId', 'refresh'}, 'day': {'operation', 'date', 'categories'}}[operation['operation']]
-    if set(operation) - allowed or ('refresh' in operation and not isinstance(operation['refresh'], bool)):
+    allowed = {'discover': {'operation', 'startTime'}, 'extract': {'operation', 'providerActivityId', 'refresh', 'automatic'}, 'extract_many': {'operation','providerActivityIds'}, 'day': {'operation', 'date', 'categories'}}[operation['operation']]
+    if set(operation) - allowed or any(key in operation and not isinstance(operation[key], bool) for key in ('refresh','automatic')):
         raise ExtractionError('INVALID_WORKER_INPUT')
+    if operation['operation']=='extract_many':
+        ids=operation.get('providerActivityIds')
+        if not isinstance(ids,list) or not 1<=len(ids)<=4 or any(not isinstance(value,str) for value in ids) or len(set(ids))!=len(ids):raise ExtractionError('INVALID_WORKER_INPUT')
+        from extract_activity import activity_id
+        for identifier in ids:activity_id(identifier)
     if operation['operation'] == 'day':
         from fetch_day import calendar_date
         calendar_date(operation.get('date'))

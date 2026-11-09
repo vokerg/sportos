@@ -130,6 +130,13 @@ export async function retainedLaps(
     }
   }
   if (garmin && options.provider !== 'strava') {
+    const native=await sql<{laps:unknown}>`select payload_json->'lapDTOs' as laps from garmin_activity_resources
+      where identity_key=${garmin.identity_key} and source_hash=${garmin.current_hash} and resource_type='laps' and chunk_index=0
+      and not exists(select 1 from garmin_activity_resources f where f.identity_key=${garmin.identity_key} and f.source_hash=${garmin.current_hash} and f.resource_type='fit_manifest')`.execute(detail);
+    const nativeLaps=native.rows[0]?.laps;
+    if(Array.isArray(nativeLaps) && nativeLaps.length<=100) return {status:'retained_current',provider:'garmin',
+      items:nativeLaps.slice(options.offset,options.offset+options.limit).map((lap,index)=>({index:index+options.offset,distanceM:number(lap.distance),elapsedS:number(lap.elapsedDuration,604800),movingS:number(lap.movingDuration,604800),timerS:number(lap.duration,604800),avgHrBpm:number(lap.averageHR,255)})),
+      truncated:nativeLaps.length>options.limit,limit:options.limit,offset:options.offset,total:nativeLaps.length,hasMore:nativeLaps.length>options.offset+options.limit};
     const total = (
       await sql<{
         total: number;

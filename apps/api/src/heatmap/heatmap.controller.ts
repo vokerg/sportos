@@ -70,7 +70,7 @@ export function assembleHeatmapRoutes(candidates: HeatmapRouteCandidate[], hasMo
     date: string;
     sport: HeatmapRouteCandidate['sport'];
     source: 'strava' | 'garmin';
-    resolution: 'summary' | 'streams' | 'detail' | 'fit';
+    resolution: 'summary' | 'streams' | 'detail' | 'fit' | 'json';
     geometry: { type: 'LineString'; coordinates: [number, number][] } | { type: 'MultiLineString'; coordinates: [number, number][][] } | { type: 'LineString' | 'MultiLineString'; polylines: string[] };
   }> = [];
   let missingGps = 0;
@@ -84,7 +84,7 @@ export function assembleHeatmapRoutes(candidates: HeatmapRouteCandidate[], hasMo
     ? { type: route.geometry.type, polylines: (route.geometry.type === 'LineString'
       ? [route.geometry.coordinates] : route.geometry.coordinates).map(encodeRoutePolyline) }
     : route.geometry;
-  const quality = { summary: 0, streams: 0, detail: 0, fit: 0 };
+  const quality = { summary: 0, streams: 0, detail: 0, fit: 0, json: 0 };
   for (const candidate of candidates) {
     const summary = candidate.stravaLinked === false
       ? { status: 'unavailable' as const, reason: 'no_gps' as const }

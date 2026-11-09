@@ -19,6 +19,21 @@ class WorkerBridgeTest(unittest.TestCase):
         for bad in [{**good, 'owner': 'other'}, {**good, 'session': {**SESSION, 'password': 'secret'}}, {**good, 'request': {'operation': 'shell'}}, {**good, 'request': {'operation': 'day', 'date': '2026-03-29', 'url': 'https://invalid'}}]:
             with self.assertRaises(Exception):
                 worker_bridge.request(bad)
+    def test_group_bounds_are_validated_before_login(self):
+        for ids in [[],['1']*5,['1','1'],['../private'],[{}]]:
+            with self.assertRaises(Exception):worker_bridge.request({'request':{'operation':'extract_many','providerActivityIds':ids},'session':SESSION})
+        operation,_=worker_bridge.request({'request':{'operation':'extract_many','providerActivityIds':['1','2']},'session':SESSION})
+        self.assertEqual(operation['providerActivityIds'],['1','2'])
+
+    def test_group_keeps_successes_and_stops_after_rate_limit(self):
+        from pathlib import Path
+        import activity_bridge
+        with patch.object(activity_bridge,'extract',side_effect=[{'folder':Path('/private/synthetic'),'bundle':{}},worker_bridge.ExtractionError('GARMIN_RATE_LIMITED_RETRY_LATER')]) as extract:
+            result=activity_bridge.execute({'operation':'extract_many','providerActivityIds':['1','2','3','4']},object())
+        self.assertEqual(extract.call_count,2)
+        self.assertIn('result',result['items'][0])
+        self.assertTrue(all(row['error']=='GARMIN_RATE_LIMITED_RETRY_LATER' for row in result['items'][1:]))
+
     def test_private_protocol_returns_rotated_session_on_success_and_operation_failure(self):
         for fail in [False, True]:
             output = io.BytesIO()

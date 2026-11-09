@@ -15,3 +15,5 @@ export * from './running-efforts.js';
 export * from './performance-matching.js';
 export * from './rule-guide.js';
 export * from './swim-lengths.js';
+export * from './garmin-connect.js';
+export * from './garmin-connect-swim.js';

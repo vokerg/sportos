@@ -48,7 +48,7 @@ it('explicit cached Garmin processing, including day reuse, projects only the re
  const primary={withAccount:vi.fn(async (_:string,fn:(db:unknown)=>unknown)=>fn({selectFrom:()=>query}))};
  const detail={withAccount:vi.fn(async (_:string,fn:(db:unknown)=>unknown)=>fn({}))};
  const efforts={project:vi.fn().mockResolvedValue([])};
- const retention=new GarminLocalIngestService(primary as never,detail as never,{} as never,{} as never,efforts as never);
+ const retention=new GarminLocalIngestService(primary as never,detail as never,{} as never,{project:vi.fn().mockResolvedValue([])} as never,efforts as never);
  vi.spyOn(GarminActivityResourcesRepository.prototype,'coverage').mockResolvedValue([]);
  vi.spyOn(GarminActivityResourcesRepository.prototype,'read').mockResolvedValue({payload:{}});
  vi.spyOn(retention as unknown as {coverageComplete:()=>boolean},'coverageComplete').mockReturnValue(true);

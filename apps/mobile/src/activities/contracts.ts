@@ -16,7 +16,7 @@ export interface Activity {
 export interface ActivityList { items: Activity[]; count: number; limit: number; offset: number }
 export interface EffortProvider {
   provider: Provider; state: string;
-  efforts: Array<{targetDistanceM:number;method:'summary_estimate'|'stream_calculated'|'fit_calculated';
+  efforts: Array<{targetDistanceM:number;method:'summary_estimate'|'stream_calculated'|'fit_calculated'|'json_calculated';
     status:'estimated'|'calculated'|'unavailable';durationS:number|null}>;
 }
 export interface MetricComparison { key:string;label:string;unit:string;value:number;source:string }

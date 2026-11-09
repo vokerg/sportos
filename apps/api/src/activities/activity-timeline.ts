@@ -1,3 +1,4 @@
+import { connectChart } from '@sportos/domain';
 /** Presentation-only telemetry; never used for canonical facts or scoring. */
 export type TimelineSource = 'strava' | 'garmin';
 export interface TimelineMetric {
@@ -129,4 +130,19 @@ export function garminTimeline(messages: unknown[], swimming = false): ActivityT
     for (const [key] of definitions) values[key]!.push(row[key]);
   }
   return finish('garmin', times, values, swimming);
+}
+
+/** Native Connect metric arrays, already decoded by Garmin. */
+export function garminConnectTimeline(detail:unknown,swimming=false):ActivityTimeline {
+ const chart=connectChart(detail);
+ if(!chart)return unavailableTimeline('garmin','incomplete_json_chart');
+ const start=chart.directTimestamp![0]!;
+ const times=chart.directTimestamp!.map(t=>(t!-start)/1000);
+ const values:Record<string,unknown[]>={};
+ const fields:Record<string,[string,number]>={pace:['directSpeed',1],speed:['directSpeed',1],heartRate:['directHeartRate',1],power:['directPower',1],cadence:['directBikeCadence',1],elevation:['directElevation',1],temperature:['directTemperature',1],distance:['sumDistance',1],groundContact:['directGroundContactTime',1],verticalOscillation:['directVerticalOscillation',10]};
+ for(const [key,[native,factor]] of Object.entries(fields))if(chart[native])values[key]=chart[native]!.map(v=>v===null?null:v*factor);
+ // The established timeline cadence dimension is rpm. Native run cadence is
+ // steps/min; convert explicitly to strides/min for that existing chart only.
+ if(chart.directRunCadence)values.cadence=chart.directRunCadence.map(v=>v===null?null:v/2);
+ return finish('garmin',times,values,swimming);
 }

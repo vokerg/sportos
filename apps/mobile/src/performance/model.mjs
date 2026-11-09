@@ -17,7 +17,7 @@ export function projectLeaderboard(raw){
   if(!count(raw.coverage?.[k]))return fail();coverage[k]=raw.coverage[k];
  }
  const rows=raw.rows.map(r=>{
-  if(typeof r.id!=='string'||r.id.length>150||!isCalendarDate(r.date)||!positive(r.durationS)||!count(r.rank)||r.rank<1||!['excel','strava','garmin'].includes(r.source)||!['historical_excel','moving_flags','timer_events'].includes(r.pausePolicy)
+  if(typeof r.id!=='string'||r.id.length>150||!isCalendarDate(r.date)||!positive(r.durationS)||!count(r.rank)||r.rank<1||!['excel','strava','garmin'].includes(r.source)||!['historical_excel','moving_flags','timer_events','cumulative_timer'].includes(r.pausePolicy)
     ||(r.activityId!==null&&!uuid(r.activityId))||(r.eventId!==null&&!uuid(r.eventId))||!count(r.alternativeCount)||!Array.isArray(r.alternatives)||r.alternatives.length>20)return fail();
   return {id:r.id,date:r.date,durationS:r.durationS,rank:r.rank,source:r.source,pausePolicy:r.pausePolicy,activityId:r.activityId,eventId:r.eventId,alternativeCount:r.alternativeCount,
    alternatives:r.alternatives.map(a=>{if(!positive(a.durationS)||!['excel','strava','garmin'].includes(a.source)||(a.eventId!==null&&!uuid(a.eventId)))return fail();return {source:a.source,durationS:a.durationS,eventId:a.eventId};})};

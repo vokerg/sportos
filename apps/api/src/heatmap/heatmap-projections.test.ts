@@ -56,7 +56,7 @@ describe('batch retained heatmap geometry',()=>{
     expect(upgrades.get(id)).toMatchObject({status:'available',source:'strava',resolution:'streams',
       geometry:{type:'MultiLineString',coordinates:[[[12,55],[12.01,55.01]],[[13,56],[13.01,56.01]]]}});
     const page=assembleHeatmapRoutes([strava],false,1,upgrades);
-    expect(page.coverage.quality).toEqual({summary:0,streams:1,detail:0,fit:0});
+    expect(page.coverage.quality).toEqual({summary:0,streams:1,detail:0,fit:0,json:0});
   });
   it.each([
     ['stale projection',{state:'stale'} as object,{} as object,{} as object],
@@ -79,14 +79,14 @@ describe('batch retained heatmap geometry',()=>{
     expect(page.items.every(item=>item.resolution==='summary')).toBe(true);
     expect(page.coverage.quality.streams).toBe(0);
   });
-  it('allows current retained Garmin FIT only without any available Strava link',async()=>{
-    const fit={...stored,provider:'garmin',resolution:'fit',source_ref:'native:garmin',source_version:garminVersion};
+  it.each(['fit','json'] as const)('allows retained Garmin %s only without any Strava link',async(resolution)=>{
+    const fit={...stored,provider:'garmin',resolution,source_ref:'native:garmin',source_version:garminVersion};
     const mocks=mockData([fit],[],[{identityKey:'native:garmin',sourceHash:garminVersion}]);
     const route=await readHeatmapProjectionUpgrades(owner,[garmin],fakeDetail());
-    expect(route.get(id)).toMatchObject({status:'available',source:'garmin',resolution:'fit'});
+    expect(route.get(id)).toMatchObject({status:'available',source:'garmin',resolution});
     expect(mocks.metadataMany).toHaveBeenCalledWith([]);
     expect(mocks.fits).toHaveBeenCalledWith([{identityKey:'native:garmin',sourceHash:garminVersion}]);
-    expect(assembleHeatmapRoutes([garmin],false,1,route).coverage.quality.fit).toBe(1);
+    expect(assembleHeatmapRoutes([garmin],false,1,route).coverage.quality[resolution]).toBe(1);
   });
   it('rejects tempting Garmin FIT if Strava identity exists, even without valid summary',async()=>{
     const fit={...stored,provider:'garmin',resolution:'fit',source_ref:'native:garmin',source_version:garminVersion};

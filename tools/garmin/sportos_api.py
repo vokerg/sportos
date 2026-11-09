@@ -61,7 +61,9 @@ class SportOSApi:
             if len(data) > 4_000_000:
                 raise ExtractionError('RESOURCE_ENVELOPE_TOO_LARGE')
             self.request('POST', '/garmin/local/resource', files={'file': ('resource.json', data, 'application/json')})
-        original = bundle['original']
+        original = bundle.get('original')
+        if not original:
+            return self.request('POST', '/garmin/local/commit', json=snapshot)
         with (folder / original['file']).open('rb') as stream:
             self.request('POST', '/garmin/local/original', files={'file': ('activity.' + original['file'].split('.')[-1], stream, 'application/octet-stream')}, data={'snapshot': json.dumps(snapshot), 'resources': json.dumps([{'resourceType': item['resourceType'], 'chunkIndex': item['chunkIndex']} for item in bundle['resources']])})
         return self.request('POST', '/garmin/local/commit', json=snapshot)

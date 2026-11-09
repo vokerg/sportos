@@ -39,7 +39,7 @@ describe('HeatmapStore', () => {
     expect(store.state()).toBe('ready');
     expect(store.dataset()?.routes).toBe(2);
     expect(store.coverage()).toEqual({eligibleScanned:3,usable:2,missingGps:1,invalidGeometry:0,budgetExceeded:0,
-      quality:{summary:2,streams:0,detail:0,fit:0}});
+      quality:{summary:2,streams:0,detail:0,fit:0,json:0}});
     expect(store.pagesLoaded()).toBe(2);
   });
   it('unsubscribes stale pages when filters change and ignores a late response', () => {
@@ -105,7 +105,7 @@ describe('HeatmapStore', () => {
     }));
     store.load({});
     expect(store.state()).toBe('ready');
-    expect(store.coverage().quality).toEqual({summary:0,streams:1,detail:0,fit:1});
+    expect(store.coverage().quality).toEqual({summary:0,streams:1,detail:0,fit:1,json:0});
     expect(store.dataset()?.geojson.features.some(feature => feature.geometry.type === 'MultiLineString')).toBe(true);
   });
   it('rejects malformed quality totals from the API', () => {
