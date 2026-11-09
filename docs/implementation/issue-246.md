@@ -34,8 +34,8 @@ Optional absent sensors never independently cause FIT. Native total-work units
 remain unmapped and the optional gap is visible. Full matrix/backend permission
 checks do not imply every Garmin device/sensor combination has been live-tested.
 
-The issue remains open pending an explicitly authorized merge. No deployment or
-merge was performed.
+PR #247 was subsequently squash-merged with maintainer authorization, and #246
+was closed. No deployment was performed as part of that merge.
 
 ## Actual inspected files
 

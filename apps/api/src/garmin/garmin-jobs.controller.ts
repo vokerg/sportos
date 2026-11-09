@@ -8,6 +8,8 @@ import {GarminJobsService} from './garmin-jobs.service.js';
 export class GarminJobsController{
  constructor(private jobs:GarminJobsService){}
  @Get('connection') capability(@CurrentAccount() account?:AuthenticatedAccount){return this.jobs.capability(account?.id??LEGACY_ACCOUNT_ID)}
+ @Post('sync') @HttpCode(202)
+ sync(@Body() body:unknown,@CurrentAccount() account?:AuthenticatedAccount){if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length)throw new BadRequestException('An empty Garmin sync action is required.');return this.jobs.enqueue(account?.id??LEGACY_ACCOUNT_ID,{operation:'sync'})}
  @Get('jobs/:id') get(@Param('id') id:string,@CurrentAccount() account?:AuthenticatedAccount){assertUuid(id,'INVALID_JOB_ID');return this.jobs.get(account?.id??LEGACY_ACCOUNT_ID,id)}
  @Post('jobs/:id/cancel') @HttpCode(202)
  cancel(@Param('id') id:string,@Body() body:unknown,@CurrentAccount() account?:AuthenticatedAccount){this.validate(id,body);return this.jobs.cancel(account?.id??LEGACY_ACCOUNT_ID,id)}

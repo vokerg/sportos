@@ -8,7 +8,7 @@ it('enqueues owner-bound day work without a helper and validates the connection 
  vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-28T23:30:00Z'));
  const scoped=vi.fn(async(_owner:string,fn:(db:unknown)=>Promise<unknown>)=>fn({}));
  const subject=new GarminJobsService({withAccount:scoped} as never);
- vi.spyOn(GarminJobsRepository.prototype,'capability').mockResolvedValue({enabled:true,reason:'ready',connectionId:'synthetic',timeZone:'Europe/Copenhagen'});
+ vi.spyOn(GarminJobsRepository.prototype,'capability').mockResolvedValue({enabled:true,reason:'ready',connectionId:'synthetic',timeZone:'Europe/Copenhagen',cursor:null});
  vi.spyOn(GarminJobsRepository.prototype,'active').mockResolvedValue(null);
  const enqueue=vi.spyOn(GarminJobsRepository.prototype,'enqueue').mockResolvedValue({id:'synthetic'} as never);
  await subject.enqueue(owner,{operation:'day',date:'2026-10-29',refresh:true});expect(enqueue).toHaveBeenCalledWith({operation:'day',date:'2026-10-29',refresh:true});expect(scoped.mock.calls.every(([id])=>id===owner)).toBe(true);
@@ -25,4 +25,10 @@ it('maps missing and foreign jobs to the same generic result',async()=>{
  vi.spyOn(GarminJobsRepository.prototype,'get').mockResolvedValue(null);
  const subject=new GarminJobsService({withAccount:async(_owner:string,fn:(db:unknown)=>unknown)=>fn({})} as never);
  await expect(subject.get(owner,owner)).rejects.toMatchObject({status:404,message:'Garmin job was not found.'});
+});
+it('accepts only empty general sync input and derives its owner and date window server-side',()=>{
+ const jobs={enqueue:vi.fn()};const controller=new GarminJobsController(jobs as never);
+ controller.sync({}, {id:owner} as never);expect(jobs.enqueue).toHaveBeenCalledWith(owner,{operation:'sync'});
+ for(const body of [{from:'2000-01-01'},{cursor:'today'},{ownerId:owner},null,[]])expect(()=>controller.sync(body,{id:owner} as never)).toThrow();
+ expect(jobs.enqueue).toHaveBeenCalledTimes(1);
 });

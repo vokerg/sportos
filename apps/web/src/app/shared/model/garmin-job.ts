@@ -1,11 +1,12 @@
 /** Public owner-scoped job metadata. No credentials, sources or lease internals. */
 export interface GarminFetchJob {
- id:string;operation:'day'|'activity';date:string|null;activityId:string|null;refresh:boolean;
+ id:string;operation:'day'|'activity'|'sync';date:string|null;activityId:string|null;refresh:boolean;from?:string|null;to?:string|null;nextDate?:string|null;processedDays?:number;totalDays?:number;
  status:'queued'|'running'|'succeeded'|'failed'|'cancelled';phase:string;attemptCount:number;errorCode:string|null;
 }
 export const activeGarminJob=(job:GarminFetchJob|null|undefined)=>job?.status==='queued'||job?.status==='running';
 export const terminalGarminJob=(job:GarminFetchJob)=>!activeGarminJob(job);
 export function garminJobMessage(job:GarminFetchJob):string{
+ if(job.operation==='sync'&&job.status==='succeeded')return 'Garmin sync finished. Daily evidence is up to date; scores change only with Recalculate.';
  if(job.status==='succeeded')return 'Garmin updated. Use Recalculate to update daily totals and score.';
  if(job.status==='cancelled')return 'Garmin request cancelled. Previously retained evidence is safe.';
  if(job.errorCode==='GARMIN_REAUTHORIZATION_REQUIRED')return 'Reconnect Garmin to try again.';

@@ -1,3 +1,4 @@
+import {GarminSyncCard} from './GarminSyncCard';
 import React,{useCallback,useState} from 'react';
 import {useFocusEffect} from '@react-navigation/native';
 import {useSession} from '../auth/SessionProvider';
@@ -66,6 +67,7 @@ export function ProvidersScreen(){
   {error?<StatusPanel kind="error" message={error} retry={load}/>:null}
   {data?.length===0?<Card title="No Strava connection"><Body>Connect Strava through the SportOS website first, then refresh this screen.</Body></Card>:null}
   {data?.map(c=><StravaConnectionCard key={c.id+':'+c.status} connection={c}/>)}
+  <GarminSyncCard />
   <Action title="Refresh connections" secondary disabled={busy} onPress={load}/>
  </Screen>;
 }

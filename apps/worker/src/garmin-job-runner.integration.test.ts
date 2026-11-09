@@ -46,6 +46,61 @@ integration('Garmin queue through non-owner API, dispatcher and worker-data role
   const credentials=await scoped(data,owner,repo=>repo.credential(connection));expect(cipher.decrypt(owner,connection,credentials!.envelope_json as unknown as CredentialEnvelope).di_token).toBe('synthetic-rotated');
   expect(await scoped(data,other,repo=>repo.credential(connection))).toBeUndefined();expect(await official()).toEqual(before);
  });
+ it('syncs from the two-day seed, checkpoints each day, refreshes again today and advances only on a newer successful date',async()=>{
+  const account=(await app.insertInto('accounts').values({display_name:'Synthetic cursor',status:'active'}).returning('id').executeTakeFirstOrThrow()).id;
+  await scoped(data,account,repo=>repo.importSession(id=>cipher.encrypt(account,id,session) as unknown as Json,'Europe/Copenhagen'));
+  let payload:Json={};const calls:{date:string;categories:string[]}[]=[];
+  vi.spyOn(GarminDayService.prototype,'localPayload').mockImplementation(async()=>payload);
+  const bridge:GarminBridge={call:async request=>{
+   const input=request as {date:string;categories:string[]};calls.push(input);payload={calendarDate:input.date,totalSteps:100+calls.length};
+   return {schema:'sportos.garmin-day.v1',date:input.date,categories:input.categories.map(category=>category==='summary'?{category,state:'available',sourceHash:createHash('sha256').update(JSON.stringify(payload)).digest('hex'),byteSize:100}:{category,state:'unsupported'})};
+  }};
+  const initial=await scoped(app,account,repo=>repo.capability());expect(initial.cursor?.completed).toBe(false);
+  const job=await scoped(app,account,repo=>repo.enqueue({operation:'sync'}));expect(job.totalDays).toBe(3);expect(job.from).toBe(initial.cursor?.date);
+  expect((await scoped(app,account,repo=>repo.enqueue({operation:'sync'}))).id).toBe(job.id);
+  for(let i=0;i<3;i++){
+   const claim=await discovery().claim('cursor-worker');expect(claim?.id).toBe(job.id);await runner('cursor-worker',bridge).process(claim!);
+   expect(await scoped(app,account,repo=>repo.get(job.id))).toMatchObject({processedDays:i+1,status:i===2?'succeeded':'queued'});
+  }
+  expect(calls).toHaveLength(3);expect(calls.every(call=>call.categories.length===8)).toBe(true);
+  const after=await scoped(app,account,repo=>repo.capability());expect(after.cursor).toMatchObject({date:job.to,completed:true});
+  const again=await scoped(app,account,repo=>repo.enqueue({operation:'sync'}));expect(again.id).not.toBe(job.id);expect(again.from).toBe(job.to);expect(again.totalDays).toBe(1);
+  await runner('cursor-worker',bridge).process((await discovery().claim('cursor-worker'))!);
+  expect((await scoped(app,account,repo=>repo.capability())).cursor).toEqual(after.cursor);expect(calls).toHaveLength(4);expect(calls[3]?.categories).toHaveLength(8);
+  const older=await scoped(app,account,repo=>repo.enqueue({operation:'day',date:job.from!,refresh:true}));await runner('cursor-worker',bridge).process((await discovery().claim('cursor-worker'))!);
+  expect((await scoped(app,account,repo=>repo.get(older.id)))?.status).toBe('succeeded');expect((await scoped(app,account,repo=>repo.capability())).cursor).toEqual(after.cursor);
+  await expect(withAccountContext(app,account,db=>db.updateTable('garmin_connections').set({sync_cursor_date:'2099-01-01'}).execute())).rejects.toThrow(/permission denied/);
+  expect((await scoped(app,other,repo=>repo.capability())).cursor).toBeNull();
+ });
+ it('refreshes the cursor day inclusively after an evening checkpoint, retaining its late steps before today',async()=>{
+  const account=(await app.insertInto('accounts').values({display_name:'Synthetic late steps',status:'active'}).returning('id').executeTakeFirstOrThrow()).id;
+  const connectionId=await scoped(data,account,repo=>repo.importSession(id=>cipher.encrypt(account,id,session) as unknown as Json,'Europe/Copenhagen'));
+  await withAccountContext(data,account,db=>sql`update garmin_connections set sync_cursor_date=(now() at time zone time_zone)::date-1, sync_cursor_at=(((now() at time zone time_zone)::date-1)+time '19:00') at time zone time_zone, sync_cursor_completed=true where id=${connectionId}`.execute(db));
+  const before=(await scoped(app,account,repo=>repo.capability())).cursor!;
+  const job=await scoped(app,account,repo=>repo.enqueue({operation:'sync'}));expect(job.from).toBe(before.date);expect(job.totalDays).toBe(2);expect(job.refresh).toBe(true);
+  let payload:Json={};const dates:string[]=[];
+  vi.spyOn(GarminDayService.prototype,'localPayload').mockImplementation(async()=>payload);
+  const bridge:GarminBridge={call:async request=>{const input=request as {date:string;categories:string[]};expect(input.categories).toHaveLength(8);dates.push(input.date);payload={calendarDate:input.date,totalSteps:4321};return {schema:'sportos.garmin-day.v1',date:input.date,categories:input.categories.map(category=>category==='summary'?{category,state:'available',sourceHash:createHash('sha256').update(JSON.stringify(payload)).digest('hex'),byteSize:100}:{category,state:'unsupported'})}}};
+  await runner('late-steps',bridge).process((await discovery().claim('late-steps'))!);
+  expect((await scoped(app,account,repo=>repo.capability())).cursor).toEqual(before);
+  expect(await withAccountContext(app,account,db=>db.selectFrom('garmin_day_versions').select('projection_json').where('calendar_date','=',before.date).where('category','=','summary').execute())).toEqual([expect.objectContaining({projection_json:expect.objectContaining({steps:4321})})]);
+  await runner('late-steps',bridge).process((await discovery().claim('late-steps'))!);expect(dates).toEqual([before.date,job.to]);
+  expect((await scoped(app,account,repo=>repo.capability())).cursor?.date).toBe(job.to);
+ });
+ it('allows an explicit newer day to skip the initial backlog, while failures and cancellation leave the cursor unchanged',async()=>{
+  const account=(await app.insertInto('accounts').values({display_name:'Synthetic cursor skip',status:'active'}).returning('id').executeTakeFirstOrThrow()).id;
+  await scoped(data,account,repo=>repo.importSession(id=>cipher.encrypt(account,id,session) as unknown as Json,'Europe/Copenhagen'));
+  const initial=await scoped(app,account,repo=>repo.capability());
+  const target=await scoped(app,account,repo=>repo.enqueue({operation:'sync'}));
+  await runner('failed-cursor',{call:async()=>{throw new Error('GARMIN_PARTIAL_FAILURE')}}).process((await discovery().claim('failed-cursor'))!);
+  expect((await scoped(app,account,repo=>repo.capability())).cursor).toEqual(initial.cursor);
+  const cancelled=await scoped(app,account,repo=>repo.enqueue({operation:'sync'}));const claim=await discovery().claim('cancel-cursor');await scoped(app,account,repo=>repo.cancel(cancelled.id));await runner('cancel-cursor',{call:vi.fn()}).process(claim!);
+  expect((await scoped(app,account,repo=>repo.capability())).cursor).toEqual(initial.cursor);
+  const newer=await scoped(app,account,repo=>repo.enqueue({operation:'day',date:target.to!,refresh:true}));
+  await runner('skip-cursor',{call:async request=>{const input=request as {date:string;categories:string[]};return {schema:'sportos.garmin-day.v1',date:input.date,categories:input.categories.map(category=>({category,state:'unsupported'}))}}}).process((await discovery().claim('skip-cursor'))!);
+  expect((await scoped(app,account,repo=>repo.get(newer.id)))?.status).toBe('succeeded');expect((await scoped(app,account,repo=>repo.capability())).cursor?.date).toBe(target.to);
+  const next=await scoped(app,account,repo=>repo.enqueue({operation:'sync'}));expect(next.from).toBe(target.to);await scoped(app,account,repo=>repo.cancel(next.id));await discovery().claim('cleanup-cursor');
+ });
  it('denies API/dispatcher credential reads and dispatcher primary/detail source access',async()=>{
   await expect(app.selectFrom('garmin_credentials').selectAll().execute()).rejects.toThrow(/permission denied/);
   for(const table of ['garmin_credentials','garmin_connections','garmin_day_versions','garmin_activity_identities'] as const)await expect(dispatch.selectFrom(table).selectAll().execute()).rejects.toThrow(/permission denied/);

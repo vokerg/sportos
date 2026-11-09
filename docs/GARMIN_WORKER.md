@@ -6,14 +6,14 @@ helper, retains originals and projects/reconciles evidence. API and worker may r
 on different machines. Neither the phone nor hosted API needs an inbound
 connection to the worker, a Python installation, or local Garmin token files.
 
-This supports targeted day/activity requests, not archive import or automatic
-scoring. Recalculate remains an explicit retained-data-only operation. GETs do not
+This supports targeted day/activity requests and explicit incremental day sync.
+It does not implement archive import or automatic scoring. Recalculate remains an explicit retained-data-only operation. GETs do not
 start provider downloads. Strava remains authoritative for its canonical metrics;
 Garmin matching, walking policy and immutable source history are unchanged.
 
 ## Setup
 
-Apply primary Flyway V143–V144 and separate detail V005–V006. The detail database
+Apply primary Flyway through V147 and separate detail through V007. The detail database
 requires a dedicated non-owner worker login with membership in
 `sportos_worker_data`. V006 grants database CONNECT; table grants alone are
 insufficient because V001 revoked PUBLIC connection access. Never use the API or
@@ -96,7 +96,10 @@ reimporting an old file is not a substitute for reconnecting.
 
 ## API and clients
 
-- `GET /garmin/connection`: current account capability and active job metadata.
+- `GET /garmin/connection`: current account capability, date/time cursor and active
+  job metadata.
+- `POST /garmin/sync`: enqueue an inclusive cursor-day-through-today refresh. Empty
+  body; the server derives the range from the connection calendar and cursor.
 - `POST /daily/:date/garmin` and `POST /activities/:id/garmin-detail`: return HTTP
   202 with public job metadata; body permits only `refresh`.
 - `GET /garmin/jobs/:id`: owner-scoped status.
@@ -119,8 +122,29 @@ lease holder may publish primary/detail/blob results; repository-owned transacti
 compose with the worker's fencing transaction. Immutable auxiliary retention may
 safely outlive an interrupted cross-database publication.
 
+The **Sync Garmin** control is on web Overview and native Home, and on both
+Providers screens. Navigation reads capability only. A fresh connection or V147
+upgrade seeds the cursor at midnight two calendar days ago in its Garmin time
+zone. General sync refreshes all eight day categories, including activities, in
+calendar order **including the cursor day**. A last refresh yesterday at 19:00
+therefore re-fetches yesterday's final steps and late uploads before today.
+The end date is fixed when queued; a new click after midnight includes the new day.
+
+Each day is a separate fenced worker claim. Its successful completion atomically
+checkpoints the next job date and advances the connection cursor only if the day
+is newer (or it completes the initial unprocessed seed). The cursor timestamp is
+the worker completion time for that new day. Re-fetching an already processed day
+leaves both cursor fields unchanged. Explicitly fetching a newer day may skip
+older backlog by maintainer policy. Failure, cancellation and lost leases do not
+checkpoint the affected day; earlier successful days remain retained/checkpointed.
+Retry starts a new inclusive window from the current cursor. Active duplicate sync
+clicks return one job; after completion another click creates a fresh refresh,
+even on the same day. There is no once-per-day gate. The server bounds a job to
+3,661 days. No browser date, owner or cursor is accepted on the sync endpoint.
+
 Web and native submit jobs and poll status, then reload retained day/activity data.
-Web uses the shared durable-job poller, capped at 120 checks/10 minutes. Native
+Web uses the shared durable-job poller, capped at 120 checks/10 minutes for
+targeted fetches or 200 checks/10 minutes for general sync. Native
 checks at most 24 times over two minutes. Both offer manual continuation,
 cancellation and retry. Screen teardown stops transport/polling, not the server
 job. Reopening discovers active work. Navigation never enqueues a new fetch.
@@ -133,7 +157,8 @@ and populated upgrades for both databases, verifies retained fixture survival an
 CONNECT grants, and executes the non-owner worker suite. CI runs this without
 private database secrets. The normal Neon migration/role gates remain in place.
 
-Implementation and sanitized live validation: [issue 226](implementation/issue-226.md).
+Implementation and sanitized live validation: [issue 226](implementation/issue-226.md)
+and [cursor sync #248](implementation/issue-248.md).
 
 ## GCP hosting
 

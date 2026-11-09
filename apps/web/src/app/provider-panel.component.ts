@@ -1,3 +1,4 @@
+import {GarminSyncControlComponent} from './features/providers';
 import { Component, OnInit } from '@angular/core';
 import { formatDateTime } from './date-time';
 import { ProviderStore } from './features/providers/state/provider.store';
@@ -5,6 +6,7 @@ import { ProviderStore } from './features/providers/state/provider.store';
 @Component({
   selector: 'sportos-provider-panel',
   standalone: true,
+  imports:[GarminSyncControlComponent],
   providers: [ProviderStore],
   template: `
     <section class="card" aria-labelledby="providers-title">
@@ -17,7 +19,7 @@ import { ProviderStore } from './features/providers/state/provider.store';
         <p class="state-message error" role="alert">{{ store.errorMessage() }}</p>
         <button type="button" class="secondary" (click)="store.load()">Retry</button>
       } @else if (!store.connection()) {
-        <p>No provider is connected.</p>
+        <p>Strava is not connected.</p>
         <button type="button" (click)="connect()" [disabled]="store.state() === 'working'">Connect Strava</button>
       } @else {
         <div class="provider-summary">
@@ -54,6 +56,7 @@ import { ProviderStore } from './features/providers/state/provider.store';
           </div>
         }
       }
+      <h3>Garmin</h3><sportos-garmin-sync-control [detailed]="true" />
     </section>
   `,
   styles: [`

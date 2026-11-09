@@ -256,6 +256,17 @@ The Daily Log implementation is the reference pattern for migrating an existing 
 
 The Daily store consumes `features/daily/data-access/daily-api.service.ts` for summary transport, the transitional focused `ScoreBreakdownApiService`, and the root `ProviderApiService` compatibility export that now forwards to `features/providers/data-access/`. Do not use compatibility exports or focused transitional clients as precedent for a new catch-all service. The reusable pattern is the route-scoped state boundary and the page -> state -> feature data-access dependency direction.
 
+### Reusable Garmin sync control
+
+`features/providers/index.ts` exports `GarminSyncControlComponent` for shell-level
+Overview/Providers composition. Each instance provides `GarminSyncStore`, which
+owns capability recovery, submit/cancel/retry state, stale-response protection
+and bounded polling through the core job poller. Transport stays in the feature's
+`data-access/garmin-sync-api.service.ts`; pages never select cursor dates or
+calculate progress. The Overview completion output refreshes its canonical list
+without recalculating scores. Native Home/Providers reuse `GarminSyncCard` and the
+existing abortable operation/job tracking infrastructure.
+
 ### Providers and Imports feature-state reference
 
 Issue #78 establishes the same orchestration boundary for the provider and import workflows:
