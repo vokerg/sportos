@@ -8,7 +8,7 @@ it('enqueues owner-bound day work without a helper and validates the connection 
  vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-28T23:30:00Z'));
  const scoped=vi.fn(async(_owner:string,fn:(db:unknown)=>Promise<unknown>)=>fn({}));
  const subject=new GarminJobsService({withAccount:scoped} as never);
- vi.spyOn(GarminJobsRepository.prototype,'capability').mockResolvedValue({enabled:true,reason:'ready',connectionId:'synthetic',timeZone:'Europe/Copenhagen'});
+ vi.spyOn(GarminJobsRepository.prototype,'capability').mockResolvedValue({enabled:true,reason:'ready',connectionId:'synthetic',timeZone:'Europe/Copenhagen',cursor:null});
  vi.spyOn(GarminJobsRepository.prototype,'active').mockResolvedValue(null);
  const enqueue=vi.spyOn(GarminJobsRepository.prototype,'enqueue').mockResolvedValue({id:'synthetic'} as never);
  await subject.enqueue(owner,{operation:'day',date:'2026-10-29',refresh:true});expect(enqueue).toHaveBeenCalledWith({operation:'day',date:'2026-10-29',refresh:true});expect(scoped.mock.calls.every(([id])=>id===owner)).toBe(true);

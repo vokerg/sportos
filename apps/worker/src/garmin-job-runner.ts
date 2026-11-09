@@ -89,7 +89,7 @@ export class GarminJobRunner{
    const runner=this;
    const enrichment=new Enrichment(primary,detail,storage,{isDevelopmentMode:()=>false},{status:async()=>({})},undefined,undefined,routes);
    stage='execution';
-   const result=job.operation==='day'?await new GarminDayService(primary,detail,storage,enrichment,credentials.time_zone).fetch({id:job.owner_id},job.calendar_date!,job.refresh,controller.signal):await enrichment.fetch({id:job.owner_id},job.activity_id!,job.refresh);
+   const result=job.operation==='day'||job.operation==='sync'?await new GarminDayService(primary,detail,storage,enrichment,credentials.time_zone).fetch({id:job.owner_id},job.operation==='sync'?job.sync_next_date!:job.calendar_date!,job.refresh,controller.signal):await enrichment.fetch({id:job.owner_id},job.activity_id!,job.refresh);
    const categories=(result as {categories?:Array<{state:string}>}).categories??[];
    if(categories.some(c=>c.state==='authentication_required'))throw new Error('GARMIN_REAUTHORIZATION_REQUIRED');
    if(categories.some(c=>c.state==='rate_limited'))throw new Error('GARMIN_RATE_LIMITED_RETRY_LATER');
@@ -111,6 +111,12 @@ export class GarminJobRunner{
  private finish(job:Claim,status:'succeeded'|'failed'|'cancelled'|'queued',code:string|null,rate=false){return withAccountContext(this.data,job.owner_id,db=>db.transaction().execute(async tx=>{
   const current=await assertGarminLease(tx,job.id,this.workerId,true);
   if(current.cancellation_requested_at)status='cancelled';
-  await tx.updateTable('garmin_jobs').set({status,phase:status==='queued'?(rate?'rate_limited':'queued'):status,error_code:code,lease_owner:null,lease_expires_at:null,attempt_count:rate||code==='GARMIN_WORKER_INTERRUPTED'?Math.max(current.attempt_count-1,0):current.attempt_count,next_attempt_at:rate?sql<Date>`now()+interval '15 minutes'`:status==='queued'?sql<Date>`now()+interval '5 seconds'`:new Date(),completed_at:status==='queued'?null:new Date(),updated_at:new Date()}).where('id','=',job.id).execute();
+  const checkpoint=status==='succeeded'&&(current.operation==='day'||current.operation==='sync');
+  const date=current.operation==='sync'?current.sync_next_date:current.calendar_date;
+  if(checkpoint)await new GarminJobsRepository(tx).advanceCursor(current.connection_id,date!);
+  const more=checkpoint&&current.operation==='sync'&&date!<current.sync_to!;
+  if(more)status='queued';
+  const nextDate=checkpoint&&current.operation==='sync'?new Date(Date.parse(date!+'T00:00:00Z')+86400000).toISOString().slice(0,10):null;
+  await tx.updateTable('garmin_jobs').set({...(nextDate?{sync_next_date:nextDate}:{}),status,phase:status==='queued'?(rate?'rate_limited':'queued'):status,error_code:code,lease_owner:null,lease_expires_at:null,attempt_count:more?0:rate||code==='GARMIN_WORKER_INTERRUPTED'?Math.max(current.attempt_count-1,0):current.attempt_count,next_attempt_at:more?new Date():rate?sql<Date>`now()+interval '15 minutes'`:status==='queued'?sql<Date>`now()+interval '5 seconds'`:new Date(),completed_at:status==='queued'?null:new Date(),updated_at:new Date()}).where('id','=',job.id).execute();
  }))}
 }

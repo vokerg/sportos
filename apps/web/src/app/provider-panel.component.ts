@@ -1,3 +1,4 @@
+import {GarminSyncControlComponent} from './features/providers';
 import { Component, OnInit } from '@angular/core';
 import { formatDateTime } from './date-time';
 import { ProviderStore } from './features/providers/state/provider.store';
@@ -5,6 +6,7 @@ import { ProviderStore } from './features/providers/state/provider.store';
 @Component({
   selector: 'sportos-provider-panel',
   standalone: true,
+  imports:[GarminSyncControlComponent],
   providers: [ProviderStore],
   template: `
     <section class="card" aria-labelledby="providers-title">
@@ -54,6 +56,7 @@ import { ProviderStore } from './features/providers/state/provider.store';
           </div>
         }
       }
+      <h3>Garmin</h3><sportos-garmin-sync-control [detailed]="true" />
     </section>
   `,
   styles: [`

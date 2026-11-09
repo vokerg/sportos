@@ -4,34 +4,36 @@ import {sql,type Kysely,type Selectable} from 'kysely';
 import type {Database,Json} from '../schema.js';
 import type {GarminJobsTable,GarminJob} from '../garmin-jobs-schema.js';
 type Row=Selectable<GarminJobsTable>;
-export type GarminTarget={operation:'day';date:string;refresh:boolean}|{operation:'activity';activityId:string;refresh:boolean};
+export type GarminTarget={operation:'sync'}|{operation:'day';date:string;refresh:boolean}|{operation:'activity';activityId:string;refresh:boolean};
 export class GarminQueueError extends Error{constructor(readonly code:'NOT_CONNECTED'|'WORKER_UNAVAILABLE'|'BUSY'|'NOT_FOUND'|'LEASE_LOST'){super(code)}}
-const publicJob=(r:Row):GarminJob=>({id:r.id,operation:r.operation,date:r.calendar_date,activityId:r.activity_id,refresh:r.refresh,status:r.status,phase:r.phase,attemptCount:r.attempt_count,errorCode:r.error_code,createdAt:r.created_at.toISOString(),updatedAt:r.updated_at.toISOString()});
+const publicJob=(r:Row):GarminJob=>({id:r.id,operation:r.operation,date:r.calendar_date,activityId:r.activity_id,refresh:r.refresh,...(r.operation==='sync'?{from:r.sync_from,to:r.sync_to,nextDate:r.sync_next_date,processedDays:days(r.sync_from!,r.sync_next_date!),totalDays:days(r.sync_from!,r.sync_to!)+1}:{}),status:r.status,phase:r.phase,attemptCount:r.attempt_count,errorCode:r.error_code,createdAt:r.created_at.toISOString(),updatedAt:r.updated_at.toISOString()});
 export class GarminJobsRepository{
  constructor(private db:Kysely<Database>){}
  async capability(){
-  const connection=await this.db.selectFrom('garmin_connections').select(['id','status','time_zone']).executeTakeFirst();
+  const connection=await this.db.selectFrom('garmin_connections').select(['id','status','time_zone','sync_cursor_date','sync_cursor_at','sync_cursor_completed']).executeTakeFirst();
   const worker=await this.db.selectFrom('garmin_worker_status').select('ready').where('ready','=',true).where('checked_at','>',sql<Date>`now()-interval '90 seconds'`).executeTakeFirst();
-  return {enabled:connection?.status==='ready'&&!!worker,reason:!connection?'not_connected':connection.status!=='ready'?'reauthorization_required':!worker?'worker_offline':'ready',connectionId:connection?.id??null,timeZone:connection?.time_zone??'UTC'};
+  return {enabled:connection?.status==='ready'&&!!worker,reason:!connection?'not_connected':connection.status!=='ready'?'reauthorization_required':!worker?'worker_offline':'ready',connectionId:connection?.id??null,timeZone:connection?.time_zone??'UTC',cursor:connection?{date:connection.sync_cursor_date,at:connection.sync_cursor_at.toISOString(),completed:connection.sync_cursor_completed}:null};
  }
  async active(){const row=await this.db.selectFrom('garmin_jobs').selectAll().where('status','in',['queued','running']).orderBy('created_at','desc').executeTakeFirst();return row?publicJob(row):null}
  async enqueue(target:GarminTarget):Promise<GarminJob>{return inRepositoryTransaction(this.db,async tx=>{
-  const connection=await tx.selectFrom('garmin_connections').select(['id','status','time_zone']).forUpdate().executeTakeFirst();
+  const connection=await tx.selectFrom('garmin_connections').select(['id','status','time_zone','sync_cursor_date','sync_cursor_at','sync_cursor_completed']).forUpdate().executeTakeFirst();
   if(!connection||connection.status!=='ready')throw new GarminQueueError('NOT_CONNECTED');
   if(target.operation==='activity'&&!await tx.selectFrom('activities').select('id').where('id','=',target.activityId).executeTakeFirst())throw new GarminQueueError('NOT_FOUND');
   const active=await tx.selectFrom('garmin_jobs').selectAll().where('connection_id','=',connection.id).where('status','in',['queued','running']).executeTakeFirst();
-  if(active){if(active.operation===target.operation&&(target.operation==='day'?String(active.calendar_date)===target.date:active.activity_id===target.activityId)&&active.refresh===target.refresh)return publicJob(active);throw new GarminQueueError('BUSY')}
+  if(active){if(active.operation===target.operation&&(target.operation==='sync'||(target.operation==='day'?String(active.calendar_date)===target.date:active.activity_id===target.activityId)&&active.refresh===target.refresh))return publicJob(active);throw new GarminQueueError('BUSY')}
   if(!(await new GarminJobsRepository(tx).capability()).enabled)throw new GarminQueueError('WORKER_UNAVAILABLE');
-  return publicJob(await tx.insertInto('garmin_jobs').values({connection_id:connection.id,operation:target.operation,calendar_date:target.operation==='day'?target.date:null,activity_id:target.operation==='activity'?target.activityId:null,refresh:target.refresh,lease_owner:null,lease_expires_at:null,cancellation_requested_at:null,error_code:null,completed_at:null}).returningAll().executeTakeFirstOrThrow());
+  const today=(await sql<{today:string}>`select (now() AT TIME ZONE ${connection.time_zone})::date::text as today`.execute(tx)).rows[0]!.today;
+  const from=connection.sync_cursor_date<today?connection.sync_cursor_date:today;
+  return publicJob(await tx.insertInto('garmin_jobs').values({connection_id:connection.id,operation:target.operation,calendar_date:target.operation==='day'?target.date:null,activity_id:target.operation==='activity'?target.activityId:null,refresh:target.operation==='sync'?true:target.refresh,sync_from:target.operation==='sync'?from:null,sync_to:target.operation==='sync'?today:null,sync_next_date:target.operation==='sync'?from:null,lease_owner:null,lease_expires_at:null,cancellation_requested_at:null,error_code:null,completed_at:null}).returningAll().executeTakeFirstOrThrow());
  })}
  async get(id:string){const r=await this.db.selectFrom('garmin_jobs').selectAll().where('id','=',id).executeTakeFirst();return r?publicJob(r):null}
  async cancel(id:string){await this.db.updateTable('garmin_jobs').set({cancellation_requested_at:new Date(),updated_at:new Date()}).where('id','=',id).where('status','in',['queued','running']).execute();return this.get(id)}
- async retry(id:string){const r=await this.get(id);if(!r)return null;if(!['failed','cancelled'].includes(r.status))throw new GarminQueueError('BUSY');return this.enqueue(r.operation==='day'?{operation:'day',date:r.date!,refresh:r.refresh}:{operation:'activity',activityId:r.activityId!,refresh:r.refresh})}
+ async retry(id:string){const r=await this.get(id);if(!r)return null;if(!['failed','cancelled'].includes(r.status))throw new GarminQueueError('BUSY');return this.enqueue(r.operation==='sync'?{operation:'sync'}:r.operation==='day'?{operation:'day',date:r.date!,refresh:r.refresh}:{operation:'activity',activityId:r.activityId!,refresh:r.refresh})}
  /** Only used with the owner-scoped worker-data role by a trusted operator. */
  async importSession(encrypt:(connectionId:string)=>Json,timeZone='UTC'){return inRepositoryTransaction(this.db,async tx=>{
   let c=await tx.selectFrom('garmin_connections').selectAll().forUpdate().executeTakeFirst();
   if(c&&await tx.selectFrom('garmin_jobs').select('id').where('connection_id','=',c.id).where('status','in',['queued','running']).executeTakeFirst())throw new GarminQueueError('BUSY');
-  if(!c)c=await tx.insertInto('garmin_connections').defaultValues().returningAll().executeTakeFirstOrThrow();
+  if(!c)c=await tx.insertInto('garmin_connections').values({time_zone:timeZone,sync_cursor_date:sql<string>`(now() AT TIME ZONE ${timeZone})::date-2`,sync_cursor_at:sql<Date>`(((now() AT TIME ZONE ${timeZone})::date-2)::timestamp AT TIME ZONE ${timeZone})`}).returningAll().executeTakeFirstOrThrow();
   const envelope=encrypt(c.id);
   await tx.insertInto('garmin_credentials').values({connection_id:c.id,envelope_json:envelope}).onConflict(oc=>oc.column('connection_id').doUpdateSet({envelope_json:envelope,updated_at:new Date()})).execute();
   await tx.updateTable('garmin_connections').set({status:'ready',time_zone:timeZone,revision:sql<number>`revision+1`,updated_at:new Date()}).where('id','=',c.id).execute();
@@ -43,6 +45,11 @@ export class GarminJobsRepository{
   if(!updated)throw new GarminQueueError('LEASE_LOST');
   await tx.updateTable('garmin_credentials').set({envelope_json:envelope,updated_at:new Date()}).where('connection_id','=',connectionId).execute();return updated.revision;
  })}
+ /** Called by the current lease holder in the completion transaction only. */
+ async advanceCursor(connectionId:string,date:string){
+  await this.db.updateTable('garmin_connections').set({sync_cursor_date:date,sync_cursor_at:sql<Date>`clock_timestamp()`,sync_cursor_completed:true,updated_at:new Date()})
+   .where('id','=',connectionId).where(eb=>eb.or([eb('sync_cursor_date','<',date),eb.and([eb('sync_cursor_date','=',date),eb('sync_cursor_completed','=',false)])])).execute();
+ }
  async requireReconnect(connectionId:string){await this.db.updateTable('garmin_connections').set({status:'reauthorization_required',updated_at:new Date()}).where('id','=',connectionId).execute()}
 }
 export class GarminDispatchRepository{
@@ -61,3 +68,5 @@ export async function assertGarminLease(db:Kysely<Database>,id:string,worker:str
  const row=await db.selectFrom('garmin_jobs').selectAll().where('id','=',id).where('status','=','running').where('lease_owner','=',worker).where('lease_expires_at','>',sql<Date>`clock_timestamp()`).forUpdate().executeTakeFirst();
  if(!row||(!allowCancellation&&row.cancellation_requested_at))throw new GarminQueueError('LEASE_LOST');return row;
 }
+
+function days(from:string,to:string){return Math.round((Date.parse(to+'T00:00:00Z')-Date.parse(from+'T00:00:00Z'))/86400000)}
