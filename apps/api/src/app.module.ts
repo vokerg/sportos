@@ -29,6 +29,7 @@ import { HealthController } from './health/health.controller.js';
 import { ImportsController } from './imports/imports.controller.js';
 import { ImportsService } from './imports/imports.service.js';
 import { DailyController } from './daily/daily.controller.js';
+import { DailyRecalculationController } from './daily/daily-recalculation.controller.js';
 import { DailyService } from './daily/daily.service.js';
 import { ExportsController } from './exports/exports.controller.js';
 import { ExportsService } from './exports/exports.service.js';
@@ -58,6 +59,7 @@ import { ActivityDistanceCorrectionService } from './activities/activity-distanc
     HealthController,
     ImportsController,
     DailyController,
+    DailyRecalculationController,
     GarminDayController,
     PerformanceController,
     RulesController,

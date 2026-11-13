@@ -9,6 +9,7 @@ import { CredentialCipher, LocalUploadStorage, StravaAdapter, parseCredentialKey
 import { ImportJobRunner } from './import-job-runner.js';
 import { ProviderSyncRunner } from './provider-sync-runner.js';
 import { RuleChangeRunner } from './rule-change-runner.js';
+import { DailyRecalculationRunner } from './daily-recalculation-runner.js';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 loadEnvFromNearestFile(repoRoot);
@@ -30,6 +31,7 @@ try {
   const provider = providerRuntime();
   if (importsEnabled) runners.push(...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(dispatchDb, dataDb, storage, { workerId: `${processId}:import:${index + 1}`, leaseSeconds, pollIntervalMs }).run(controller.signal)));
   runners.push(new RuleChangeRunner(dispatchDb, dataDb, { workerId: `${processId}:rules`, leaseSeconds, pollIntervalMs }).run(controller.signal));
+  runners.push(new DailyRecalculationRunner(dispatchDb,dataDb,`${processId}:daily`).run(controller.signal));
   if (provider) runners.push(new ProviderSyncRunner(dispatchDb, dataDb, provider.adapter, provider.cipher, { workerId: `${processId}:providers`, leaseSeconds, pollIntervalMs, pageSize: 200 }).run(controller.signal));
   if(garminDetail) runners.push(new GarminJobRunner(dispatchDb,dataDb,garminDetail,storage,new GarminSessionCipher(parseCredentialKeyRing(requiredEnvironment('SPORTOS_PROVIDER_CREDENTIAL_KEYS'),requiredEnvironment('SPORTOS_PROVIDER_ACTIVE_KEY_ID'))),`${processId}:garmin`).run(controller.signal));
   await Promise.all(runners);

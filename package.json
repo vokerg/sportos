@@ -45,6 +45,7 @@
     "mcp": "pnpm --filter @sportos/mcp start",
     "athlete:snapshot": "pnpm --filter @sportos/mcp snapshot",
     "garmin:import-session": "pnpm --filter @sportos/worker exec tsx src/garmin-session-import.ts",
+    "daily:calculation-seed": "pnpm --filter @sportos/db build && node scripts/daily-calculation-seed.mjs",
     "plugin:package": "node scripts/package-chatgpt-plugin.mjs"
   },
   "devDependencies": {

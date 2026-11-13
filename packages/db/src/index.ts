@@ -10,6 +10,8 @@ export type {
   RuleProposal,
 } from '@sportos/domain';
 export * from './schema.js';
+export * from './daily-recalculation-schema.js';
+export * from './repositories/daily-recalculation.repository.js';
 export * from './analysis-schema.js';
 export * from './ownership-context.js';
 export * from './repository-contracts.js';
