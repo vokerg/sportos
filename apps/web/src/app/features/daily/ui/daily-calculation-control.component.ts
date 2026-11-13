@@ -1,4 +1,4 @@
-import { Component, OnInit, output } from '@angular/core';
+import { Component, OnInit, inject, output } from '@angular/core';
 import { DailyCalculationStore } from '../state/daily-calculation.store';
 
 @Component({
@@ -24,8 +24,7 @@ import { DailyCalculationStore } from '../state/daily-calculation.store';
 })
 export class DailyCalculationControlComponent implements OnInit {
   readonly calculated = output<void>();
-
-  constructor(readonly store: DailyCalculationStore) {}
+  readonly store = inject(DailyCalculationStore);
 
   ngOnInit(): void {
     this.store.initialize(() => this.calculated.emit());
