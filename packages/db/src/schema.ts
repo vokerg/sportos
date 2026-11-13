@@ -1,3 +1,4 @@
+import type {DailyRecalculationCursorsTable,DailyRecalculationJobsTable} from './daily-recalculation-schema.js';
 import type { McpOAuthGrantsTable } from './mcp-oauth-schema.js';
 import type {GarminConnectionsTable,GarminCredentialsTable,GarminJobsTable,GarminWorkerStatusTable} from './garmin-jobs-schema.js';
 import type { PerformanceMatchDecisionsTable, PerformanceMatchHeadsTable } from './performance-match-schema.js';
@@ -464,6 +465,8 @@ export interface ProviderWebhookEventsTable {
 }
 
 export interface Database {
+  daily_recalculation_cursors:DailyRecalculationCursorsTable;
+  daily_recalculation_jobs:DailyRecalculationJobsTable;
   activity_distance_corrections: ActivityDistanceCorrectionsTable;
   activity_distance_correction_history: ActivityDistanceCorrectionHistoryTable;
   activity_route_projections: ActivityRouteProjectionsTable;

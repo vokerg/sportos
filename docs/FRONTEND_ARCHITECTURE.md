@@ -258,6 +258,15 @@ The Daily store consumes `features/daily/data-access/daily-api.service.ts` for s
 
 ### Reusable Garmin sync control
 
+The separate `features/daily/index.ts` composition boundary exports
+`DailyCalculationControlComponent` for Overview. Its route-instance
+`DailyCalculationStore` owns status recovery, submit/retry/cancel, stale-response
+protection and bounded polling through the core durable-job poller. Transport and
+models stay under the Daily feature. Completion refreshes score reads, including
+partial success before failure/cancellation. The browser never advances or
+computes a scoring cursor. Native Home uses `CalculateAllCard` with existing
+abortable operations and bounded waits.
+
 `features/providers/index.ts` exports `GarminSyncControlComponent` for shell-level
 Overview/Providers composition. Each instance provides `GarminSyncStore`, which
 owns capability recovery, submit/cancel/retry state, stale-response protection

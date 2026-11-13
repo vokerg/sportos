@@ -1,4 +1,5 @@
 import {GarminSyncControlComponent} from './features/providers';
+import {DailyCalculationControlComponent} from './features/daily';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
@@ -19,7 +20,7 @@ type OverviewState = 'loading' | 'loaded' | 'empty' | 'error';
 @Component({
   selector: 'sportos-overview-page',
   standalone: true,
-  imports: [RouterLink, DailyQuickSheetComponent, ActivityCardComponent, GarminSyncControlComponent],
+  imports: [RouterLink, DailyQuickSheetComponent, ActivityCardComponent, GarminSyncControlComponent, DailyCalculationControlComponent],
   providers: [ProviderStore],
   template: `
     <section class="overview-heading" aria-labelledby="overview-title">
@@ -36,6 +37,7 @@ type OverviewState = 'loading' | 'loaded' | 'empty' | 'error';
           <a class="secondary-link" routerLink="/providers">{{ providerStore.connection() ? 'Reconnect Strava' : 'Connect Strava' }}</a>
         }
         <sportos-garmin-sync-control (synced)="loadActivities()" />
+        <sportos-daily-calculation-control (calculated)="load()" />
       </div>
     </section>
 
