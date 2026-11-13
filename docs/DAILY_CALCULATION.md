@@ -36,8 +36,14 @@ Cancellation is cooperative at day boundaries. Stale claims recover with at most
 three attempts for the affected day; old lease holders cannot commit a score or
 checkpoint. There is one active job per account. Leaving the screen cancels only
 client transport. Reopening reads active/latest work. Web polling is bounded to
-200 checks/10 minutes; native to 24 checks/two minutes. Both offer manual status,
-cancel and retry. Partial or complete terminal work refreshes the score view.
+200 checks/10 minutes; native to 24 checks/two minutes. Overview shows one
+context-aware web button: **Calculate all** normally, **Calculating…** while a
+job runs, **Check status** when automatic tracking needs recovery, and
+**Retry calculation** after a failed or cancelled job. It shows detailed text
+only when an error needs attention; dates, progress and extra controls stay
+out of the Overview UI. Native still offers manual status, cancel and retry.
+Cancellation remains available through the API. Partial or complete terminal
+work refreshes the score view.
 
 ## API
 
