@@ -176,6 +176,11 @@ A future rule change must use a new effective period or versioned rule rather th
 
 ## Retained Garmin recalculation (#108)
 
+The explicit [Calculate all](DAILY_CALCULATION.md) action reuses this same retained
+daily scorer over a durable pending range. Its separate scoring cursor completes
+only contiguous past calendar days; today is scored on every completed request
+and remains provisional. It does not fetch sources or change scoring rules.
+
 Explicit `POST /daily/:date/recalculate` uses retained primary projections only.
 It never contacts Garmin, invokes the helper, reads token stores or queries the
 separate detail database. Fetch/View/Refresh remains an independent evidence

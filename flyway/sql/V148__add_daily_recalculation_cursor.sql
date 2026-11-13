@@ -5,11 +5,12 @@ CREATE TABLE daily_recalculation_cursors (
  time_zone text NOT NULL CHECK(length(time_zone) BETWEEN 1 AND 100),
  completed_through date,
  updated_at timestamptz NOT NULL DEFAULT now(),
- CHECK(completed_through IS NULL OR completed_through >= start_date)
+ CHECK(completed_through IS NULL OR completed_through >= start_date),
+ UNIQUE(owner_id,time_zone)
 );
 CREATE TABLE daily_recalculation_jobs (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
- owner_id uuid NOT NULL DEFAULT sportos_current_account_id() REFERENCES daily_recalculation_cursors(owner_id),
+ owner_id uuid NOT NULL DEFAULT sportos_current_account_id(),
  from_date date NOT NULL, to_date date NOT NULL, next_date date NOT NULL,
  time_zone text NOT NULL CHECK(length(time_zone) BETWEEN 1 AND 100),
  status text NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','running','succeeded','failed','cancelled')),
@@ -19,20 +20,29 @@ CREATE TABLE daily_recalculation_jobs (
  error_code text CHECK(error_code IN ('DAILY_DATA_UNAVAILABLE','DAILY_RECALCULATION_FAILED','RETRY_EXHAUSTED')),
  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), completed_at timestamptz,
  CHECK(to_date >= from_date AND to_date-from_date <= 3660 AND next_date BETWEEN from_date AND to_date+1),
- CHECK((status='running')=(lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL)),
- UNIQUE(owner_id,id)
+ CHECK((status='running' AND lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL)
+   OR (status<>'running' AND lease_owner IS NULL AND lease_expires_at IS NULL)),
+ UNIQUE(owner_id,id),
+ FOREIGN KEY(owner_id,time_zone) REFERENCES daily_recalculation_cursors(owner_id,time_zone)
 );
 CREATE UNIQUE INDEX uq_daily_recalculation_active ON daily_recalculation_jobs(owner_id) WHERE status IN ('queued','running');
 CREATE INDEX idx_daily_recalculation_dispatch ON daily_recalculation_jobs(status,created_at);
 CREATE FUNCTION sportos_check_daily_recalculation_cursor() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_timezone_names WHERE name=NEW.time_zone) THEN RAISE EXCEPTION 'Invalid scoring calendar'; END IF;
+ IF NOT isfinite(NEW.start_date) OR NEW.start_date>(clock_timestamp() AT TIME ZONE NEW.time_zone)::date THEN
+  RAISE EXCEPTION 'Scoring must start on a real current or past calendar date';
+ END IF;
  IF TG_OP='UPDATE' AND (ROW(NEW.start_date,NEW.time_zone) IS DISTINCT FROM ROW(OLD.start_date,OLD.time_zone)
   OR (OLD.completed_through IS NOT NULL AND (NEW.completed_through IS NULL OR NEW.completed_through<OLD.completed_through))) THEN
   RAISE EXCEPTION 'Scoring cursor cannot move backwards or change calendar';
  END IF;
  IF NEW.completed_through >= (clock_timestamp() AT TIME ZONE NEW.time_zone)::date THEN
   RAISE EXCEPTION 'An unfinished calendar day cannot be completed';
+ END IF;
+ IF TG_OP='UPDATE' AND NEW.completed_through IS DISTINCT FROM OLD.completed_through
+  AND NEW.completed_through IS DISTINCT FROM COALESCE(OLD.completed_through+1,OLD.start_date) THEN
+  RAISE EXCEPTION 'Scoring completion advances one contiguous day';
  END IF;
  RETURN NEW;
 END $$;

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createDb: vi.fn(), destroy: vi.fn(),
-  imports: vi.fn(), rules: vi.fn(), strava: vi.fn(), garmin: vi.fn(),
-  importRun: vi.fn(), ruleRun: vi.fn(), stravaRun: vi.fn(), garminRun: vi.fn(),
+  imports: vi.fn(), rules: vi.fn(), strava: vi.fn(), garmin: vi.fn(), calculation:vi.fn(),
+  importRun: vi.fn(), ruleRun: vi.fn(), stravaRun: vi.fn(), garminRun: vi.fn(), calculationRun:vi.fn(),
   storage: vi.fn(),
 }));
 vi.mock('@sportos/db', () => ({ createDb: mocks.createDb, loadEnvFromNearestFile: vi.fn() }));
@@ -16,6 +16,7 @@ vi.mock('./import-job-runner.js', () => ({ ImportJobRunner: mocks.imports }));
 vi.mock('./rule-change-runner.js', () => ({ RuleChangeRunner: mocks.rules }));
 vi.mock('./provider-sync-runner.js', () => ({ ProviderSyncRunner: mocks.strava }));
 vi.mock('./garmin-job-runner.js', () => ({ GarminJobRunner: mocks.garmin }));
+vi.mock('./daily-recalculation-runner.js',()=>({DailyRecalculationRunner:mocks.calculation}));
 
 let signalListeners: Record<'SIGINT' | 'SIGTERM', Function[]>;
 beforeEach(() => {
@@ -27,6 +28,7 @@ beforeEach(() => {
   for (const [constructor, run] of [
     [mocks.imports, mocks.importRun], [mocks.rules, mocks.ruleRun],
     [mocks.strava, mocks.stravaRun], [mocks.garmin, mocks.garminRun],
+    [mocks.calculation,mocks.calculationRun],
   ]) {
     run.mockResolvedValue(undefined);
     constructor.mockImplementation(() => ({ run }));
@@ -59,6 +61,7 @@ describe('worker queue selection at the real entry point', () => {
     expect(mocks.ruleRun).toHaveBeenCalledOnce();
     expect(mocks.stravaRun).toHaveBeenCalledOnce();
     expect(mocks.garminRun).toHaveBeenCalledOnce();
+    expect(mocks.calculationRun).toHaveBeenCalledOnce();
   });
 
   it('does not construct or start upload consumers while providers/rules and Garmin original storage remain available', async () => {
@@ -69,10 +72,12 @@ describe('worker queue selection at the real entry point', () => {
     expect(mocks.ruleRun).toHaveBeenCalledOnce();
     expect(mocks.stravaRun).toHaveBeenCalledOnce();
     expect(mocks.garminRun).toHaveBeenCalledOnce();
+    expect(mocks.calculationRun).toHaveBeenCalledOnce();
     const signal = mocks.ruleRun.mock.calls[0][0];
     expect(signal).toBeInstanceOf(AbortSignal);
     expect(mocks.stravaRun).toHaveBeenCalledWith(signal);
     expect(mocks.garminRun).toHaveBeenCalledWith(signal);
+    expect(mocks.calculationRun).toHaveBeenCalledWith(signal);
     expect(mocks.garmin.mock.calls[0][3]).toBe(mocks.storage.mock.instances[0]);
     expect(mocks.destroy).toHaveBeenCalledTimes(3);
   });

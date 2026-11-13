@@ -369,6 +369,11 @@ POST /daily/:date/garmin
 GET  /daily/:date/garmin/resources/:category
 GET  /daily/:date/score-breakdown
 POST /daily/:date/recalculate
+GET  /daily/recalculation
+POST /daily/recalculation
+GET  /daily/recalculation/jobs/:id
+POST /daily/recalculation/jobs/:id/cancel
+POST /daily/recalculation/jobs/:id/retry
 
 GET  /performance/leaderboard?distanceM=5000&limit=100
 GET  /performance/best?distanceM=5000&limit=50

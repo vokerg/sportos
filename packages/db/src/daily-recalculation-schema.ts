@@ -1,5 +1,5 @@
 import type {Generated} from 'kysely';
-import type {DateString,GeneratedTimestamp,OwnerId,Timestamp} from './schema.js';
+import type {DateString,GeneratedTimestamp,OwnerId} from './schema.js';
 export interface DailyRecalculationCursorsTable {
  owner_id:OwnerId;start_date:DateString;time_zone:string;completed_through:Generated<string|null>;updated_at:GeneratedTimestamp;
 }

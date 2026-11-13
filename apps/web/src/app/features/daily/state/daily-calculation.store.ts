@@ -31,7 +31,7 @@ export class DailyCalculationStore implements OnDestroy {
  }
  check(){
   const job=this.job();if(!job){this.load();return;}this.poll?.unsubscribe();this.error.set('');const generation=this.generation;
-  this.poll=(calculationTerminal(job)?of({state:'terminal' as const,job}):pollDurableJob(()=>this.api.job(job.id),{intervalMs:3000,maxAttempts:200,maxDurationMs:600000,isTerminal:calculationTerminal})).subscribe(event=>{
+  this.poll=(calculationTerminal(job)?of({state:'terminal' as const,job,attempt:0}):pollDurableJob(()=>this.api.job(job.id),{intervalMs:3000,maxAttempts:200,maxDurationMs:600000,isTerminal:calculationTerminal})).subscribe(event=>{
    if(generation!==this.generation)return;
    if(event.job){if(event.job.id!==job.id){this.uncertain=true;this.error.set('Unexpected calculation response. Check status.');return;}this.job.set(event.job)}
    if(event.state==='terminal'){

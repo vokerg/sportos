@@ -7,6 +7,9 @@ on different machines. Neither the phone nor hosted API needs an inbound
 connection to the worker, a Python installation, or local Garmin token files.
 
 This supports targeted day/activity requests and explicit incremental day sync.
+The worker also executes explicit [Calculate all](DAILY_CALCULATION.md) scoring
+jobs with a separate completed-day cursor; primary V148 is required before
+deploying that worker revision. These jobs use retained primary data only.
 It does not implement archive import or automatic scoring. Recalculate remains an explicit retained-data-only operation. GETs do not
 start provider downloads. Strava remains authoritative for its canonical metrics;
 Garmin matching, walking policy and immutable source history are unchanged.
