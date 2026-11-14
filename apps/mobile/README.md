@@ -133,11 +133,14 @@ implementation notes in `docs/implementation/issue-191.md` through `issue-195.md
 separate completed observations from remaining manual scenarios.
 
 Current target: owner-managed personal installation with a seven-day refresh
-cadence. TestFlight/App Store, paid Apple Developer enrollment and distribution
-administration are outside this task. AltStore may be considered later; it is not
-installed or configured here. Simulator MVP completion does not depend on those
-choices. Personal-device QA still covers login/Keychain/revocation, refresh and
-relaunch, accessibility, maps, background privacy, network loss and performance;
-see [the QA matrix](../../docs/MOBILE_QA.md). No actual-device pass is claimed.
-Apple Health/widgets/notifications and hosted worker/storage/historical catch-up
-remain separate scope decisions and limitations.
+cadence. AltStore Classic is configured on the owner's phone; use the
+[SportOS AltStore runbook](../../docs/IOS_ALTSTORE.md) for the private parallel
+Release, AirDrop/Files import, updates, signing refresh and recovery. Preserve
+`com.sportos.mobile` in source IPAs and label the candidate **SportOS AltStore**.
+Original physical installation/launch and owner visual review were recorded in
+PR #214 and later mobile implementation notes; broader device QA remains #195.
+On 2026-11-14, device inventory confirmed SportOS AltStore 0.1.0 / 1794642552
+and its launch command passed. Login/session, manual Refresh All and higher-build
+update remain unverified; see [QA](../../docs/MOBILE_QA.md) for evidence and artifacts.
+TestFlight/App Store and paid enrollment are outside this task. Apple
+Health/widgets/notifications and hosted operations remain separate scope decisions.

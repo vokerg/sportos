@@ -79,7 +79,8 @@ provided by these files. Personal-device validation remains tracked in #195.
 The maintainer subsequently
 selected personal installation with a seven-day refresh cadence; paid enrollment,
 TestFlight/App Store and distribution administration are outside this task.
-AltStore is a possible later option, with no setup authorized here. Hosted worker,
+The later explicitly authorized AltStore procedure is documented in
+[the personal release runbook](../IOS_ALTSTORE.md). Hosted worker,
 durable uploads and full historical catch-up are not implied by native reads.
 
 See [mobile operation and QA](../../apps/mobile/README.md) and implementation notes
