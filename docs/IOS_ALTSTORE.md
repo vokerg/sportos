@@ -15,9 +15,12 @@ Inspect `git status`, current main, issue/dependencies and PRs first. Record the
 chosen revision explicitly; never silently pull/switch revisions to build.
 
 ```sh
+export PATH="/opt/homebrew/opt/node@22/bin:$PATH" # use your installed Node 22 path
 pnpm install --frozen-lockfile
 # Existing ignored native workspace must match current app/plugins/dependencies.
 # If absent, generate it with the reviewed Expo configuration and CocoaPods first.
+# Review ios/.xcode.env.local after generation; it must use this same Node 22.
+printf 'export NODE_BINARY=%s\n' "$(command -v node)" > apps/mobile/ios/.xcode.env.local
 # Create apps/mobile/.env.altstore manually from the approved public HTTPS origins.
 chmod 600 apps/mobile/.env.altstore
 pnpm --filter @sportos/mobile typecheck

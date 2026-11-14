@@ -12,6 +12,7 @@ import {
   openSync,
   closeSync,
   chmodSync,
+  realpathSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -115,6 +116,16 @@ export function runRelease(args = process.argv.slice(2)) {
       parseEnv(readFileSync(path.join(mobile, ".env.altstore"), "utf8")),
       process.env,
     );
+    const nativeNodeFile = path.join(mobile, "ios/.xcode.env.local");
+    if (existsSync(nativeNodeFile)) {
+      const match = readFileSync(nativeNodeFile, "utf8")
+        .trim()
+        .match(/^export NODE_BINARY=(\/[^\s"'`$;]+)$/);
+      assert(
+        match && realpathSync(match[1]) === realpathSync(process.execPath),
+        "Review ios/.xcode.env.local: native bundling must use the same Node 22 binary",
+      );
+    }
     const run = (cmd, argv, capture = false) => {
       const r = spawnSync(cmd, argv, {
         cwd: root,
