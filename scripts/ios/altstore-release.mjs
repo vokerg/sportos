@@ -29,7 +29,7 @@ export function auditFiles(dir){
 }
 export function runRelease(args=process.argv.slice(2)){
  assert(args.length===0,'Usage: scripts/ios/altstore-release.sh (no install or identity overrides)');
- assert(process.platform==='darwin'&&process.versions.node.split('.')[0]==='22','Use macOS and Node 22.22+');
+ assert(process.platform==='darwin'&&process.versions.node.split('.')[0]==='22'&&Number(process.versions.node.split('.')[1])>=22,'Use macOS and Node 22.22+');
  process.umask(0o077);
  const base=path.join(homedir(),'Library/Application Support/SportOS/iOS Releases');mkdirSync(base,{recursive:true,mode:0o700});chmodSync(base,0o700);
  const out=mkdtempSync(path.join(base,'altstore-'));console.log('Private release directory:',out);
@@ -57,8 +57,16 @@ export function runRelease(args=process.argv.slice(2)){
   const derived=path.join(base,'BuildCache');
   console.log('Building physical arm64 Release; no Metro server or direct installation.');
   // AltStore supplies the Apple signature/profile. Ad-hoc signing is for local integrity only.
-  run('xcodebuild',['-workspace',path.join(mobile,'ios/SportOS.xcworkspace'),'-scheme','SportOS','-configuration','Release','-sdk','iphoneos','-destination','generic/platform=iOS','-derivedDataPath',derived,`INFOPLIST_FILE=${input}`,`MARKETING_VERSION=${version}`,`CURRENT_PROJECT_VERSION=${build}`,'CODE_SIGN_IDENTITY=-','CODE_SIGN_STYLE=Manual','AD_HOC_CODE_SIGNING_ALLOWED=YES','DEVELOPMENT_TEAM=','PROVISIONING_PROFILE_SPECIFIER=','build']);
+  run('xcodebuild',['-workspace',path.join(mobile,'ios/SportOS.xcworkspace'),'-scheme','SportOS','-configuration','Release','-sdk','iphoneos','-destination','generic/platform=iOS','-derivedDataPath',derived,`INFOPLIST_FILE=${input}`,`MARKETING_VERSION=${version}`,`CURRENT_PROJECT_VERSION=${build}`,'CODE_SIGNING_ALLOWED=NO','build']);
   const app=path.join(derived,'Build/Products/Release-iphoneos/SportOS.app');
+  // Compile an unsigned import artifact, then add a local integrity signature.
+  // Device security remains enforced; only AltStore can provision/install this IPA.
+  const frameworks=path.join(app,'Frameworks');
+  if(existsSync(frameworks))for(const entry of readdirSync(frameworks)){
+   assert(entry.endsWith('.framework')||entry.endsWith('.dylib'),'Unexpected embedded code; review signing');
+   run('codesign',['--force','--sign','-',path.join(frameworks,entry)]);
+  }
+  run('codesign',['--force','--sign','-',app]);
   run('codesign',['--verify','--deep','--strict',app]);
   const info=plist(path.join(app,'Info.plist'));
   assert(info.CFBundleIdentifier==='com.sportos.mobile'&&info.CFBundleDisplayName==='SportOS AltStore'&&info.CFBundleVersion===build&&info.CFBundleShortVersionString===version,'Built identity/version mismatch');
@@ -75,6 +83,11 @@ export function runRelease(args=process.argv.slice(2)){
   // Generated native entitlements must remain empty; no team/Keychain override.
   assert(Object.keys(plist(path.join(mobile,'ios/SportOS/SportOS.entitlements'))).length===0,'Review changed native entitlements');
   auditFiles(app);
+  // Compare non-public root environment values locally without logging them.
+  const privateEnv=existsSync(path.join(root,'.env'))?parseEnv(readFileSync(path.join(root,'.env'),'utf8')):{};
+  for(const [key,value] of Object.entries(privateEnv)){
+   if(/(?:PASSWORD|SECRET|TOKEN|DATABASE_URL|CREDENTIAL_KEYS|API_KEY)$/.test(key)&&value.length>=16)assert(!readFileSync(bundle).includes(Buffer.from(value)),'Private configuration found in embedded JS');
+  }
   const payload=path.join(out,'package/Payload');mkdirSync(payload,{recursive:true});cpSync(app,path.join(payload,'SportOS.app'),{recursive:true});
   const ipa=path.join(out,`SportOS-${version}-${build}.ipa`);run('ditto',['-c','-k','--keepParent',payload,ipa]);run('unzip',['-t',ipa]);
   const entries=run('unzip',['-Z1',ipa],true).split('\n');assert(entries.every(x=>x==='Payload/'||x.startsWith('Payload/SportOS.app/')),'Unexpected IPA root');

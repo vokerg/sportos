@@ -450,3 +450,13 @@ An issue is complete only when its acceptance criteria are satisfied; the releva
   manual continuation. Fetch never recalculates official scores.
 - See `docs/GARMIN_WORKER.md` and ADR 0012. #95 Oracle/shared-storage restrictions
   remain in force; this change does not authorize that deployment.
+
+### Personal iPhone AltStore releases
+
+- Use [docs/IOS_ALTSTORE.md](docs/IOS_ALTSTORE.md) and `scripts/ios/altstore-release.sh`.
+  Keep fixed source IPA ID `com.sportos.mobile` and parallel name **SportOS AltStore**;
+  retain original apps/data and signing identities. Private AirDrop/Files → AltStore
+  My Apps + is required; direct device installation is not AltStore enrollment.
+- Refresh All renews signing; a new IPA changes code. Check local USB AltServer /
+  Prefer Remote state and phone results each time; never infer automatic renewal,
+  identity migration or session preservation from build/launch success.

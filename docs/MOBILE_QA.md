@@ -4,19 +4,21 @@
 
 The maintainer chose personal installation with a seven-day refresh cadence.
 TestFlight, App Store submission, paid Apple Developer enrollment and distribution
-signoff are outside this task and do not block simulator MVP completion. The owner
-handles personal installation/refresh. AltStore is a possible later option; no
-AltStore setup, account changes or new entitlements are requested now.
+signoff are outside this task and do not block simulator MVP completion. The owner handles Apple authentication and phone-side installation/refresh.
+AltStore Classic is configured; the explicitly authorized private parallel
+installation procedure is [IOS_ALTSTORE.md](IOS_ALTSTORE.md). No new entitlements
+or changes to Apple signing identities are part of that procedure.
 
 Physical-iPhone checks below remain useful personal-use QA, not a store-release
-gate. Their results are still unverified until exercised on the actual phone.
+gate. Record individual results only after exercising them on the actual phone.
 
 ## Observed baseline
 
 2026-10-28: Xcode 26.6, iPhone 17 Pro simulator, iOS 26.5. Core native
 implementation #186–#194 is merged; simulator feature walkthrough, real PKCE
-approval, read/projection parity and revocation smoke passed. No physical-iPhone
-acceptance has been recorded. Native Liquid Glass #208 is validated in simulator:
+approval, read/projection parity and revocation smoke passed. Original signed Release installation/launch and owner visual review were later
+recorded in PR #214 (2026-10-29), with further installs in #216–#219. These do not
+establish the remaining authentication/privacy/refresh scenarios. Native Liquid Glass #208 is validated in simulator:
 all five direct tab touches, detail/back behavior, final-control clearance and light/dark appearance.
 
 | Area | Existing evidence | Remaining personal-device check |
@@ -26,7 +28,7 @@ all five direct tab touches, detail/back behavior, final-control clearance and l
 | Failures | Mounted offline/late restore/401/Keychain failure; bounded request/body cancellation and deadlines | Physical network loss, airplane mode, hosted cold start and recovery |
 | Privacy | Memory-only private records, background navigation teardown and resume revalidation; app-switcher protection configured | Actual app-switcher image/lock/unlock behavior; production system logging review |
 | Accessibility | Native labels, exact chart alternatives, light/dark and one-step text-size increase | VoiceOver reading/rotor, maximum accessibility text, Reduce Transparency/Motion, keyboard focus |
-| Build | Installed simulator development and embedded ad-hoc Release builds; origin/secret/permission audit; hosted browser handoff and cancellation | Full hosted authenticated walkthrough, personal-phone installation and refresh behavior |
+| Build | Installed simulator development and embedded ad-hoc Release builds; origin/secret/permission audit; hosted browser handoff and cancellation | Full hosted authenticated walkthrough and AltStore refresh/update behavior |
 
 Run focused checks with pnpm. Use ignored local environment configuration from
 `apps/mobile/README.md`; never place account tokens in Expo public variables.
@@ -45,9 +47,9 @@ Use a maintainer-authorized device and account. Record only pass/fail, OS/build,
 and sanitized failure descriptions; no activity values, GPS, account IDs,
 screenshots containing private content, tokens or provider payloads in GitHub.
 
-1. Use the owner-managed personal installation method and existing provisioning.
-   Keep the stable `com.sportos.mobile` identity when refreshing. Do not enroll in
-   a paid program, configure distribution or install AltStore as part of this task.
+1. Use the [AltStore procedure](IOS_ALTSTORE.md), retaining the original app.
+   Keep source IPA ID `com.sportos.mobile` and candidate name SportOS AltStore.
+   AltStore-managed identity can differ; do not assume original Keychain migration.
 2. Build with explicit reachable HTTPS API and web origins; insecure localhost
    must be false. Verify the resulting build contains the intended deployment,
    no debug credentials/local origins and no unintended permission capabilities.
@@ -72,8 +74,10 @@ screenshots containing private content, tokens or provider payloads in GitHub.
    afterwards; sign in again if required. Record observed results in #195. No
    TestFlight/App Store acceptance or public-distribution declaration is required.
 
-If personal-device QA fails, reinstall the previous working personal
-build and revoke affected sessions if necessary. App rollback does not
+If personal-device QA fails, retain all installed apps and investigate. Use a
+private recovery IPA through the appropriate installer only after checking identity
+and downgrade behavior; do not uninstall to force rollback. Revoke only affected
+sessions when necessary and explicitly authorized. App rollback does not
 roll back server schema, retained source records or scoring rules.
 
 ## Deferred scope
