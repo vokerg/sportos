@@ -71,3 +71,23 @@ test("payload audit rejects credentials, service files and symlinks", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("Metro dependency paths allow PNG resources but reject bundled service code", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "sportos-metro-"));
+  try {
+    const assets = path.join(
+      dir,
+      "assets/__node_modules/.pnpm/package/node_modules/library",
+    );
+    mkdirSync(assets, { recursive: true });
+    writeFileSync(
+      path.join(assets, "image.png"),
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    );
+    auditFiles(dir);
+    writeFileSync(path.join(assets, "index.js"), "service code");
+    assert.throws(() => auditFiles(dir));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

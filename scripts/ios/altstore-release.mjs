@@ -69,17 +69,34 @@ export function publicEnvironment(local, inherited) {
     RCT_NO_LAUNCH_PACKAGER: "1",
   };
 }
-export function auditFiles(dir) {
+export function auditFiles(dir, payloadRoot = dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, entry.name);
     assert(!lstatSync(p).isSymbolicLink(), "Unexpected payload symlink");
+    const metroImage = path
+      .relative(payloadRoot, p)
+      .startsWith("assets/__node_modules/");
     assert(
-      !/^(\.env(?:\..*)?|\.git|node_modules|.*\.(?:pem|p12|key|sqlite3?|db|map|xcarchive))$/i.test(
+      entry.name !== "node_modules" || metroImage,
+      "Unexpected dependency tree",
+    );
+    if (metroImage && entry.isFile()) {
+      const bytes = readFileSync(p);
+      assert(
+        entry.name.endsWith(".png") &&
+          bytes
+            .subarray(0, 8)
+            .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
+        "Only PNG Metro dependency assets are allowed",
+      );
+    }
+    assert(
+      !/^(\.env(?:\..*)?|\.git|.*\.(?:pem|p12|key|sqlite3?|db|map|xcarchive))$/i.test(
         entry.name,
       ),
       "Unexpected private/development payload file",
     );
-    if (entry.isDirectory()) auditFiles(p);
+    if (entry.isDirectory()) auditFiles(p, payloadRoot);
     else
       assert(
         !/(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]{20,}|ghp_[A-Za-z0-9]{30,}|sk-proj-[A-Za-z0-9_-]{30,}|smo_[A-Za-z0-9_-]{30,})/.test(
