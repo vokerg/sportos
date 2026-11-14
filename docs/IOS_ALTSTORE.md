@@ -18,7 +18,8 @@ chosen revision explicitly; never silently pull/switch revisions to build.
 export PATH="/opt/homebrew/opt/node@22/bin:$PATH" # use your installed Node 22 path
 pnpm install --frozen-lockfile
 # Existing ignored native workspace must match current app/plugins/dependencies.
-# If absent, generate it with the reviewed Expo configuration and CocoaPods first.
+# If absent or native dependencies changed (this generates ios/ and runs CocoaPods):
+# pnpm --filter @sportos/mobile exec expo prebuild --platform ios
 # Review ios/.xcode.env.local after generation; it must use this same Node 22.
 printf 'export NODE_BINARY=%s\n' "$(command -v node)" > apps/mobile/ios/.xcode.env.local
 # Create apps/mobile/.env.altstore manually from the approved public HTTPS origins.
@@ -76,6 +77,13 @@ private and stops before transfer. Do not share an IPA from an incomplete run.
    remove/deactivate another app automatically. Avoid new randomized IDs.
 3. Check IPA digest and size against private `release.json`. In Finder, select the
    IPA → Share → AirDrop → owner's iPhone. Owner accepts it and saves to Files.
+   If raw IPA AirDrop does not appear in Files, wrap only the IPA in a ZIP:
+   from the private release directory run `python3 -m zipfile -c
+   SportOS-AltStore-transfer.zip SportOS-VERSION-BUILD.ipa`. Verify the ZIP contains
+   only that IPA and its extracted SHA-256 matches release.json. AirDrop the ZIP,
+   choose Save to Files in an explicit folder (for example On My iPhone), tap the
+   ZIP to extract, then select the extracted IPA in AltStore. Raw IPA delivery can
+   show Sent without leaving a discoverable file in Downloads; do not infer import.
    No public hosting, GitHub Releases, LAN HTTP server or remote upload is used.
 4. On iPhone open **AltStore → My Apps → +** and choose the IPA from Files.
    This enrolls it for AltStore refresh. Xcode/devicectl installation does not.
@@ -139,3 +147,9 @@ checks, owner confirmations, and unverified scenarios. Remaining broader #195
 checks include reboot/expiry/revocation, app-switcher privacy, accessibility,
 network failure, maps/long lists and performance. Personal installation does not
 establish those checks or hosted worker operation.
+
+Current checkpoint: device inventory and launch command confirm installed
+SportOS AltStore 0.1.0 / 1794642552 (2026-11-14). The higher-build candidate
+1794642655 is prepared privately but has not been imported. Continue phone login,
+cold-relaunch, expiry/Refresh All and same-copy update gates from MOBILE_QA.md;
+do not interpret installation as their completion.

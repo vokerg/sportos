@@ -139,6 +139,8 @@ Release, AirDrop/Files import, updates, signing refresh and recovery. Preserve
 `com.sportos.mobile` in source IPAs and label the candidate **SportOS AltStore**.
 Original physical installation/launch and owner visual review were recorded in
 PR #214 and later mobile implementation notes; broader device QA remains #195.
-Current AltStore results are recorded in [QA](../../docs/MOBILE_QA.md).
+On 2026-11-14, device inventory confirmed SportOS AltStore 0.1.0 / 1794642552
+and its launch command passed. Login/session, manual Refresh All and higher-build
+update remain unverified; see [QA](../../docs/MOBILE_QA.md) for evidence and artifacts.
 TestFlight/App Store and paid enrollment are outside this task. Apple
 Health/widgets/notifications and hosted operations remain separate scope decisions.
