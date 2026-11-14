@@ -1,4 +1,4 @@
-import {Injectable,OnDestroy,signal} from '@angular/core';
+import {computed,Injectable,OnDestroy,signal} from '@angular/core';
 import {Subscription,of} from 'rxjs';
 import {pollDurableJob} from '../../../core/jobs/durable-job-poller';
 import {activeGarminJob,terminalGarminJob,garminJobMessage,type GarminFetchJob} from '../../../shared/model/garmin-job';
@@ -6,7 +6,11 @@ import {GarminSyncApiService,type GarminConnectionStatus} from '../data-access/g
 @Injectable()
 export class GarminSyncStore implements OnDestroy {
  readonly connection=signal<GarminConnectionStatus|null>(null);readonly job=signal<GarminFetchJob|null>(null);
- readonly loading=signal(false);readonly working=signal(false);readonly error=signal('');readonly message=signal('');
+ readonly loading=signal(false);readonly working=signal(false);readonly error=signal('');
+ readonly message=computed(()=>{
+  const job=this.job();
+  return job?garminJobMessage(job):'';
+ });
  private generation=0;private read?:Subscription;private action?:Subscription;private poll?:Subscription;private completed:()=>void=()=>{};
  private ambiguous=false;
  constructor(private readonly api:GarminSyncApiService){}
@@ -35,12 +39,16 @@ export class GarminSyncStore implements OnDestroy {
   this.poll?.unsubscribe();this.error.set('');const generation=this.generation;
   this.poll=(terminalGarminJob(job)?of({state:'terminal' as const,job,attempt:0}):pollDurableJob(()=>this.api.job(job.id),{intervalMs:3000,maxAttempts:200,maxDurationMs:600000,isTerminal:terminalGarminJob})).subscribe(event=>{
    if(generation!==this.generation)return;
-   if(event.job){if(event.job.id!==job.id){this.error.set('Unexpected Garmin job response. Reload status.');return;}this.job.set(event.job);this.message.set(garminJobMessage(event.job))}
+   if(event.job){if(event.job.id!==job.id){this.error.set('Unexpected Garmin job response. Reload status.');return;}this.job.set(event.job)}
    if(event.state==='terminal'){
     if(event.job?.status==='succeeded')this.completed();
-    this.read?.unsubscribe();this.read=this.api.connection().subscribe({next:status=>{if(generation===this.generation)this.connection.set(status)},error:()=>{if(generation===this.generation)this.error.set('Job finished; reload Garmin status to see the cursor.')}});
-   }else if(event.state==='error'||event.state==='exhausted')this.error.set('Automatic checks paused. The worker continues; Check status resumes checking.');
+    this.read?.unsubscribe();this.read=this.api.connection().subscribe({next:status=>{if(generation===this.generation)this.connection.set(status)},error:()=>{if(generation===this.generation)this.error.set('Could not refresh Garmin status after the job finished.')}});
+   }else if(event.state==='error'||event.state==='exhausted')this.error.set('Automatic Garmin status checks paused.');
   });
+ }
+ refreshStatus(){
+  if(!this.ambiguous&&activeGarminJob(this.job()))this.check();
+  else this.load();
  }
  readonly active=()=>activeGarminJob(this.job());
 }
