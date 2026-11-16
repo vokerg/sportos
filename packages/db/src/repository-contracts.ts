@@ -103,6 +103,8 @@ export interface EnabledScoringRule {
   ruleKind: 'coefficient' | 'achievement' | 'manual_points';
   metric: string;
   coefficient?: number;
+  /** Versioned indoor bike override; absent retains the historical 700/km. */
+  indoorBikeCoefficient?: number;
   thresholdOperator?: 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'exists';
   thresholdValue?: number;
   thresholdUnit?: string;

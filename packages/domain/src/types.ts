@@ -74,6 +74,8 @@ export interface ScoringRule {
   ruleKind: RuleKind;
   metric: string;
   coefficient?: number;
+  /** Versioned indoor bike override; absent retains the historical 700/km. */
+  indoorBikeCoefficient?: number;
   thresholdOperator?: ThresholdOperator;
   thresholdValue?: number;
   thresholdUnit?: string;

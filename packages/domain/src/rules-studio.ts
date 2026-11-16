@@ -20,6 +20,8 @@ export interface RuleProposal {
   ruleKind: RuleKind;
   metric: string;
   coefficient?: number;
+  /** Versioned indoor bike override; absent retains the historical 700/km. */
+  indoorBikeCoefficient?: number;
   thresholdOperator?: ThresholdOperator;
   thresholdValue?: number;
   thresholdUnit?: string;
@@ -119,6 +121,9 @@ export function normalizeRuleProposal(input: RuleProposal): RuleProposal {
 
   if (input.ruleKind === 'coefficient' || input.ruleKind === 'manual_points') {
     proposal.coefficient = optionalNumber(input.coefficient);
+    if (input.code === 'bike.km.default') {
+      proposal.indoorBikeCoefficient = optionalNumber(input.indoorBikeCoefficient) ?? 750;
+    }
   }
   if (input.ruleKind === 'achievement') {
     proposal.thresholdOperator = input.thresholdOperator;
@@ -173,6 +178,13 @@ export function validateRuleProposal(input: RuleProposal): RuleProposal {
     if (!isFinitePositive(proposal.coefficient)) {
       issues.push({ field: 'coefficient', code: 'INVALID_COEFFICIENT', message: 'Coefficient must be a finite number greater than zero.' });
     }
+  }
+
+  if (proposal.indoorBikeCoefficient !== undefined &&
+      (proposal.activityType !== 'bike' || proposal.ruleKind !== 'coefficient' ||
+       proposal.metric !== 'distance_km' || !isFinitePositive(proposal.indoorBikeCoefficient))) {
+    issues.push({ field: 'indoorBikeCoefficient', code: 'INVALID_INDOOR_BIKE_COEFFICIENT',
+      message: 'Indoor bike coefficient must be positive and apply to the bike distance base rule.' });
   }
 
   if (proposal.ruleKind === 'achievement') {
@@ -234,6 +246,7 @@ export function proposalAsRule(proposal: RuleProposal, id?: string): ScoringRule
     ruleKind: normalized.ruleKind,
     metric: normalized.metric,
     coefficient: normalized.coefficient,
+    indoorBikeCoefficient: normalized.indoorBikeCoefficient,
     thresholdOperator: normalized.thresholdOperator,
     thresholdValue: normalized.thresholdValue,
     thresholdUnit: normalized.thresholdUnit,
