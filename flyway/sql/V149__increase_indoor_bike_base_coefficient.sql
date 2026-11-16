@@ -44,11 +44,11 @@ CREATE TEMP TABLE indoor_bike_contributions ON COMMIT DROP AS
 SELECT ledger.id, ledger.owner_id, ledger.metric_date, ledger.points AS old_points,
   rule.id AS rule_id,
   CASE WHEN ledger.calculation_json->>'sourceFormula' = 'Excel: indoor bike km × 700'
-      AND ledger.calculation_json->>'appliedCoefficient' = '700'
+      AND ledger.calculation_json->'appliedCoefficient' = '700'::jsonb
     THEN round((ledger.calculation_json->>'metricValue')::numeric * 750)::integer
     ELSE ledger.points END AS new_points,
   ledger.calculation_json->>'sourceFormula' = 'Excel: indoor bike km × 700'
-    AND ledger.calculation_json->>'appliedCoefficient' = '700' AS indoor
+    AND ledger.calculation_json->'appliedCoefficient' = '700'::jsonb AS indoor
 FROM score_ledger ledger
 JOIN indoor_bike_new_rules rule ON rule.owner_id = ledger.owner_id AND rule.supersedes_rule_id = ledger.rule_id
 JOIN daily_metrics dm ON dm.owner_id = ledger.owner_id AND dm.metric_date = ledger.metric_date

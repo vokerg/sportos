@@ -121,7 +121,7 @@ export function normalizeRuleProposal(input: RuleProposal): RuleProposal {
 
   if (input.ruleKind === 'coefficient' || input.ruleKind === 'manual_points') {
     proposal.coefficient = optionalNumber(input.coefficient);
-    if (input.code === 'bike.km.default') {
+    if (proposal.code === 'bike.km.default') {
       proposal.indoorBikeCoefficient = optionalNumber(input.indoorBikeCoefficient) ?? 750;
     }
   }
