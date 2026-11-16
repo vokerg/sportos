@@ -270,6 +270,7 @@ export interface ScoringRulesTable {
   rule_kind: 'coefficient' | 'achievement' | 'manual_points';
   metric: string;
   coefficient: number | null;
+  indoor_bike_coefficient: Generated<number | null>;
   threshold_operator: 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'exists' | null;
   threshold_value: number | null;
   threshold_unit: string | null;

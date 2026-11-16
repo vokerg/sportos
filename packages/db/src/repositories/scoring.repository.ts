@@ -20,6 +20,7 @@ function toEnabledRule(row: ScoringRuleRow): EnabledScoringRule {
     ruleKind: row.rule_kind,
     metric: row.metric,
     coefficient: optionalNumber(row.coefficient),
+    indoorBikeCoefficient: optionalNumber(row.indoor_bike_coefficient),
     thresholdOperator: row.threshold_operator ?? undefined,
     thresholdValue: optionalNumber(row.threshold_value),
     thresholdUnit: row.threshold_unit ?? undefined,

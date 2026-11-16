@@ -484,21 +484,23 @@ function scoreActivityWithConfirmedSubtypeCoefficient(
   if (!entry) return null;
   entry.calculationJson = {
     ...entry.calculationJson,
-    coefficientSource: 'confirmed_workbook_subtype_semantics',
-    sourceFormula: confirmedSubtypeFormula(activity),
+    coefficientSource: rule.indoorBikeCoefficient !== undefined && activity.activityType === 'bike' && activity.subtype === 'indoor'
+      ? 'versioned_rule_subtype_semantics' : 'confirmed_workbook_subtype_semantics',
+    sourceFormula: rule.indoorBikeCoefficient !== undefined && activity.activityType === 'bike' && activity.subtype === 'indoor'
+      ? `Indoor bike km × ${coefficient}` : confirmedSubtypeFormula(activity),
     configuredCoefficient: rule.coefficient ?? null,
     appliedCoefficient: coefficient,
   };
   return entry;
 }
 
-export function confirmedSubtypeCoefficient(rule: Pick<ScoringRule, 'code'>, activity: Pick<ActivityFact, 'subtype'>): number | undefined {
+export function confirmedSubtypeCoefficient(rule: Pick<ScoringRule, 'code' | 'indoorBikeCoefficient'>, activity: Pick<ActivityFact, 'subtype'>): number | undefined {
   if (rule.code === 'run.km.default') {
     if (activity.subtype === 'treadmill') return 1850;
     if (activity.subtype === 'outdoor') return 1700;
   }
   if (rule.code === 'bike.km.default') {
-    if (activity.subtype === 'indoor') return 700;
+    if (activity.subtype === 'indoor') return rule.indoorBikeCoefficient ?? 700;
     if (activity.subtype === 'outdoor') return 600;
   }
   return undefined;

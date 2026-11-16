@@ -63,6 +63,7 @@ for tagging, recovery and how to match deployed SHAs to releases.
 - Recompute affected scores atomically through audited background jobs.
 - Reconcile persisted score totals against deterministic domain calculations.
 - Award the highest qualifying universal run-pace tier per activity, using favourable 0.1 km and 0.1 min/km eligibility rounding and multiplying by rounded completed 5 km blocks.
+- Score indoor cycling at 750 base points/km (7,500 per 10 km), outdoor at 600/km and unspecified at 650/km; preserve historical Excel totals until explicit recalculation.
 - Award 1,000 cycling bonus points per completed 10 km in each qualifying ride, retaining the 20 km/h target with its 0.1 km/h tolerance.
 - Multiply the highest qualifying moving-pace swim tier by each completed kilometre in that swim.
 - Export bounded, versioned `sportos.canonical-export.v3` JSON from one repeatable-read snapshot, including each daily score's authority status.

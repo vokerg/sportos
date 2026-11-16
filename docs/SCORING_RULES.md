@@ -25,7 +25,7 @@ All rules below are effective from `1900-01-01` with no configured end date. Tha
 | ---: | --- | --- | --- | --- | --- |
 | 10 | `steps.base` | Base | steps × 1; nearest integer per rule | none | Confirmed SportOS mapping; steps are imported as an integer count. |
 | 20 | `run.km.default` | Base | treadmill km × 1,850; outdoor km × 1,700; unknown-subtype km × 1,000; nearest integer per contribution | Canonical subtype controls the coefficient for workbook, provider, recalculation, and manual facts | Workbook formula evidence confirms the treadmill/outdoor mappings; the generic coefficient remains the conservative fallback. |
-| 30 | `bike.km.default` | Base | indoor km × 700; outdoor km × 600; unknown-subtype km × 650; nearest integer per contribution | Canonical subtype controls the coefficient for workbook, provider, recalculation, and manual facts | Workbook formula evidence confirms the indoor/outdoor mappings; the generic coefficient remains the conservative fallback. |
+| 30 | `bike.km.default` | Base | indoor km × 750; outdoor km × 600; unknown-subtype km × 650; nearest integer per contribution | Canonical subtype controls the coefficient for workbook, provider, recalculation, and manual facts | V149 raises indoor from the historical workbook 700/km to 750/km; outdoor and the generic fallback are unchanged. |
 | 40 | `swim.m.default` | Base | swim meters × 7.5; nearest integer per rule | none | Configured assumption. No permitted historical workbook evidence currently justifies changing it. |
 | 50 | `workout.manual` | Base | imported, importer-rounded `WOtotal` points × 1; nearest integer per rule | HIIT and rowing are not added separately | Confirmed application behavior. Whether every workbook's `WOtotal` embeds the same source components remains unresolved. |
 | 60 | `bonus.manual` | Bonus | imported, importer-rounded `Pow` or manually entered bonus points × 1; nearest integer per rule | none | Canonical manual bonus rule introduced by V118. |
@@ -356,3 +356,28 @@ existing fact/provenance metadata. Running and swimming calculations are unchang
 Disposable upgrade validation uses `scripts/bike-blocks-upgrade-fixture.sql`
 after V140 and `scripts/verify-bike-blocks-upgrade.sql` after V141. These files
 contain synthetic data only and must never be run against a personal database.
+
+## Indoor cycling base increase (#258)
+
+V149 publishes new immutable `bike.km.default` versions with
+`indoor_bike_coefficient = 750`: **indoor kilometres × 750**, rounded to the
+nearest whole point per contribution. A 10 km indoor ride earns 7,500 base
+points; 20 km earns 15,000. Outdoor remains 600/km and unspecified remains the
+configured generic coefficient (standard 650/km). Speed bonuses remain separate.
+The read-only rule guide uses the version's coefficient.
+
+A null/absent indoor override retains the original workbook 700/km semantics.
+Old UUIDs and snapshots retain that definition; 750/km is a new SportOS policy,
+not a reinterpretation of the old Excel formula. New account seeds copy both
+historical versions and the enabled 750/km version. New bike-base proposals
+normalize an omitted indoor override to 750/km.
+
+The migration versions only standard enabled 650/km generic families and keeps
+their inclusive effective ranges. Customized families are preserved. It atomically
+replaces matching non-imported ledger rule references, updates identified indoor
+contributions from their retained kilometre inputs, adjusts base/total points,
+and appends score snapshots. Outdoor, unknown, other sports and bonuses retain
+their points. Imported `All` totals and ledgers stay authoritative until explicit
+recalculation. Provider records, canonical distances and retained workbook bytes
+are unchanged. The same versioned formula applies to provider-backed recalculation
+and manual indoor distance splits.
