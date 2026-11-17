@@ -118,7 +118,8 @@ evidence-only; scoring requires explicit Recalculate.
 
 The [worker idle-compute review](docs/WORKER_IDLE_COST.md) explains current Neon
 keep-awake traffic and issue #260's proposed authenticated on-demand wake design.
-The runtime fix and live activation are pending.
+The [opt-in wake implementation and rollout guide](docs/WORKER_WAKE.md) preserves
+polling as the compatibility default; production activation/live acceptance are pending.
 
 ## Native iPhone client
 

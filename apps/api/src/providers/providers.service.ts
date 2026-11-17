@@ -1,3 +1,4 @@
+import {afterWorkerMutation} from '../jobs/worker-wake.js';
 import {
   BadRequestException,
   ConflictException,
@@ -72,7 +73,7 @@ export class ProvidersService {
     const requestedBefore = optionalTimestamp(input.before, 'before');
     if (requestedAfter && requestedBefore && requestedAfter >= requestedBefore) throw new BadRequestException({ code: 'INVALID_PROVIDER_SYNC_RANGE', message: 'after must be earlier than before.' });
     try {
-      return await this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).enqueueSync({ connectionId, mode: parseMode(input.mode), requestedAfter, requestedBefore }));
+      return await afterWorkerMutation(this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).enqueueSync({ connectionId, mode: parseMode(input.mode), requestedAfter, requestedBefore })));
     } catch (error) {
       if (error instanceof ActiveProviderSyncJobError) throw new ConflictException({ code: 'ACTIVE_PROVIDER_SYNC_EXISTS', message: 'This provider connection already has an active sync.', jobId: error.jobId });
       if (error instanceof ProviderSyncQueueFullError) throw new ServiceUnavailableException({ code: 'PROVIDER_SYNC_QUEUE_FULL', message: 'The provider sync queue is full. Try again later.' });
@@ -95,7 +96,7 @@ export class ProvidersService {
 
   async retrySync(accountId: string, jobId: string): Promise<ProviderSyncJobReadModel> {
     try {
-      const job = await this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).retrySync(jobId));
+      const job = await afterWorkerMutation(this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).retrySync(jobId)));
       if (!job) throw providerJobNotFound();
       return job;
     } catch (error) {
@@ -105,7 +106,7 @@ export class ProvidersService {
   }
 
   async cancelSync(accountId: string, jobId: string): Promise<ProviderSyncJobReadModel> {
-    const job = await this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).requestCancellation(jobId));
+    const job = await afterWorkerMutation(this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).requestCancellation(jobId)));
     if (!job) throw providerJobNotFound();
     return job;
   }
@@ -124,7 +125,9 @@ export class ProvidersService {
         await this.stravaAdapter().revokeAuthorization(authorization);
       } catch { /* Local disconnect must still remove credentials and stop future work. */ }
     }
-    if (!await this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).disconnect(connectionId))) throw providerConnectionNotFound();
+    const disconnected = await this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).disconnect(connectionId));
+    if (!disconnected) throw providerConnectionNotFound();
+    await afterWorkerMutation(Promise.resolve(disconnected));
     return { disconnected: true };
   }
 

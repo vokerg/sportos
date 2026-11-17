@@ -21,6 +21,9 @@
     },
     {
       "path": "../../packages/garmin-runtime"
+    },
+    {
+      "path": "../../packages/worker-wake"
     }
   ],
   "include": [

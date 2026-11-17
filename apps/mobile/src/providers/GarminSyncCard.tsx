@@ -23,7 +23,7 @@ export function GarminSyncCard(){
  useFocusEffect(useCallback(()=>{load()},[load]));
  const cancel=()=>{const saved=current;if(!saved||saved.operation!=='sync')return;void cancellation.run(async api=>garminJob(await api.mutate('/garmin/jobs/'+saved.id+'/cancel'),{operation:'sync'}),job=>{setJob(job);setMessage(garminJobMessage(job))},'Could not cancel Garmin. Check status.');};
  const action=(kind:'sync'|'check'|'retry')=>{
-  if(!data?.enabled||operation.busy)return;
+  if(operation.busy||(kind!=='check'&&!data?.enabled))return;
   const saved=current;
   void operation.run(async api=>{
    let job:GarminFetchJob;
@@ -39,7 +39,7 @@ export function GarminSyncCard(){
   {current?<Body>Garmin {current.status}{current.operation==='sync'?' · '+(current.processedDays??0)+' / '+(current.totalDays??0)+' days':''}</Body>:null}
   {message?<Body subdued>{message}</Body>:null}
   <Action title={operation.busy?'Syncing Garmin…':'Sync Garmin'} disabled={operation.busy||!!operation.error||!data?.enabled||activeGarminJob(current)} onPress={()=>action('sync')}/>
-  {current?.operation==='sync'&&activeGarminJob(current)?<><Action title="Check Garmin job" secondary disabled={operation.busy||!data?.enabled} onPress={()=>action('check')}/><Action title="Cancel Garmin sync" secondary disabled={cancellation.busy} onPress={cancel}/></>:null}
+  {current?.operation==='sync'&&activeGarminJob(current)?<><Action title="Check Garmin job" secondary disabled={operation.busy} onPress={()=>action('check')}/><Action title="Cancel Garmin sync" secondary disabled={cancellation.busy} onPress={cancel}/></>:null}
   {current?.operation==='sync'&&['failed','cancelled'].includes(current.status)?<Action title="Retry Garmin sync" disabled={operation.busy||!data?.enabled} onPress={()=>action('retry')}/>:null}
   {operation.error?<Body subdued>{operation.error}</Body>:null}{cancellation.error?<Body subdued>{cancellation.error}</Body>:null}
   <Action title="Check Garmin status" secondary disabled={operation.busy} onPress={load}/>

@@ -36,8 +36,8 @@ the process group; persisted leases recover work if shutdown cannot finish.
 The [2026-11-17 idle-compute review](WORKER_IDLE_COST.md) identifies repeated empty
 scans and Garmin process heartbeats as blockers to Neon suspension. Issue #260
 proposes a separate free `workers.dev` wake gateway, a verified IPv6 HTTPS origin,
-and a worker that releases DB pools while idle. No wake HTTP listener or gateway
-is implemented here yet; the proposal requires a compatible readiness change
+and a worker that releases DB pools while idle. [Opt-in wake mode and its separate
+listener/gateway](WORKER_WAKE.md) require matching API readiness configuration
 and authorized transport/idle acceptance before replacing current polling.
 
 Garmin optionally invokes `tools/garmin/worker_bridge.py` and the pinned

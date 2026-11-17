@@ -17,6 +17,7 @@
   "dependencies": {
     "@sportos/db": "workspace:*",
     "@sportos/importers": "workspace:*",
-    "@sportos/garmin-runtime": "workspace:*"
+    "@sportos/garmin-runtime": "workspace:*",
+    "@sportos/worker-wake": "workspace:*"
   }
 }

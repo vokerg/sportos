@@ -53,6 +53,9 @@ importers:
       '@sportos/mcp':
         specifier: workspace:*
         version: link:../mcp
+      '@sportos/worker-wake':
+        specifier: workspace:*
+        version: link:../../packages/worker-wake
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -240,6 +243,9 @@ importers:
       '@sportos/importers':
         specifier: workspace:*
         version: link:../../packages/importers
+      '@sportos/worker-wake':
+        specifier: workspace:*
+        version: link:../../packages/worker-wake
 
   packages/analytics: {}
 
@@ -306,6 +312,8 @@ importers:
       zod:
         specifier: ^3.24.1
         version: 3.25.76
+
+  packages/worker-wake: {}
 
 packages:
 

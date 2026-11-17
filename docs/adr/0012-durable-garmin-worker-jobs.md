@@ -3,8 +3,9 @@
 Status: Accepted; initial service/database activation is recorded in the
 [GCP runbook](../gcp-worker-deployment.md). That check alone does not prove a
 completed provider download. The [issue #260 idle-cost proposal](../WORKER_IDLE_COST.md)
-plans to replace process-heartbeat readiness and continuous polling; it is not
-implemented or a change to the lease/ownership decision below.
+replaces process-heartbeat readiness and continuous polling in the
+[opt-in implementation](../WORKER_WAKE.md); production activation/live acceptance
+are pending. It does not change the lease/ownership decision below.
 
 ## Context
 

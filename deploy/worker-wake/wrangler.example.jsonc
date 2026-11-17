@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sportos-worker-wake",
+  "main": "worker.ts",
+  "compatibility_date": "2026-11-17",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {"enabled": false},
+  "vars": {
+    "PUBLIC_ORIGIN": "https://gateway.example.invalid",
+    "UPSTREAM_WAKE_URL": "https://origin.example.invalid/sportos-worker/wake"
+  }
+  // WAKE_KEYS is an operator-managed Worker secret, never a vars/CI entry.
+}

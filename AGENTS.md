@@ -77,7 +77,7 @@ Individual GitHub issues are the work backlog; no master issue or roadmap checkl
 
 - `docs/gcp-worker-deployment.md` and `deploy/gcp/` — native Node/Python worker releases, WIF/IAP, systemd, rollback, and manual controls for the existing GCP VM. The first approved provider/rule activation passed on 2026-11-01; cloud/host changes and production operations still require applicable authorization. Resolve egress and source availability for enabled queues before activation; GCP uses `SPORTOS_IMPORT_WORKER_ENABLED=false` for provider/rule processing without API upload access; Oracle holds remain unchanged.
 
-- `docs/WORKER_IDLE_COST.md` — issue #260's reviewed, unimplemented idle-compute/wake-up proposal. Preserve all five queues, lease/retry deadlines and separate roles; replace Garmin readiness before stopping its process heartbeat. A free `workers.dev` entry still needs a verified origin hostname/TLS and authorized live acceptance. Documentation review does not authorize deployment or paid infrastructure.
+- `docs/WORKER_IDLE_COST.md` and `docs/WORKER_WAKE.md` — issue #260's idle-compute review and opt-in wake implementation/rollout. Polling remains the compatibility default; activation/live acceptance are pending. Preserve all five queues, lease/retry deadlines and separate roles; configure Garmin readiness before stopping its process heartbeat. A free `workers.dev` entry still needs verified origin DNS/TLS. Do not deploy or add paid infrastructure implicitly.
 
 - `.env.example` — API, dispatcher, worker-data, legacy, OIDC, session, provider, encryption-key, optional AI-generator, and storage settings.
 - `scripts/flyway.mjs` — Neon schema-owner migration configuration and Flyway CLI bridge.

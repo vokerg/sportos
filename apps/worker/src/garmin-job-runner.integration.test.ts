@@ -1,6 +1,6 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {afterAll,afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
-import {createDb,GarminJobsRepository,GarminDispatchRepository,withAccountContext,sql,type Database,type Kysely,type Json} from '@sportos/db';
+import {createDb,GarminJobsRepository,GarminDispatchRepository,WorkerDispatchRepository,withAccountContext,sql,type Database,type Kysely,type Json} from '@sportos/db';
 import {GarminDayService} from '@sportos/garmin-runtime';
 import {GarminSessionCipher,type CredentialEnvelope} from '@sportos/importers';
 import {GarminJobRunner,type GarminBridge} from './garmin-job-runner.js';
@@ -134,6 +134,31 @@ integration('Garmin queue through non-owner API, dispatcher and worker-data role
   expect(await scoped(app,owner,repo=>repo.get(queued.id))).toMatchObject({status:'queued',phase:'rate_limited',attemptCount:0});
   await scoped(app,owner,repo=>repo.cancel(queued.id));await discovery().claim('rate-worker');
   await expect(scoped(app,owner,repo=>repo.enqueue({operation:'activity',activityId:randomUUID(),refresh:true}))).rejects.toMatchObject({code:'NOT_FOUND'});
+ });
+ it('queues while all process heartbeats are expired and discovers retry deadlines using only dispatcher privileges',async()=>{
+  await dispatch.updateTable('garmin_worker_status').set({checked_at:new Date(0)}).execute();
+  try {
+   const wakeScoped=<T>(account:string,enabled:boolean,fn:(repo:GarminJobsRepository)=>Promise<T>)=>withAccountContext(app,account,db=>fn(new GarminJobsRepository(db,enabled)));
+   expect(await scoped(app,owner,repo=>repo.capability())).toMatchObject({enabled:false,reason:'worker_offline'});
+   expect(await wakeScoped(owner,true,repo=>repo.capability())).toMatchObject({enabled:true,reason:'ready'});
+   expect(await wakeScoped(other,true,repo=>repo.capability())).toMatchObject({enabled:false,reason:'not_connected'});
+   await expect(wakeScoped(owner,false,repo=>repo.enqueue({operation:'day',date:'2026-03-23',refresh:true}))).rejects.toMatchObject({code:'WORKER_UNAVAILABLE'});
+   const target={operation:'day' as const,date:'2026-03-23',refresh:true};
+   const job=await wakeScoped(owner,true,repo=>repo.enqueue(target));
+   expect((await wakeScoped(owner,true,repo=>repo.enqueue(target))).id).toBe(job.id);
+   expect(await wakeScoped(other,true,repo=>repo.get(job.id))).toBeNull();
+   const dispatcher=new WorkerDispatchRepository(dispatch);
+   expect(await dispatcher.nextWakeAt([])).toBeNull();
+   expect(await dispatcher.nextWakeAt(['import_jobs','provider_sync_jobs','scoring_rule_changes','daily_recalculation_jobs','garmin_jobs'])).toBeInstanceOf(Date);
+   expect((await dispatcher.nextWakeAt(['garmin_jobs']))!.getTime()).toBeLessThanOrEqual(Date.now());
+   const due=new Date(Date.now()+600_000);
+   await dispatch.updateTable('garmin_jobs').set({next_attempt_at:due}).where('id','=',job.id).execute();
+   expect(await dispatcher.nextWakeAt(['garmin_jobs'])).toEqual(due);
+   expect(await dispatcher.nextWakeAt(['daily_recalculation_jobs','scoring_rule_changes'])).toBeNull();
+   await wakeScoped(owner,true,repo=>repo.cancel(job.id));
+   expect((await dispatcher.nextWakeAt(['garmin_jobs']))!.getTime()).toBeLessThanOrEqual(Date.now());
+   await discovery().claim('wake-cleanup');
+  } finally {await discovery().heartbeat('test-worker');}
  });
 });
 

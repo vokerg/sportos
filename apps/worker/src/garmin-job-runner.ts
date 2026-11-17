@@ -50,6 +50,12 @@ export class GarminJobRunner{
   try{await runPollingLoop(async()=>{const job=await discovery.claim(this.workerId);if(!job)return false;await this.process(job,signal);return true},1000,signal)}
   finally{clearInterval(timer);await discovery.heartbeat(this.workerId,false)}
  }
+ async processNext(signal:AbortSignal){
+  if(signal.aborted)return false;
+  const job=await new GarminDispatchRepository(this.dispatch).claim(this.workerId);
+  if(!job)return false;
+  await this.process(job,signal);return true;
+ }
  async process(job:Claim,shutdown=new AbortController().signal){
   const controller=new AbortController();const abort=()=>controller.abort();shutdown.addEventListener('abort',abort,{once:true});if(shutdown.aborted)abort();
   // Every primary write and every detail operation holds the primary lease row

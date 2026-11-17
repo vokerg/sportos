@@ -1,0 +1,19 @@
+# Include only inside an existing, independently verified TLS IPv6 server block.
+# Preserve its real server_name/certificate/renewal and all other application routes.
+# The worker HMAC authenticates requests independently of ingress IP/header claims.
+location = /sportos-worker/wake {
+    limit_except POST { deny all; }
+    client_max_body_size 2;
+    client_body_timeout 3s;
+    access_log off;
+    error_log /dev/null;
+    proxy_pass http://127.0.0.1:3113/wake;
+    proxy_connect_timeout 1s;
+    proxy_read_timeout 3s;
+    proxy_send_timeout 3s;
+    proxy_pass_request_headers off;
+    proxy_set_header Host localhost;
+    proxy_set_header X-SportOS-Wake $http_x_sportos_wake;
+    proxy_set_header Content-Type application/json;
+    add_header Cache-Control no-store always;
+}

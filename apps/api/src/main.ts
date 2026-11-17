@@ -3,9 +3,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { sportosCorsOptions } from './cors-options.js';
 import { validateHostedEnvironment } from './hosted-config.js';
+import {validateWorkerWakeEnvironment} from './jobs/worker-wake.js';
 
 async function bootstrap() {
   validateHostedEnvironment(process.env);
+  await validateWorkerWakeEnvironment();
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
   app.use((_request: unknown, response: { setHeader(name: string, value: string): void }, next: () => void) => {

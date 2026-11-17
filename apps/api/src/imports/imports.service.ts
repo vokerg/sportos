@@ -1,3 +1,4 @@
+import {afterWorkerMutation} from '../jobs/worker-wake.js';
 import {
   BadRequestException,
   ConflictException,
@@ -67,7 +68,7 @@ export class ImportsService {
       throw error;
     }
 
-    return this.dbProvider.withAccount(accountId, async (db) => {
+    return afterWorkerMutation(this.dbProvider.withAccount(accountId, async (db) => {
       const uploadsRepo = new UploadsRepository(db);
       const duplicate = await uploadsRepo.findDuplicate(validated.sha256, validated.workbookKind);
       if (duplicate) {
@@ -155,7 +156,7 @@ export class ImportsService {
         },
         job,
       };
-    });
+    }));
   }
 
   async job(jobId: string, accountId = LEGACY_ACCOUNT_ID): Promise<ImportJobReadModel> {
@@ -168,7 +169,7 @@ export class ImportsService {
 
   async retryJob(jobId: string, accountId = LEGACY_ACCOUNT_ID): Promise<ImportJobReadModel> {
     try {
-      const job = await this.dbProvider.withAccount(accountId, (db) => new ImportJobsRepository(db).retry(jobId));
+      const job = await afterWorkerMutation(this.dbProvider.withAccount(accountId, (db) => new ImportJobsRepository(db).retry(jobId)));
       if (!job) throw new NotFoundException({ code: 'IMPORT_JOB_NOT_FOUND', message: 'Import job was not found.' });
       return job;
     } catch (error) {
@@ -183,7 +184,7 @@ export class ImportsService {
   }
 
   async cancelJob(jobId: string, accountId = LEGACY_ACCOUNT_ID): Promise<ImportJobReadModel> {
-    const job = await this.dbProvider.withAccount(accountId, (db) => new ImportJobsRepository(db).requestCancellation(jobId));
+    const job = await afterWorkerMutation(this.dbProvider.withAccount(accountId, (db) => new ImportJobsRepository(db).requestCancellation(jobId)));
     if (!job) throw new NotFoundException({ code: 'IMPORT_JOB_NOT_FOUND', message: 'Import job was not found.' });
     return job;
   }
