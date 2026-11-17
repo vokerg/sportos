@@ -67,6 +67,8 @@ A second signed public hint at 06:29:17 UTC returned 202 in about 0.90 seconds
 while the compute was suspended. The control plane then reported a fresh
 compute start at 06:29:18 UTC. This verifies wake from suspension through the
 public gateway; it does not verify an authenticated Render API mutation.
+With no further SQL probes, the control plane reported suspension again at
+06:34:32 UTC. The observed cycle was sleep → signed wake → scan → sleep.
 
 ## Remaining evidence and operating limits
 
