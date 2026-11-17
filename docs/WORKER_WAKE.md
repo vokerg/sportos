@@ -1,9 +1,11 @@
 # On-demand worker mode
 
-Implementation: [PR #262](https://github.com/vokerg/sportos/pull/262), tracked by
-[issue #260](https://github.com/vokerg/sportos/issues/260). The code is opt-in;
-production activation and the real Render -> Cloudflare -> GCP/Neon acceptance
-are **not verified**. [The idle-cost review](WORKER_IDLE_COST.md) explains why
+Implementation: merged [PR #262](https://github.com/vokerg/sportos/pull/262), tracked by
+[issue #260](https://github.com/vokerg/sportos/issues/260). The GCP worker, Render
+settings and gateway were activated on 2026-11-17. Signed gateway acceptance and
+actual Neon suspension passed; the authenticated Render application trigger
+remains unobserved. See the [activation record](implementation/issue-260-activation.md).
+[The idle-cost review](WORKER_IDLE_COST.md) explains why
 frequent empty polling and process-presence writes prevent Neon suspension.
 
 ## Modes and authority
@@ -73,7 +75,8 @@ publicly trusted renewable certificate. A raw IPv6 literal is rejected; Origin
 CA/Full(strict) instructions for a proxied Cloudflare zone are not setup steps
 for this direct Worker fetch. Reusing an existing TLS listener requires an
 explicit, separate SportOS route that does not pass through PCE's application.
-No actual SportOS origin/renewal/ingress was validated by this implementation.
+The activation reused an existing valid public certificate and active renewal
+setup; no new hostname purchase or firewall rule was necessary.
 
 The nginx location example maps only `/sportos-worker/wake` to loopback `/wake`,
 sets `Host: localhost`, and forwards only the signature/content type. Install it
@@ -139,8 +142,9 @@ clients or an unchanged local worker can still keep Neon awake.
 
 ## Staged operator activation and rollback
 
-This section is a procedure for a separately authorized activation, not evidence
-that it happened or permission to change cloud/host/payment settings.
+This procedure requires applicable operator authorization. The dated activation
+record above distinguishes completed live steps from still-unobserved checks;
+the procedure itself is not permission to change cloud/host/payment settings.
 
 1. Deploy matching reviewed API/worker code with existing polling/readiness defaults.
    Verify packaging, separate runtime roles, persistent originals and provider egress.

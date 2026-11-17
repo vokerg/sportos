@@ -2,8 +2,10 @@
 
 Documentation review [PR #261](https://github.com/vokerg/sportos/pull/261) is
 squash merged. Runtime implementation is in [PR #262](https://github.com/vokerg/sportos/pull/262),
-branched from current main `ced7179`. Issue #260 remains open for implementation
-review and separately authorized production acceptance.
+branched from current main `ced7179` and squash merged as `1ab085c`. The
+[authorized activation record](issue-260-activation.md) now records deployed
+configuration, signed transport and observed Neon suspension, with remaining
+application/accounting limitations explicit.
 
 ## Implemented scope
 
@@ -66,9 +68,8 @@ The PostgreSQL 18 disposable CI gate remains important alongside local PG16.
 
 ## Remaining acceptance
 
-No live Render -> deployed Worker -> verified DNS/TLS -> GCP IPv6 path was tested.
-Origin selection/renewal, actual Free-plan signature CPU consumption, authorized
-staged enablement, all worker-instance inventory, controlled Neon suspension and
-before/after CU-hour measurement remain unperformed. Current deployments retain
-their existing polling cost until explicitly switched. Do not mark #260 complete
-or infer rollout authorization from code checks.
+See the activation record for live checks performed after explicit authorization.
+Actual authenticated Render mutation delivery, numerical invocation CPU telemetry
+and billed before/after CU-hour measurement remain unobserved. The GCP worker has
+been explicitly switched; polling is retained as the source-code compatibility
+default and rollback path. Do not infer unperformed acceptance from code checks.
