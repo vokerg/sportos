@@ -68,6 +68,21 @@ describe('DailyLogStore', () => {
     }
   });
 
+  it('reloads editable facts for an applied date range while Quick entry is open', () => {
+    const manualFacts = vi.fn().mockReturnValue(of([]));
+    const store = createStore({ manualFacts }, { dailySummary: vi.fn().mockReturnValue(of([])) });
+    store.showQuickEntry();
+    const previous = store.quickEntryRange();
+    store.setFrom('2026-05-17');
+    store.setTo('2026-05-19');
+
+    expect(store.quickEntryRange()).toEqual(previous);
+    store.applyFilters();
+
+    expect(manualFacts).toHaveBeenLastCalledWith({ from: '2026-05-17', to: '2026-05-19', limit: 10_000 });
+    expect(store.quickEntryRange()).toEqual({ from: '2026-05-17', to: '2026-05-19' });
+  });
+
   it('rejects a reversed range without issuing a request', () => {
     const api = { dailySummary: vi.fn().mockReturnValue(of([])) };
     const store = createStore({}, api);
