@@ -1,6 +1,10 @@
 # ADR 0012: Durable targeted Garmin jobs and encrypted sessions
 
-Status: Accepted for implementation in #226; deployment pending.
+Status: Accepted; initial service/database activation is recorded in the
+[GCP runbook](../gcp-worker-deployment.md). That check alone does not prove a
+completed provider download. The [issue #260 idle-cost proposal](../WORKER_IDLE_COST.md)
+plans to replace process-heartbeat readiness and continuous polling; it is not
+implemented or a change to the lease/ownership decision below.
 
 ## Context
 

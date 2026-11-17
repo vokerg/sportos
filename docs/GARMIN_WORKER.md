@@ -75,6 +75,13 @@ from the account's connection status plus a ready worker heartbeat newer than 90
 seconds. A worker checks its Python interpreter before advertising readiness;
 credential decryption and actual provider availability are validated on execution.
 
+This heartbeat describes current behavior. [Issue #260's reviewed idle-cost
+proposal](WORKER_IDLE_COST.md) must replace both the capability and enqueue
+heartbeat checks before an idle worker can stop writing presence. A sleeping
+worker must still accept valid queued requests. No such runtime change is
+implemented by that review; do not merely slow polling or disable the heartbeat
+on an existing deployment.
+
 ## Credential boundary
 
 `garmin_connections` stores owner-bound status, revision and calendar metadata.
