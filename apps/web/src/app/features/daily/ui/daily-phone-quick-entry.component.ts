@@ -78,7 +78,7 @@ const FIELDS = [
     :host { display: block; margin-top: 20px; }
     h3 { margin: 0 0 10px; }
     input { display: block; width: 100%; min-width: 0; min-height: 44px; font-size: 16px; padding: 8px; }
-    #quick-entry-date { margin-top: 5px; }
+    #quick-entry-date { -webkit-appearance: none; appearance: none; margin-top: 5px; }
     .score { margin: 12px 0; color: var(--text-muted); }
     .score strong { color: var(--text); }
     fieldset { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--border); border-radius: 12px; }

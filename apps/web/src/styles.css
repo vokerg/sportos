@@ -250,6 +250,11 @@ label { display: grid; gap: 5px; color: var(--text-secondary); font-size: 13px; 
     background-size: 5px 5px;
     background-repeat: no-repeat;
   }
-  .filter-bar input[type="date"] { display: block; max-width: 100%; }
+  .filter-bar input[type="date"] {
+    display: block;
+    -webkit-appearance: none;
+    appearance: none;
+    max-width: 100%;
+  }
   .filter-bar button { min-height: 44px; }
 }
