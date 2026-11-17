@@ -239,5 +239,8 @@ label { display: grid; gap: 5px; color: var(--text-secondary); font-size: 13px; 
   .card { padding: 14px; border-radius: 14px; }
   .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filter-bar { align-items: stretch; }
-  .filter-bar label, .filter-bar input, .filter-bar select, .filter-bar button { width: 100%; }
+  .filter-bar label, .filter-bar input, .filter-bar select, .filter-bar button { width: 100%; min-width: 0; }
+  .filter-bar input, .filter-bar select { min-height: 44px; font-size: 16px; }
+  .filter-bar input[type="date"] { display: block; max-width: 100%; }
+  .filter-bar button { min-height: 44px; }
 }

@@ -55,6 +55,7 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
     color: [...visibleComponents.map((component) => component.color), '#dc5b62'],
     tooltip: {
       trigger: 'axis',
+      confine: true,
       axisPointer: { type: 'none' },
       valueFormatter: (value: unknown) => {
         const points = Number(value);
@@ -101,6 +102,13 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
         data: chronological.map((row) => Math.round(row.avg_30d ?? 0)),
       },
     ],
+    media: [{
+      query: { maxWidth: 500 },
+      option: {
+        grid: { left: 4, right: 8, top: 28, bottom: 52 },
+        yAxis: { nameLocation: 'end' },
+      },
+    }],
   };
 }
 

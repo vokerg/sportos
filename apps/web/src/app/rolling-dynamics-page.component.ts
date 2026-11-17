@@ -39,7 +39,7 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
     </section>
 
     <section class="card controls" aria-label="Rolling dynamics controls">
-      <div class="filter-bar">
+      <form class="filter-bar" (submit)="$event.preventDefault(); apply()">
         <label>Quick range
           <select [value]="quickRange()" (change)="setQuickRange(inputValue($event))">
             <option value="custom">Custom range</option>
@@ -66,16 +66,16 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
             <option value="activeDays" [disabled]="metric() === 'score'">Active days</option>
           </select>
         </label>
-        <button type="button" (click)="apply()" [disabled]="state() === 'loading'">Apply</button>
+        <button type="submit" [disabled]="state() === 'loading'">Apply</button>
         <button type="button" class="secondary" (click)="resetRange()" [disabled]="state() === 'loading'">Reset</button>
-      </div>
+      </form>
       <fieldset><legend>Trailing windows</legend><div class="window-picker">
         @for (window of availableWindows; track window) {
           <label><input type="checkbox" [checked]="windows().includes(window)" (change)="toggleWindow(window, checked($event))"> {{ window }} days</label>
         }
       </div></fieldset>
       @if (selectionMessage()) { <p class="selection-message" role="alert">{{ selectionMessage() }}</p> }
-      <p class="semantics">Charts include today, marked Incomplete while Garmin and Strava data may still arrive. Choose an earlier end date for completed days only. Each point uses that date and the preceding N−1 calendar days. Values expire on the exact day they leave the window. Active days counts dates where the selected activity is greater than zero. Coverage reports persisted daily rows; incomplete coverage can understate an avg/day or active-day count.</p>
+      <details class="semantics"><summary>How trailing windows work</summary><p>Charts include today, marked Incomplete while Garmin and Strava data may still arrive. Choose an earlier end date for completed days only. Each point uses that date and the preceding N−1 calendar days. Values expire on the exact day they leave the window. Active days counts dates where the selected activity is greater than zero. Coverage reports persisted daily rows; incomplete coverage can understate an avg/day or active-day count.</p></details>
     </section>
 
     @if (state() === 'loading') {
@@ -109,12 +109,12 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
           </section>
         }
 
-        <section class="card table-card" aria-labelledby="rolling-table-title">
+        <section class="card table-card" aria-label="Aggregate averages">
         @for (window of current.windows; track window) {
           <div class="aggregate-table-block">
-            <div class="section-title"><div><span class="page-kicker">Selected cycle</span><h2 id="rolling-table-title">{{ window }}-day aggregate averages</h2></div><span>Calendar-day averages</span></div>
+            <div class="section-title"><div><span class="page-kicker">Selected cycle</span><h2 [id]="'rolling-table-title-' + window">{{ window }}-day aggregate averages</h2></div><span>Calendar-day averages</span></div>
             <p class="table-help">Each row is the rolling calendar-day average for that date. Missing dates remain visible; incomplete coverage is highlighted.</p>
-            <div class="table-scroll"><table>
+            <div class="table-scroll" tabindex="0" role="region" [attr.aria-labelledby]="'rolling-table-title-' + window"><table>
               <thead><tr><th>Date</th><th>Avg run</th><th>Avg swim</th><th>Avg bike</th><th>Avg steps</th><th>Avg points</th><th>Avg power points</th><th>Avg training points</th></tr></thead>
               <tbody>@for (row of reversedAggregateRows(window); track row.date) {
                 <tr><th scope="row">{{ row.date }}</th>@for (metric of aggregateMetrics; track metric) { <td [class.incomplete]="!row.complete">{{ formatAggregate(row.values[metric], metric) }}</td> }</tr>
@@ -128,10 +128,22 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
   `,
   styles: [`
     .page-heading { margin: 6px 0 22px; }.page-heading h1 { margin: 5px 0; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.035em; }.page-heading p, .semantics, .section-title > span { margin: 0; color: var(--text-muted); }.page-kicker { color: var(--link); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { margin: 0; padding: 12px; border: 1px solid var(--border-accent); border-radius: 12px; } legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 750; }.window-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; }.window-picker label { display: flex; align-items: center; gap: 6px; }.window-picker input { min-width: auto; }.semantics, .selection-message { font-size: 12px; }.selection-message { margin: 0; color: var(--danger); }
+    .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--border-accent); border-radius: 12px; } legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 750; }.window-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; }.window-picker label { display: flex; align-items: center; gap: 6px; }.window-picker input { min-width: auto; }.semantics, .selection-message { font-size: 12px; }.selection-message { margin: 0; color: var(--danger); }
     .latest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }.latest { display: grid; gap: 5px; }.latest span, .latest small { color: var(--text-muted); font-size: 12px; }.latest strong { color: var(--link); font-size: 27px; }.chart-card, .table-card { margin-bottom: 16px; }.section-title { display: flex; justify-content: space-between; align-items: end; gap: 16px; }.section-title h2 { margin: 4px 0 0; }.rolling-chart, .contribution-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }.chart-help, .table-help, .contribution-empty { margin: 8px 0 0; color: var(--text-muted); font-size: 12px; }
     .table-scroll { margin-top: 14px; max-height: 640px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; } table { width: 100%; border-collapse: collapse; white-space: nowrap; } th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: right; } th:first-child { text-align: left; } thead th { position: sticky; top: 0; z-index: 1; background: var(--accent-surface); color: var(--text-muted); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }.incomplete { color: var(--warning); background: var(--warning-surface); }.state-card { display: grid; gap: 12px; justify-items: start; }.state-card.error { color: var(--danger); }
-    @media (max-width: 700px) { .section-title { display: grid; }.rolling-chart, .contribution-chart { min-height: 340px; } }
+    .semantics summary { cursor: pointer; font-weight: 700; }
+    .semantics p { margin-bottom: 0; }
+    .aggregate-table-block + .aggregate-table-block { margin-top: 22px; }
+    @media (max-width: 700px) {
+      .controls .filter-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .controls .filter-bar label:first-child { grid-column: 1 / -1; }
+      .window-picker { gap: 0 14px; }
+      .window-picker label { min-height: 44px; }
+      .window-picker input { width: 18px; height: 18px; margin: 0; }
+      .semantics summary { align-content: center; min-height: 44px; }
+      .section-title { display: grid; gap: 6px; }
+      .rolling-chart, .contribution-chart { height: 300px; min-height: 0; }
+    }
   `],
 })
 export class RollingDynamicsPageComponent implements OnInit, OnDestroy {

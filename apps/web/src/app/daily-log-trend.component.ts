@@ -20,6 +20,7 @@ import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-
   `,
   styles: [`
     .daily-chart { width: 100%; height: min(64vh, 760px); min-height: 480px; }
+    @media (max-width: 760px) { .daily-chart { height: 300px; min-height: 0; } }
   `],
 })
 export class DailyLogTrendComponent {

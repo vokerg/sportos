@@ -77,6 +77,12 @@ import { isCalendarDate, shiftCalendarDays } from './shared/util/analytics-query
     .action-help { margin: 10px 0 0; color: var(--text-muted); font-size: 12px; }
     .breadcrumb { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--text-muted); font-size: 12px; }
     .breadcrumb a { color: var(--link); font-weight: 700; text-decoration: none; }
+    @media (max-width: 600px) {
+      .day-navigation { margin-left: 0; }
+      .day-navigation button, .action-buttons button { min-height: 44px; }
+      .action-buttons { display: grid; grid-template-columns: minmax(0, 1fr); }
+      .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; }
+    }
     .refresh-error { margin: 8px 0 0; color: var(--danger); font-size: 12px; }
   `],
 })
