@@ -40,7 +40,7 @@ python3 -m pip download --only-binary=:all: --dest "$stage/wheels" -r tools/garm
 if find "$stage" -name '.env' -o -name '.env.*' -o -name 'gha-creds-*.json' | grep -q .; then
   echo 'Unexpected private configuration in release' >&2; exit 1
 fi
-(cd "$stage/apps/worker" && node --input-type=module -e "await Promise.all([import('@sportos/db'), import('@sportos/importers'), import('@sportos/garmin-runtime')])")
+(cd "$stage/apps/worker" && node --input-type=module -e "await Promise.all([import('@sportos/db'), import('@sportos/importers'), import('@sportos/garmin-runtime'), import('@sportos/worker-wake')])")
 git rev-parse HEAD > "$stage/REVISION"
 tar -czf "$output/worker.tar.gz" -C "$stage" .
 (cd "$output" && sha256sum worker.tar.gz > worker.tar.gz.sha256)

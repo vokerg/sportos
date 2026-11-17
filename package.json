@@ -46,7 +46,8 @@
     "athlete:snapshot": "pnpm --filter @sportos/mcp snapshot",
     "garmin:import-session": "pnpm --filter @sportos/worker exec tsx src/garmin-session-import.ts",
     "daily:calculation-seed": "pnpm --filter @sportos/db build && node scripts/daily-calculation-seed.mjs",
-    "plugin:package": "node scripts/package-chatgpt-plugin.mjs"
+    "plugin:package": "node scripts/package-chatgpt-plugin.mjs",
+    "test:wake-gateway": "tsc -p deploy/worker-wake/tsconfig.json && vitest run deploy/worker-wake/worker.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

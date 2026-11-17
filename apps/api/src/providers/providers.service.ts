@@ -112,7 +112,7 @@ export class ProvidersService {
   }
 
   async disconnect(accountId: string, connectionId: string): Promise<{ disconnected: true }> {
-    const stored = await afterWorkerMutation(this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).loadWorkerAuthorization(connectionId)));
+    const stored = await this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).loadWorkerAuthorization(connectionId));
     if (!stored) {
       if (!await this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).getConnection(connectionId))) throw providerConnectionNotFound();
     } else {
@@ -125,7 +125,9 @@ export class ProvidersService {
         await this.stravaAdapter().revokeAuthorization(authorization);
       } catch { /* Local disconnect must still remove credentials and stop future work. */ }
     }
-    if (!await this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).disconnect(connectionId))) throw providerConnectionNotFound();
+    const disconnected = await this.dbProvider.withAccount(accountId, (db) => new ProvidersRepository(db).disconnect(connectionId));
+    if (!disconnected) throw providerConnectionNotFound();
+    await afterWorkerMutation(Promise.resolve(disconnected));
     return { disconnected: true };
   }
 

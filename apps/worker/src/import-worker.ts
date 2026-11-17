@@ -58,24 +58,24 @@ async function runWakeMode(): Promise<void> {
 }
 
 async function runLegacyMode(): Promise<void> {
-const dispatchDb = createDb(requiredUrl('SPORTOS_WORKER_DATABASE_URL'));
-const dataDb = createDb(requiredUrl('SPORTOS_WORKER_DATA_DATABASE_URL'));
-const storage = new LocalUploadStorage(resolve(repoRoot, process.env.SPORTOS_UPLOAD_DIR ?? 'data/uploads'));
-const garminDetail=process.env.SPORTOS_GARMIN_WORKER_ENABLED==='true'?createDb(requiredEnvironment('SPORTOS_ACTIVITY_DETAIL_WORKER_DATA_DATABASE_URL')):null;
-const runners: Promise<void>[] = [];
-try {
-  const provider = providerRuntime();
-  if (importsEnabled) runners.push(...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(dispatchDb, dataDb, storage, { workerId: `${processId}:import:${index + 1}`, leaseSeconds, pollIntervalMs }).run(controller.signal)));
-  runners.push(new RuleChangeRunner(dispatchDb, dataDb, { workerId: `${processId}:rules`, leaseSeconds, pollIntervalMs }).run(controller.signal));
-  runners.push(new DailyRecalculationRunner(dispatchDb,dataDb,`${processId}:daily`).run(controller.signal));
-  if (provider) runners.push(new ProviderSyncRunner(dispatchDb, dataDb, provider.adapter, provider.cipher, { workerId: `${processId}:providers`, leaseSeconds, pollIntervalMs, pageSize: 200 }).run(controller.signal));
-  if(garminDetail) runners.push(new GarminJobRunner(dispatchDb,dataDb,garminDetail,storage,new GarminSessionCipher(parseCredentialKeyRing(requiredEnvironment('SPORTOS_PROVIDER_CREDENTIAL_KEYS'),requiredEnvironment('SPORTOS_PROVIDER_ACTIVE_KEY_ID'))),`${processId}:garmin`).run(controller.signal));
-  await Promise.all(runners);
-} catch (error) {
-  controller.abort();
-  await Promise.allSettled(runners);
-  throw error;
-} finally { await Promise.all([dispatchDb.destroy(), dataDb.destroy(),garminDetail?.destroy()]); }
+  const dispatchDb = createDb(requiredUrl('SPORTOS_WORKER_DATABASE_URL'));
+  const dataDb = createDb(requiredUrl('SPORTOS_WORKER_DATA_DATABASE_URL'));
+  const storage = new LocalUploadStorage(resolve(repoRoot, process.env.SPORTOS_UPLOAD_DIR ?? 'data/uploads'));
+  const garminDetail=process.env.SPORTOS_GARMIN_WORKER_ENABLED==='true'?createDb(requiredEnvironment('SPORTOS_ACTIVITY_DETAIL_WORKER_DATA_DATABASE_URL')):null;
+  const runners: Promise<void>[] = [];
+  try {
+    const provider = providerRuntime();
+    if (importsEnabled) runners.push(...Array.from({ length: concurrency }, (_, index) => new ImportJobRunner(dispatchDb, dataDb, storage, { workerId: `${processId}:import:${index + 1}`, leaseSeconds, pollIntervalMs }).run(controller.signal)));
+    runners.push(new RuleChangeRunner(dispatchDb, dataDb, { workerId: `${processId}:rules`, leaseSeconds, pollIntervalMs }).run(controller.signal));
+    runners.push(new DailyRecalculationRunner(dispatchDb,dataDb,`${processId}:daily`).run(controller.signal));
+    if (provider) runners.push(new ProviderSyncRunner(dispatchDb, dataDb, provider.adapter, provider.cipher, { workerId: `${processId}:providers`, leaseSeconds, pollIntervalMs, pageSize: 200 }).run(controller.signal));
+    if(garminDetail) runners.push(new GarminJobRunner(dispatchDb,dataDb,garminDetail,storage,new GarminSessionCipher(parseCredentialKeyRing(requiredEnvironment('SPORTOS_PROVIDER_CREDENTIAL_KEYS'),requiredEnvironment('SPORTOS_PROVIDER_ACTIVE_KEY_ID'))),`${processId}:garmin`).run(controller.signal));
+    await Promise.all(runners);
+  } catch (error) {
+    controller.abort();
+    await Promise.allSettled(runners);
+    throw error;
+  } finally { await Promise.all([dispatchDb.destroy(), dataDb.destroy(),garminDetail?.destroy()]); }
 
 }
 
@@ -97,5 +97,5 @@ function importWorkerEnabled(value: string | undefined): boolean {
   if (value.trim() === 'false') return false;
   throw new Error('SPORTOS_IMPORT_WORKER_ENABLED must be true or false.');
 }
-function requiredEnvironment(name: string): string { const value = process.env[name]?.trim(); if (!value) throw new Error(`${name} is required for provider sync.`); return value; }
+function requiredEnvironment(name: string): string { const value = process.env[name]?.trim(); if (!value) throw new Error(`${name} is required for worker configuration.`); return value; }
 function clampInteger(value: number, minimum: number, maximum: number): number { if (!Number.isFinite(value)) return minimum; return Math.min(maximum, Math.max(minimum, Math.trunc(value))); }

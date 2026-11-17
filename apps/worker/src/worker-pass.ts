@@ -5,6 +5,7 @@ import {RuleChangeRunner} from './rule-change-runner.js';
 import {ProviderSyncRunner} from './provider-sync-runner.js';
 import {DailyRecalculationRunner} from './daily-recalculation-runner.js';
 import {GarminJobRunner, PythonGarminBridge} from './garmin-job-runner.js';
+import {RECOVERY_INTERVAL_MS} from './wake-coordinator.js';
 
 export interface WorkerPassOptions {
   dispatchUrl: string;
@@ -33,6 +34,7 @@ export async function drainQueues(handlers: readonly (() => Promise<boolean>)[],
 
 /** Kysely/pg pools are lazy; an idle scan opens only the dispatcher connection. */
 export function createWorkerPass(options: WorkerPassOptions): (signal: AbortSignal) => Promise<Date | null> {
+  let unclaimable = 0;
   return async signal => {
     const dispatch = createDb(options.dispatchUrl), data = createDb(options.dataUrl);
     const detail = options.detailUrl ? createDb(options.detailUrl) : null;
@@ -61,7 +63,14 @@ export function createWorkerPass(options: WorkerPassOptions): (signal: AbortSign
       }
       const more = await drainQueues(handlers, signal);
       if (signal.aborted) return null;
-      return more ? new Date(Date.now() + 250) : await new WorkerDispatchRepository(dispatch).nextWakeAt(enabled);
+      if (more) return new Date(Date.now() + 250);
+      const due = await new WorkerDispatchRepository(dispatch).nextWakeAt(enabled);
+      if (due && due.getTime() <= Date.now()) {
+        // A locked/ineligible overdue row must not turn an empty scan into a busy loop.
+        return new Date(Date.now() + Math.min(RECOVERY_INTERVAL_MS, 1000 * 2 ** Math.min(unclaimable++, 20)));
+      }
+      unclaimable = 0;
+      return due;
     } finally {
       const results = await Promise.allSettled([dispatch.destroy(), data.destroy(), detail?.destroy()]);
       if (results.some(result => result.status === 'rejected')) throw new Error('Worker database pool cleanup failed.');

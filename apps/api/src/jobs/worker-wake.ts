@@ -40,7 +40,7 @@ export async function notifyWorker(env: Environment = process.env, fetcher: type
 /** Await the repository AND account-context release before notifying. Never undo a committed job. */
 export async function afterWorkerMutation<T>(operation: Promise<T>, notify: () => Promise<void> = notifyWorker): Promise<T> {
   const result = await operation;
-  if (result !== null) {
+  if (result != null) {
     try { await notify(); }
     catch { console.warn('Worker wake unavailable; the committed request remains subject to durable recovery.'); }
   }

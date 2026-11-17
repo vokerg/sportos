@@ -65,8 +65,8 @@ Background processing uses two database identities. A narrow dispatcher may disc
 
 The deployed worker still uses continuous polling, including newer Garmin and
 Daily calculation queues. The [idle-compute review and proposed wake-up design](WORKER_IDLE_COST.md)
-records issue #260's planned replacement with authenticated hints, bounded passes
-and disconnected idle pools. That proposal is not deployed and does not change
+records issue #260's [opt-in replacement](WORKER_WAKE.md) with authenticated hints,
+bounded passes and disconnected idle pools. That mode is not deployed and does not change
 Postgres job/lease authority or account boundaries.
 
 Read-only analysis is an API-only composition boundary. The authenticated web Chat

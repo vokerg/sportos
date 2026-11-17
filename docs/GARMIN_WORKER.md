@@ -78,9 +78,10 @@ credential decryption and actual provider availability are validated on executio
 This heartbeat describes current behavior. [Issue #260's reviewed idle-cost
 proposal](WORKER_IDLE_COST.md) must replace both the capability and enqueue
 heartbeat checks before an idle worker can stop writing presence. A sleeping
-worker must still accept valid queued requests. No such runtime change is
-implemented by that review; do not merely slow polling or disable the heartbeat
-on an existing deployment.
+worker must still accept valid queued requests. [The opt-in wake implementation](WORKER_WAKE.md)
+adds an API deployment capability setting for that transition; activation and
+live acceptance remain pending. Do not merely slow polling or disable the
+heartbeat on an existing deployment.
 
 ## Credential boundary
 

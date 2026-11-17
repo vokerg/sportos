@@ -48,6 +48,9 @@ jobs:
       - name: GCP worker deployment checks (no cloud access)
         run: node --test deploy/gcp/*.test.mjs
 
+      - name: Worker wake gateway contract (no cloud access)
+        run: pnpm test:wake-gateway
+
       - name: Hosted deployment scope and release freshness checks
         run: node --test scripts/deploy/*.test.mjs
 

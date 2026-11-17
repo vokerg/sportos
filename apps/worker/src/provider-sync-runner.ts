@@ -35,11 +35,11 @@ export class ProviderSyncRunner {
   async processNext(signal?: AbortSignal): Promise<boolean> {
     if (signal?.aborted) return false;
     const dispatch = new WorkerDispatchRepository(this.dispatchDb);
-      await dispatch.recoverStaleProviderSyncs();
-      const job = await dispatch.claimProviderSync(this.workerId, this.leaseSeconds);
-      if (!job) return false;
-      await this.process(job).catch(() => undefined);
-      return true;
+    await dispatch.recoverStaleProviderSyncs();
+    const job = await dispatch.claimProviderSync(this.workerId, this.leaseSeconds);
+    if (!job) return false;
+    await this.process(job).catch(() => undefined);
+    return true;
   }
 
   async process(job: DispatchedProviderSync): Promise<void> {

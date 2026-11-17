@@ -111,3 +111,11 @@ it('requires a Garmin capability reload after an ambiguous request and does not 
  await act(async()=>{button('Sync Garmin').props.onPress()});expect(button('Sync Garmin').props.disabled).toBe(true);expect(JSON.stringify(tree!.toJSON())).not.toContain('private Garmin response');
  await act(async()=>{button('Check Garmin status').props.onPress()});expect(button('Sync Garmin').props.disabled).toBe(false);
 });
+it('permits checking and cancelling an existing Garmin job when new execution is unavailable',async()=>{
+ read.mockImplementation(async(p:string)=>p==='/garmin/connection'?{...garminConnection,enabled:false,reason:'worker_offline',activeJob:syncJob}:{...syncJob,status:'succeeded',phase:'succeeded',processedDays:2});
+ await mount(<GarminSyncCard/>);
+ expect(button('Check Garmin job').props.disabled).toBe(false);expect(button('Cancel Garmin sync').props.disabled).toBe(false);
+ await act(async()=>{button('Check Garmin job').props.onPress()});
+ expect(read.mock.calls.some(([path])=>path==='/garmin/jobs/'+jobId)).toBe(true);expect(mutate).not.toHaveBeenCalled();
+ expect(button('Sync Garmin').props.disabled).toBe(true);
+});
