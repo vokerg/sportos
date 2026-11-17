@@ -21,6 +21,7 @@ import { useDayActions } from './day-actions';
 import { homeAverages } from '../../../../packages/shared/src/home-summary';
 import { SportMark } from '../ui/identity';
 import { DayScoreCard } from './DayScoreCard';
+import { DayActivities } from './DayActivities';
 import type { DailySummary, MobileDayDetail } from './contracts';
 import { dailySummaryPath, formatPoints, mergeDays, safeActivityType, scoreAuthority, scoreBreakdownPath, projectDetail, parseDailySummaries } from './model.mjs';
 
@@ -274,9 +275,11 @@ function DailyDetail({date,navigation}:{date:string;navigation:NativeStackNaviga
       message="Could not load this day's score breakdown. Previous data is not shown as live."
       retry={() => setRevision(v => v + 1)} /> : null}
     {data ? <DayScoreCard data={data} sources={{...coverage,...(garminLoaded?{garmin:true}:{})}} today={date===localToday()}/> : null}
+    {isCalendarDate(date) ? <DayActivities date={date} revision={revision}
+      onOpen={activityId => navigation.navigate('ActivityDetail', {activityId})}/> : null}
     <GarminDayView state={garmin} showAction={false}/>
     {data ? <>
-      <Card title="Activity">
+      <Card title="Daily totals">
         <View style={styles.metrics}>
           <Metric label="Steps" value={formatPoints(data.facts.steps)} />
           <Metric label="Running" value={formatDistance(data.facts.runM)} />

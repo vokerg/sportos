@@ -65,7 +65,11 @@ with `node scripts/mobile-tab-icons.mjs`. Device and release gaps are tracked in
 ## Feature boundaries
 
 - Home/Daily read persisted scores, authority, contributions, history and ledgers.
-  Day detail keeps the score and measurements first. Its native navigation-bar
+  Day detail shows the score, the selected day's canonical Activities and measurements.
+  Activities open native activity detail and remain available without a saved score.
+  The list reads 25 sessions per page with Previous/Next controls, independent loading
+  and retry states; returning to the day or pulling to refresh reloads saved activities.
+  Its native navigation-bar
   **•••** menu contains the same four workflows as web, including dates without
   saved scores: Refetch Strava, Refresh Garmin, Recalculate Score and Edit Facts….
   Commands are grouped into Sources and Daily facts; unavailable actions explain

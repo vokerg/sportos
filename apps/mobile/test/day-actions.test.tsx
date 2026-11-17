@@ -31,6 +31,7 @@ function Probe(){scope=useDayActions(date,updated);return null}
 async function mount(element=<Probe/>){await act(async()=>{tree=create(element)})}
 afterEach(async()=>{if(tree)await act(async()=>tree!.unmount());tree=null;vi.resetAllMocks();vi.useRealTimers()});
 function defaultReads(path:string):unknown{
+ if(path.startsWith('/activities?'))return {items:[],summary:{count:0},limit:25,offset:0};
  if(path==='/providers/connections')return [connection];
  if(path.includes('manual-facts'))return [{date,facts}];
  if(path.endsWith('/garmin'))return {date,origin:'garmin_connect',evidenceOnly:true,fetchEnabled:true,state:'missing',completeness:'in_progress',categories:[]};
@@ -135,6 +136,22 @@ it('pulls saved day data and Garmin coverage without fetching providers or recal
  await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={navigation as never}/>);
  read.mockClear();
  await act(async()=>tree!.root.findByType('Screen' as never).props.onRefresh());
- expect(read.mock.calls.map(([path])=>path).sort()).toEqual(['/daily/'+date+'/garmin','/daily/summary?from='+date+'&to='+date+'&limit=1'].sort());
+ expect(read.mock.calls.map(([path])=>path).sort()).toEqual(['/activities?from='+date+'&to='+date+'&limit=25&offset=0','/daily/'+date+'/garmin','/daily/summary?from='+date+'&to='+date+'&limit=1'].sort());
  expect(mutate).not.toHaveBeenCalled();
+});
+
+it('shows and opens canonical sessions on an unscored day and reloads them after recalculation',async()=>{
+ const activityId='00000000-0000-4000-8000-000000000003';
+ read.mockImplementation(async(p:string)=>p.startsWith('/activities?')
+  ?{items:[{id:activityId,activity_date:date,activity_type:'run',source:'strava',distance_m:5000}],summary:{count:1},limit:25,offset:0}
+  :defaultReads(p));
+ const navigate=vi.fn();
+ await mount(<DailyDetailScreen route={{params:{date}} as never} navigation={{...navigation,navigate} as never}/>);
+ const session=tree!.root.findAllByType('Pressable' as never).find(node=>node.props.accessibilityLabel?.includes('source strava'))!;
+ await act(async()=>session.props.onPress());
+ expect(navigate).toHaveBeenCalledExactlyOnceWith('ActivityDetail',{activityId});
+ expect(mutate).not.toHaveBeenCalled();
+ read.mockClear();mutate.mockResolvedValue(breakdown);
+ await act(async()=>menuItem('Recalculate Score').onPress());
+ expect(read.mock.calls.map(([path])=>path)).toContain('/activities?from='+date+'&to='+date+'&limit=25&offset=0');
 });
