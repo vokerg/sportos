@@ -31,6 +31,7 @@ five-minute inactivity window prevent scale to zero. See
 | `import-worker.ts` starts separate import, rules, Daily, optional Strava and optional Garmin loops | Each enabled consumer creates independent idle traffic. Imports can add multiple consumers. |
 | `polling-loop.ts` backs off only on connection errors | An empty queue never reduces scan frequency; outage retry also caps at only 30 seconds. |
 | Import/rule/provider scans run stale recovery before every claim | Empty work still creates repeated transactions and lifecycle queries. |
+| Candidate claim selects use `executeTakeFirst()` without SQL `LIMIT` | Kysely fetches the selected result before taking its first row; a backlog can transfer/lock more candidates than one claim needs. This is a separate load/concurrency flaw, not the empty-queue root cause. |
 | Daily and Garmin hardcode 1,000 ms | `IMPORT_JOB_POLL_MS` does not control all consumers. Even its current 60-second upper bound is shorter than normal suspension. |
 | Garmin process presence is written every 20 seconds | Queue backoff alone cannot allow sleep. This is distinct from necessary active-job lease renewal. |
 | Garmin capability **and enqueue** require a heartbeat newer than 90 seconds | An hourly cooldown copied from PCE would disable Fetch/Sync/Retry. Web and mobile also gate controls on this capability. |
@@ -155,7 +156,9 @@ Return fixed sanitized errors and no job/owner/credential details.
 Replace perpetual per-queue loops with one coordinator that visits every
 **enabled** queue fairly and retains existing concurrency bounds. Each processing
 pass and claim batch is bounded; a backlog may schedule another pass immediately
-without an idle scan storm. Acquire a dispatcher pool lazily, acquire worker-data
+without an idle scan storm. Add explicit SQL limits to candidate selections;
+`executeTakeFirst()` alone does not bound the query or its row locks. Acquire a
+dispatcher pool lazily, acquire worker-data
 and detail pools only for actual work, and destroy all pools after the pass has
 drained runnable work. A destroyed Kysely instance cannot be reused: recreate it
 on the next pass and ensure no runner retains the previous pool.
@@ -183,6 +186,8 @@ Schedule scans from three sources:
    with bounded explicit wake attempts, instead of retaining a 30-second loop.
 
 After restart, rebuild timers from Postgres; timers are not durable authority.
+Deadline discovery must cover only enabled queues: an unconsumable queued upload
+on the GCP provider worker must not force an immediate-wake loop.
 Known Garmin/Strava rate-limit deadlines must not wait for the next hourly tick.
 Garmin sync and Daily calculation requeue continuation days: keep draining them
 fairly until complete. Work leased elsewhere schedules stale recovery rather
@@ -303,3 +308,10 @@ External local PCE references inspected: `docs/26-worker-deployment.md`,
 `deploy/gcp/edge-proxy.mjs`, its example Wrangler config and node tests,
 and the example nginx TLS configuration. They are design precedent only;
 SportOS must have its own tests, keys, configuration and acceptance evidence.
+
+Documentation validation: relative targets for all 75 local Markdown links in
+the seven changed files exist; `git diff --check` passed; the repository's deploy
+scope classifier reports neither frontend nor backend runtime affected. The
+installed Kysely select builder was inspected to confirm `executeTakeFirst()`
+executes the selection without adding a limit. No runtime code changed, so no
+runtime suite or live activation was run; those remain issue #260 acceptance.

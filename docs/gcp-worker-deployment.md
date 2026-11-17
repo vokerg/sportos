@@ -26,8 +26,9 @@ as an automatic deployment side effect. Actual cloud inventory remains private.
 
 `apps/worker/src/import-worker.ts` builds to `dist/import-worker.js`. Node.js 22
 runs continuous polling loops for durable Postgres import, rule-change, Daily
-calculation and optional Strava/Garmin jobs; this is not a cron task or an HTTP server. Queue
-leases and account-scoped writes use separate dispatcher and worker-data logins.
+calculation and optional Strava/Garmin jobs; this is not a cron task or an HTTP
+server. Queue leases and account-scoped writes use separate dispatcher and
+worker-data logins.
 SIGINT/SIGTERM abort polling, finish/release work according to the existing runner
 semantics, and close database pools. systemd allows 120 seconds before killing
 the process group; persisted leases recover work if shutdown cannot finish.
