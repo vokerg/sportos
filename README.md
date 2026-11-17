@@ -118,8 +118,10 @@ evidence-only; scoring requires explicit Recalculate.
 
 The [worker idle-compute review](docs/WORKER_IDLE_COST.md) explains current Neon
 keep-awake traffic and issue #260's proposed authenticated on-demand wake design.
-The [opt-in wake implementation and rollout guide](docs/WORKER_WAKE.md) preserves
-polling as the compatibility default; production activation/live acceptance are pending.
+The [wake implementation and operating guide](docs/WORKER_WAKE.md) preserves
+polling as the compatibility default. GCP wake mode, signed transport and Neon
+suspension are verified; the [activation record](docs/implementation/issue-260-activation.md)
+lists remaining acceptance limits.
 
 ## Native iPhone client
 

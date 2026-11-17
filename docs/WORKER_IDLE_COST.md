@@ -1,7 +1,9 @@
 # Worker idle compute: investigation and proposed wake-up design
 
 Status: reviewed design; opt-in implementation is in [PR #262](https://github.com/vokerg/sportos/pull/262),
-**not deployed or live-accepted**. See [implementation and staged operation](WORKER_WAKE.md).
+activated on GCP with signed-gateway and Neon-suspension evidence on 2026-11-17.
+The [activation record](implementation/issue-260-activation.md) preserves remaining
+application/accounting limits. See [implementation and staged operation](WORKER_WAKE.md).
 Runtime work and live
 acceptance belong to [issue #260](https://github.com/vokerg/sportos/issues/260).
 Review date: 2026-11-17; inspected SportOS main: `747789a`.

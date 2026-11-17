@@ -70,18 +70,16 @@ claiming its cache is complete. Hosted source views read retained database
 resources, not worker-local artifact paths.
 
 `SPORTOS_GARMIN_LOCAL_FETCH_ENABLED` is a compatibility setting for older direct
-helper tools. It no longer enables API Fetch/Refresh. The API reports availability
-from the account's connection status plus a ready worker heartbeat newer than 90
-seconds. A worker checks its Python interpreter before advertising readiness;
-credential decryption and actual provider availability are validated on execution.
+helper tools. It no longer enables API Fetch/Refresh. In legacy deployments,
+availability combines the account connection with a ready heartbeat newer than
+90 seconds. Wake deployments configure `SPORTOS_GARMIN_EXECUTION_ENABLED=true`
+for both capability and enqueue checks, allowing requests while the worker sleeps.
+Credential decryption and actual provider availability are validated on execution.
 
-This heartbeat describes current behavior. [Issue #260's reviewed idle-cost
-proposal](WORKER_IDLE_COST.md) must replace both the capability and enqueue
-heartbeat checks before an idle worker can stop writing presence. A sleeping
-worker must still accept valid queued requests. [The opt-in wake implementation](WORKER_WAKE.md)
-adds an API deployment capability setting for that transition; activation and
-live acceptance remain pending. Do not merely slow polling or disable the
-heartbeat on an existing deployment.
+[Wake mode](WORKER_WAKE.md) was activated on GCP on 2026-11-17 with matching API
+readiness configuration. Signed transport and Neon suspension passed; see the
+[activation record](implementation/issue-260-activation.md) for remaining live
+acceptance. Do not merely disable heartbeat on a legacy deployment.
 
 ## Credential boundary
 

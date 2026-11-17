@@ -63,11 +63,12 @@ The API authenticates an opaque server-side session, validates CSRF for unsafe m
 
 Background processing uses two database identities. A narrow dispatcher may discover and lease import, provider-sync, and rule-change jobs across accounts but cannot read provider connections or credentials, source rows, canonical facts, scoring rules, ledgers, performance data, analysis audit rows, or authentication data. A separate worker-data identity establishes the persisted owner before decrypting provider credentials or executing account data work.
 
-The deployed worker still uses continuous polling, including newer Garmin and
-Daily calculation queues. The [idle-compute review and proposed wake-up design](WORKER_IDLE_COST.md)
-records issue #260's [opt-in replacement](WORKER_WAKE.md) with authenticated hints,
-bounded passes and disconnected idle pools. That mode is not deployed and does not change
-Postgres job/lease authority or account boundaries.
+Polling remains the compatibility default. The GCP worker activated issue #260's
+[opt-in wake mode](WORKER_WAKE.md) on 2026-11-17: authenticated hints, bounded
+passes across all five queues and disconnected idle pools. Signed transport and
+Neon suspension passed; the application-origin check remains explicit in the
+[activation record](implementation/issue-260-activation.md). Postgres retains
+job/lease authority and the same account boundaries.
 
 Read-only analysis is an API-only composition boundary. The authenticated web Chat
 hosts the existing athlete MCP server over an in-memory transport bound to each

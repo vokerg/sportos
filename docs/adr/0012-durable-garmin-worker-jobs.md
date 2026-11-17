@@ -4,8 +4,9 @@ Status: Accepted; initial service/database activation is recorded in the
 [GCP runbook](../gcp-worker-deployment.md). That check alone does not prove a
 completed provider download. The [issue #260 idle-cost proposal](../WORKER_IDLE_COST.md)
 replaces process-heartbeat readiness and continuous polling in the
-[opt-in implementation](../WORKER_WAKE.md); production activation/live acceptance
-are pending. It does not change the lease/ownership decision below.
+[opt-in implementation](../WORKER_WAKE.md); GCP activation, signed transport and Neon suspension are recorded in the
+[dated acceptance record](../implementation/issue-260-activation.md), with the
+remaining application-origin check explicit. It does not change the lease/ownership decision below.
 
 ## Context
 
@@ -40,8 +41,9 @@ retained immutable auxiliary resources can survive interrupted publication and
 be reused. Cancellation is cooperative. Rate-limit waits are durable and do not
 consume attempts; stale recovery is bounded. Reconnect is explicit.
 
-Capability combines owner connection state and a recent worker heartbeat, rather
-than the API's machine or development mode. The connection retains the trusted
+Capability combines owner connection state with configured execution readiness
+in wake deployments, or a recent worker heartbeat in legacy deployments. It never
+depends on the API's machine or development mode. The connection retains the trusted
 workstation's IANA calendar time zone. Web and native use bounded polling with
 manual continuation, cancellation and retry; leaving a screen does not cancel a
 server job. Public status excludes credentials, owners, leases and private paths.
