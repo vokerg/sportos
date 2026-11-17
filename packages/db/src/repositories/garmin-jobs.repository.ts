@@ -8,10 +8,10 @@ export type GarminTarget={operation:'sync'}|{operation:'day';date:string;refresh
 export class GarminQueueError extends Error{constructor(readonly code:'NOT_CONNECTED'|'WORKER_UNAVAILABLE'|'BUSY'|'NOT_FOUND'|'LEASE_LOST'){super(code)}}
 const publicJob=(r:Row):GarminJob=>({id:r.id,operation:r.operation,date:r.calendar_date,activityId:r.activity_id,refresh:r.refresh,...(r.operation==='sync'?{from:r.sync_from,to:r.sync_to,nextDate:r.sync_next_date,processedDays:days(r.sync_from!,r.sync_next_date!),totalDays:days(r.sync_from!,r.sync_to!)+1}:{}),status:r.status,phase:r.phase,attemptCount:r.attempt_count,errorCode:r.error_code,createdAt:r.created_at.toISOString(),updatedAt:r.updated_at.toISOString()});
 export class GarminJobsRepository{
- constructor(private db:Kysely<Database>){}
+ constructor(private db:Kysely<Database>,private executionEnabled?:boolean){}
  async capability(){
   const connection=await this.db.selectFrom('garmin_connections').select(['id','status','time_zone','sync_cursor_date','sync_cursor_at','sync_cursor_completed']).executeTakeFirst();
-  const worker=await this.db.selectFrom('garmin_worker_status').select('ready').where('ready','=',true).where('checked_at','>',sql<Date>`now()-interval '90 seconds'`).executeTakeFirst();
+  const worker=this.executionEnabled===undefined?await this.db.selectFrom('garmin_worker_status').select('ready').where('ready','=',true).where('checked_at','>',sql<Date>`now()-interval '90 seconds'`).executeTakeFirst():this.executionEnabled;
   return {enabled:connection?.status==='ready'&&!!worker,reason:!connection?'not_connected':connection.status!=='ready'?'reauthorization_required':!worker?'worker_offline':'ready',connectionId:connection?.id??null,timeZone:connection?.time_zone??'UTC',cursor:connection?{date:connection.sync_cursor_date,at:connection.sync_cursor_at.toISOString(),completed:connection.sync_cursor_completed}:null};
  }
  async active(){const row=await this.db.selectFrom('garmin_jobs').selectAll().where('status','in',['queued','running']).orderBy('created_at','desc').executeTakeFirst();return row?publicJob(row):null}
@@ -21,7 +21,7 @@ export class GarminJobsRepository{
   if(target.operation==='activity'&&!await tx.selectFrom('activities').select('id').where('id','=',target.activityId).executeTakeFirst())throw new GarminQueueError('NOT_FOUND');
   const active=await tx.selectFrom('garmin_jobs').selectAll().where('connection_id','=',connection.id).where('status','in',['queued','running']).executeTakeFirst();
   if(active){if(active.operation===target.operation&&(target.operation==='sync'||(target.operation==='day'?String(active.calendar_date)===target.date:active.activity_id===target.activityId)&&active.refresh===target.refresh))return publicJob(active);throw new GarminQueueError('BUSY')}
-  if(!(await new GarminJobsRepository(tx).capability()).enabled)throw new GarminQueueError('WORKER_UNAVAILABLE');
+  if(!(await new GarminJobsRepository(tx,this.executionEnabled).capability()).enabled)throw new GarminQueueError('WORKER_UNAVAILABLE');
   const today=(await sql<{today:string}>`select (now() AT TIME ZONE ${connection.time_zone})::date::text as today`.execute(tx)).rows[0]!.today;
   const from=connection.sync_cursor_date<today?connection.sync_cursor_date:today;
   return publicJob(await tx.insertInto('garmin_jobs').values({connection_id:connection.id,operation:target.operation,calendar_date:target.operation==='day'?target.date:null,activity_id:target.operation==='activity'?target.activityId:null,refresh:target.operation==='sync'?true:target.refresh,sync_from:target.operation==='sync'?from:null,sync_to:target.operation==='sync'?today:null,sync_next_date:target.operation==='sync'?from:null,lease_owner:null,lease_expires_at:null,cancellation_requested_at:null,error_code:null,completed_at:null}).returningAll().executeTakeFirstOrThrow());
@@ -59,7 +59,7 @@ export class GarminDispatchRepository{
   await tx.updateTable('garmin_jobs').set({status:'cancelled',phase:'cancelled',lease_owner:null,lease_expires_at:null,completed_at:new Date(),updated_at:new Date()}).where('status','=','queued').where('cancellation_requested_at','is not',null).execute();
   await tx.updateTable('garmin_jobs').set({status:'failed',phase:'failed',error_code:'RETRY_EXHAUSTED',lease_owner:null,lease_expires_at:null,completed_at:new Date(),updated_at:new Date()}).where('status','=','running').where('lease_expires_at','<',new Date()).where('attempt_count','>=',3).execute();
   await tx.updateTable('garmin_jobs').set({status:'queued',phase:'recovering',lease_owner:null,lease_expires_at:null,updated_at:new Date()}).where('status','=','running').where('lease_expires_at','<',new Date()).where('attempt_count','<',3).execute();
-  const row=await tx.selectFrom('garmin_jobs').selectAll().where('status','=','queued').where('cancellation_requested_at','is',null).where('next_attempt_at','<=',new Date()).orderBy('created_at').forUpdate().skipLocked().executeTakeFirst();
+  const row=await tx.selectFrom('garmin_jobs').selectAll().where('status','=','queued').where('cancellation_requested_at','is',null).where('next_attempt_at','<=',new Date()).orderBy('created_at').forUpdate().skipLocked().limit(1).executeTakeFirst();
   if(!row)return null;
   return tx.updateTable('garmin_jobs').set({status:'running',phase:'fetching',lease_owner:worker,lease_expires_at:sql<Date>`now()+make_interval(secs=>${leaseSeconds})`,attempt_count:sql<number>`attempt_count+1`,updated_at:new Date(),error_code:null}).where('id','=',row.id).returningAll().executeTakeFirstOrThrow();
  })}

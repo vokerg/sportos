@@ -29,6 +29,9 @@
       ],
       "@sportos/garmin-runtime": [
         "packages/garmin-runtime/src/index.ts"
+      ],
+      "@sportos/worker-wake": [
+        "packages/worker-wake/src/index.ts"
       ]
     }
   }

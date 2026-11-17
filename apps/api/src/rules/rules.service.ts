@@ -1,3 +1,4 @@
+import {afterWorkerMutation} from '../jobs/worker-wake.js';
 import { describeScoringRule, type RuleGuide } from '@sportos/domain';
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
@@ -66,7 +67,7 @@ export class RulesService {
   }
 
   activate(input: ActivateRuleChangeRequest, accountId = LEGACY_ACCOUNT_ID): Promise<RuleChangeReadModel> {
-    return this.database.withAccount(accountId, async (db) => {
+    return afterWorkerMutation(this.database.withAccount(accountId, async (db) => {
       const reason = String(input.reason ?? '').trim();
       if (!reason || reason.length > 1000) throw new InvalidRuleChangeReasonError();
       const current = await this.previewUsing(db, input.proposal);
@@ -80,15 +81,15 @@ export class RulesService {
         initiatedBy: accountId,
         reason,
       });
-    });
+    }));
   }
 
   retry(changeId: string, accountId = LEGACY_ACCOUNT_ID): Promise<RuleChangeReadModel | null> {
-    return this.database.withAccount(accountId, (db) => new RuleChangesRepository(db).retry(changeId));
+    return afterWorkerMutation(this.database.withAccount(accountId, (db) => new RuleChangesRepository(db).retry(changeId)));
   }
 
   cancel(changeId: string, accountId = LEGACY_ACCOUNT_ID): Promise<RuleChangeReadModel | null> {
-    return this.database.withAccount(accountId, (db) => new RuleChangesRepository(db).requestCancellation(changeId));
+    return afterWorkerMutation(this.database.withAccount(accountId, (db) => new RuleChangesRepository(db).requestCancellation(changeId)));
   }
 
   private async previewUsing(db: Kysely<Database>, input: RuleProposal): Promise<RulePreviewResponse> {

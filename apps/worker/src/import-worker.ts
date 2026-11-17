@@ -1,4 +1,8 @@
-import { GarminJobRunner } from './garmin-job-runner.js';
+import {parseWakeKeys} from '@sportos/worker-wake';
+import {WakeCoordinator} from './wake-coordinator.js';
+import {createWakeListener} from './wake-listener.js';
+import {createWorkerPass} from './worker-pass.js';
+import { GarminJobRunner, PythonGarminBridge } from './garmin-job-runner.js';
 import { GarminSessionCipher } from '@sportos/importers';
 import { hostname } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -22,6 +26,38 @@ const processId = `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`;
 const controller = new AbortController();
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => controller.abort());
 
+const mode = process.env.SPORTOS_WORKER_MODE?.trim() ?? 'poll';
+if (!['poll', 'wake'].includes(mode)) throw new Error('SPORTOS_WORKER_MODE must be poll or wake.');
+if (mode === 'wake') await runWakeMode();
+else await runLegacyMode();
+
+async function runWakeMode(): Promise<void> {
+  const dispatchUrl = requiredUrl('SPORTOS_WORKER_DATABASE_URL');
+  const dataUrl = requiredUrl('SPORTOS_WORKER_DATA_DATABASE_URL');
+  const keys = await parseWakeKeys(requiredEnvironment('SPORTOS_WORKER_WAKE_KEYS'));
+  const port = Number(process.env.SPORTOS_WORKER_WAKE_PORT ?? 3113);
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid worker wake port.');
+  const garminEnabled = process.env.SPORTOS_GARMIN_WORKER_ENABLED === 'true';
+  const bridge = garminEnabled ? new PythonGarminBridge() : undefined;
+  await bridge?.check();
+  const options = {
+    dispatchUrl, dataUrl, storage: new LocalUploadStorage(resolve(repoRoot, process.env.SPORTOS_UPLOAD_DIR ?? 'data/uploads')),
+    workerId: processId, importsEnabled, concurrency, leaseSeconds, provider: providerRuntime(),
+    detailUrl: garminEnabled ? requiredEnvironment('SPORTOS_ACTIVITY_DETAIL_WORKER_DATA_DATABASE_URL') : undefined,
+    garminCipher: garminEnabled ? new GarminSessionCipher(parseCredentialKeyRing(requiredEnvironment('SPORTOS_PROVIDER_CREDENTIAL_KEYS'), requiredEnvironment('SPORTOS_PROVIDER_ACTIVE_KEY_ID'))) : undefined,
+    garminBridge: bridge,
+  };
+  const coordinator = new WakeCoordinator(createWorkerPass(options));
+  const server = createWakeListener(keys, () => coordinator.wake());
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => { server.removeListener('error', reject); resolve(); });
+  });
+  try { await coordinator.run(controller.signal); }
+  finally { server.closeAllConnections(); await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
+}
+
+async function runLegacyMode(): Promise<void> {
 const dispatchDb = createDb(requiredUrl('SPORTOS_WORKER_DATABASE_URL'));
 const dataDb = createDb(requiredUrl('SPORTOS_WORKER_DATA_DATABASE_URL'));
 const storage = new LocalUploadStorage(resolve(repoRoot, process.env.SPORTOS_UPLOAD_DIR ?? 'data/uploads'));
@@ -40,6 +76,8 @@ try {
   await Promise.allSettled(runners);
   throw error;
 } finally { await Promise.all([dispatchDb.destroy(), dataDb.destroy(),garminDetail?.destroy()]); }
+
+}
 
 function providerRuntime(): { adapter: StravaAdapter; cipher: CredentialCipher } | null {
   // The encryption key ring is also used by Garmin; it alone does not enable Strava.

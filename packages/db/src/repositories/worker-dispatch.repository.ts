@@ -42,8 +42,25 @@ export interface StaleRecoveryCounts {
   cancelled: number;
 }
 
+export type WorkerQueue = 'import_jobs' | 'scoring_rule_changes' | 'provider_sync_jobs' | 'garmin_jobs' | 'daily_recalculation_jobs';
+const workerQueues: readonly WorkerQueue[] = ['import_jobs', 'scoring_rule_changes', 'provider_sync_jobs', 'garmin_jobs', 'daily_recalculation_jobs'];
+
 export class WorkerDispatchRepository {
   constructor(private readonly db: Kysely<Database>) {}
+
+  /** Lifecycle metadata only, under the dispatcher grants. Disabled queues are excluded. */
+  async nextWakeAt(enabled: readonly WorkerQueue[]): Promise<Date | null> {
+    const queries = [...new Set(enabled)].map(table => {
+      if (!workerQueues.includes(table)) throw new TypeError('Invalid worker queue.');
+      const queued = table === 'daily_recalculation_jobs' ? sql`now()` : sql`next_attempt_at`;
+      return sql`select min(case when cancellation_requested_at is not null and status = 'queued' then now()
+        when status = 'running' then lease_expires_at else ${queued} end) as due
+        from ${sql.table(table)} where status in ('queued', 'running')`;
+    });
+    if (!queries.length) return null;
+    const result = await sql<{due: Date | null}>`select min(due) as due from (${sql.join(queries, sql` union all `)}) as deadlines`.execute(this.db);
+    return result.rows[0]?.due ?? null;
+  }
 
   async recoverStaleImports(limit = 100): Promise<StaleRecoveryCounts> {
     return this.db.transaction().execute(async (transaction) => {
@@ -117,6 +134,7 @@ export class WorkerDispatchRepository {
         .orderBy('job.id', 'asc')
         .forUpdate('job')
         .skipLocked()
+        .limit(1)
         .executeTakeFirst();
       if (!candidate) return null;
 
@@ -220,6 +238,7 @@ export class WorkerDispatchRepository {
         .orderBy('id', 'asc')
         .forUpdate()
         .skipLocked()
+        .limit(1)
         .executeTakeFirst();
       if (!candidate) return null;
 
@@ -304,7 +323,7 @@ export class WorkerDispatchRepository {
         .where('next_attempt_at', '<=', new Date())
         .where('cancellation_requested_at', 'is', null)
         .orderBy('created_at', 'asc').orderBy('id', 'asc')
-        .forUpdate().skipLocked().executeTakeFirst();
+        .forUpdate().skipLocked().limit(1).executeTakeFirst();
       if (!candidate) return null;
       const updated = await transaction.updateTable('provider_sync_jobs').set({
         status: 'running', phase: 'claimed', progress_percent: 5,

@@ -85,7 +85,7 @@ export class DailyRecalculationDispatchRepository {
   await tx.updateTable('daily_recalculation_jobs').set({status:'cancelled',lease_owner:null,lease_expires_at:null,updated_at:new Date(),completed_at:new Date()}).where('status','=','queued').where('cancellation_requested_at','is not',null).execute();
   await tx.updateTable('daily_recalculation_jobs').set({status:'failed',error_code:'RETRY_EXHAUSTED',lease_owner:null,lease_expires_at:null,updated_at:new Date(),completed_at:new Date()}).where('status','=','running').where('lease_expires_at','<',new Date()).where('attempt_count','>=',3).execute();
   await tx.updateTable('daily_recalculation_jobs').set({status:'queued',lease_owner:null,lease_expires_at:null,updated_at:new Date()}).where('status','=','running').where('lease_expires_at','<',new Date()).where('attempt_count','<',3).execute();
-  const row=await tx.selectFrom('daily_recalculation_jobs').selectAll().where('status','=','queued').orderBy('created_at').forUpdate().skipLocked().executeTakeFirst();
+  const row=await tx.selectFrom('daily_recalculation_jobs').selectAll().where('status','=','queued').orderBy('created_at').forUpdate().skipLocked().limit(1).executeTakeFirst();
   if(!row)return null;
   return tx.updateTable('daily_recalculation_jobs').set({status:'running',attempt_count:sql<number>`attempt_count+1`,lease_owner:worker,lease_expires_at:sql<Date>`now()+interval '90 seconds'`,updated_at:new Date()}).where('id','=',row.id).returning(['id','owner_id']).executeTakeFirstOrThrow();
  })}

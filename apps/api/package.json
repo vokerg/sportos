@@ -22,7 +22,8 @@
     "@sportos/importers": "workspace:*",
     "@sportos/mcp": "workspace:*",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "@sportos/worker-wake": "workspace:*"
   },
   "devDependencies": {
     "@sportos/analytics": "workspace:^"
