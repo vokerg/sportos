@@ -56,11 +56,15 @@ import type { UploadWorkbookKind } from './features/imports/model/imports.models
     .upload-fields { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(220px, 1.4fr); gap: 12px; }
     .upload-fields label { display: grid; gap: 5px; font-size: 13px; font-weight: 650; }
     .upload-fields input, .upload-fields select { box-sizing: border-box; width: 100%; min-width: 0; }
-    .selected-file { margin: 0; }
+    .selected-file { margin: 0; overflow-wrap: anywhere; }
     .upload-progress { display: flex; align-items: center; gap: 10px; }
     .upload-progress progress { width: min(360px, 100%); }
     button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity: .6; }
-    @media (max-width: 620px) { .upload-fields { grid-template-columns: 1fr; } }
+    @media (max-width: 620px) {
+      .upload-fields { grid-template-columns: minmax(0, 1fr); }
+      .upload-fields input, .upload-fields select, button { min-height: 44px; }
+      .upload-fields select { font-size: 16px; }
+    }
   `],
 })
 export class ImportUploadComponent {

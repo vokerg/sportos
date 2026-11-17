@@ -53,9 +53,10 @@ import { ChatStore } from '../state/chat.store';
     .eyebrow { font-size:.7rem; letter-spacing:.1em; font-weight:700; opacity:.65; } .intro { line-height:1.6; max-width:70ch; }
     .help,small { opacity:.75; line-height:1.5; } .starters { display:flex; gap:.75rem; flex-wrap:wrap; margin:2rem 0; }
     .conversation { margin:2rem 0; } .turn { margin-bottom:2rem; } .question { border-left:3px solid var(--accent, #408c82); padding:.7rem 1rem; background:var(--surface-alt,rgba(128,128,128,.08)); border-radius:8px; }
-    .question p { margin:.3rem 0; white-space:pre-wrap; } .answer { padding:1rem 0; line-height:1.65; } .answer p { white-space:pre-wrap; } .answer small { font-size:.7rem; }
+    .question p { margin:.3rem 0; white-space:pre-wrap; overflow-wrap:anywhere; } .answer { padding:1rem 0; line-height:1.65; } .answer p { white-space:pre-wrap; overflow-wrap:anywhere; } .answer small { font-size:.7rem; }
     details { border:1px solid var(--border-color, #8886); border-radius:8px; padding:.8rem; margin-top:1rem; } summary { cursor:pointer; font-size:.85rem; } pre { overflow:auto; max-height:24rem; font-size:.75rem; white-space:pre-wrap; overflow-wrap:anywhere; }
-    form { padding:1rem 0; border-top:1px solid var(--border-color,#8886); } label { display:block; font-weight:600; margin-bottom:.5rem; } textarea { box-sizing:border-box; width:100%; padding:1rem; border-radius:12px; resize:vertical; font:inherit; } .actions { margin-top:.75rem; } .notice { border-left:3px solid #b88a31; padding:.75rem; }
+    form { padding:1rem 0; border-top:1px solid var(--border-color,#8886); } label { display:block; font-weight:600; margin-bottom:.5rem; } textarea { box-sizing:border-box; width:100%; padding:1rem; border-radius:12px; resize:vertical; font:inherit; } .actions { margin-top:.75rem; } .notice { border-left:3px solid #b88a31; padding:.75rem; overflow-wrap:anywhere; }
+    @media (max-width: 700px) { .chat-page { padding: 6px 0; } button { min-height: 44px; } textarea { font-size: 16px; } }
   `],
 })
 export class ChatPageComponent {

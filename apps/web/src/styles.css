@@ -241,6 +241,15 @@ label { display: grid; gap: 5px; color: var(--text-secondary); font-size: 13px; 
   .filter-bar { align-items: stretch; }
   .filter-bar label, .filter-bar input, .filter-bar select, .filter-bar button { width: 100%; min-width: 0; }
   .filter-bar input, .filter-bar select { min-height: 44px; font-size: 16px; }
+  .filter-bar select {
+    appearance: none;
+    padding-inline-end: 30px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+      linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+    background-position: right 17px center, right 12px center;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+  }
   .filter-bar input[type="date"] { display: block; max-width: 100%; }
   .filter-bar button { min-height: 44px; }
 }

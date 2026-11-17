@@ -50,6 +50,7 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
   const hasNegativeContribution = compositions.some((composition) =>
     DAILY_SCORE_COMPONENTS.some((component) => composition[component.key] < 0),
   );
+  const grid = { left: 66, right: 24, top: 38, bottom: 72, containLabel: true };
   return {
     animation: false,
     color: [...visibleComponents.map((component) => component.color), '#dc5b62'],
@@ -63,7 +64,7 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
       },
     },
     legend: { type: 'scroll', bottom: 0 },
-    grid: { left: 66, right: 24, top: 38, bottom: 72, containLabel: true },
+    grid,
     xAxis: {
       type: 'category',
       data: chronological.map((row) => row.metric_date === today
@@ -106,9 +107,9 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
       query: { maxWidth: 500 },
       option: {
         grid: { left: 4, right: 8, top: 28, bottom: 52 },
-        yAxis: { nameLocation: 'end' },
+        yAxis: { nameLocation: 'end', nameGap: 10 },
       },
-    }],
+    }, { option: { grid, yAxis: { nameLocation: 'middle', nameGap: 48 } } }],
   };
 }
 

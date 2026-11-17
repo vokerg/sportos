@@ -53,25 +53,25 @@ import { WebAuthService } from './web-auth.service';
           <strong>SportOS</strong>
         </a>
         <button #menuButton class="menu-toggle secondary" type="button" aria-controls="section-menu"
-          [attr.aria-expanded]="menuOpen()" (click)="menuOpen.set(!menuOpen())">
+          [attr.aria-expanded]="menuOpen()" (click)="toggleMenu(menuButton)">
           {{ menuOpen() ? 'Close menu' : 'Menu' }}
         </button>
         <div id="section-menu" class="section-menu" [class.open]="menuOpen()">
-        <nav aria-label="SportOS sections">
-          <a routerLink="/overview" routerLinkActive="active" ariaCurrentWhenActive="page">Overview</a>
-          <a routerLink="/daily" routerLinkActive="active" ariaCurrentWhenActive="page">Daily Log</a>
-          <a routerLink="/activities" [class.active]="activitiesActive()" [attr.aria-current]="activitiesActive() ? 'page' : null">Activities</a>
-          <a routerLink="/heatmap" routerLinkActive="active" ariaCurrentWhenActive="page">Heatmap</a>
-          <a routerLink="/dynamics" routerLinkActive="active" ariaCurrentWhenActive="page">Dynamics</a>
-          <a routerLink="/stats" [class.active]="statsActive()" [attr.aria-current]="statsActive() ? 'page' : null">Stats</a>
-          <a routerLink="/run-lab" routerLinkActive="active" ariaCurrentWhenActive="page">Run Lab</a>
-          <a routerLink="/chat" routerLinkActive="active" ariaCurrentWhenActive="page">Chat</a>
-          <a routerLink="/services" routerLinkActive="active" ariaCurrentWhenActive="page">Services</a>
-        </nav>
-        <div class="account-actions">
-          <span class="account-name">{{ auth.session()?.account?.displayName }}</span>
-          <button type="button" class="secondary" (click)="menuOpen.set(false); auth.signOut()">Sign out</button>
-        </div>
+          <nav aria-label="SportOS sections">
+            <a routerLink="/overview" routerLinkActive="active" ariaCurrentWhenActive="page">Overview</a>
+            <a routerLink="/daily" routerLinkActive="active" ariaCurrentWhenActive="page">Daily Log</a>
+            <a routerLink="/activities" [class.active]="activitiesActive()" [attr.aria-current]="activitiesActive() ? 'page' : null">Activities</a>
+            <a routerLink="/heatmap" routerLinkActive="active" ariaCurrentWhenActive="page">Heatmap</a>
+            <a routerLink="/dynamics" routerLinkActive="active" ariaCurrentWhenActive="page">Dynamics</a>
+            <a routerLink="/stats" [class.active]="statsActive()" [attr.aria-current]="statsActive() ? 'page' : null">Stats</a>
+            <a routerLink="/run-lab" routerLinkActive="active" ariaCurrentWhenActive="page">Run Lab</a>
+            <a routerLink="/chat" routerLinkActive="active" ariaCurrentWhenActive="page">Chat</a>
+            <a routerLink="/services" routerLinkActive="active" ariaCurrentWhenActive="page">Services</a>
+          </nav>
+          <div class="account-actions">
+            <span class="account-name">{{ auth.session()?.account?.displayName }}</span>
+            <button type="button" class="secondary" (click)="menuOpen.set(false); auth.signOut()">Sign out</button>
+          </div>
         </div>
       </header>
       }
@@ -153,6 +153,11 @@ export class AppComponent implements OnInit {
         this.document.getElementById('main-content')?.focus();
       }
     });
+  }
+
+  toggleMenu(button: HTMLButtonElement): void {
+    this.menuOpen.update(open => !open);
+    button.focus();
   }
 
   closeMenu(button: HTMLButtonElement): void {

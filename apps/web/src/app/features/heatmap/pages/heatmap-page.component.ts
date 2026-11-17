@@ -20,7 +20,7 @@ import type { HeatmapDataset } from '../model/heatmap-geometry';
         </div>
         <a routerLink="/activities">Activities ↗</a>
       </header>
-      <form class="filters card" (submit)="apply($event)" aria-label="Heatmap filters">
+      <form class="filter-bar filters card" (submit)="apply($event)" aria-label="Heatmap filters">
         <label>Time range
           <select [value]="range()" (change)="setRange($any($event.target).value)">
             <option value="all">All time</option><option value="1m">1 month</option>
@@ -86,9 +86,9 @@ import type { HeatmapDataset } from '../model/heatmap-geometry';
     .page-kicker{color:var(--link);font-size:11px;font-weight:800;text-transform:uppercase}
     h1{margin:3px 0 6px;font-size:27px}header p,footer p{margin:0;color:var(--text-muted);font-size:13px}
     header a{color:var(--link);font-weight:700;font-size:13px}
-    .filters{display:flex;gap:12px;flex-wrap:wrap;align-items:end;padding:14px}
+    .filters{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:0;padding:14px}
     label{display:grid;gap:4px;color:var(--text-secondary);font-size:12px;font-weight:700}
-    input,select{min-height:36px;padding:6px 8px;min-width:110px;border:1px solid var(--border);border-radius:7px;color:var(--text);background:var(--surface)}
+    input,select{min-height:36px;padding:6px 8px;min-width:110px;border:1px solid var(--border);border-radius:7px;color:var(--text);background-color:var(--surface)}
     .filters button{min-height:36px}.summary{font-size:13px;color:var(--text-secondary);display:flex;gap:7px;flex-wrap:wrap;align-items:center}
     .summary span{margin-left:auto;color:var(--text-muted)}.notice{font-size:13px;background:var(--accent-surface);border-radius:8px;padding:10px 12px}
     .error{color:var(--danger);background:var(--danger-surface)}.map-wrap{position:relative;min-height:420px;height:clamp(440px,65vh,880px);border-radius:13px;overflow:hidden;background:var(--surface-muted)}
@@ -99,7 +99,14 @@ import type { HeatmapDataset } from '../model/heatmap-geometry';
     .legend{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--text-secondary)}
     .gradient{width:160px;height:12px;border-radius:6px;background:linear-gradient(90deg,#e7dfff,#a976ff,#6d24e5,#4000b0)}
     footer p{flex:1;min-width:260px;text-align:right}
-    @media(max-width:700px){.map-wrap{height:60vh;min-height:340px}footer p{text-align:left}}
+    @media(max-width:700px){
+      .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+      .filters input,.filters select{width:100%;min-width:0;min-height:44px;font-size:16px}
+      .filters input[type=date]{display:block;max-width:100%}
+      .filters button,.fit{min-height:44px}
+      .map-wrap{height:60vh;min-height:320px}
+      footer p{min-width:0;flex-basis:100%;text-align:left}
+    }
   `],
 })
 export class HeatmapPageComponent implements OnInit, AfterViewInit, OnDestroy {
