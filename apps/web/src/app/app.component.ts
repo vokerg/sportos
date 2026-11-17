@@ -150,7 +150,8 @@ export class AppComponent implements OnInit {
     this.router.events.pipe(takeUntilDestroyed()).subscribe(event => {
       if ((event instanceof NavigationEnd || event instanceof NavigationSkipped) && this.menuOpen()) {
         this.menuOpen.set(false);
-        this.document.getElementById('main-content')?.focus();
+        this.document.getElementById('main-content')?.focus({ preventScroll: true });
+        this.document.defaultView?.scrollTo({ top: 0, behavior: 'instant' });
       }
     });
   }
