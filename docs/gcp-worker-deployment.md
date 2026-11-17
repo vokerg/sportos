@@ -25,12 +25,19 @@ as an automatic deployment side effect. Actual cloud inventory remains private.
 ## What runs
 
 `apps/worker/src/import-worker.ts` builds to `dist/import-worker.js`. Node.js 22
-runs continuous polling loops for durable Postgres import, rule-change and
-optional Strava/Garmin jobs; this is not a cron task or an HTTP server. Queue
+runs continuous polling loops for durable Postgres import, rule-change, Daily
+calculation and optional Strava/Garmin jobs; this is not a cron task or an HTTP server. Queue
 leases and account-scoped writes use separate dispatcher and worker-data logins.
 SIGINT/SIGTERM abort polling, finish/release work according to the existing runner
 semantics, and close database pools. systemd allows 120 seconds before killing
 the process group; persisted leases recover work if shutdown cannot finish.
+
+The [2026-11-17 idle-compute review](WORKER_IDLE_COST.md) identifies repeated empty
+scans and Garmin process heartbeats as blockers to Neon suspension. Issue #260
+proposes a separate free `workers.dev` wake gateway, a verified IPv6 HTTPS origin,
+and a worker that releases DB pools while idle. No wake HTTP listener or gateway
+is implemented here yet; the proposal requires a compatible readiness change
+and authorized transport/idle acceptance before replacing current polling.
 
 Garmin optionally invokes `tools/garmin/worker_bridge.py` and the pinned
 `tools/garmin/requirements.txt` SDK. Releases include the Node 22 binary, built

@@ -63,6 +63,12 @@ The API authenticates an opaque server-side session, validates CSRF for unsafe m
 
 Background processing uses two database identities. A narrow dispatcher may discover and lease import, provider-sync, and rule-change jobs across accounts but cannot read provider connections or credentials, source rows, canonical facts, scoring rules, ledgers, performance data, analysis audit rows, or authentication data. A separate worker-data identity establishes the persisted owner before decrypting provider credentials or executing account data work.
 
+The deployed worker still uses continuous polling, including newer Garmin and
+Daily calculation queues. The [idle-compute review and proposed wake-up design](WORKER_IDLE_COST.md)
+records issue #260's planned replacement with authenticated hints, bounded passes
+and disconnected idle pools. That proposal is not deployed and does not change
+Postgres job/lease authority or account boundaries.
+
 Read-only analysis is an API-only composition boundary. The authenticated web Chat
 hosts the existing athlete MCP server over an in-memory transport bound to each
 session account, with bounded model tool use, citation validation and redacted
