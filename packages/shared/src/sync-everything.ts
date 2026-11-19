@@ -92,15 +92,18 @@ export class SyncEverything {
           if (!await this.finish(api, read, update)) return false;
           this.job = null; this.prerequisiteJob = false; latest = null;
         }
+        const generalJob = (value: Record<string, unknown>) => stage === 'strava'
+          ? value.mode === 'incremental' || value.mode === 'initial_backfill'
+          : stage === 'garmin' ? value.operation === 'sync' : true;
         // An uncertain POST is reconciled before resubmission, including a job already completed.
-        if (!this.job && this.pending && latest && identifier(latest.id) !== this.pending.baseline) {
+        if (!this.job && this.pending && latest && generalJob(latest) && identifier(latest.id) !== this.pending.baseline) {
           this.job = parseSyncJob(latest); this.jobPrefix = prefix; this.pending = null;
         }
         if (!this.job && latest && activeSyncJob(parseSyncJob(latest))) {
           const existing = parseSyncJob(latest);
-          const belongs = stage === 'strava' ? latest.mode !== 'webhook_refresh' : stage === 'garmin' ? latest.operation === 'sync' : false;
+          const belongs = stage === 'strava' && generalJob(latest);
           this.job = existing; this.jobPrefix = prefix;
-          // Targeted provider work and pre-existing calculations must finish before a fresh full stage.
+          // Targeted Strava work and downstream jobs that may predate this import finish before a fresh stage.
           if (!belongs) {
             this.prerequisiteJob = true;
             if (!await this.finish(api, read, update)) return false;

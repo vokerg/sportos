@@ -285,7 +285,7 @@ standalone/Providers composition. Each instance provides `GarminSyncStore`, whic
 owns capability recovery, submit/cancel/retry state, stale-response protection
 and bounded polling through the core job poller. Transport stays in the feature's
 `data-access/garmin-sync-api.service.ts`; pages never select cursor dates or
-calculate progress. The Overview completion output refreshes its canonical list
+calculate progress. Its completion output lets a consumer refresh canonical reads
 without recalculating scores. Native Providers reuses `GarminSyncCard` and the
 existing abortable operation/job tracking infrastructure.
 

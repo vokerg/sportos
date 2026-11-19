@@ -85,6 +85,15 @@ describe('explicit Update everything workflow', () => {
     expect(await workflow.run(api, () => {})).toBe(true);
     expect(post.mock.calls.map(call => (call as unknown[])[0])).toEqual(['/providers/connections/' + id(1) + '/sync', '/garmin/sync', '/daily/recalculation']);
   });
+  it('waits for a Garmin sync that predates Strava before requesting fresh Garmin evidence', async () => {
+    const { workflow, api, read, post } = setup();
+    const original = read.getMockImplementation()!;
+    read.mockImplementation(async path => path === '/garmin/connection' ? { enabled: true, activeJob: { ...job(4, 'running'), operation: 'sync' } } : original(path));
+    const watch = vi.fn(async initial => ({ ...initial, status: 'succeeded' as const })); api.watch = watch;
+    expect(await workflow.run(api, () => {})).toBe(true);
+    expect(watch).toHaveBeenCalledTimes(4);
+    expect(post).toHaveBeenCalledTimes(3);
+  });
   it('does not treat an earlier calculation as recalculation of just-imported evidence', async () => {
     const { workflow, api, read, post } = setup();
     const original = read.getMockImplementation()!;

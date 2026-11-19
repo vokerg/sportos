@@ -10,7 +10,7 @@ Opening either screen never enqueues work.
 The shared client workflow owns ordering, duplicate-click protection and a
 screen-memory checkpoint. Angular uses a route-scoped feature store, a dedicated
 transport adapter and the core durable-job poller (240 reads / ten minutes per
-wait). Native uses the existing abortable operation scope (24 reads / two minutes
+wait), with 30-second transport timeouts. Native uses the existing abortable operation scope (24 reads / two minutes
 per wait). **Continue update** resumes the same paused job. Navigation cancels
 client observation, not queued server work; keep Overview/Home open for automatic
 stage progression, or return and click again. This is not a new server-side
@@ -20,8 +20,9 @@ repeats cursor-based stages safely.
 
 Existing account/session/CSRF, queue uniqueness, leases, encrypted credentials,
 provider-native identities and deterministic scoring remain unchanged. Targeted
-provider work is awaited before starting general sync. A calculation that was
-already active is awaited before requesting calculation of newly retained data.
+Strava work is awaited before starting general import. Pre-existing Garmin and
+calculation jobs are awaited before fresh downstream stages, since those jobs
+may have started before the new import completed.
 The existing Calculate all cursor semantics apply: pending calendar days through
 today, with today provisional and recalculated on subsequent runs. It does not
 rewind the scoring cursor or recalculate all historical days. Neither provider
@@ -48,12 +49,28 @@ provider model and calculation tests; API provider controller/service, Garmin jo
 controller/service and Daily recalculation controller; DB provider and Daily
 recalculation repositories; shared package/TypeScript configuration and root
 `tsconfig.base.json`. Additional implementation inspection: web architecture guard,
-Daily calculation UI tests and mobile UI primitives.
+Daily calculation UI tests, mobile UI primitives, web auth service, app shell,
+route definitions and Angular build configuration for the isolated visual fixture.
 
 Documentation mismatch: the mobile guide still described heartbeat readiness in
 wake deployments. The updated description follows API-reported readiness.
 
 ## Validation
 
-Focused workflow and client checks are recorded in the PR. No live provider
-requests or production score writes are part of local verification.
+Passed:
+
+- Shared orchestration: 12 cases covering ten completed runs, duplicate clicks,
+  active/targeted recovery, uncertain enqueue, downstream ordering, failure,
+  cancellation, pause/continuation, teardown and invalid job IDs.
+- Web: seven focused Overview/store/control tests; typecheck, architecture guard
+  and Angular production build.
+- Native: 17 focused combined-action/navigation/provider tests; typecheck and
+  production iOS JavaScript export (not a signed build or device installation).
+- Isolated Chromium fixture: 320/390/1440px in light/dark themes, 60px button
+  height within each viewport; no writes on navigation and three completed
+  Strava → Garmin → calculation runs. Inspected synthetic screenshots.
+
+No live provider requests or production score writes were made. Physical-device
+and WebKit acceptance remain unverified; existing shell navigation responsiveness
+belongs to separate PR #265. No database/runtime change needs migrations or
+backend integration runs for this client composition.

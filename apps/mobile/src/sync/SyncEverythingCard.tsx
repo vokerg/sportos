@@ -25,7 +25,7 @@ export function SyncEverythingCard({ onUpdated }: { onUpdated(): void }) {
   }, next => { if (!api.signal.aborted) setView(next); }), done => { if (done) onUpdated(); },
   'Update could not be confirmed. Continue to check status safely.'); };
   return <Card title="Update your training">
-    <Action title={syncButtonLabel(view)} disabled={operation.busy} onPress={start}/>
+    <Action large title={syncButtonLabel(view)} disabled={operation.busy} onPress={start}/>
     <Body>{view.message}</Body>
     {operation.error ? <Body subdued>{operation.error}</Body> : null}
     <Body subdued>Import Strava, sync Garmin, then recalculate scores. Repeat any time.</Body>

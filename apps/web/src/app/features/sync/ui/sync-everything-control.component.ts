@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, inject, output } from '@angular/core';
 import { SyncEverythingStore } from '../state/sync-everything.store';
 
 @Component({
@@ -26,7 +26,7 @@ import { SyncEverythingStore } from '../state/sync-everything.store';
   `],
 })
 export class SyncEverythingControlComponent {
-  @Output() readonly updated = new EventEmitter<void>();
-  constructor(readonly store: SyncEverythingStore) {}
+  readonly updated = output<void>();
+  readonly store = inject(SyncEverythingStore);
   async start(): Promise<void> { if (await this.store.start()) this.updated.emit(); }
 }
