@@ -6,7 +6,6 @@ import type { ActivitiesApiService } from './features/activities/activities-api.
 import type { DailyApiService } from './features/daily/data-access/daily-api.service';
 import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { OverviewPageComponent } from './overview-page.component';
-import type { ProviderStore } from './features/providers/state/provider.store';
 import type { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import type { DailyScoreBreakdown } from './score-breakdown.models';
 
@@ -81,7 +80,6 @@ function createComponent(
     api as unknown as DailyApiService,
     scoreApi as unknown as ScoreBreakdownApiService,
     router as unknown as Router,
-    { initialize: vi.fn() } as unknown as ProviderStore,
     { list: vi.fn().mockReturnValue(of({ items: [], summary: { count: 0, distanceM: 0 } })) } as unknown as ActivitiesApiService,
   );
 }

@@ -64,6 +64,11 @@ with `node scripts/mobile-tab-icons.mjs`. Device and release gaps are tracked in
 
 ## Feature boundaries
 
+- Home has one **Update everything** action: Strava import → Garmin sync → score calculation.
+  Repeat any time. Active work is recovered; bounded waits offer Continue update.
+  Keep Home open for automatic progression; returning and pressing again safely
+  resumes/repeats the existing cursor workflows. Server jobs survive navigation;
+  the client chain is screen-scoped. See [workflow details](../../docs/implementation/issue-268.md).
 - Home/Daily read persisted scores, authority, contributions, history and ledgers.
   Day detail shows the score, the selected day's canonical Activities and measurements.
   Activities open native activity detail and remain available without a saved score.
@@ -80,7 +85,7 @@ with `node scripts/mobile-tab-icons.mjs`. Device and release gaps are tracked in
   recalculates only after success. Check refresh status continues the same job;
   an ambiguous enqueue checks exact-range jobs before another submission.
   A running provider worker is required. Garmin refresh requires API-reported `fetchEnabled`: an account-bound
-  encrypted session and a recent configured Garmin worker heartbeat. The API
+  encrypted session and API-reported execution readiness (configured capability in wake deployments, recent heartbeat in legacy deployments). The API
   enqueues work; it does not need the desktop helper. It retains evidence without changing scores. Day/activity requests use durable
   jobs with bounded polling, manual status continuation, cancellation and retry.
   Jobs survive navigation; credentials remain encrypted server-side. See

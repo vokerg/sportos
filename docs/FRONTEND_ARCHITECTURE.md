@@ -256,24 +256,37 @@ The Daily Log implementation is the reference pattern for migrating an existing 
 
 The Daily store consumes `features/daily/data-access/daily-api.service.ts` for summary transport, the transitional focused `ScoreBreakdownApiService`, and the root `ProviderApiService` compatibility export that now forwards to `features/providers/data-access/`. Do not use compatibility exports or focused transitional clients as precedent for a new catch-all service. The reusable pattern is the route-scoped state boundary and the page -> state -> feature data-access dependency direction.
 
+### Overview combined update
+
+`features/sync/` owns the Overview **Update everything** composition boundary:
+its UI provides `SyncEverythingStore`, which runs the shared framework-free
+`packages/shared/src/sync-everything.ts` workflow through dedicated data access.
+The core durable-job poller bounds observation; teardown aborts observation and
+prevents subsequent stages. The workflow composes existing account-scoped API
+operations without importing other feature internals. Native Home uses the same
+workflow with its existing operation scope. Success refreshes Overview canonical
+reads. Navigation is read-only; automatic stage progression is screen-scoped.
+See [behavior and limits](implementation/issue-268.md).
+
 ### Reusable Garmin sync control
 
 The separate `features/daily/index.ts` composition boundary exports
-`DailyCalculationControlComponent` for Overview. Its route-instance
+`DailyCalculationControlComponent` for standalone composition. Overview now uses
+the combined update control above. Its route-instance
 `DailyCalculationStore` owns status recovery, submit/retry/cancel, stale-response
 protection and bounded polling through the core durable-job poller. Transport and
 models stay under the Daily feature. Completion refreshes score reads, including
 partial success before failure/cancellation. The browser never advances or
-computes a scoring cursor. Native Home uses `CalculateAllCard` with existing
+computes a scoring cursor. The standalone native `CalculateAllCard` uses existing
 abortable operations and bounded waits.
 
 `features/providers/index.ts` exports `GarminSyncControlComponent` for shell-level
-Overview/Providers composition. Each instance provides `GarminSyncStore`, which
+standalone/Providers composition. Each instance provides `GarminSyncStore`, which
 owns capability recovery, submit/cancel/retry state, stale-response protection
 and bounded polling through the core job poller. Transport stays in the feature's
 `data-access/garmin-sync-api.service.ts`; pages never select cursor dates or
-calculate progress. The Overview completion output refreshes its canonical list
-without recalculating scores. Native Home/Providers reuse `GarminSyncCard` and the
+calculate progress. Its completion output lets a consumer refresh canonical reads
+without recalculating scores. Native Providers reuses `GarminSyncCard` and the
 existing abortable operation/job tracking infrastructure.
 
 ### Providers and Imports feature-state reference

@@ -42,18 +42,18 @@ export function Body({ children, subdued = false }: { children: React.ReactNode;
   return <Text style={[styles.body, { color: subdued ? palette.muted : palette.text }]}>{children}</Text>;
 }
 
-export function Action({ title, onPress, secondary = false, disabled = false }: {
-  title: string; onPress(): void; secondary?: boolean; disabled?: boolean;
+export function Action({ title, onPress, secondary = false, disabled = false, large = false }: {
+  title: string; onPress(): void; secondary?: boolean; disabled?: boolean; large?: boolean;
 }) {
   const { palette } = useSportosTheme();
   return <Pressable accessibilityRole="button" accessibilityLabel={title}
     accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
-    style={({ pressed }) => [styles.action, {
+    style={({ pressed }) => [styles.action, large && { minHeight: 64, padding: 18 }, {
       backgroundColor: secondary ? palette.soft : palette.accent,
       borderColor: secondary ? palette.soft : palette.accent, opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
       transform: [{ scale: pressed ? 0.985 : 1 }],
     }]}>
-    <Text style={[styles.actionText, { color: secondary ? palette.accent : palette.accentText }]}>{title}</Text>
+    <Text style={[styles.actionText, large && { fontSize: 20, fontWeight: '800' }, { color: secondary ? palette.accent : palette.accentText }]}>{title}</Text>
   </Pressable>;
 }
 
