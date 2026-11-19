@@ -1,6 +1,7 @@
 import { ColorSchemeService } from './core/theme/color-scheme.service';
 import { HttpErrorResponse } from '@angular/common/http';
-import { inject, Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { DestroyRef, inject, Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { Subject, takeUntil } from 'rxjs';
@@ -117,13 +118,25 @@ const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
       @if (data(); as current) {
         <section class="card chart-card" aria-labelledby="trend-title">
         <div class="section-title"><div><span class="page-kicker">Trend</span><h2 id="trend-title">Selected metrics</h2></div><span>{{ current.range.from }} → {{ current.range.to }}</span></div>
-        @if (mode() === 'absolute' && hasMixedUnits()) { <p class="axis-note">Absolute series use a separate labelled axis for each metric. Choose indexed comparison to compare shapes across unlike units.</p> }
-        <div echarts [theme]="colorScheme.chartTheme()" class="dynamics-chart" [options]="chartOptions()" role="img" aria-label="Selected SportOS metric trends"></div>
+        @if (mode() === 'absolute' && hasMixedUnits()) { <p class="axis-note">Choose indexed comparison to compare shapes across unlike units.</p> }
+        @if (phoneCharts().length > 1) {
+          <div class="phone-charts">
+            @for (chart of phoneCharts(); track chart.metric) {
+              <section>
+                <h3>{{ labels[chart.metric] }}</h3>
+                <div echarts [theme]="colorScheme.chartTheme()" class="dynamics-chart" [options]="chart.options"
+                  role="img" [attr.aria-label]="labels[chart.metric] + ' trend'"></div>
+              </section>
+            }
+          </div>
+        } @else {
+          <div echarts [theme]="colorScheme.chartTheme()" class="dynamics-chart" [options]="chartOptions()" role="img" aria-label="Selected SportOS metric trends"></div>
+        }
         </section>
 
         <section class="card table-card" aria-labelledby="monthly-title">
         <div class="section-title"><div><span class="page-kicker">Monthly ledger</span><h2 id="monthly-title">Year and month score ledger</h2><p class="table-description">The Excel-style hierarchy combines canonical distances in kilometres with authoritative score components in points. Sum is the official daily score total.</p></div></div>
-        <div class="table-scroll">
+        <div class="table-scroll" tabindex="0" role="region" aria-labelledby="monthly-title">
           <table class="ledger-table">
             <thead><tr><th>Date - Year</th><th>Date - Month</th><th>Coverage</th>@for (column of monthlyLedgerColumns; track column.key) { <th>{{ column.label }}</th> }</tr></thead>
             <tbody>
@@ -157,7 +170,7 @@ const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
 
         <section class="card table-card" aria-labelledby="monthly-summary-title">
         <div class="section-title"><div><span class="page-kicker">Monthly dynamics</span><h2 id="monthly-summary-title">Totals and recorded-day averages</h2></div></div>
-        <div class="table-scroll">
+        <div class="table-scroll" tabindex="0" role="region" aria-labelledby="monthly-summary-title">
           <table>
             <thead><tr><th>Month</th><th>Coverage</th>@for (metric of current.metrics; track metric) { <th>{{ labels[metric] }} total</th><th>{{ labels[metric] }} avg/day</th> }</tr></thead>
             <tbody>
@@ -182,11 +195,24 @@ const MONTHLY_CELL_RGB: Record<DynamicsMetric, string> = {
     .stats-back-link { display: inline-block; margin-bottom: 12px; color: var(--link); font-size: 13px; font-weight: 700; }
     .dynamics-heading { margin: 6px 0 22px; }.dynamics-heading h1 { margin: 5px 0; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.035em; }.dynamics-heading p, .semantics, .axis-note, .section-title > span, .table-description { margin: 0; color: var(--text-muted); }
     .page-kicker { color: var(--link); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { margin: 0; padding: 12px; border: 1px solid var(--border-accent); border-radius: 12px; } legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 750; }
+    .controls { display: grid; gap: 12px; margin-bottom: 16px; }.controls .filter-bar { margin: 0; } fieldset { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--border-accent); border-radius: 12px; } legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 750; }
     .metric-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; }.metric-picker label { display: flex; align-items: center; gap: 6px; }.metric-picker input { min-width: auto; }.semantics, .axis-note, .selection-message { font-size: 12px; }.selection-message { margin: 0; color: var(--danger); }
     .chart-card, .table-card { margin-bottom: 16px; }.section-title { display: flex; justify-content: space-between; align-items: end; gap: 16px; }.section-title h2 { margin: 4px 0 0; }.table-description { margin-top: 6px; font-size: 12px; }.dynamics-chart { width: 100%; height: min(52vh, 620px); min-height: 400px; }.axis-note { margin-top: 8px; }
     .table-scroll { margin-top: 14px; min-height: 520px; max-height: 760px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; } table { width: 100%; border-collapse: collapse; white-space: nowrap; } th, td { padding: 11px 12px; border-bottom: 1px solid var(--border); text-align: right; } th:first-child, td:first-child { text-align: left; } thead th { position: sticky; top: 0; background: var(--accent-surface); color: var(--text-muted); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }.ledger-table thead th:nth-child(n+4) { min-width: 78px; }.month-row .year-cell { width: 116px; }.month-cell { color: var(--text-secondary); font-weight: 650; text-align: left; }.coverage { color: var(--text-muted); font-size: 12px; }.tree-toggle { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 0; background: transparent; color: var(--text); font: inherit; cursor: pointer; }.tree-toggle span { display: inline-grid; width: 17px; height: 17px; place-items: center; border: 1px solid var(--border); border-radius: 4px; color: var(--link); font-weight: 800; line-height: 1; }.year-total th, .year-total td { background: var(--accent-surface); font-weight: 750; border-bottom-color: var(--border-accent); }.year-total.collapsed th, .year-total.collapsed td { background: var(--accent-surface); }.partial { margin-left: 5px; padding: 3px 6px; border-radius: 999px; background: var(--warning-surface); color: var(--warning); font-size: 9px; text-transform: uppercase; }.state-card { display: grid; gap: 12px; justify-items: start; }.state-card.error { color: var(--danger); }
-    @media (max-width: 700px) { .section-title { display: grid; }.dynamics-chart { min-height: 340px; } }
+    @media (max-width: 760px) {
+      .phone-charts { display: grid; gap: 16px; margin-top: 14px; }
+      .phone-charts section { min-width: 0; }
+      .phone-charts section + section { border-top: 1px solid var(--border); padding-top: 12px; }
+      .phone-charts h3 { font-size: 14px; margin: 0; }
+      .phone-charts .dynamics-chart { min-height: 0; height: 190px; }
+    }
+    .table-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    @media (max-width: 700px) {
+      .section-title { display: grid; gap: 6px; }
+      .dynamics-chart { height: 300px; min-height: 0; }
+      .table-scroll { min-height: 0; max-height: 65vh; }
+      .tree-toggle, .metric-picker label { min-height: 44px; }
+    }
   `],
 })
 export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
@@ -205,6 +231,16 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
   readonly selectionMessage = signal<string | null>(null);
   readonly data = signal<DynamicsResponse | null>(null);
   readonly chartOptions = computed(() => dynamicsChartOptions(this.data(), this.measure(), this.mode(), this.selectedMetrics()));
+  private readonly phoneLayout = inject(DOCUMENT, { optional: true })?.defaultView?.matchMedia?.('(max-width: 760px)');
+  private readonly isPhone = signal(this.phoneLayout?.matches ?? false);
+  readonly phoneCharts = computed(() => {
+    const data = this.data();
+    if (!data || !this.isPhone() || this.mode() !== 'absolute') return [];
+    return this.selectedMetrics().filter(metric => data.metrics.includes(metric)).map(metric => ({
+      metric,
+      options: dynamicsChartOptions(data, this.measure(), 'absolute', [metric], false),
+    }));
+  });
   readonly monthlyLedgerColumns = MONTHLY_LEDGER_COLUMNS;
   readonly monthlyLedger = computed(() => buildMonthlyLedger(this.data()?.monthly ?? []));
   readonly expandedYears = signal<Set<string>>(new Set());
@@ -226,7 +262,11 @@ export class MonthlyStatsPageComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly requestCancelled$ = new Subject<void>();
 
-  constructor(private readonly api: DynamicsApiService, private readonly route: ActivatedRoute, private readonly router: Router) {}
+  constructor(private readonly api: DynamicsApiService, private readonly route: ActivatedRoute, private readonly router: Router) {
+    const update = (event: MediaQueryListEvent) => this.isPhone.set(event.matches);
+    this.phoneLayout?.addEventListener('change', update);
+    inject(DestroyRef).onDestroy(() => this.phoneLayout?.removeEventListener('change', update));
+  }
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {

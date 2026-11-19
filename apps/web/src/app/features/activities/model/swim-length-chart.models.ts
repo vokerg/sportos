@@ -22,13 +22,18 @@ export function swimLengthChartOptions(data: SwimLengthResponse): EChartsCoreOpt
     {key: 'strokes', title:'Strokes · per length', values:active.map(row => row.strokes), formatter:(v:number)=>String(v)},
   ].filter(metric => metric.values.some(value => value !== null));
   if (!metrics.length) return null;
+  const grid = metrics.map((_,i) => ({left:75,right:25,top:36 + 155*i,height:100}));
   return {
     animation: false,
-    grid: metrics.map((_,i) => ({left:75,right:25,top:36 + 155*i,height:100})),
+    grid,
+    media: [{
+      query: { maxWidth: 500 },
+      option: { grid: grid.map(panel => ({ ...panel, left: 48, right: 18 })) },
+    }, { option: { grid } }],
     axisPointer: {link:[{xAxisIndex:'all'}]},
     tooltip: {trigger:'axis',confine:true},
     xAxis: metrics.map((_,i) => ({type:'category',gridIndex:i,data:labels,
-      axisLabel:{show:i===metrics.length-1},name:i===metrics.length-1?'Active pool length #':'',
+      axisLabel:{show:i===metrics.length-1, hideOverlap:true, alignMinLabel:'left', alignMaxLabel:'right'},name:i===metrics.length-1?'Active pool length #':'',
       nameLocation:'middle',nameGap:28})),
     yAxis: metrics.map((metric,i) => ({type:'value',gridIndex:i,scale:true,
       inverse:metric.key==='pace',name:metric.title,nameLocation:metric.key==='pace'?'start':'end',

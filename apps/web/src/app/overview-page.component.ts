@@ -123,6 +123,10 @@ type OverviewState = 'loading' | 'loaded' | 'empty' | 'error';
     .sport-tile strong { font-size: clamp(23px, 3vw, 34px); letter-spacing: -.04em; }.sport-tile small { color: var(--text-muted); }
     sportos-activity-card { display: block; margin-top: 10px; }
     @media (max-width: 940px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 680px) {
+      .overview-actions :is(a, button) { display: inline-flex; align-items: center; min-height: 44px; white-space: normal; }
+      .section-heading { flex-wrap: wrap; gap: 6px 14px; }
+    }
     @media (max-width: 680px) { .overview-heading { display: grid; }.summary-grid { grid-template-columns: 1fr; }.sport-grid { grid-template-columns: 1fr; }.sport-tile { padding: 16px; }.table-row { grid-template-columns: 1.2fr 1fr 1fr; min-width: 0; padding: 10px; gap: 8px; }.table-row > :nth-child(2), .table-row > :nth-child(4), .table-row > :nth-child(5) { display: none; } }
   `],
 })

@@ -331,7 +331,7 @@ After authentication, the Angular cockpit provides:
 
 - **Overview** — recent official score highlights and a selected-day quick sheet, with explicit paths to the complete ledger and day workspace.
 - **Analysis** — cited daily-range or score-breakdown guidance, official evidence, quality flags, and audit reference.
-- **Daily Log** — the full-density, filterable canonical summary table and trend chart. Selecting a row opens a lightweight highlights sheet without replacing the table.
+- **Daily Log** — filterable canonical summaries and a trend chart. On phones, a paged list of scores links to the full day workspace. The desktop table opens a quick sheet when you select a row.
 - **Daily Log Quick entry** — the exact editable manual fact fields, with a per-day durable Strava refresh followed by deterministic recalculation.
 - **Daily score** (`/daily/:date`) — Overview shows daily totals, editing/recalculation, concise training sessions and Garmin day metrics. Manual total entries stay out of the session list. Score contains calculations and reconciliation; Sources contains workbook/provider provenance and explicit Garmin resource inspection.
 - **Activities and Heatmap** — inspect canonical activities, their retained individual GPS maps, and the private all-time multi-route density map at `/heatmap` with sport/date filters, approximate-summary labeling and quality counts for existing retained Strava streams/detail or eligible Garmin FIT traces.
@@ -343,7 +343,7 @@ After authentication, the Angular cockpit provides:
 
 The browser renders API truth only. It never receives provider tokens, selects an owner, normalizes canonical facts, computes official scores, or treats generated guidance as authoritative.
 
-Each major workflow is a lazy-loaded Angular route behind one authenticated upper navigation shell. Route components own page-level orchestration; focused presentation components remain reusable between Overview, Daily Log, and the complete daily workspace.
+Each major workflow is a lazy-loaded Angular route behind an authenticated header. On compact screens, Menu opens all primary sections and sign-out. Route components own page-level orchestration; focused presentation components remain reusable between Overview, Daily Log, and the complete daily workspace.
 
 ## Local workbook import CLI
 

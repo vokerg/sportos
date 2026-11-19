@@ -52,11 +52,16 @@ export function runLapChart(data: RunLaps): { options: EChartsCoreOption; height
     {id:'hr', name:'Heart rate · bpm', values:data.rows.map(row=>row.heartRate)},
   ].filter(metric=>metric.values.some(value=>value!==null));
   if (!metrics.length) return null;
+  const grid = metrics.map((_,i)=>({left:75,right:25,top:36+155*i,height:100}));
   return { height: metrics.length * 155 + 70, options: {
     animation:false,
-    grid:metrics.map((_,i)=>({left:75,right:25,top:36+155*i,height:100})),
+    grid,
+    media: [{
+      query: { maxWidth: 500 },
+      option: { grid: grid.map(panel => ({ ...panel, left: 48, right: 18 })) },
+    }, { option: { grid } }],
     axisPointer:{link:[{xAxisIndex:'all'}]}, tooltip:{trigger:'axis',confine:true},
-    xAxis:metrics.map((_,i)=>({type:'category',gridIndex:i,data:data.rows.map(row=>String(row.row)),axisLabel:{show:i===metrics.length-1},name:i===metrics.length-1?'Recorded lap #':'',nameLocation:'middle',nameGap:28})),
+    xAxis:metrics.map((_,i)=>({type:'category',gridIndex:i,data:data.rows.map(row=>String(row.row)),axisLabel:{show:i===metrics.length-1, hideOverlap:true, alignMinLabel:'left', alignMaxLabel:'right'},name:i===metrics.length-1?'Recorded lap #':'',nameLocation:'middle',nameGap:28})),
     yAxis:metrics.map((metric,i)=>({type:'value',gridIndex:i,scale:true,inverse:metric.id==='pace',name:metric.name,nameLocation:metric.id==='pace'?'start':'end',nameTextStyle:{align:'left'},splitNumber:3,axisLabel:{formatter:(value:number)=>metric.id==='pace'?formatDurationClock(value):String(value)}})),
     dataZoom:[{type:'inside',xAxisIndex:metrics.map((_,i)=>i),filterMode:'none'},{type:'slider',xAxisIndex:metrics.map((_,i)=>i),bottom:0,height:16,filterMode:'none'}],
     series:metrics.map((metric,i)=>({id:metric.id,name:metric.name,type:'line',xAxisIndex:i,yAxisIndex:i,data:metric.values,showSymbol:data.rows.length<80,connectNulls:false,smooth:false,tooltip:{valueFormatter:(value:unknown)=>typeof value==='number'?metric.id==='pace'?formatDurationClock(value):String(Number(value.toFixed(1))):'—'}})),

@@ -15,9 +15,14 @@ export function timelineValue(value: unknown, metric: TimelineMetric) {
 }
 const colors = ['#2563eb','#e44763','#8756cf','#159888','#c18420','#667085','#d25c31','#3a869c','#bd5798','#677434'];
 export function timelineOptions(data: ActivityTimeline, metrics: TimelineMetric[]): EChartsCoreOption {
+  const grid = metrics.map((_,i) => ({left:70, right:24, top:30 + i*170, height:120}));
   return {
     animation: false,
-    grid: metrics.map((_,i) => ({left:70, right:24, top:30 + i*170, height:120})),
+    grid,
+    media: [{
+      query: { maxWidth: 500 },
+      option: { grid: grid.map(panel => ({ ...panel, left: 48, right: 18 })) },
+    }, { option: { grid } }],
     axisPointer: { link: [{xAxisIndex:'all'}] },
     tooltip: { trigger:'axis', confine:true, axisPointer:{type:'line'},
       formatter: (raw: {seriesIndex:number; data:[number,number|null]} | {seriesIndex:number; data:[number,number|null]}[]) => {
@@ -26,7 +31,7 @@ export function timelineOptions(data: ActivityTimeline, metrics: TimelineMetric[
       },
     },
     xAxis: metrics.map((_,i) => ({ type:'value', gridIndex:i, min:0, max:data.durationS,
-      axisLabel:{show:i===metrics.length-1, formatter:(v:number) => timelineTime(v)},
+      axisLabel:{show:i===metrics.length-1, formatter:(v:number) => timelineTime(v), hideOverlap:true, alignMinLabel:'left', alignMaxLabel:'right'},
       axisPointer:{label:{formatter:(p:{value:number}) => timelineTime(p.value)}},
       splitLine:{show:false}, name:i===metrics.length-1 ? 'Elapsed time' : '', nameLocation:'middle', nameGap:30 })),
     yAxis: metrics.map((metric,i) => ({type:'value', gridIndex:i, scale:true, inverse:metric.key==='pace',

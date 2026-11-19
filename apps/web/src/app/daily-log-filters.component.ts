@@ -24,6 +24,12 @@ import type { QuickRange } from './daily-log.view-model';
       <button type="button" class="secondary" (click)="reset.emit()">Reset</button>
     </form>
   `,
+  styles: [`
+    @media (max-width: 700px) {
+      .filter-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .filter-bar label:first-child { grid-column: 1 / -1; }
+    }
+  `],
 })
 export class DailyLogFiltersComponent {
   readonly quickRange = input<QuickRange>('3m');
