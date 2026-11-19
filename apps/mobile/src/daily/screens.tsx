@@ -1,5 +1,4 @@
-import {GarminSyncCard} from '../providers/GarminSyncCard';
-import {CalculateAllCard} from './CalculateAllCard';
+import { SyncEverythingCard } from '../sync/SyncEverythingCard';
 import { ActivityCard, projectActivityList, type ActivityList } from '../activities';
 import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -14,7 +13,6 @@ import { isCalendarDate, localToday, shiftCalendarDate } from '../ui/format.mjs'
 import { useSportosTheme } from '../ui/theme';
 import { sourceLabel } from '../ui/source-label';
 import { ProviderStatus } from '../ui/ProviderStatus';
-import { StravaQuickSyncCard } from '../providers/screens';
 import { useGarminDay, GarminDayView } from './GarminDayCard';
 import { DayActions } from './DayActions';
 import { useDayActions } from './day-actions';
@@ -91,6 +89,7 @@ export function HomeScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 
   const averages = homeAverages(view.data?.days ?? [], shiftCalendarDate(today, -29), today);
   const { palette } = useSportosTheme();
   return <Screen eyebrow="SPORTOS" title="Your training">
+    <SyncEverythingCard onUpdated={retry} />
     {view.kind === 'loading' ? <StatusPanel kind="loading" message="Loading your day…" /> : null}
     {view.kind === 'offline' || view.kind === 'error' ? <StatusPanel kind={view.kind}
       message={view.kind === 'offline' ? 'Offline. No score is cached or presented as current.'
@@ -125,9 +124,6 @@ export function HomeScreen({ navigation }: NativeBottomTabScreenProps<MainTabs, 
         <Body subdued>Totals from canonical activities; daily averages from scored records.</Body>
       </Card>
     </> : null}
-    <StravaQuickSyncCard />
-    <GarminSyncCard />
-    <CalculateAllCard onCalculated={retry} />
     {view.data ? <Card title="Recent sessions">
       {view.data.activityLoading ? <StatusPanel kind="loading" message="Reading recent activity summary…" />
         : view.data.activityError ? <><Body subdued>Some activity data is unavailable.</Body><Action title="Retry activities" secondary onPress={retry}/></>

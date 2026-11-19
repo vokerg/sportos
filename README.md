@@ -50,6 +50,8 @@ for tagging, recovery and how to match deployed SHAs to releases.
 
 ### Review, score, and export canonical records
 
+- Use **Update everything** on web Overview or mobile Home to import Strava, sync Garmin and recalculate in sequence. Repeat any time; keep the screen open for progression or return and continue. See [workflow behavior](docs/implementation/issue-268.md).
+
 - Classify linked Garmin treadmill/track runs in activity labels and filters, including existing retained links, while keeping ordinary run labels concise.
 - Browse daily summaries and inspect exact score-ledger, immutable rule-version, activity, source-record, and import-batch provenance.
 - Treat imported workbook `All` totals as authoritative until an explicit recalculation or manual edit; the complete day retains its imported, calculated, or manual authority status; Daily Log shows compact Strava/Garmin retained-source icons.

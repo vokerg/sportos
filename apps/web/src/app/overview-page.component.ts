@@ -1,5 +1,4 @@
-import {GarminSyncControlComponent} from './features/providers';
-import {DailyCalculationControlComponent} from './features/daily';
+import { SyncEverythingControlComponent } from './features/sync/ui/sync-everything-control.component';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
@@ -13,47 +12,22 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
 import { formatDate } from './date-time';
 import { ScoreBreakdownApiService } from './score-breakdown-api.service';
 import type { ApiErrorBody, DailyScoreBreakdown, ScoreBreakdownViewState } from './score-breakdown.models';
-import { ProviderStore } from './features/providers/state/provider.store';
 
 type OverviewState = 'loading' | 'loaded' | 'empty' | 'error';
 
 @Component({
   selector: 'sportos-overview-page',
   standalone: true,
-  imports: [RouterLink, DailyQuickSheetComponent, ActivityCardComponent, GarminSyncControlComponent, DailyCalculationControlComponent],
-  providers: [ProviderStore],
+  imports: [RouterLink, DailyQuickSheetComponent, ActivityCardComponent, SyncEverythingControlComponent],
   template: `
     <section class="overview-heading" aria-labelledby="overview-title">
       <div><span class="page-kicker">Overview</span><h1 id="overview-title">Your training, at a glance</h1><p>Build your rhythm. A little perspective on the work you put in.</p></div>
       <div class="overview-actions">
         <a routerLink="/daily">Open Daily Log</a>
-        @if (providerStore.state() === 'loading') {
-          <button type="button" class="strava-button" disabled>Checking Strava…</button>
-        } @else if (providerStore.state() === 'error') {
-          <button type="button" class="secondary-button" (click)="providerStore.load()">Retry Strava</button>
-        } @else if (providerStore.connection()?.status === 'connected') {
-          <button type="button" class="strava-button" [disabled]="providerStore.busy()" (click)="importStrava()">{{ stravaActionLabel() }}</button>
-        } @else {
-          <a class="secondary-link" routerLink="/providers">{{ providerStore.connection() ? 'Reconnect Strava' : 'Connect Strava' }}</a>
-        }
-        <sportos-garmin-sync-control (synced)="loadActivities()" />
-        <sportos-daily-calculation-control (calculated)="load()" />
       </div>
     </section>
 
-    @if (providerStore.job(); as job) {
-      <div class="strava-job" aria-live="polite">
-        <span>Strava import {{ job.status }} · {{ job.progressPercent }}% · {{ job.phase }}</span>
-        @if (job.status === 'queued' || job.status === 'running') {
-          <button type="button" class="secondary-button" (click)="providerStore.cancel()">Cancel import</button>
-        }
-        @if (providerStore.pollingPaused() || providerStore.state() === 'error') {
-          <button type="button" class="secondary-button" (click)="providerStore.refreshJob()">Check status</button>
-        }
-        @if (job.error) { <span class="strava-error" role="alert">{{ job.error.message }}</span> }
-      </div>
-    }
-    @if (providerStore.errorMessage()) { <p class="strava-error" role="alert">{{ providerStore.errorMessage() }}</p> }
+    <sportos-sync-everything-control (updated)="load(); loadActivities()" />
 
     @if (state() === 'loading') {
       <section class="card state-card" role="status">Loading your training snapshot…</section>
@@ -117,19 +91,13 @@ type OverviewState = 'loading' | 'loaded' | 'empty' | 'error';
   styles: [`
     .overview-heading, .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
     .overview-heading { margin: 6px 0 22px; }
+    sportos-sync-everything-control { display: block; margin-bottom: 22px; }
     .page-kicker { color: var(--link); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     h1 { margin: 5px 0; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.035em; }
     h2 { margin: 5px 0 0; font-size: 20px; }
     p { margin: 0; color: var(--text-muted); }
     .overview-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     .overview-actions a, .state-card a { padding: 10px 14px; border-radius: 11px; background: var(--primary); color: var(--on-primary); font-weight: 700; text-decoration: none; white-space: nowrap; }
-    .overview-actions .secondary-link { background: var(--surface-muted); color: var(--text-secondary); }
-    .overview-actions button { min-height: 40px; padding: 10px 14px; border-radius: 11px; font: inherit; font-size: 13px; font-weight: 750; white-space: nowrap; }
-    .overview-actions .strava-button { background: var(--provider-strava); color: #fff; }
-    .overview-actions .secondary-button, .strava-job .secondary-button { background: var(--surface-muted); color: var(--text-secondary); }
-    .strava-job { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: -8px 0 16px; color: var(--text-muted); font-size: 12px; }
-    .strava-job button { padding: 6px 10px; border-radius: 9px; font: inherit; font-weight: 700; }
-    .strava-error { margin: -8px 0 14px; color: var(--danger); font-size: 12px; }
     .summary-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 14px; }
     .summary-grid article { display: grid; gap: 5px; min-height: 130px; align-content: center; }
     .summary-grid span { color: var(--text-muted); font-size: 12px; font-weight: 700; }
@@ -186,11 +154,10 @@ export class OverviewPageComponent implements OnInit, OnDestroy {
     private readonly api: DailyApiService,
     private readonly scoreApi: ScoreBreakdownApiService,
     private readonly router: Router,
-    readonly providerStore: ProviderStore,
     private readonly overviewApi: ActivitiesApiService,
   ) {}
 
-  ngOnInit(): void { this.load(); this.loadActivities(); this.providerStore.initialize(); }
+  ngOnInit(): void { this.load(); this.loadActivities(); }
   ngOnDestroy(): void { this.rowsSubscription?.unsubscribe(); this.breakdownSubscription?.unsubscribe(); this.activitySubscriptions.unsubscribe(); }
 
   load(): void {
@@ -228,26 +195,6 @@ export class OverviewPageComponent implements OnInit, OnDestroy {
   signed(value: number | null | undefined): string { return value === null || value === undefined ? '—' : `${value >= 0 ? '+' : ''}${this.number(value)}`; }
   distance(value: number): string { return `${(value / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} km`; }
   status(value: DailySummaryRow['score_status'] | undefined): string { return value === 'manual' ? 'Manual edit' : value === 'imported' ? 'Imported' : 'Calculated'; }
-
-  importStrava(): void {
-    const connection = this.providerStore.connection();
-    if (!connection || connection.status !== 'connected') return;
-    const job = this.providerStore.job();
-    if (job?.status === 'failed' && job.attemptCount < job.maxAttempts) {
-      this.providerStore.retry();
-      return;
-    }
-    this.providerStore.sync(connection.lastSyncAt ? 'incremental' : 'initial_backfill');
-  }
-
-  stravaActionLabel(): string {
-    if (this.providerStore.recoveringLatestJob()) return 'Checking Strava status…';
-    if (this.providerStore.state() === 'working') return 'Starting Strava import…';
-    const job = this.providerStore.job();
-    if (job?.status === 'queued' || job?.status === 'running') return `Importing Strava… ${job.progressPercent}%`;
-    if (job?.status === 'failed' && job.attemptCount < job.maxAttempts) return 'Retry Strava import';
-    return 'Import Strava';
-  }
 
   private loadBreakdown(date: string): void {
     this.breakdownSubscription?.unsubscribe();
