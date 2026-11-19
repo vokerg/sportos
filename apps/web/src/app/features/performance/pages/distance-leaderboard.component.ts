@@ -30,7 +30,7 @@ import { DistanceLeaderboardStore } from '../state/distance-leaderboard.store';
             Missing detail is fetched only through an explicit activity action or local operator workflow.</p>
         </details>
         @if(!result.rows.length) {<p role="status">No qualified records for this distance and range. Estimates and stale results do not rank.</p>}
-        @else {<div class="table-scroll"><table><thead><tr><th>Rank</th><th>Date</th><th>Time</th><th>Evidence</th><th>Activity / original</th></tr></thead><tbody>
+        @else {<div class="table-scroll" role="region" aria-labelledby="distance-leaderboard-title" tabindex="0"><table><thead><tr><th>Rank</th><th>Date</th><th>Time</th><th>Evidence</th><th>Activity / original</th></tr></thead><tbody>
           @for(row of result.rows; track row.id) {<tr>
             <td>{{row.rank}}</td><td>{{row.date}}</td><td>{{duration(row.durationS)}}</td>
             <td><span class="source-badge">{{source(row.source)}}</span> · {{row.pausePolicy === 'historical_excel' ? 'historical time' : row.pausePolicy === 'moving_flags' ? 'moving time' : 'timer-active time'}}
@@ -53,7 +53,9 @@ import { DistanceLeaderboardStore } from '../state/distance-leaderboard.store';
         </nav>
       }
     </section>`,
-  styles:[`:host{display:block;margin-bottom:16px}.source-badge{display:inline-block;font-size:12px;font-weight:600;padding:3px 7px;background:var(--accent-surface);color:var(--link);border-radius:6px}p{color:var(--text-muted);font-size:13px}table{width:100%;border-collapse:collapse}th,td{padding:10px;text-align:left;border-bottom:1px solid var(--border)}.table-scroll{overflow-x:auto}small{display:block}.coverage{margin:14px 0}.pagination{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}.pagination span{margin-right:auto}td button,td a{margin-right:8px}`],
+  styles:[`:host{display:block;margin-bottom:16px}.source-badge{display:inline-block;font-size:12px;font-weight:600;padding:3px 7px;background:var(--accent-surface);color:var(--link);border-radius:6px}p{color:var(--text-muted);font-size:13px}table{width:100%;border-collapse:collapse}th,td{padding:10px;text-align:left;border-bottom:1px solid var(--border)}.table-scroll{overflow-x:auto}small{display:block}.coverage{margin:14px 0}.pagination{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}.pagination span{margin-right:auto}td button,td a{margin-right:8px}
+    .table-scroll:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+    @media(max-width:700px){.pagination span{flex-basis:100%}.pagination button{min-height:44px}}`],
 })
 export class DistanceLeaderboardComponent implements OnInit {
   readonly store=inject(DistanceLeaderboardStore);

@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { DailyLogFiltersComponent } from './daily-log-filters.component';
+import { DailyPhoneListComponent } from './features/daily/ui/daily-phone-list.component';
 import { DailyLogGridComponent } from './daily-log-grid.component';
 import { DailyLogTrendComponent } from './daily-log-trend.component';
 import { DailyQuickEntryGridComponent } from './daily-quick-entry-grid.component';
@@ -20,6 +21,7 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
     DailyLogFiltersComponent,
     DailyLogTrendComponent,
     DailyLogGridComponent,
+    DailyPhoneListComponent,
     DailyQuickEntryGridComponent,
     DailyQuickSheetComponent,
   ],
@@ -28,7 +30,7 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
       <div class="daily-log-header">
         <div>
           <h2 id="daily-log-title">Daily Log</h2>
-          <p class="daily-log-help">Bars show each day’s total, split by score contribution; any remainder is Unattributed. The line shows the 30d average on the same points scale. Today is included and marked Incomplete while Garmin and Strava data may still arrive. Choose an earlier end date for completed days only. Open a bar or table row to inspect the day.</p>
+          <p class="daily-log-help">Bars show each day’s total, split by score contribution; any remainder is Unattributed. The line shows the 30d average on the same points scale. Today is included and marked Incomplete while Garmin and Strava data may still arrive. Choose an earlier end date for completed days only. Select a day in the entries to inspect its score.</p>
         </div>
         <div class="current-average" aria-label="Current 30 day average">
           <span>Current 30d average</span>
@@ -48,8 +50,8 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
         (reset)="resetFilters()" />
 
       <div class="view-switch" role="group" aria-label="Daily log view">
-        <button type="button" [class.active]="viewMode() === 'summary'" (click)="showSummary()">Summary</button>
-        <button type="button" [class.active]="viewMode() === 'quick-entry'" (click)="showQuickEntry()">Quick entry</button>
+        <button type="button" [attr.aria-pressed]="viewMode() === 'summary'" [class.active]="viewMode() === 'summary'" (click)="showSummary()">Summary</button>
+        <button type="button" [attr.aria-pressed]="viewMode() === 'quick-entry'" [class.active]="viewMode() === 'quick-entry'" (click)="showQuickEntry()">Quick entry</button>
       </div>
 
       @if (viewMode() === 'summary') {
@@ -60,6 +62,7 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
         } @else if (summaryState() === 'empty') {
           <p class="state-message" role="status">No canonical daily summaries match this range.</p>
         } @else {
+          <sportos-daily-phone-list [rows]="rows()" />
           <sportos-daily-log-trend [rows]="rows()" (openDay)="openBreakdownForDate($event)" />
           <sportos-daily-log-grid [rows]="rows()" (openBreakdown)="openBreakdown($event)" />
         }
@@ -103,7 +106,15 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
     .view-switch { display: flex; gap: 4px; width: fit-content; padding: 4px; border: 1px solid var(--border-accent); border-radius: 10px; background: var(--accent-surface); }
     .view-switch button { border-color: transparent; background: transparent; color: var(--text-muted); }
     .view-switch button.active { border-color: var(--border-accent); background: var(--surface); color: var(--link); box-shadow: 0 1px 2px rgba(16, 24, 40, .08); }
-    @media (max-width: 640px) { .daily-log-header { align-items: stretch; flex-direction: column; } .current-average { min-width: 0; } }
+    sportos-daily-phone-list { display: none; }
+    @media (max-width: 760px) {
+      .daily-log-header { align-items: stretch; flex-direction: column; gap: 12px; }
+      .current-average { min-width: 0; }
+      .view-switch button { min-height: 44px; }
+      sportos-daily-phone-list { display: block; }
+      sportos-daily-log-trend { display: block; margin-top: 20px; }
+      sportos-daily-log-grid { display: none; }
+    }
   `],
 })
 export class DailyLogComponent implements OnInit {

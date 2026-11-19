@@ -50,14 +50,20 @@ export function rollingDynamicsChartOptions(
   const points = response.points.filter((point) => point.date <= today);
   const activeDays = measure === 'activeDays';
   const unit = activeDays ? 'days' : displayUnit(response.unit);
+  const grid = { left: 44, right: 24, top: 28, bottom: 58, containLabel: true };
   return {
     color: response.windows.map((window) => WINDOW_COLORS[window]),
     tooltip: {
       trigger: 'axis',
+      confine: true,
       valueFormatter: (value: unknown) => activeDays ? formatDays(value) : formatDisplayedValue(value, response.unit),
     },
     legend: { bottom: 0 },
-    grid: { left: 44, right: 24, top: 28, bottom: 58, containLabel: true },
+    grid,
+    media: [{
+      query: { maxWidth: 500 },
+      option: { grid: { left: 4, right: 8, bottom: 50 } },
+    }, { option: { grid } }],
     xAxis: {
       type: 'category',
       data: points.map((point) => point.date === today ? `${point.date} (Incomplete)` : point.date),
@@ -85,17 +91,23 @@ export function scoreContributionChartOptions(response: RollingDynamicsResponse 
   if (!contribution) return {};
   const today = localCalendarDate();
   const points = contribution.points.filter((point) => point.date <= today);
+  const grid = { left: 48, right: 24, top: 28, bottom: 68, containLabel: true };
   return {
     color: contribution.categories.map((category) => SCORE_CONTRIBUTION_COLORS[category]),
     tooltip: {
       trigger: 'axis',
+      confine: true,
       valueFormatter: (value: unknown) => {
         const numericValue = Number(value);
         return Number.isFinite(numericValue) ? `${numericValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} pts/day` : '—';
       },
     },
-    legend: { bottom: 0, data: contribution.categories.map((category) => SCORE_CONTRIBUTION_LABELS[category]) },
-    grid: { left: 48, right: 24, top: 28, bottom: 68, containLabel: true },
+    legend: { type: 'scroll', bottom: 0, data: contribution.categories.map((category) => SCORE_CONTRIBUTION_LABELS[category]) },
+    grid,
+    media: [{
+      query: { maxWidth: 500 },
+      option: { grid: { left: 4, right: 8, bottom: 52 } },
+    }, { option: { grid } }],
     xAxis: {
       type: 'category', boundaryGap: false,
       data: points.map((point) => point.date === today ? `${point.date} (Incomplete)` : point.date),
