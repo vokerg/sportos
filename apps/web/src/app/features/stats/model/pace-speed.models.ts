@@ -86,12 +86,18 @@ export function filteredDistanceM(bucket: PaceSpeedBucket): number {
 export function trendChartOptions(buckets: PaceSpeedBucket[], sport: PaceSpeedSport): EChartsOption {
   const labels = buckets.map(bucket => bucket.key);
   const pace = sport !== 'bike';
+  const grid = [{ left: 62, right: 22, top: 40, height: '43%' }, { left: 62, right: 22, top: '69%', height: '20%' }];
   return {
     animation: false,
-    grid: [{ left: 62, right: 22, top: 40, height: '43%' }, { left: 62, right: 22, top: '69%', height: '20%' }],
-    legend: { top: 0, data: [pace ? 'Weighted pace' : 'Weighted speed', 'Included km', 'Filtered km'] },
+    grid,
+    media: [{
+      query: { maxWidth: 500 },
+      option: { grid: grid.map(panel => ({ ...panel, left: 36, right: 10 })) },
+    }, { option: { grid } }],
+    legend: { type: 'scroll', top: 0, data: [pace ? 'Weighted pace' : 'Weighted speed', 'Included km', 'Filtered km'] },
     tooltip: {
       trigger: 'axis',
+      confine: true,
       formatter: (params: unknown) => {
         const index = (Array.isArray(params) ? (params as Array<{ dataIndex?: number }>)[0]?.dataIndex : undefined) ?? 0;
         const bucket = buckets[index];

@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { DailyLogFiltersComponent } from './daily-log-filters.component';
+import { DailyPhoneQuickEntryComponent } from './features/daily/ui/daily-phone-quick-entry.component';
 import { DailyPhoneListComponent } from './features/daily/ui/daily-phone-list.component';
 import { DailyLogGridComponent } from './daily-log-grid.component';
 import { DailyLogTrendComponent } from './daily-log-trend.component';
@@ -22,6 +23,7 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
     DailyLogTrendComponent,
     DailyLogGridComponent,
     DailyPhoneListComponent,
+    DailyPhoneQuickEntryComponent,
     DailyQuickEntryGridComponent,
     DailyQuickSheetComponent,
   ],
@@ -72,6 +74,11 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
         } @else if (quickEntryState() === 'error') {
           <div class="state-message error" role="alert"><p>{{ quickEntryError() }}</p><button type="button" (click)="loadQuickEntryRows()">Retry</button></div>
         } @else {
+          <sportos-daily-phone-quick-entry
+            [rows]="quickEntryRows()"
+            [range]="quickEntryRange()"
+            (save)="saveQuickEntry($event)"
+            (refreshFromStrava)="refreshQuickEntryFromStrava($event)" />
           <sportos-daily-quick-entry-grid
             [rows]="quickEntryRows()"
             (save)="saveQuickEntry($event)"
@@ -106,14 +113,14 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
     .view-switch { display: flex; gap: 4px; width: fit-content; padding: 4px; border: 1px solid var(--border-accent); border-radius: 10px; background: var(--accent-surface); }
     .view-switch button { border-color: transparent; background: transparent; color: var(--text-muted); }
     .view-switch button.active { border-color: var(--border-accent); background: var(--surface); color: var(--link); box-shadow: 0 1px 2px rgba(16, 24, 40, .08); }
-    sportos-daily-phone-list { display: none; }
+    sportos-daily-phone-list, sportos-daily-phone-quick-entry { display: none; }
     @media (max-width: 760px) {
       .daily-log-header { align-items: stretch; flex-direction: column; gap: 12px; }
       .current-average { min-width: 0; }
       .view-switch button { min-height: 44px; }
-      sportos-daily-phone-list { display: block; }
+      sportos-daily-phone-list, sportos-daily-phone-quick-entry { display: block; }
       sportos-daily-log-trend { display: block; margin-top: 20px; }
-      sportos-daily-log-grid { display: none; }
+      sportos-daily-log-grid, sportos-daily-quick-entry-grid { display: none; }
     }
   `],
 })
@@ -135,6 +142,7 @@ export class DailyLogComponent implements OnInit {
   get manualSaveError() { return this.state.manualSaveError; }
   get manualEditRequestId() { return this.state.manualEditRequestId; }
   get viewMode() { return this.state.viewMode; }
+  get quickEntryRange() { return this.state.quickEntryRange; }
   get quickEntryRows() { return this.state.quickEntryRows; }
   get quickEntryState() { return this.state.quickEntryState; }
   get quickEntryError() { return this.state.quickEntryError; }

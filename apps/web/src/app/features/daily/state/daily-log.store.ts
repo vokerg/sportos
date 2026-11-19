@@ -52,6 +52,7 @@ export class DailyLogStore implements OnDestroy {
   readonly manualEditRequestId = signal(0);
 
   readonly viewMode = signal<'summary' | 'quick-entry'>('summary');
+  readonly quickEntryRange = signal({ from: '', to: '' });
   readonly quickEntryRows = signal<DailyQuickEntryGridRow[]>([]);
   readonly quickEntryState = signal<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   readonly quickEntryError = signal<string | null>(null);
@@ -103,6 +104,7 @@ export class DailyLogStore implements OnDestroy {
       return;
     }
     this.loadRows();
+    if (this.viewMode() === 'quick-entry') this.loadQuickEntryRows();
   }
 
   setFrom(value: string): void {
@@ -133,6 +135,7 @@ export class DailyLogStore implements OnDestroy {
     this.to.set(dates.to);
     this.quickRange.set(DEFAULT_QUICK_RANGE);
     this.loadRows();
+    if (this.viewMode() === 'quick-entry') this.loadQuickEntryRows();
   }
 
   showSummary(): void {
@@ -157,12 +160,14 @@ export class DailyLogStore implements OnDestroy {
     this.quickEntryLoadSubscription?.unsubscribe();
     this.quickEntryState.set('loading');
     this.quickEntryError.set(null);
+    const range = { from: this.from(), to: this.to() };
     this.quickEntryLoadSubscription = this.scoreBreakdownApi.manualFacts({
-      from: this.from() || undefined,
-      to: this.to() || undefined,
+      from: range.from || undefined,
+      to: range.to || undefined,
       limit: 10_000,
     }).subscribe({
       next: (rows) => {
+        this.quickEntryRange.set(range);
         this.quickEntryRows.set(rows.map((row) => ({
           date: row.date,
           scoreStatus: row.scoreStatus,

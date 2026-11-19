@@ -81,6 +81,7 @@ export function dynamicsChartOptions(
   measure: DynamicsMeasure,
   mode: DynamicsMode,
   selectedMetrics: DynamicsMetric[] = response?.metrics ?? [],
+  showLegend = true,
 ): EChartsCoreOption {
   if (!response) return {};
   const metrics = selectedMetrics.filter((metric) => response.metrics.includes(metric));
@@ -98,11 +99,24 @@ export function dynamicsChartOptions(
   const leftAxes = indexed ? 1 : Math.ceil(metrics.length / 2);
   const rightAxes = indexed ? 0 : Math.floor(metrics.length / 2);
 
+  const grid = { left: 48 + ((leftAxes - 1) * 56), right: 24 + (rightAxes * 56), top: 54, bottom: 56, containLabel: true };
+  const compact = indexed || metrics.length === 1;
+  const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+
   return {
     color: metrics.map((metric) => COLORS[metric]),
-    tooltip: { trigger: 'axis' },
-    legend: { bottom: 0 },
-    grid: { left: 48 + ((leftAxes - 1) * 56), right: 24 + (rightAxes * 56), top: 54, bottom: 56, containLabel: true },
+    tooltip: { trigger: 'axis', confine: true },
+    legend: { type: 'scroll', bottom: 0, show: showLegend },
+    grid,
+    ...(compact ? {
+      media: [{
+        query: { maxWidth: 600 },
+        option: {
+          grid: { left: 4, right: 12, top: 30, bottom: showLegend ? 48 : 24 },
+          yAxis: [{ name: indexed ? 'Index' : units[0], axisLabel: { formatter: (value: number) => compactNumber.format(value) } }],
+        },
+      }, { option: { grid, yAxis: axes.map(axis => ({ ...axis, axisLabel: { ...('axisLabel' in axis ? axis.axisLabel : {}), formatter: '{value}' } })) } }],
+    } : {}),
     xAxis: { type: 'category', data: response.series.map((bucket) => bucket.key), axisLabel: { hideOverlap: true } },
     yAxis: axes,
     series: metrics.map((metric, index) => {
