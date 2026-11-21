@@ -1,0 +1,54 @@
+name: Cloudflare API staging
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'apps/mcp/**'
+      - 'packages/**'
+      - 'docs/experiments/workers-api/**'
+      - '.github/workflows/cloudflare-api-staging.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.node-version'
+      - 'tsconfig*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sportos-cloudflare-api-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && vars.SPORTOS_CLOUDFLARE_STAGING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: cloudflare-staging
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @sportos/api build
+      - run: node docs/experiments/workers-api/build.mjs --staging
+      - name: Deploy the staging API
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm dlx wrangler@4.165.0 deploy --config docs/experiments/workers-api/wrangler.staging.jsonc
+      - name: Verify staging health and access guard
+        env:
+          STAGING_API_ORIGIN: ${{ vars.STAGING_API_ORIGIN }}
+        run: |
+          curl --fail --silent --show-error --max-time 30 "$STAGING_API_ORIGIN/health"
+          curl --fail --silent --show-error --max-time 30 "$STAGING_API_ORIGIN/auth/config" \
+            | jq -e '.mode == "single-user-google" and .googleEnrollment == false'
+          test "$(curl --silent --show-error --max-time 30 --output /dev/null --write-out '%{http_code}' "$STAGING_API_ORIGIN/auth/session")" = 401

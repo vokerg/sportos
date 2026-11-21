@@ -38,7 +38,7 @@ const DEV_SESSION_ABSOLUTE_SECONDS = 604_800;
 @Injectable()
 export class AuthService {
   private readonly repository: AuthRepository;
-  private discoveryPromise?: Promise<OidcDiscovery>;
+  private discoveredIssuer?: OidcDiscovery;
   private loginWindowStarted = 0;
   private loginAttempts = 0;
   private loginInProgress = false;
@@ -459,17 +459,17 @@ export class AuthService {
     };
   }
 
-  private discovery(issuer: string): Promise<OidcDiscovery> {
-    this.discoveryPromise ??= fetch(`${issuer}/.well-known/openid-configuration`, { headers: { accept: 'application/json' } })
-      .then(async (response) => {
-        if (!response.ok) throw new ServiceUnavailableException({ code: 'OIDC_DISCOVERY_FAILED', message: 'Sign-in provider is unavailable.' });
-        const value = await response.json() as Partial<OidcDiscovery>;
-        if (value.issuer !== issuer || !value.authorization_endpoint || !value.token_endpoint || !value.userinfo_endpoint) {
-          throw new ServiceUnavailableException({ code: 'OIDC_DISCOVERY_INVALID', message: 'Sign-in provider configuration is invalid.' });
-        }
-        return value as OidcDiscovery;
-      });
-    return this.discoveryPromise;
+  private async discovery(issuer: string): Promise<OidcDiscovery> {
+    if (this.discoveredIssuer?.issuer === issuer) return this.discoveredIssuer;
+    const response = await fetch(`${issuer}/.well-known/openid-configuration`, { headers: { accept: 'application/json' } });
+    if (!response.ok) throw new ServiceUnavailableException({ code: 'OIDC_DISCOVERY_FAILED', message: 'Sign-in provider is unavailable.' });
+    const value = await response.json() as Partial<OidcDiscovery>;
+    if (value.issuer !== issuer || !value.authorization_endpoint || !value.token_endpoint || !value.userinfo_endpoint) {
+      throw new ServiceUnavailableException({ code: 'OIDC_DISCOVERY_INVALID', message: 'Sign-in provider configuration is invalid.' });
+    }
+    const discovery = value as OidcDiscovery;
+    this.discoveredIssuer = discovery;
+    return discovery;
   }
 }
 

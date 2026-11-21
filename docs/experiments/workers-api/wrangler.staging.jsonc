@@ -1,0 +1,15 @@
+{
+  "name": "sportos-api-staging",
+  "main": ".bundle/staging.mjs",
+  "compatibility_date": "2026-11-21",
+  "no_bundle": true,
+  "keep_vars": true,
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true, "logs": { "invocation_logs": false } },
+  "vars": {
+    "NODE_ENV": "production",
+    "SPORTOS_AUTH_MODE": "single-user-google",
+    "SPORTOS_WORKERS_STAGING": "true"
+  }
+}
