@@ -16,7 +16,9 @@ metadata, account identifiers, sessions, notes or credentials. Reads use existin
 owner-scoped repositories and forced RLS. Daily facts and ledger components are
 read in one repeatable-read transaction; the connection is released before CPU
 aggregation. Imported components that cannot reconcile remain unattributed rather
-than fabricating a component split.
+than fabricating a component split. Calculated ledger rows omit unnecessary raw
+source payloads from the database result; only synthetic imported totals need
+retained workbook cells for attribution.
 
 Both the single-metric and combined calculations advance running sums/counts and
 subtract expired values. Persisted daily distances have two decimal places; sums

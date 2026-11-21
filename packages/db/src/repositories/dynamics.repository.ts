@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { ActivitiesTable, Database, Json } from '../schema.js';
 
 export interface DynamicsDailyRow {
@@ -90,7 +90,10 @@ export class DynamicsRepository {
         'sr.activity_type as ruleActivityType',
         'sr.rule_kind as ruleKind',
         'a.activity_type as activityType',
-        'src.raw_json as sourceRaw',
+        // Retained workbook cells are needed only for synthetic imported totals.
+        // Avoid transferring the daily source payload once per calculated ledger entry.
+        sql<Json | null>`case when sr.activity_type is null and a.activity_type is null
+          then src.raw_json else null end`.as('sourceRaw'),
       ])
       .where('sl.metric_date', '>=', from)
       .where('sl.metric_date', '<=', to)
