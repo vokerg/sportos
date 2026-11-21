@@ -22,6 +22,11 @@ const ROLLING_QUERY_FIELDS = new Set(['from', 'to', 'metric', 'windows']);
 export class DynamicsController {
   constructor(@Inject(DynamicsService) private readonly dynamicsService: DynamicsService) {}
 
+  @Get('history')
+  history(@Query() raw: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) {
+    return this.dynamicsService.history(parseDynamicsHistoryQuery(raw), account?.id ?? LEGACY_ACCOUNT_ID);
+  }
+
   @Get('monthly')
   monthly(@Query() raw: Record<string, unknown>, @CurrentAccount() account?: AuthenticatedAccount) {
     return this.dynamicsService.read(parseDynamicsQuery(raw), account?.id ?? LEGACY_ACCOUNT_ID);
@@ -91,4 +96,13 @@ function scalar(value: unknown, field: string): string | undefined {
 
 function invalid(message: string): never {
   throw new BadRequestException({ code: 'INVALID_DYNAMICS_QUERY', message });
+}
+
+
+export function parseDynamicsHistoryQuery(raw: Record<string, unknown>): string {
+  if (Object.keys(raw).some((key) => key !== 'to')) invalid('Only to is accepted for history.');
+  const to = scalar(raw.to, 'to');
+  const range = parseDateRange('1900-01-01', to, { required: true, maxDays: 73414 });
+  if (range.to! > '2100-12-31') invalid('History supports 1900 through 2100.');
+  return range.to!;
 }

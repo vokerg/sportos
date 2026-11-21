@@ -1,21 +1,21 @@
-import { ColorSchemeService } from './core/theme/color-scheme.service';
-import { HttpErrorResponse } from '@angular/common/http';
+import { ColorSchemeService } from '../../../core/theme/color-scheme.service';
 import { inject, Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { connect, disconnect, type EChartsType } from 'echarts/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
-import { forkJoin, of, Subject, takeUntil } from 'rxjs';
-import { DynamicsApiService } from './features/dynamics/data-access/dynamics-api.service';
+import { Subject, takeUntil } from 'rxjs';
+import { DynamicsStore } from '../state/dynamics.store';
+import { historyMetric, metricUnit, historyHeatRanges, historyTableRows, historyRecordRows } from '../model/history.view-model';
 import {
   DYNAMICS_METRICS,
   ROLLING_WINDOWS,
   type DynamicsMetric,
   type RollingDynamicsMeasure,
-  type RollingDynamicsResponse,
   type RollingWindow,
-} from './features/dynamics/model/dynamics.models';
-import { DYNAMICS_LABELS } from './monthly-stats.view-model';
+} from '../model/dynamics.models';
+import { DYNAMICS_LABELS } from '../model/dynamics.models';
 import {
-  boundedAllTimeRange,
+  localCalendarDate,
   isDateRangeOrdered,
   QUICK_RANGE_VALUES,
   quickRangeDates,
@@ -23,16 +23,17 @@ import {
   readQueryEnum,
   readQueryNumberCsv,
   type QuickRange,
-} from './shared/util/analytics-query-state';
-import { buildRollingAggregateRows, formatRollingMeasureValue, formatRollingValue, ROLLING_AGGREGATE_METRICS, rollingDynamicsChartOptions, rollingMeasure, scoreContributionChartOptions, type RollingAggregateMetric } from './rolling-dynamics.view-model';
+} from '../../../shared/util/analytics-query-state';
+import { formatRollingMeasureValue, formatRollingValue, ROLLING_AGGREGATE_METRICS, rollingDynamicsChartOptions, rollingMeasure, scoreContributionChartOptions, type RollingAggregateMetric } from '../model/rolling-dynamics.view-model';
 
-type PageState = 'loading' | 'loaded' | 'empty' | 'error';
+let chartGroupSequence = 0;
 const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
 
 @Component({
   selector: 'sportos-rolling-dynamics-page',
   standalone: true,
   imports: [NgxEchartsDirective],
+  providers: [DynamicsStore],
   template: `
     <section class="page-heading" aria-labelledby="dynamics-title">
       <div><span class="page-kicker">Dynamics</span><h1 id="dynamics-title">Rolling daily change</h1><p>See how trailing windows move every calendar day as new activity enters and old activity expires.</p></div>
@@ -41,7 +42,7 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
     <section class="card controls" aria-label="Rolling dynamics controls">
       <form class="filter-bar" (submit)="$event.preventDefault(); apply()">
         <label>Quick range
-          <select [value]="quickRange()" (change)="setQuickRange(inputValue($event))">
+          <select [value]="selectedQuickRange()" (change)="setQuickRange(inputValue($event))">
             <option value="custom">Custom range</option>
             <option value="1m">1 month</option>
             <option value="3m">3 months</option>
@@ -81,7 +82,7 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
     @if (state() === 'loading') {
       <section class="card state-card" role="status">Loading rolling dynamics…</section>
     } @else if (state() === 'error') {
-      <section class="card state-card error" role="alert"><p>{{ errorMessage() }}</p><button type="button" (click)="load()">Retry</button></section>
+      <section class="card state-card error" role="alert"><p>{{ errorMessage() }}</p><button type="button" (click)="load(true)">Retry</button></section>
     } @else if (state() === 'empty') {
       <section class="card state-card"><h2>No canonical values</h2><p>This range and its selected lookback contain no recorded values for {{ labels[metric()] }}.</p></section>
     } @else {
@@ -94,7 +95,9 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
 
         <section class="card chart-card" aria-labelledby="rolling-chart-title">
         <div class="section-title"><div><span class="page-kicker">Daily timeline</span><h2 id="rolling-chart-title">{{ labels[current.metric] }}</h2></div><span>{{ current.range.from }} → {{ current.range.to }}</span></div>
-        <div echarts [theme]="colorScheme.chartTheme()" class="rolling-chart" [options]="chartOptions()" role="img" [attr.aria-label]="labels[current.metric] + ' rolling daily dynamics'"></div>
+        <p class="chart-help">Scroll or pinch to zoom; drag the range handles to extend or move the visible period. Full history is loaded once. Use Refresh data after recalculation.</p>
+        <button type="button" class="secondary" (click)="load(true)">Refresh data</button>
+        <div echarts [theme]="colorScheme.chartTheme()" (chartInit)="connectChart($event)" class="rolling-chart" [options]="chartOptions()" role="img" [attr.aria-label]="labels[current.metric] + ' rolling daily dynamics'"></div>
         </section>
 
         @for (window of current.windows; track window) {
@@ -102,22 +105,48 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
           <div class="section-title"><div><span class="page-kicker">Official score mix</span><h2 [id]="'contribution-chart-title-' + window">{{ window }}-day score contribution</h2></div><span>Average points per calendar day</span></div>
           <p class="chart-help">Each layer shows how much an activity contributes to the official trailing {{ window }}-day average, using the retained ledger components.</p>
           @if (hasContribution(window)) {
-            <div echarts [theme]="colorScheme.chartTheme()" class="contribution-chart" [options]="contributionChartOptions(window)" role="img" [attr.aria-label]="'Activity contributions to the trailing ' + window + '-day average official score'"></div>
+            <div echarts [theme]="colorScheme.chartTheme()" (chartInit)="connectChart($event)" class="contribution-chart" [options]="contributionChartOptions(window)" role="img" [attr.aria-label]="'Activity contributions to the trailing ' + window + '-day average official score'"></div>
           } @else {
             <p class="contribution-empty">No official score contributions exist in this range.</p>
           }
           </section>
         }
 
+        <section class="card table-card" aria-label="Personal records">
+          <div class="section-title"><h2>Personal records</h2><label>Calendar year
+            <select [value]="recordYear()" (change)="recordYear.set(inputValue($event))">
+              @for (year of recordYears(); track year) { <option [value]="year">{{ year }}</option> }
+            </select></label></div>
+          <p class="table-help">All-time and calendar-year highs use the window end date. Rolling records are averages per calendar day, after a full calendar span exists. Missing rows can understate averages; coverage is shown. Today is provisional. First date wins ties. Power points are bonuses.</p>
+          <div class="table-scroll" tabindex="0" role="region" aria-label="All-time and year records"><table>
+            <thead><tr><th>Metric / window</th><th>All-time high</th><th>Date · coverage</th><th>{{ recordYear() }} high</th><th>Date · coverage</th></tr></thead>
+            <tbody>@for (row of recordRows(); track row.key) {
+              <tr><th scope="row">{{ labels[row.metric] }} · {{ row.window === 1 ? 'daily' : row.window + 'd avg' }}</th>
+                <td>{{ formatRecord(row.all?.value, row.metric) }}</td><td>{{ row.all?.date ?? '—' }} {{ row.all ? ' · ' + row.all.recordedDays + '/' + row.window : '' }}</td>
+                <td>{{ formatRecord(row.year?.value, row.metric) }}</td><td>{{ row.year?.date ?? '—' }} {{ row.year ? ' · ' + row.year.recordedDays + '/' + row.window : '' }}</td></tr>
+            }</tbody>
+          </table></div>
+        </section>
+
         <section class="card table-card" aria-label="Aggregate averages">
+          <div class="pagination" aria-label="Dynamics table pagination">
+            <label><input type="checkbox" [checked]="allTableDays()" (change)="allTableDays.set(checked($event)); tablePage.set(0)"> All available history</label>
+            <label>Rows per page <select [value]="pageSize()" (change)="setPageSize(inputValue($event))"><option value="50">50</option><option value="100">100</option><option value="200">200</option></select></label>
+            <button type="button" class="secondary" [disabled]="tablePage() === 0" (click)="tablePage.set(0)">First</button>
+            <button type="button" class="secondary" [disabled]="tablePage() === 0" (click)="tablePage.set(tablePage() - 1)">Previous</button>
+            <span>Page {{ tablePage() + 1 }} / {{ pageCount() }} · {{ tableDates().length }} days</span>
+            <button type="button" class="secondary" [disabled]="tablePage() + 1 >= pageCount()" (click)="tablePage.set(tablePage() + 1)">Next</button>
+            <button type="button" class="secondary" [disabled]="tablePage() + 1 >= pageCount()" (click)="tablePage.set(pageCount() - 1)">Last</button>
+          </div>
+          <p class="table-help">Darker colors mean higher values within each metric and window over the table range. Typical positive values receive medium intensity; maxima receive the strongest shade. Uncolored cells are zero or missing.</p>
         @for (window of current.windows; track window) {
           <div class="aggregate-table-block">
             <div class="section-title"><div><span class="page-kicker">Selected cycle</span><h2 [id]="'rolling-table-title-' + window">{{ window }}-day aggregate averages</h2></div><span>Calendar-day averages</span></div>
-            <p class="table-help">Each row is the rolling calendar-day average for that date. Missing dates remain visible; incomplete coverage is highlighted.</p>
+            <p class="table-help">Each row is the rolling calendar-day average for that date. Missing dates remain visible; coverage is shown separately.</p>
             <div class="table-scroll" tabindex="0" role="region" [attr.aria-labelledby]="'rolling-table-title-' + window"><table>
-              <thead><tr><th>Date</th><th>Avg run</th><th>Avg swim</th><th>Avg bike</th><th>Avg steps</th><th>Avg points</th><th>Avg power points</th><th>Avg training points</th></tr></thead>
-              <tbody>@for (row of reversedAggregateRows(window); track row.date) {
-                <tr><th scope="row">{{ row.date }}</th>@for (metric of aggregateMetrics; track metric) { <td [class.incomplete]="!row.complete">{{ formatAggregate(row.values[metric], metric) }}</td> }</tr>
+              <thead><tr><th>Date</th><th>Coverage</th><th>Avg run</th><th>Avg swim</th><th>Avg bike</th><th>Avg steps</th><th>Avg points</th><th>Avg power points</th><th>Avg training points</th></tr></thead>
+              <tbody>@for (row of tableRows()[window] ?? []; track row.date) {
+                <tr><th scope="row">{{ row.date }}</th><td [class.incomplete]="row.recordedDays !== window">{{ row.recordedDays }}/{{ window }}</td>@for (metric of aggregateMetrics; track metric) { <td [style.background-color]="row.colors[metric]">{{ formatAggregate(row.values[metric], metric) }}</td> }</tr>
               }</tbody>
             </table></div>
           </div>
@@ -134,6 +163,7 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
     .table-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
     .semantics summary { cursor: pointer; font-weight: 700; }
     .semantics p { margin-bottom: 0; }
+    .pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }.pagination label { display: flex; align-items: center; gap: 6px; }.pagination input { min-width: auto; }
     .aggregate-table-block + .aggregate-table-block { margin-top: 22px; }
     @media (max-width: 700px) {
       .controls .filter-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -159,18 +189,35 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   readonly windows = signal<RollingWindow[]>([30]);
   readonly aggregateMetrics = ROLLING_AGGREGATE_METRICS;
   readonly measure = signal<RollingDynamicsMeasure>('recordedDayAverage');
-  readonly state = signal<PageState>('loading');
-  readonly data = signal<RollingDynamicsResponse | null>(null);
-  readonly aggregateData = signal<Partial<Record<RollingAggregateMetric, RollingDynamicsResponse>>>({});
-  readonly errorMessage = signal<string | null>(null);
+  readonly store = inject(DynamicsStore);
+  readonly state = this.store.state;
+  readonly errorMessage = this.store.errorMessage;
+  readonly data = computed(() => historyMetric(this.store.history(), this.metric(), this.windows()));
+  readonly selectedQuickRange = computed(() => { const range = this.store.history()?.range; return range && range.from === this.from() && range.to === this.to() ? 'all' : this.quickRange(); });
+  readonly tablePage = signal(0);
+  readonly pageSize = signal(50);
+  readonly allTableDays = signal(false);
+  readonly recordYear = signal(localCalendarDate().slice(0, 4));
+  readonly recordYears = computed(() => [...new Set([localCalendarDate().slice(0, 4), ...(this.store.history()?.records.filter((r) => r.period !== 'all').map((r) => r.period) ?? [])])].sort().reverse());
+  readonly recordRows = computed(() => historyRecordRows(this.store.history(), this.recordYear()));
+  readonly tableDates = computed(() => (this.store.history()?.dates ?? [])
+    .map((date, index) => ({ date, index }))
+    .filter(({ date }) => this.allTableDays() || (date >= this.from() && date <= this.to())).reverse());
+  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.tableDates().length / this.pageSize())));
+  readonly heatRanges = computed(() => historyHeatRanges(this.store.history(), this.windows(), this.tableDates()));
+  readonly tableRows = computed(() => historyTableRows(this.store.history(), this.windows(), this.tableDates(), this.tablePage(), this.pageSize(), this.heatRanges()));
+  readonly contributionOptions = computed(() => Object.fromEntries(this.windows().map((window) => [window,
+    scoreContributionChartOptions(this.data(), window, { from: this.from(), to: this.to() })])));
   readonly selectionMessage = signal<string | null>(null);
-  readonly chartOptions = computed(() => rollingDynamicsChartOptions(this.data(), this.measure()));
+  readonly chartOptions = computed(() => rollingDynamicsChartOptions(this.data(), this.measure(), { from: this.from(), to: this.to() }));
   readonly reversedPoints = computed(() => [...(this.data()?.points ?? [])].reverse());
   readonly measureKey = computed(() => rollingMeasure(this.measure()));
+  private readonly chartGroup = `dynamics-${++chartGroupSequence}`;
+  connectChart(chart: EChartsType): void { chart.group = this.chartGroup; connect(this.chartGroup); }
   private readonly destroy$ = new Subject<void>();
-  private readonly requestCancelled$ = new Subject<void>();
 
-  constructor(private readonly api: DynamicsApiService, private readonly route: ActivatedRoute, private readonly router: Router) {}
+
+  constructor(private readonly route: ActivatedRoute, private readonly router: Router) {}
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
@@ -185,40 +232,21 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
         readQueryEnum(params.get('measure'), ['total', 'recordedDayAverage', 'activeDays'] as const, 'recordedDayAverage'),
         metric,
       ));
+      this.tablePage.set(0);
       this.load();
     });
   }
 
-  ngOnDestroy(): void { this.requestCancelled$.next(); this.destroy$.next(); this.destroy$.complete(); }
+  ngOnDestroy(): void { disconnect(this.chartGroup); this.destroy$.next(); this.destroy$.complete(); }
 
   apply(): void {
     if (!isDateRangeOrdered(this.from(), this.to())) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
     void this.router.navigate([], { relativeTo: this.route, queryParams: { from: this.from(), to: this.to(), metric: this.metric(), windows: this.windows().join(','), measure: this.measure() } });
   }
 
-  load(): void {
+  load(force = false): void {
     if (!isDateRangeOrdered(this.from(), this.to())) { this.state.set('error'); this.errorMessage.set('From date must be on or before the to date.'); return; }
-    this.requestCancelled$.next(); this.state.set('loading'); this.errorMessage.set(null);
-    const aggregateRequests = this.aggregateMetrics.map((metric) => this.api.rollingDynamics({ from: this.from(), to: this.to(), metric, windows: this.windows() }));
-    const selectedMetricIsAggregate = this.aggregateMetrics.includes(this.metric() as RollingAggregateMetric);
-    const selectedRequest = selectedMetricIsAggregate && this.windows().length === 1
-      ? of(null)
-      : this.api.rollingDynamics({ from: this.from(), to: this.to(), metric: this.metric(), windows: this.windows() });
-    forkJoin({ aggregate: forkJoin(aggregateRequests), selected: selectedRequest })
-      .pipe(takeUntil(this.requestCancelled$), takeUntil(this.destroy$))
-      .subscribe({
-        next: ({ aggregate, selected }) => {
-          const responseByMetric = Object.fromEntries(aggregate.map((response) => [response.metric, response])) as Partial<Record<RollingAggregateMetric, RollingDynamicsResponse>>;
-          const aggregateResponse = this.aggregateMetrics.includes(this.metric() as RollingAggregateMetric)
-            ? responseByMetric[this.metric() as RollingAggregateMetric]
-            : undefined;
-          const response = selected ?? aggregateResponse ?? aggregate[0];
-          this.aggregateData.set(responseByMetric);
-          this.data.set(response);
-          this.state.set(hasValues(response) ? 'loaded' : 'empty');
-        },
-        error: (error: unknown) => { this.data.set(null); this.state.set('error'); this.errorMessage.set(describeError(error)); },
-      });
+    this.store.load(force);
   }
 
   toggleWindow(window: RollingWindow, selected: boolean): void {
@@ -233,7 +261,7 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
     const range = value as QuickRange;
     this.quickRange.set(range);
     if (range === 'custom') return;
-    const dates = range === 'all' ? boundedAllTimeRange() : quickRangeDates(range);
+    const dates = range === 'all' ? this.store.history()?.range ?? defaultRange() : quickRangeDates(range);
     this.from.set(dates.from);
     this.to.set(dates.to);
     this.apply();
@@ -262,16 +290,17 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   checked(event: Event): boolean { return (event.target as HTMLInputElement).checked; }
   format(value: number | null | undefined): string { return formatRollingValue(value, this.data()!.unit); }
   formatMeasure(value: number | null | undefined): string { return formatRollingMeasureValue(value, this.measure(), this.data()!.unit); }
-  reversedAggregateRows(window: RollingWindow) { return [...buildRollingAggregateRows(this.aggregateData(), window)].reverse(); }
+  setPageSize(value: string): void { const size = Number(value); if ([50, 100, 200].includes(size)) { this.pageSize.set(size); this.tablePage.set(0); } }
+  formatRecord(value: number | undefined, metric: DynamicsMetric): string { return formatRollingValue(value, metricUnit(metric)); }
   hasContribution(window: RollingWindow): boolean { return Boolean(this.data()?.scoreContributions[window]?.categories.length); }
-  contributionChartOptions(window: RollingWindow) { return scoreContributionChartOptions(this.data(), window); }
+  contributionChartOptions(window: RollingWindow) { return this.contributionOptions()[window] ?? {}; }
   formatAggregate(value: number | null | undefined, metric: RollingAggregateMetric): string {
-    const unit = this.aggregateData()[metric]?.unit ?? 'points';
+    const unit = metricUnit(metric);
     return formatRollingValue(value, unit);
   }
   latestLabel(window: RollingWindow): string { return this.measure() === 'activeDays' ? `Active days in last ${window}` : `${window} day ${this.measure() === 'total' ? 'total' : 'avg'}`; }
-  latestValue(window: RollingWindow): string { const value = this.data()?.points.at(-1)?.windows[window]?.[this.measureKey()]; return this.formatMeasure(value); }
-  latestCoverage(window: RollingWindow): string { const value = this.data()?.points.at(-1)?.windows[window]; return value ? `${value.recordedDays} / ${value.windowDays} days recorded${value.complete ? '' : ' · incomplete'}` : 'No coverage'; }
+  latestValue(window: RollingWindow): string { const value = this.reversedPoints().find((point) => point.date <= this.to())?.windows[window]?.[this.measureKey()]; return this.formatMeasure(value); }
+  latestCoverage(window: RollingWindow): string { const value = this.reversedPoints().find((point) => point.date <= this.to())?.windows[window]; return value ? `${value.recordedDays} / ${value.windowDays} days recorded${value.complete ? '' : ' · incomplete'}` : 'No coverage'; }
 }
 
 function validMetric(value: string | null): DynamicsMetric | null { return value && DYNAMICS_METRICS.includes(value as DynamicsMetric) ? value as DynamicsMetric : null; }
@@ -279,6 +308,4 @@ function validRollingMeasure(value: string | null, metric: DynamicsMetric): Roll
   if (value === 'activeDays') return metric === 'score' ? 'total' : 'activeDays';
   return value === 'total' ? 'total' : 'recordedDayAverage';
 }
-function hasValues(response: RollingDynamicsResponse): boolean { return response.points.some((point) => response.windows.some((window) => point.windows[window]?.total !== null)); }
 function defaultRange(): { from: string; to: string } { return quickRangeDates(DEFAULT_ROLLING_QUICK_RANGE); }
-function describeError(error: unknown): string { if (!(error instanceof HttpErrorResponse)) return 'Rolling dynamics could not be loaded.'; if (error.status === 0) return 'The SportOS API is unavailable.'; const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {}; return typeof body.message === 'string' ? body.message : `Rolling dynamics could not be loaded (HTTP ${error.status}).`; }

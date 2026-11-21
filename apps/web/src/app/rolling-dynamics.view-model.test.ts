@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DYNAMICS_METRICS, ROLLING_WINDOWS, type RollingDynamicsResponse } from './features/dynamics/model/dynamics.models';
-import { buildRollingAggregateRows, formatRollingValue, rollingDynamicsChartOptions, scoreContributionChartOptions } from './rolling-dynamics.view-model';
+import { buildRollingAggregateRows, formatRollingValue, rollingDynamicsChartOptions, scoreContributionChartOptions } from './features/dynamics/model/rolling-dynamics.view-model';
 
 const response: RollingDynamicsResponse = {
   range: { from: '2026-01-30', to: '2026-01-31' }, metric: 'run', unit: 'metres', windows: [30, 365],
@@ -114,4 +114,16 @@ describe('rolling dynamics view model', () => {
       { date: '2026-01-31', values: { run: 1.4065, swim: 2, bike: 2, steps: 2, score: 2, bonus: 2, workout: 2 }, complete: false },
     ]);
   });
+});
+
+it('adds inside/slider zoom against full history with exact indices even when today has an Incomplete label', () => {
+  vi.useFakeTimers();vi.setSystemTime(new Date(2026,0,31,12));
+  try {
+    const options=rollingDynamicsChartOptions(response,'recordedDayAverage',{from:'2026-01-31',to:'2026-01-31'}) as Record<string,any>;
+    expect(options.dataZoom).toEqual([
+      expect.objectContaining({type:'inside',startValue:1,endValue:1}),
+      expect.objectContaining({type:'slider',startValue:1,endValue:1}),
+    ]);
+    expect(options.series[0].data).toHaveLength(2);
+  } finally {vi.useRealTimers();}
 });

@@ -11,34 +11,8 @@ export type DailyLogSummaryState = 'loading' | 'loaded' | 'empty' | 'error';
 export const DEFAULT_QUICK_RANGE: Exclude<QuickRange, 'custom'> = '3m';
 export const DAILY_LOG_PAGE_SIZES = [100, 200, 365] as const;
 
-export interface DailyMetricRange {
-  min: number;
-  max: number;
-}
-
-export function positiveMetricRange(values: readonly unknown[]): DailyMetricRange | null {
-  const positiveValues = values
-    .map(Number)
-    .filter((value) => Number.isFinite(value) && value > 0);
-
-  if (!positiveValues.length) return null;
-  return { min: Math.min(...positiveValues), max: Math.max(...positiveValues) };
-}
-
-export function relativePastelBackground(
-  value: unknown,
-  range: DailyMetricRange | null,
-  rgb: string,
-): string | undefined {
-  const numericValue = Number(value);
-  if (!range || !Number.isFinite(numericValue) || numericValue <= 0) return undefined;
-
-  const position = range.max === range.min
-    ? 0.5
-    : Math.max(0, Math.min(1, (numericValue - range.min) / (range.max - range.min)));
-  const alpha = 0.1 + (position * 0.16);
-  return `rgba(${rgb}, ${alpha.toFixed(2)})`;
-}
+export { positiveMetricRange, relativePastelBackground } from './shared/util/metric-heat';
+export type { DailyMetricRange } from './shared/util/metric-heat';
 
 export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsCoreOption {
   const today = localCalendarDate();

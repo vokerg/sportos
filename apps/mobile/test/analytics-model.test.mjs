@@ -18,3 +18,25 @@ test('phone rolling ranges are limited to a year while monthly history stays bou
  assert.match(analyticsPath({mode:'monthly',from:'2020-01-01',to:'2026-10-28'}),/granularity=monthly/);
  assert.throws(()=>analyticsPath({mode:'monthly',from:'2000-01-01',to:'2026-10-28'}));
 });
+
+test('compact all-history projection preserves server records and supports history beyond the legacy year limit',async()=>{
+ const {historyPath,projectHistory}=await import('../src/analytics/model.mjs');
+ assert.equal(historyPath('2026-11-21'),'/dynamics/history?to=2026-11-21');
+ assert.throws(()=>historyPath('2101-01-01'));
+ const raw={version:1,dates:['2016-01-01','2016-01-02'],daily:{steps:[100,null]},windows:{7:{totals:{steps:[100,100]},activeDays:{steps:[1,1]},recordedDays:[1,1]}},records:[{metric:'steps',windowDays:7,period:'all',date:'2016-01-07',value:100/7,recordedDays:1}]};
+ const result=projectHistory(raw,'steps',7);assert.equal(result.points[1].dailyValue,null);assert.equal(result.points[1].average,100/7);assert.deepEqual(result.records,raw.records);
+ assert.throws(()=>projectHistory({...raw,dates:['2016-01-01','2016-01-01']},'steps',7));
+ assert.throws(()=>projectHistory({...raw,windows:{7:{...raw.windows[7],recordedDays:[8,1]}}},'steps',7));
+ assert.throws(()=>projectHistory({...raw,daily:{steps:[100]}},'steps',7));
+ assert.throws(()=>projectHistory({...raw,records:[{...raw.records[0],metric:'ownerId'}]},'steps',7));
+ assert.deepEqual(projectHistory({version:1,dates:[],daily:{steps:[]},windows:{},records:[]},'steps',7).points,[]);
+});
+
+test('local viewport zoom and pan preserve range bounds without requests or aggregating values',async()=>{
+ const {changeViewport}=await import('../src/analytics/model.mjs');const dates=Array.from({length:100},(_,i)=>new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10));const range={from:dates[20],to:dates[39]};
+ assert.deepEqual(changeViewport(dates,range,null,'in'),{start:25,end:35});
+ assert.deepEqual(changeViewport(dates,range,null,'out'),{start:5,end:55});
+ assert.deepEqual(changeViewport(dates,range,{start:0,end:20},'earlier'),{start:0,end:20});
+ assert.deepEqual(changeViewport(dates,range,{start:80,end:100},'later'),{start:80,end:100});
+ assert.deepEqual(changeViewport(dates,range,null,'all'),{start:0,end:100});
+});

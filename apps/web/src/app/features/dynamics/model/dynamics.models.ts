@@ -66,3 +66,33 @@ export interface RollingDynamicsResponse {
     }>;
   }>>;
 }
+
+/** Columnar transport avoids repeating metric/window/date labels for every value. */
+export interface DynamicsHistoryResponse {
+  version: 1;
+  range: { from: string; to: string };
+  dates: string[];
+  daily: Record<DynamicsMetric, Array<number | null>>;
+  windows: Partial<Record<RollingWindow, {
+    recordedDays: number[];
+    totals: Record<DynamicsMetric, Array<number | null>>;
+    activeDays: Record<DynamicsMetric, Array<number | null>>;
+  }>>;
+  scoreContributions: RollingDynamicsResponse['scoreContributions'];
+  records: DynamicsRecord[];
+}
+
+export interface DynamicsRecord {
+  metric: DynamicsMetric;
+  windowDays: 1 | RollingWindow;
+  /** Calendar year of the window end date, or all time. */
+  period: string;
+  date: string;
+  value: number;
+  recordedDays: number;
+}
+
+
+export const DYNAMICS_LABELS: Record<DynamicsMetric, string> = {
+  score: 'Official score', steps: 'Steps', run: 'Run', bike: 'Bike', swim: 'Swim', workout: 'Workout points', bonus: 'Power / bonus points',
+};

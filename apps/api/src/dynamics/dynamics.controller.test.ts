@@ -55,3 +55,15 @@ describe('DynamicsController', () => {
     ]) expect(() => parseRollingDynamicsQuery(query)).toThrow(BadRequestException);
   });
 });
+
+it('validates history bounds and rejects owner/duplicate inputs before forwarding the authenticated account', async () => {
+  const service = { history: vi.fn().mockResolvedValue({ dates: [] }) };
+  const controller = new DynamicsController(service as unknown as DynamicsService);
+  const account = { id: '10000000-0000-4000-8000-000000000001' } as never;
+  await controller.history({ to: '2026-11-21' }, account);
+  expect(service.history).toHaveBeenCalledWith('2026-11-21', '10000000-0000-4000-8000-000000000001');
+  for (const query of [{}, { to: ['2026-11-21'] }, { to: '2026-02-30' }, { to: '1899-12-31' }, { to: '2101-01-01' }, { to: '2026-11-21', ownerId: 'other' }]) {
+    expect(() => controller.history(query, account)).toThrow(BadRequestException);
+  }
+  expect(service.history).toHaveBeenCalledTimes(1);
+});

@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { SPORTOS_API_BASE } from '../../../core/config/api-base';
 import type {
+  DynamicsHistoryResponse,
   DynamicsGranularity,
   DynamicsMetric,
   DynamicsResponse,
@@ -14,6 +15,10 @@ export class DynamicsApiService {
   private readonly apiBase = inject(SPORTOS_API_BASE);
 
   constructor(private readonly http: HttpClient) {}
+
+  history(to: string) {
+    return this.http.get<DynamicsHistoryResponse>(`${this.apiBase}/dynamics/history`, { params: queryParams({ to }) });
+  }
 
   monthlyStats(query: { from: string; to: string; granularity: DynamicsGranularity; metrics: DynamicsMetric[] }) {
     return this.http.get<DynamicsResponse>(`${this.apiBase}/dynamics/monthly`, {

@@ -1,6 +1,6 @@
-import { localCalendarDate } from './shared/util/analytics-query-state';
+import { localCalendarDate } from '../../../shared/util/analytics-query-state';
 import type { EChartsCoreOption } from 'echarts/core';
-import type { DynamicsMetric, RollingDynamicsMeasure, RollingDynamicsResponse, RollingWindow, ScoreContributionCategory } from './features/dynamics/model/dynamics.models';
+import type { DynamicsMetric, RollingDynamicsMeasure, RollingDynamicsResponse, RollingWindow, ScoreContributionCategory } from './dynamics.models';
 
 export const ROLLING_AGGREGATE_METRICS = ['run', 'swim', 'bike', 'steps', 'score', 'bonus', 'workout'] as const satisfies readonly DynamicsMetric[];
 export type RollingAggregateMetric = typeof ROLLING_AGGREGATE_METRICS[number];
@@ -17,13 +17,15 @@ export function buildRollingAggregateRows(
 ): RollingAggregateRow[] {
   const source = responses[ROLLING_AGGREGATE_METRICS[0]];
   if (!source) return [];
+  const byMetric = Object.fromEntries(ROLLING_AGGREGATE_METRICS.map((metric) => [metric,
+    new Map(responses[metric]?.points.map((point) => [point.date, point]))]));
   return source.points.map((point) => {
     const values = Object.fromEntries(ROLLING_AGGREGATE_METRICS.map((metric) => [
       metric,
-      responses[metric]?.points.find((candidate) => candidate.date === point.date)?.windows[window]?.calendarDayAverage ?? null,
+      byMetric[metric]?.get(point.date)?.windows[window]?.calendarDayAverage ?? null,
     ])) as Partial<Record<RollingAggregateMetric, number | null>>;
     const complete = ROLLING_AGGREGATE_METRICS.every((metric) =>
-      responses[metric]?.points.find((candidate) => candidate.date === point.date)?.windows[window]?.complete ?? false,
+      byMetric[metric]?.get(point.date)?.windows[window]?.complete ?? false,
     );
     return { date: point.date, values, complete };
   });
@@ -44,14 +46,17 @@ const SCORE_CONTRIBUTION_COLORS: Record<ScoreContributionCategory, string> = {
 export function rollingDynamicsChartOptions(
   response: RollingDynamicsResponse | null,
   measure: RollingDynamicsMeasure,
+  range?: { from: string; to: string },
 ): EChartsCoreOption {
   if (!response) return {};
   const today = localCalendarDate();
   const points = response.points.filter((point) => point.date <= today);
   const activeDays = measure === 'activeDays';
   const unit = activeDays ? 'days' : displayUnit(response.unit);
-  const grid = { left: 44, right: 24, top: 28, bottom: 58, containLabel: true };
+  const grid = { left: 44, right: 24, top: 28, bottom: 100, containLabel: true };
   return {
+    animation: false,
+    dataZoom: zoomOptions(range, points.map((point) => point.date)),
     color: response.windows.map((window) => WINDOW_COLORS[window]),
     tooltip: {
       trigger: 'axis',
@@ -62,7 +67,7 @@ export function rollingDynamicsChartOptions(
     grid,
     media: [{
       query: { maxWidth: 500 },
-      option: { grid: { left: 4, right: 8, bottom: 50 } },
+      option: { grid: { left: 4, right: 8, bottom: 100 } },
     }, { option: { grid } }],
     xAxis: {
       type: 'category',
@@ -85,14 +90,16 @@ export function rollingDynamicsChartOptions(
   };
 }
 
-export function scoreContributionChartOptions(response: RollingDynamicsResponse | null, window: RollingWindow = response?.windows[0] ?? 30): EChartsCoreOption {
+export function scoreContributionChartOptions(response: RollingDynamicsResponse | null, window: RollingWindow = response?.windows[0] ?? 30, range?: { from: string; to: string }): EChartsCoreOption {
   if (!response) return {};
   const contribution = response.scoreContributions[window];
   if (!contribution) return {};
   const today = localCalendarDate();
   const points = contribution.points.filter((point) => point.date <= today);
-  const grid = { left: 48, right: 24, top: 28, bottom: 68, containLabel: true };
+  const grid = { left: 48, right: 24, top: 28, bottom: 110, containLabel: true };
   return {
+    animation: false,
+    dataZoom: zoomOptions(range, points.map((point) => point.date)),
     color: contribution.categories.map((category) => SCORE_CONTRIBUTION_COLORS[category]),
     tooltip: {
       trigger: 'axis',
@@ -106,7 +113,7 @@ export function scoreContributionChartOptions(response: RollingDynamicsResponse 
     grid,
     media: [{
       query: { maxWidth: 500 },
-      option: { grid: { left: 4, right: 8, bottom: 52 } },
+      option: { grid: { left: 4, right: 8, bottom: 110 } },
     }, { option: { grid } }],
     xAxis: {
       type: 'category', boundaryGap: false,
@@ -121,7 +128,7 @@ export function scoreContributionChartOptions(response: RollingDynamicsResponse 
       name: SCORE_CONTRIBUTION_LABELS[category],
       type: 'line',
       stack: 'score-contribution',
-      smooth: 0.35,
+      smooth: false,
       showSymbol: false,
       lineStyle: { width: 1 },
       areaStyle: { opacity: 0.9 },
@@ -167,4 +174,14 @@ function displayValue(value: number | null, unit: RollingDynamicsResponse['unit'
 
 function displayUnit(unit: RollingDynamicsResponse['unit']): string {
   return unit === 'metres' ? 'km' : unit;
+}
+
+
+function zoomOptions(range: { from: string; to: string } | undefined, dates: string[]) {
+  const start = range ? dates.findIndex((date) => date >= range.from) : 0;
+  let end = dates.length - 1;
+  if (range) while (end > 0 && dates[end]! > range.to) end--;
+  const values = range ? { startValue: Math.max(0, start), endValue: Math.max(0, end) } : { start: 0, end: 100 };
+  return [{ type: 'inside', ...values, filterMode: 'none', throttle: 50 },
+    { type: 'slider', ...values, filterMode: 'none', bottom: 30, height: 24, showDataShadow: false }];
 }

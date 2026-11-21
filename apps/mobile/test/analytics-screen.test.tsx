@@ -1,0 +1,34 @@
+import React, {useEffect} from 'react';
+import {act, create, type ReactTestRenderer} from 'react-test-renderer';
+import {afterEach, expect, it, vi} from 'vitest';
+vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+const {read}=vi.hoisted(()=>({read:vi.fn()}));
+vi.mock('@react-navigation/native',()=>({useFocusEffect:(effect:()=>void)=>useEffect(effect,[effect])}));
+vi.mock('../src/auth/useScreenSession',()=>({useScreenSession:()=>({read})}));
+vi.mock('react-native',()=>({ScrollView:'ScrollView',TextInput:'TextInput',View:'View'}));
+vi.mock('react-native-svg',()=>({default:'Svg',Circle:'Circle',Line:'Line',Polyline:'Polyline'}));
+vi.mock('../src/ui/primitives',()=>Object.fromEntries(['Action','Body','Card','Metric','Screen','StatusPanel'].map(name=>[name,(props:object)=>React.createElement(name,props)])));
+vi.mock('../src/ui/theme',()=>({useSportosTheme:()=>({palette:{border:'#ccc',chart:'#00f',text:'#000'}})}));
+import {AnalyticsScreen} from '../src/analytics/screens';
+import {localToday} from '../src/ui/format.mjs';
+const to=localToday();
+const dates=Array.from({length:800},(_,i)=>new Date(Date.parse(to+'T12:00:00Z')-(799-i)*86400000).toISOString().slice(0,10));
+const metrics=['score','steps','run','bike','swim','workout','bonus'];
+const columns=(value:number)=>Object.fromEntries(metrics.map(m=>[m,dates.map(()=>value)]));
+const history={version:1,dates,daily:columns(100),windows:Object.fromEntries([7,20,30,60,365].map(w=>[w,{totals:columns(w*100),activeDays:columns(w),recordedDays:dates.map(()=>w)}])),records:[{metric:'score',windowDays:30,period:'all',date:dates[30],value:100,recordedDays:30}]};
+let tree:ReactTestRenderer|null=null;
+afterEach(async()=>{if(tree)await act(async()=>tree!.unmount());tree=null;vi.resetAllMocks();});
+const press=async(title:string)=>act(async()=>tree!.root.findAllByType('Action' as never).find(n=>n.props.title===title)!.props.onPress());
+it('loads history once and changes metric, window, zoom, range and numeric pages locally',async()=>{
+ read.mockResolvedValue(history);await act(async()=>{tree=create(<AnalyticsScreen/>);});
+ expect(read).toHaveBeenCalledExactlyOnceWith('/dynamics/history?to='+to);
+ await press('Run');await press('7 day window');await press('Full history');await press('Zoom in');await press('Zoom out');await press('Earlier');await press('Later');
+ await press('Show exact numeric values');expect(JSON.stringify(tree!.toJSON())).toContain('Page');await press('Next page');
+ expect(read).toHaveBeenCalledTimes(1);
+ await press('Refresh data');expect(read).toHaveBeenCalledTimes(2);
+});
+it('hides malformed transport detail behind a retry state',async()=>{
+ read.mockResolvedValue({version:1,dates:['invalid'],records:[]});await act(async()=>{tree=create(<AnalyticsScreen/>);});
+ expect(JSON.stringify(tree!.toJSON())).toContain('Could not load analytics');
+ expect(JSON.stringify(tree!.toJSON())).not.toContain('Invalid canonical');
+});

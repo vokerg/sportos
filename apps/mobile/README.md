@@ -153,3 +153,11 @@ and its launch command passed. Login/session, manual Refresh All and higher-buil
 update remain unverified; see [QA](../../docs/MOBILE_QA.md) for evidence and artifacts.
 TestFlight/App Store and paid enrollment are outside this task. Apple
 Health/widgets/notifications and hosted operations remain separate scope decisions.
+
+
+Dynamics now uses the compact canonical all-history feed, with current-year and
+all-time highs for daily/rolling values, local metric/window/range changes,
+zoom/pan/full-history controls and 50-value pagination. Refresh data rereads
+records after recalculation. This source update requires the new API history
+route before distributing a rebuilt native client; old clients continue to use
+the compatible rolling endpoint. See [#271 behavior and validation](../../docs/implementation/issue-271.md).

@@ -53,7 +53,7 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: 'dynamics',
-    loadComponent: () => import('./rolling-dynamics-page.component').then((module) => module.RollingDynamicsPageComponent),
+    loadComponent: () => import('./features/dynamics/pages/rolling-dynamics-page.component').then((module) => module.RollingDynamicsPageComponent),
     title: 'Dynamics · SportOS',
   },
   {
