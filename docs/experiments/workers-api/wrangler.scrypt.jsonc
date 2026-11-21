@@ -1,0 +1,12 @@
+{
+  "name": "sportos-scrypt-free-trial",
+  "main": "scrypt-probe.mjs",
+  "compatibility_date": "2026-11-21",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "vars": {
+    "SPORTOS_SINGLE_USER_USERNAME": "trial",
+    "SPORTOS_SINGLE_USER_PASSWORD_HASH": "scrypt-v1:01010101010101010101010101010101:4a0e4b649d9b3853469503a7234ebaa51da18c7c6fff1a7d0ba8b318f7f709a14c6cd3cfc8e84c12a4c9936c8dc0ebf1318cb0153fc68f54acdb9fa0e29cf24e"
+  }
+}

@@ -67,6 +67,8 @@ validation text still references V122. Queue #3 also leaves #78 unchecked despit
 the documented completed implementation. This deployment does not infer schema
 state from those summaries or change unrelated queue items.
 
+The [Workers Free API experiment](experiments/workers-api/README.md) records the local Angular trial and why the API stays on Render.
+
 ## Render settings
 
 Repository root, Node 22, Frankfurt region. Build with
