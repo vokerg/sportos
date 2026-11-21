@@ -1,0 +1,14 @@
+{
+  "name": "sportos-api-free-trial",
+  "main": ".bundle/worker.mjs",
+  "compatibility_date": "2026-11-21",
+  "no_bundle": true,
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "vars": {
+    "DATABASE_URL": "postgresql://unused@127.0.0.1:1/unused",
+    "SPORTOS_ACTIVITY_DETAIL_DATABASE_URL": "postgresql://unused@127.0.0.1:2/unused",
+    "SPORTOS_AUTH_MODE": "single-user"
+  }
+}
