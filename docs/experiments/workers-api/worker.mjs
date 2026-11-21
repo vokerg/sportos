@@ -1,9 +1,9 @@
-import '../../apps/api/node_modules/reflect-metadata/Reflect.js';
+import '../../../apps/api/node_modules/reflect-metadata/Reflect.js';
 import { httpServerHandler } from 'cloudflare:node';
-import { NestFactory } from '../../apps/api/node_modules/@nestjs/core/index.js';
-import { ExpressAdapter } from '../../apps/api/node_modules/@nestjs/platform-express/index.js';
-import { AppModule } from '../../apps/api/dist/app.module.js';
-import { sportosCorsOptions } from '../../apps/api/dist/cors-options.js';
+import { NestFactory } from '../../../apps/api/node_modules/@nestjs/core/index.js';
+import { ExpressAdapter } from '../../../apps/api/node_modules/@nestjs/platform-express/index.js';
+import { AppModule } from '../../../apps/api/dist/app.module.js';
+import { sportosCorsOptions } from '../../../apps/api/dist/cors-options.js';
 
 const app = await NestFactory.create(AppModule, new ExpressAdapter(), {
   logger: false,

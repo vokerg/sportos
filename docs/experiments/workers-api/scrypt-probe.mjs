@@ -1,4 +1,4 @@
-import { verifySingleUserPassword } from '../../apps/api/dist/auth/single-user-password.js';
+import { verifySingleUserPassword } from '../../../apps/api/dist/auth/single-user-password.js';
 
 export default {
   async fetch(request) {
