@@ -171,3 +171,101 @@ additional work for distributed limits, provider/OIDC callbacks, durable
 uploads, queue and wake validation, mobile and MCP streaming. The two
 diagnostic Workers do not establish the cost or schedule of a production
 migration.
+
+## Authenticated staging follow-up
+
+After Google-only sign-in went live on Render, the staging target was added
+for the same Nest application. Its Postgres pools belong to the request, and
+it uses the existing session guard, CSRF checks, owner-scoped repositories and
+Google token verification. It gates imports, provider mutations, job writes,
+AI, mobile approval and MCP streaming. The wake gateway has its own deployment.
+
+### Runtime setup
+
+Use a separate staging frontend origin with a same-origin `/api` proxy. On
+loopback, the Angular command above can point to `http://127.0.0.1:8791`.
+For hosted staging, the proxy points to the separate staging Worker origin.
+Register the exact `<staging-web-origin>/api/auth/callback` in a separate Google
+Web OAuth client. Allow only the staging owner's verified Google subject in
+the staging database. Use empty Neon projects with synthetic data and separate
+primary and activity-detail credentials. Copy neither production DB URLs nor
+production provider, wake or OAuth secrets.
+
+Use `sportos_app` login roles with direct connections. Check both roles have
+`NOBYPASSRLS` and own no application tables. Use `sslmode=verify-full` for
+remote databases. Migrate the primary database from `flyway/sql` and the
+detail database from `flyway/activity-detail-sql`. Detail migration V001
+grants access on the fixed name `sportos_activity_detail`. Use that name for
+the fresh detail migration, then rename the staging database to
+`sportos_trial_detail` before connecting the Worker. The staging primary
+database name is `sportos_trial_primary`.
+
+Supply these values through Worker runtime secrets or an untracked,
+permission-restricted file for `wrangler dev --env-file`:
+
+- `SPORTOS_STAGING_DATABASE_URL` and `SPORTOS_STAGING_ACTIVITY_DETAIL_DATABASE_URL`
+- `SPORTOS_WEB_ORIGIN` and `SPORTOS_API_ORIGIN` (the staging web origin and its `/api` URL)
+- `SPORTOS_OIDC_CLIENT_ID` and `SPORTOS_OIDC_CLIENT_SECRET` for staging
+
+```sh
+pnpm --filter @sportos/api build
+node docs/experiments/workers-api/build.mjs --staging
+pnpm dlx wrangler@4.165.0 dev \
+  --config docs/experiments/workers-api/wrangler.staging.jsonc \
+  --env-file /path/to/private/trial.env --port 8791
+```
+
+Use the separately configured `sportos-api-staging` target for deployment.
+The first upload must include the runtime settings. Keep the JSON file
+outside the repository with restricted permissions.
+
+```sh
+pnpm dlx wrangler@4.165.0 deploy \
+  --config docs/experiments/workers-api/wrangler.staging.jsonc \
+  --secrets-file /path/to/private/staging-secrets.json
+```
+
+Later deployments use `keep_vars` to preserve the configured runtime
+variables. A dry run validates the bundle only. Use the `workerd` package
+condition when bundling so node-postgres loads its Workers socket
+implementation.
+
+### Deployment from main
+
+The [Cloudflare API staging workflow](../../../.github/workflows/cloudflare-api-staging.yml)
+builds and deploys this target on relevant pushes to `main`, or on a manual
+dispatch from `main`. It is opt-in. After the first successful staging
+deployment, set the repository variable
+`SPORTOS_CLOUDFLARE_STAGING_ENABLED=true`. Create the GitHub environment
+`cloudflare-staging` with a Cloudflare Workers deployment token in
+`CLOUDFLARE_API_TOKEN` and the non-secret variables `CLOUDFLARE_ACCOUNT_ID`
+and `STAGING_API_ORIGIN`. Keep runtime credentials in Cloudflare. The
+workflow checks health, authentication mode and anonymous authorization
+after each deployment. Set the repository variable to `false` to pause
+deployments. The workflow does not change the Vercel API destination.
+[Cloudflare deployment reference](https://developers.cloudflare.com/workers/ci-cd/builds/)
+
+### Verification
+
+On local workerd with two freshly migrated, disposable PostgreSQL databases,
+using `sportos_app` and synthetic rows and sessions:
+
+| Check | Local result |
+| --- | --- |
+| Google authorization start | 302 to Google with a Secure state cookie |
+| Session and canonical activity | Owner session and activity detail returned 200 |
+| Owner isolation | Another owner's canonical activity returned 404. Both DB roles respected forced RLS and cleared account context after a scoped transaction. |
+| Local Angular through the Worker | Headless Chrome rendered the authenticated Overview using a synthetic staging session. |
+| Daily, Dynamics, rules, provider status, heatmap and export | 200 with valid route parameters |
+| Logout | 403 without CSRF, valid logout succeeded, prior session then returned 401 |
+| Password | Unavailable on the staging target |
+
+The staged bundle also uploaded to an unclaimed temporary Workers account.
+Cloudflare reported 362 ms startup and a 7,032 KiB uncompressed upload.
+Health and auth configuration returned 200, and anonymous protected routes
+returned 401. The temporary upload used inert loopback database settings.
+
+Live Google callback, hosted Neon connectivity, Cloudflare Free CPU timings
+for these authenticated routes, and automated remote deployment remain
+separate gates. Local fixture sessions exercise authorization and queries
+without a production account or production OAuth client.
