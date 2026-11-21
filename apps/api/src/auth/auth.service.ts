@@ -7,6 +7,7 @@ import {
 } from '@sportos/db';
 import { DbProvider } from '../db.provider.js';
 import type { AuthenticatedSession } from './auth.models.js';
+import { GOOGLE_ISSUER, googleEnrollmentEnabled, personalAuthEnabled, verifyGoogleOwnerToken } from './google-owner-auth.js';
 import { verifySingleUserPassword } from './single-user-password.js';
 
 interface OidcDiscovery {
@@ -52,8 +53,13 @@ export class AuthService {
     return process.env.NODE_ENV !== 'production' && process.env.SPORTOS_AUTH_MODE === 'dev-single-user';
   }
 
-  loginMode(): 'single-user' | 'oidc' {
-    return process.env.SPORTOS_AUTH_MODE === 'single-user' ? 'single-user' : 'oidc';
+  loginMode(): 'single-user' | 'single-user-google' | 'oidc' {
+    const mode = process.env.SPORTOS_AUTH_MODE;
+    return mode === 'single-user' || mode === 'single-user-google' ? mode : 'oidc';
+  }
+
+  googleEnrollmentEnabled(): boolean {
+    return googleEnrollmentEnabled();
   }
 
   async loginSingleUser(input: unknown, origin: string | undefined, userAgent?: string): Promise<SessionIssueResult> {
@@ -102,8 +108,15 @@ export class AuthService {
     };
   }
 
-  async beginLogin(returnToValue?: string): Promise<string> {
-    if (this.loginMode() === 'single-user') throw new UnauthorizedException('Use the username and password form.');
+  async beginGoogleEnrollment(session: AuthenticatedSession, transport: 'cookie' | 'bearer' | undefined): Promise<string> {
+    if (!this.googleEnrollmentEnabled() || transport !== 'cookie' || session.account.id !== LEGACY_ACCOUNT_ID) {
+      throw new ForbiddenException('Google enrollment is unavailable.');
+    }
+    return this.beginLogin('/', session.id);
+  }
+
+  async beginLogin(returnToValue?: string, enrollmentSessionId?: string): Promise<string> {
+    if (this.loginMode() === 'single-user' && !enrollmentSessionId) throw new UnauthorizedException('Use the username and password form.');
     const returnTo = normalizeReturnTo(returnToValue);
     if (this.isDevelopmentMode()) {
       const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4210').replace(/\/$/, '');
@@ -117,7 +130,7 @@ export class AuthService {
     const nonce = randomToken(32);
     const challenge = base64Url(createHash('sha256').update(verifier).digest());
     await this.repository.createAuthorizationTransaction({
-      stateHash: sha256(state),
+      stateHash: oidcStateHash(state, enrollmentSessionId),
       codeVerifier: verifier,
       nonce,
       returnTo,
@@ -133,13 +146,35 @@ export class AuthService {
     url.searchParams.set('nonce', nonce);
     url.searchParams.set('code_challenge', challenge);
     url.searchParams.set('code_challenge_method', 'S256');
+    if (enrollmentSessionId) url.searchParams.set('prompt', 'select_account');
     return url.toString();
   }
 
-  async completeLogin(code: string, state: string, userAgent?: string): Promise<SessionIssueResult> {
-    if (this.loginMode() === 'single-user') throw new UnauthorizedException('OIDC sign-in is unavailable.');
-    if (!code || !state) throw new UnauthorizedException({ code: 'OIDC_CALLBACK_INVALID', message: 'Sign-in could not be completed.' });
-    const transaction = await this.repository.consumeAuthorizationTransaction(sha256(state));
+  async completeLogin(
+    code: string,
+    state: string,
+    userAgent?: string,
+    cookies?: { session?: string; googleState?: string },
+  ): Promise<SessionIssueResult> {
+    const enrollment = this.googleEnrollmentEnabled();
+    const personalGoogle = this.loginMode() === 'single-user-google';
+    if (this.loginMode() === 'single-user' && !enrollment) throw new UnauthorizedException('OIDC sign-in is unavailable.');
+    if (typeof code !== 'string' || !code || code.length > 4096
+      || typeof state !== 'string' || !state || state.length > 128) {
+      throw new UnauthorizedException({ code: 'OIDC_CALLBACK_INVALID', message: 'Sign-in could not be completed.' });
+    }
+
+    let enrollmentSessionId: string | undefined;
+    if (enrollment) {
+      const session = await this.authenticate(cookies?.session ?? null);
+      if (!session || session.account.id !== LEGACY_ACCOUNT_ID) {
+        throw new UnauthorizedException('Sign in to SportOS before linking Google.');
+      }
+      enrollmentSessionId = session.id;
+    } else if (personalGoogle && !safeEqual(cookies?.googleState ?? '', state)) {
+      throw new UnauthorizedException('Google sign-in state is missing or expired.');
+    }
+    const transaction = await this.repository.consumeAuthorizationTransaction(oidcStateHash(state, enrollmentSessionId));
     if (!transaction) throw new UnauthorizedException({ code: 'OIDC_STATE_INVALID', message: 'Sign-in state is invalid or expired.' });
 
     const config = this.oidcConfig();
@@ -159,7 +194,30 @@ export class AuthService {
       body,
     });
     if (!tokenResponse.ok) throw new UnauthorizedException({ code: 'OIDC_TOKEN_FAILED', message: 'Sign-in could not be completed.' });
-    const token = await tokenResponse.json() as { access_token?: unknown };
+    const token = await tokenResponse.json() as { access_token?: unknown; id_token?: unknown };
+    if (enrollment || personalGoogle) {
+      const identity = await verifyGoogleOwnerToken(token.id_token, config.clientId, transaction.nonce);
+      let account;
+      if (enrollment) {
+        if (!identity.verifiedEmail || identity.verifiedEmail !== process.env.SPORTOS_GOOGLE_OWNER_EMAIL?.trim().toLowerCase()) {
+          throw new UnauthorizedException('This Google account is unavailable for enrollment.');
+        }
+        try {
+          account = await this.repository.provisionExternalIdentity({
+            issuer: GOOGLE_ISSUER, subject: identity.subject, preferredAccountId: LEGACY_ACCOUNT_ID,
+          });
+        } catch (error) {
+          if (error instanceof ExternalIdentityClaimError) {
+            throw new UnauthorizedException('This Google account is unavailable for enrollment.');
+          }
+          throw error;
+        }
+      } else {
+        account = await this.repository.findAccountByExternalIdentity(GOOGLE_ISSUER, identity.subject, LEGACY_ACCOUNT_ID);
+      }
+      if (!account || account.status !== 'active') throw new UnauthorizedException('This Google account cannot sign in to SportOS.');
+      return this.issueSession(account.id, account.display_name, account.email, transaction.returnTo, userAgent);
+    }
     const accessToken = typeof token.access_token === 'string' ? token.access_token : '';
     if (!accessToken) throw new UnauthorizedException({ code: 'OIDC_TOKEN_INVALID', message: 'Sign-in could not be completed.' });
 
@@ -195,7 +253,7 @@ export class AuthService {
   }
 
   async createDevelopmentSession(authorizationHeader: string | undefined, userAgent?: string): Promise<SessionIssueResult> {
-    if (process.env.NODE_ENV === 'production' || this.loginMode() === 'single-user') {
+    if (process.env.NODE_ENV === 'production' || personalAuthEnabled()) {
       throw new UnauthorizedException({ code: 'DEV_AUTH_DISABLED', message: 'Development sign-in is unavailable.' });
     }
     const expected = String(process.env.SPORTOS_DEV_AUTH_TOKEN ?? '');
@@ -271,7 +329,7 @@ export class AuthService {
       codeHash: sha256(code), state, codeChallenge,
     });
     if (!accountId) throw new UnauthorizedException('Mobile sign-in is invalid or expired.');
-    if (this.loginMode() === 'single-user' && accountId !== LEGACY_ACCOUNT_ID) {
+    if (personalAuthEnabled() && accountId !== LEGACY_ACCOUNT_ID) {
       throw new UnauthorizedException('Mobile sign-in is invalid or expired.');
     }
     const account = await this.repository.getAccount(accountId);
@@ -295,7 +353,7 @@ export class AuthService {
     if (!sessionToken || sessionToken.length < 32 || sessionToken.length > 500) return null;
     const result = await this.repository.findActiveSession(sha256(sessionToken));
     if (!result) return null;
-    if (this.loginMode() === 'single-user' && result.account.id !== LEGACY_ACCOUNT_ID) return null;
+    if (personalAuthEnabled() && result.account.id !== LEGACY_ACCOUNT_ID) return null;
 
     const absoluteExpiry = new Date(result.absoluteExpiresAt).valueOf();
     const idleSeconds = boundedSeconds(process.env.SPORTOS_SESSION_IDLE_SECONDS, 43_200, 300, 86_400);
@@ -321,6 +379,11 @@ export class AuthService {
 
   revokeSession(sessionId: string): Promise<void> {
     return this.repository.revokeSession(sessionId);
+  }
+
+  googleStateCookie(state: string): string {
+    const secure = process.env.SPORTOS_COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production';
+    return `sportos_google_state=${encodeURIComponent(state)}; Path=/; SameSite=Lax; HttpOnly${secure ? '; Secure' : ''}; Max-Age=${state ? 600 : 0}`;
   }
 
   sessionCookieHeaders(result: SessionIssueResult): string[] {
@@ -377,7 +440,9 @@ export class AuthService {
   }
 
   private oidcConfig() {
-    const issuer = String(process.env.SPORTOS_OIDC_ISSUER ?? '').replace(/\/$/, '');
+    const issuer = this.googleEnrollmentEnabled() || this.loginMode() === 'single-user-google'
+      ? GOOGLE_ISSUER
+      : String(process.env.SPORTOS_OIDC_ISSUER ?? '').replace(/\/$/, '');
     const clientId = String(process.env.SPORTOS_OIDC_CLIENT_ID ?? '');
     if (!issuer || !clientId) {
       throw new ServiceUnavailableException({ code: 'OIDC_NOT_CONFIGURED', message: 'Sign-in is not configured.' });
@@ -406,6 +471,10 @@ export class AuthService {
       });
     return this.discoveryPromise;
   }
+}
+
+function oidcStateHash(state: string, enrollmentSessionId?: string): string {
+  return sha256(enrollmentSessionId ? `google-enrollment:${enrollmentSessionId}:${state}` : state);
 }
 
 export function sha256(value: string): string {

@@ -8,6 +8,8 @@ export interface BrowserSession {
   absoluteExpiresAt: string;
 }
 
+type LoginMode = 'single-user' | 'single-user-google' | 'oidc';
+
 export type BrowserAuthState = 'loading' | 'authenticated' | 'anonymous' | 'error';
 
 @Injectable({ providedIn: 'root' })
@@ -16,7 +18,9 @@ export class WebAuthService {
   readonly state = signal<BrowserAuthState>('loading');
   readonly session = signal<BrowserSession | null>(null);
   readonly errorMessage = signal<string | null>(null);
-  readonly loginMode = signal<'single-user' | 'oidc'>('oidc');
+  readonly loginMode = signal<LoginMode>('oidc');
+  readonly googleEnrollment = signal(false);
+  readonly linkingGoogle = signal(false);
   readonly signingIn = signal(false);
 
   constructor(private readonly http: HttpClient) {
@@ -26,8 +30,11 @@ export class WebAuthService {
   loadSession(): void {
     this.state.set('loading');
     this.errorMessage.set(null);
-    this.http.get<{ mode: 'single-user' | 'oidc' }>(`${this.apiBase}/auth/config`).subscribe({
-      next: ({ mode }) => this.loginMode.set(mode),
+    this.http.get<{ mode: LoginMode; googleEnrollment?: boolean }>(`${this.apiBase}/auth/config`).subscribe({
+      next: ({ mode, googleEnrollment }) => {
+        this.loginMode.set(mode);
+        this.googleEnrollment.set(googleEnrollment === true);
+      },
       error: () => this.errorMessage.set('Sign-in configuration is unavailable. Please retry.'),
     });
     this.http.get<BrowserSession>(`${this.apiBase}/auth/session`).subscribe({
@@ -67,6 +74,19 @@ export class WebAuthService {
         this.errorMessage.set(error instanceof HttpErrorResponse && error.status === 429
           ? 'Too many sign-in attempts. Try again in a minute.'
           : 'Sign-in failed. Check your username and password.');
+      },
+    });
+  }
+
+  enrollGoogle(): void {
+    if (!this.googleEnrollment() || this.linkingGoogle()) return;
+    this.linkingGoogle.set(true);
+    this.errorMessage.set(null);
+    this.http.post<{ authorizationUrl: string }>(`${this.apiBase}/auth/google/enroll`, {}).subscribe({
+      next: ({ authorizationUrl }) => window.location.assign(authorizationUrl),
+      error: () => {
+        this.linkingGoogle.set(false);
+        this.errorMessage.set('Google account linking could not start. Try again.');
       },
     });
   }

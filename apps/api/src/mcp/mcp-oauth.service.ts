@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { BadRequestException, ForbiddenException, HttpException, Injectable, NotFoundException } from '@nestjs/common';
 import { LEGACY_ACCOUNT_ID, McpOAuthRepository } from '@sportos/db';
+import { personalAuthEnabled } from '../auth/google-owner-auth.js';
 import { DbProvider } from '../db.provider.js';
 import type { AuthenticatedRequest } from '../auth/auth.models.js';
 
@@ -99,7 +100,7 @@ export class McpOAuthService {
     if (headers.cookie !== undefined || headers.origin !== undefined || typeof authorization !== 'string'
       || !/^Bearer smc_[A-Za-z0-9_-]{64}$/.test(authorization)) return null;
     const accountId = await this.repository.authenticate(digest(authorization.slice(7)), c.resource);
-    if (process.env.SPORTOS_AUTH_MODE === 'single-user' && accountId !== LEGACY_ACCOUNT_ID) return null;
+    if (personalAuthEnabled() && accountId !== LEGACY_ACCOUNT_ID) return null;
     return accountId;
   }
   async revoke(input: unknown, headers: Record<string, string | string[] | undefined>) {

@@ -116,6 +116,17 @@ export class AuthRepository {
     return row?.approved_account_id ?? null;
   }
 
+  async findAccountByExternalIdentity(issuer: string, subject: string, accountId: string): Promise<Account | undefined> {
+    return this.db.selectFrom('external_identities as identity')
+      .innerJoin('accounts as account', 'account.id', 'identity.account_id')
+      .selectAll('account')
+      .where('identity.issuer', '=', issuer)
+      .where('identity.subject', '=', subject)
+      .where('account.id', '=', accountId)
+      .where('account.status', '=', 'active')
+      .executeTakeFirst();
+  }
+
   async provisionExternalIdentity(input: ExternalIdentityInput): Promise<Account> {
     return this.db.transaction().execute(async (transaction) => {
       await sql`select pg_advisory_xact_lock(${IDENTITY_PROVISION_LOCK})`.execute(transaction);
@@ -128,6 +139,9 @@ export class AuthRepository {
         .executeTakeFirst();
 
       if (existing) {
+        if (input.preferredAccountId && (existing.id !== input.preferredAccountId || existing.status !== 'active')) {
+          throw new ExternalIdentityClaimError();
+        }
         const displayName = normalizeDisplayName(input.displayName, input.email, existing.display_name);
         await transaction.updateTable('accounts').set({
           display_name: displayName,

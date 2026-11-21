@@ -21,9 +21,10 @@
     "@sportos/garmin-runtime": "workspace:*",
     "@sportos/importers": "workspace:*",
     "@sportos/mcp": "workspace:*",
+    "@sportos/worker-wake": "workspace:*",
+    "jose": "6.2.13",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1",
-    "@sportos/worker-wake": "workspace:*"
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@sportos/analytics": "workspace:^"

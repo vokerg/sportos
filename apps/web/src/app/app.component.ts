@@ -32,7 +32,7 @@ import { WebAuthService } from './web-auth.service';
               <button type="submit" [disabled]="auth.signingIn()">{{ auth.signingIn() ? 'Signing in…' : 'Sign in' }}</button>
             </form>
           } @else {
-            <button type="button" (click)="auth.signIn()">Sign in</button>
+            <button type="button" (click)="auth.signIn()">{{ auth.loginMode() === 'single-user-google' ? 'Sign in with Google' : 'Sign in' }}</button>
           }
           @if (auth.errorMessage()) { <p role="alert">{{ auth.errorMessage() }}</p> }
         </section>
@@ -70,12 +70,16 @@ import { WebAuthService } from './web-auth.service';
           </nav>
           <div class="account-actions">
             <span class="account-name">{{ auth.session()?.account?.displayName }}</span>
+            @if (auth.googleEnrollment()) {
+              <button type="button" class="secondary" [disabled]="auth.linkingGoogle()" (click)="auth.enrollGoogle()">Link Google account</button>
+            }
             <button type="button" class="secondary" (click)="menuOpen.set(false); auth.signOut()">Sign out</button>
           </div>
         </div>
       </header>
       }
       <main class="page-shell" [class.full-page]="fullPage()" id="main-content" tabindex="-1">
+        @if (auth.googleEnrollment() && auth.errorMessage()) { <p role="alert">{{ auth.errorMessage() }}</p> }
         <router-outlet #outlet="outlet" (activate)="fullPage.set(outlet.activatedRouteData['fullPage'] === true)" (deactivate)="fullPage.set(false)" />
       </main>
     }
