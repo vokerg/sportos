@@ -32,13 +32,53 @@ a compromise. See [hosted deployment](DEPLOYMENT.md) for the proxy and storage s
 
 See [ADR 0005](adr/0005-authentication-and-data-ownership.md) for the accepted identity decision and threat matrix, and [ADR 0007](adr/0007-read-only-ai-analysis.md) for the analysis authorization and audit boundary.
 
+## Google-only owner sign-in
+
+Use [Google Auth Platform](https://console.cloud.google.com/auth/clients) to
+create a **Web application** OAuth client for the exact
+`SPORTOS_API_ORIGIN/auth/callback` redirect. For the hosted web/API proxy, append
+`/api/auth/callback` to the production frontend origin. Request only
+`openid profile email`. If the Google consent screen is in Testing, add the
+owner as a Google test user where required. Store the Web client ID and
+client secret as `SPORTOS_OIDC_CLIENT_ID` and `SPORTOS_OIDC_CLIENT_SECRET` in
+the API environment. The OAuth secret is the app's credential for Google's
+token endpoint.
+
+1. Confirm the deployed API and web both contain this change. Keep
+   `SPORTOS_AUTH_MODE=single-user` and the existing password credentials.
+   Set `SPORTOS_GOOGLE_ENROLLMENT=true` and `SPORTOS_GOOGLE_OWNER_EMAIL` to the
+   exact Google mailbox approved for the existing owner. Deploy the API.
+2. In SportOS, sign in with the existing password, select **Link Google
+   account**, and complete Google sign-in. A successful callback returns to
+   SportOS as the same owner. Linking requires the current browser session,
+   its CSRF token, one-time session-bound OAuth state, PKCE, and a
+   signature-verified Google ID token with the expected issuer, audience,
+   expiry, nonce and verified email. An account with a prior incompatible
+   identity link requires maintainer review. Never reassign its data or
+   identity to resolve an enrollment error.
+3. Switch `SPORTOS_AUTH_MODE=single-user-google` and clear the enrollment flag.
+   Keep the password settings temporarily available for rollback. Verify a
+   fresh browser profile can sign in as the same owner. Verify an unrelated
+   Google account gets denied and the password endpoint returns HTTP 401.
+   Check session cookies, logout, mobile browser approval and ChatGPT MCP
+   consent with the owner.
+4. Remove the password username and verifier from the hosted environment
+   after verification. Remove the enrollment mailbox too. Google-only mode
+   accepts only the linked Google issuer and immutable subject for the
+   existing owner. It cannot create a new account or link another identity.
+
+If fresh Google sign-in fails, restore `SPORTOS_AUTH_MODE=single-user` with
+enrollment off and redeploy using the retained password verifier. Account
+ownership and the linked subject stay in the database across rollback. Keep
+the existing session, CSRF, and API Origin settings throughout.
+
 ## Mobile iOS authentication (issue #187)
 
 **Transport:** The React Native client does not send browser cookies, fake an Origin
 header, store the SportOS password or select an account. The current hosted
 single-user password form remains **in the system browser** with its existing
 exact-Origin enforcement. For future OIDC mode, the existing browser login
-continues to use Authorization Code + PKCE and immutable issuer/subject identity;
+uses Authorization Code + PKCE and immutable issuer/subject identity;
 the mobile handoff begins only after the web user is authenticated.
 
 **Browser-approved handoff (five-minute, single-use, PKCE protected):**

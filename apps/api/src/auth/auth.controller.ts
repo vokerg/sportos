@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Headers, Post, Query, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
 import type { AuthenticatedRequest } from './auth.models.js';
+import { parseCookies } from './session.guard.js';
 import { PublicRoute } from './public.decorator.js';
 
 interface ResponseLike {
@@ -15,7 +16,7 @@ export class AuthController {
   @Get('config')
   @PublicRoute()
   configuration() {
-    return { mode: this.auth.loginMode() };
+    return { mode: this.auth.loginMode(), googleEnrollment: this.auth.googleEnrollmentEnabled() };
   }
 
   @Post('password')
@@ -34,7 +35,17 @@ export class AuthController {
   @Get('login')
   @PublicRoute()
   async login(@Query('returnTo') returnTo: string | undefined, @Res() response: ResponseLike) {
-    response.redirect(302, await this.auth.beginLogin(returnTo));
+    const destination = await this.auth.beginLogin(returnTo);
+    if (this.auth.loginMode() === 'single-user-google') {
+      response.setHeader('Set-Cookie', this.auth.googleStateCookie(new URL(destination).searchParams.get('state')!));
+    }
+    response.redirect(302, destination);
+  }
+
+  @Post('google/enroll')
+  async enrollGoogle(@Req() request: AuthenticatedRequest) {
+    if (!request.authSession) throw new Error('Missing authenticated session.');
+    return { authorizationUrl: await this.auth.beginGoogleEnrollment(request.authSession, request.authTransport) };
   }
 
   @Get('callback')
@@ -43,10 +54,16 @@ export class AuthController {
     @Query('code') code: string,
     @Query('state') state: string,
     @Headers('user-agent') userAgent: string | undefined,
+    @Headers('cookie') cookieHeader: string | undefined,
     @Res() response: ResponseLike,
   ) {
-    const result = await this.auth.completeLogin(code, state, userAgent);
-    response.setHeader('Set-Cookie', this.auth.sessionCookieHeaders(result));
+    const cookies = parseCookies(cookieHeader ?? null);
+    const result = await this.auth.completeLogin(code, state, userAgent, {
+      session: cookies.sportos_session, googleState: cookies.sportos_google_state,
+    });
+    const headers = this.auth.sessionCookieHeaders(result);
+    if (this.auth.loginMode() === 'single-user-google') headers.push(this.auth.googleStateCookie(''));
+    response.setHeader('Set-Cookie', headers);
     const webOrigin = String(process.env.SPORTOS_WEB_ORIGIN ?? 'http://localhost:4210').replace(/\/$/, '');
     response.redirect(302, `${webOrigin}${result.returnTo}`);
   }

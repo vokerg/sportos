@@ -67,7 +67,12 @@ validation text still references V122. Queue #3 also leaves #78 unchecked despit
 the documented completed implementation. This deployment does not infer schema
 state from those summaries or change unrelated queue items.
 
-The [Workers Free API experiment](experiments/workers-api/README.md) records the local Angular trial and why the API stays on Render.
+The [Workers Free API experiment](experiments/workers-api/README.md) records
+the local Angular trial. Its ephemeral Workers were deployed manually with
+Wrangler and have no `main` deployment trigger. The API remains on Render while
+the [Google-only sign-in rollout](AUTHENTICATION.md#google-only-owner-sign-in)
+is verified. Any future long-lived Workers API needs its own Git integration,
+staging configuration and authenticated compatibility checks before cutover.
 
 ## Render settings
 
