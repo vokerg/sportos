@@ -112,34 +112,18 @@ export function buildRollingDynamicsResponse(
   query: RollingDynamicsQuery,
   contributionRows: ScoreContributionRow[] = [],
 ): RollingDynamicsResponse {
-  const rowsByDate = new Map(rows.map((row) => [row.metricDate, row]));
-  const points: RollingDynamicsPoint[] = [];
-
-  for (let date = query.from; date <= query.to; date = addDays(date, 1)) {
-    const dailyRow = rowsByDate.get(date);
-    const windows = Object.fromEntries(query.windows.map((windowDays) => {
-      let total = 0;
-      let recordedDays = 0;
-      let activeDays = 0;
-      const windowFrom = addDays(date, -(windowDays - 1));
-      for (let candidate = windowFrom; candidate <= date; candidate = addDays(candidate, 1)) {
-        const row = rowsByDate.get(candidate);
-        if (!row) continue;
-        total += row[query.metric];
-        recordedDays += 1;
-        if (row[query.metric] > 0) activeDays += 1;
-      }
-      return [windowDays, {
-        total: recordedDays ? total : null,
-        calendarDayAverage: recordedDays ? total / windowDays : null,
-        activeDays: recordedDays ? activeDays : null,
-        recordedDays,
-        windowDays,
-        complete: recordedDays === windowDays,
-      }];
-    })) as Partial<Record<RollingWindow, RollingMetricValue>>;
-    points.push({ date, dailyValue: dailyRow?.[query.metric] ?? null, windows });
-  }
+  const columns = rollingColumns(rows, query.from, query.to, [query.metric], query.windows);
+  const points: RollingDynamicsPoint[] = columns.dates.map((date, i) => ({
+    date,
+    dailyValue: columns.daily[query.metric][i]!,
+    windows: Object.fromEntries(query.windows.map((window) => {
+      const values = columns.windows[window]!;
+      const total = values.totals[query.metric][i]!;
+      const recordedDays = values.recordedDays[i]!;
+      return [window, { total, calendarDayAverage: total === null ? null : total / window,
+        activeDays: values.activeDays[query.metric][i]!, recordedDays, windowDays: window, complete: recordedDays === window }];
+    })),
+  }));
 
   return {
     range: { from: query.from, to: query.to },
@@ -171,13 +155,13 @@ function buildScoreContributions(
   }
 
   const points: ScoreContributionPoint[] = [];
-  for (let date = from; date <= to; date = addDays(date, 1)) {
-    const totals: Partial<Record<ScoreContributionCategory, number>> = {};
-    for (let candidate = addDays(date, -(windowDays - 1)); candidate <= date; candidate = addDays(candidate, 1)) {
-      const daily = valuesByDate.get(candidate);
-      if (!daily) continue;
-      for (const category of categories) totals[category] = (totals[category] ?? 0) + (daily[category] ?? 0);
-    }
+  const totals: Partial<Record<ScoreContributionCategory, number>> = {};
+  const start = addDays(from, -(windowDays - 1));
+  for (let date = start; date <= to; date = addDays(date, 1)) {
+    const daily = valuesByDate.get(date);
+    const expired = valuesByDate.get(addDays(date, -windowDays));
+    for (const category of categories) totals[category] = (totals[category] ?? 0) + (daily?.[category] ?? 0) - (expired?.[category] ?? 0);
+    if (date < from) continue;
     const contributions = Object.fromEntries(categories.map((category) => [category, (totals[category] ?? 0) / windowDays])) as Partial<Record<ScoreContributionCategory, number>>;
     points.push({ date, contributions, total: Object.values(contributions).reduce((sum, value) => sum + value, 0) });
   }
@@ -298,4 +282,98 @@ function metricUnit(metric: DynamicsMetric): RollingDynamicsResponse['unit'] {
   if (metric === 'steps') return 'steps';
   if (metric === 'run' || metric === 'bike' || metric === 'swim') return 'metres';
   return 'points';
+}
+
+
+/** Columnar transport avoids repeating metric/window/date labels for every value. */
+export interface DynamicsHistoryResponse {
+  version: 1;
+  range: { from: string; to: string };
+  dates: string[];
+  daily: Record<DynamicsMetric, Array<number | null>>;
+  windows: Partial<Record<RollingWindow, {
+    recordedDays: number[];
+    totals: Record<DynamicsMetric, Array<number | null>>;
+    activeDays: Record<DynamicsMetric, Array<number | null>>;
+  }>>;
+  scoreContributions: RollingDynamicsResponse['scoreContributions'];
+  records: DynamicsRecord[];
+}
+
+export interface DynamicsRecord {
+  metric: DynamicsMetric;
+  windowDays: 1 | RollingWindow;
+  /** Calendar year of the window end date, or all time. */
+  period: string;
+  date: string;
+  value: number;
+  recordedDays: number;
+}
+
+function metricColumns(): Record<DynamicsMetric, Array<number | null>> {
+  return Object.fromEntries(DYNAMICS_METRICS.map((metric) => [metric, []])) as Record<DynamicsMetric, Array<number | null>>;
+}
+
+function rollingColumns(rows: DynamicsDailyRow[], from: string, to: string, metrics: readonly DynamicsMetric[], windows: readonly RollingWindow[]) {
+  const daily = metricColumns();
+  const dates: string[] = [];
+  const output: DynamicsHistoryResponse['windows'] = {};
+  const byDate = new Map(rows.map((row) => [row.metricDate, row]));
+  for (const window of windows) output[window] = { recordedDays: [], totals: metricColumns(), activeDays: metricColumns() };
+  const states = windows.map((window) => ({ window, recorded: 0,
+    totals: Object.fromEntries(metrics.map((metric) => [metric, 0])) as Record<DynamicsMetric, number>,
+    active: Object.fromEntries(metrics.map((metric) => [metric, 0])) as Record<DynamicsMetric, number> }));
+  const start = addDays(from, -(Math.max(...windows) - 1));
+  for (let date = start; date <= to; date = addDays(date, 1)) {
+    const row = byDate.get(date);
+    for (const state of states) {
+      const expired = byDate.get(addDays(date, -state.window));
+      state.recorded += Number(Boolean(row)) - Number(Boolean(expired));
+      for (const metric of metrics) {
+        state.totals[metric] += (row?.[metric] ?? 0) - (expired?.[metric] ?? 0);
+        state.active[metric] += Number((row?.[metric] ?? 0) > 0) - Number((expired?.[metric] ?? 0) > 0);
+      }
+      if (date < from) continue;
+      const values = output[state.window]!;
+      values.recordedDays.push(state.recorded);
+      for (const metric of metrics) {
+        values.totals[metric].push(state.recorded ? state.totals[metric] : null);
+        values.activeDays[metric].push(state.recorded ? state.active[metric] : null);
+      }
+    }
+    if (date < from) continue;
+    dates.push(date);
+    for (const metric of metrics) daily[metric].push(row?.[metric] ?? null);
+  }
+  return { dates, daily, windows: output };
+}
+
+export function buildDynamicsHistory(rows: DynamicsDailyRow[], to: string, contributions: ScoreContributionRow[] = []): DynamicsHistoryResponse {
+  // Repository rows are ordered, but pure callers need not be.
+  const from = rows.reduce((earliest, row) => row.metricDate < earliest ? row.metricDate : earliest, to);
+  const columns = rows.length ? rollingColumns(rows, from, to, DYNAMICS_METRICS, ROLLING_WINDOWS)
+    : { dates: [], daily: metricColumns(), windows: {} };
+  const records = new Map<string, DynamicsRecord>();
+  const consider = (metric: DynamicsMetric, windowDays: 1 | RollingWindow, date: string, value: number | null, recordedDays: number) => {
+    if (value === null) return;
+    for (const period of ['all', date.slice(0, 4)]) {
+      const key = `${metric}:${windowDays}:${period}`;
+      // First date wins ties; recomputing from canonical rows handles decreases/removals.
+      if (!records.has(key) || value > records.get(key)!.value) records.set(key, { metric, windowDays, period, date, value, recordedDays });
+    }
+  };
+  columns.dates.forEach((date, i) => {
+    for (const metric of DYNAMICS_METRICS) {
+      consider(metric, 1, date, columns.daily[metric][i]!, columns.daily[metric][i] === null ? 0 : 1);
+      for (const window of ROLLING_WINDOWS) {
+        // Do not rank startup windows before a full calendar span exists.
+        if (i < window - 1) continue;
+        const values = columns.windows[window]!;
+        const total = values.totals[metric][i]!;
+        consider(metric, window, date, total === null ? null : total / window, values.recordedDays[i]!);
+      }
+    }
+  });
+  return { version: 1, range: { from, to }, ...columns, records: [...records.values()],
+    scoreContributions: rows.length ? Object.fromEntries(ROLLING_WINDOWS.map((window) => [window, buildScoreContributions(contributions, from, to, window)])) : {} };
 }
