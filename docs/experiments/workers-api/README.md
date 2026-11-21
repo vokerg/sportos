@@ -216,10 +216,19 @@ pnpm dlx wrangler@4.165.0 dev \
 ```
 
 Use the separately configured `sportos-api-staging` target for deployment.
-The first upload must include the runtime settings. Later deployments use
-`keep_vars` to preserve the configured runtime variables. A dry run validates
-the bundle only. Use the `workerd` package condition when bundling so
-node-postgres loads its Workers socket implementation.
+The first upload must include the runtime settings. Keep the JSON file
+outside the repository with restricted permissions.
+
+```sh
+pnpm dlx wrangler@4.165.0 deploy \
+  --config docs/experiments/workers-api/wrangler.staging.jsonc \
+  --secrets-file /path/to/private/staging-secrets.json
+```
+
+Later deployments use `keep_vars` to preserve the configured runtime
+variables. A dry run validates the bundle only. Use the `workerd` package
+condition when bundling so node-postgres loads its Workers socket
+implementation.
 
 ### Deployment from main
 
@@ -245,10 +254,16 @@ using `sportos_app` and synthetic rows and sessions:
 | --- | --- |
 | Google authorization start | 302 to Google with a Secure state cookie |
 | Session and canonical activity | Owner session and activity detail returned 200 |
-| Owner isolation | Another owner's canonical activity returned 404 |
+| Owner isolation | Another owner's canonical activity returned 404. Both DB roles respected forced RLS and cleared account context after a scoped transaction. |
+| Local Angular through the Worker | Headless Chrome rendered the authenticated Overview using a synthetic staging session. |
 | Daily, Dynamics, rules, provider status, heatmap and export | 200 with valid route parameters |
 | Logout | 403 without CSRF, valid logout succeeded, prior session then returned 401 |
 | Password | Unavailable on the staging target |
+
+The staged bundle also uploaded to an unclaimed temporary Workers account.
+Cloudflare reported 362 ms startup and a 7,032 KiB uncompressed upload.
+Health and auth configuration returned 200, and anonymous protected routes
+returned 401. The temporary upload used inert loopback database settings.
 
 Live Google callback, hosted Neon connectivity, Cloudflare Free CPU timings
 for these authenticated routes, and automated remote deployment remain
