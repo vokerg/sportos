@@ -1,4 +1,4 @@
-import { sql, type Kysely } from 'kysely';
+import { sql, type Kysely, type RawBuilder } from 'kysely';
 import type { ActivitiesTable, Database, Json } from '../schema.js';
 
 export interface DynamicsDailyRow {
@@ -35,6 +35,26 @@ const IMPORTED_SCORE_COLUMNS: Record<string, Exclude<ActivitiesTable['activity_t
   wototal: 'workout',
   pow: 'bonus',
 };
+
+// ECMAScript trim/\s characters, shared with the retained workbook key parser.
+// Project recognized cells in SQL; parsing/reconciliation remains application code.
+const WORKBOOK_WHITESPACE = '\u0009\u000A\u000B\u000C\u000D \u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF';
+
+export function compactImportedScoreSource(source: RawBuilder<Json | null>): RawBuilder<Json | null> {
+  return sql<Json | null>`case
+    when jsonb_typeof(${source}->'headers') = 'array' and jsonb_typeof(${source}->'cells') = 'array' then (
+      select jsonb_build_object(
+        'headers', coalesce(jsonb_agg(entry.header order by entry.position), '[]'::jsonb),
+        'cells', coalesce(jsonb_agg(${source}->'cells'->((entry.position - 1)::integer) order by entry.position), '[]'::jsonb)
+      )
+      from jsonb_array_elements(${source}->'headers') with ordinality as entry(header, position)
+      where jsonb_typeof(entry.header) not in ('object', 'array', 'null')
+        and btrim(regexp_replace(regexp_replace(regexp_replace(
+          lower(btrim(entry.header #>> '{}', ${WORKBOOK_WHITESPACE})),
+          ${'[' + WORKBOOK_WHITESPACE + ']+'}, '_', 'g'),
+          '[^a-z0-9_]+', '', 'g'), '_+', '_', 'g'), '_') = any(${Object.keys(IMPORTED_SCORE_COLUMNS)}::text[])
+    ) else null end`;
+}
 
 export class DynamicsRepository {
   constructor(private readonly db: Kysely<Database>) {}
@@ -93,7 +113,7 @@ export class DynamicsRepository {
         // Retained workbook cells are needed only for synthetic imported totals.
         // Avoid transferring the daily source payload once per calculated ledger entry.
         sql<Json | null>`case when sr.activity_type is null and a.activity_type is null
-          then src.raw_json else null end`.as('sourceRaw'),
+          then ${compactImportedScoreSource(sql<Json | null>`src.raw_json`)} else null end`.as('sourceRaw'),
       ])
       .where('sl.metric_date', '>=', from)
       .where('sl.metric_date', '<=', to)

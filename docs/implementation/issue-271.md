@@ -131,3 +131,46 @@ Garmin status summaries still lag later deliveries; this feature does not reopen
 or implement that unrelated work. The old root Dynamics page/chart files moved
 into `features/dynamics/{pages,model}` with route/test imports updated directly.
 No new root compatibility shim or global transport registry was added.
+
+## Live local acceptance follow-up
+
+The initial DNS failure above was transient. The same unchanged configured Neon
+hostname subsequently resolved; no credentials, endpoint, database, DNS override
+or TLS setting was changed. The API was started normally, and the web server on
+port 4210 was replaced because it was serving an older separate checkout. Local
+API/web now run the issue branch against the existing Neon databases.
+
+Live profiling exposed a bottleneck that the synthetic calculation benchmark did
+not cover: the contribution query executed in roughly 39 ms but transferred
+about 4 MB of repeated retained workbook rows. Reading those results took
+18–26 seconds on the observed connection. The repository now projects only the
+recognized score cells, including duplicate columns, before transport; number
+parsing and reconciliation remain deterministic application code. This reduces
+the imported source projection to about 565 KB (86% less). It adds no schema,
+provider fetch, scoring write or persisted cache. The optimized query's measured
+execution was about 331 ms including the projection work.
+
+Live verification through the non-owner API role passed:
+
+- All returned rolling values and year/all-time records matched an independent
+  calendar-window/reference implementation across the complete retained history.
+- Every contribution matched the original reader after sorting by date/category;
+  contribution totals reconciled with the official rolling total.
+- Before/after in-memory fingerprints of daily rows, score ledger and immutable
+  score snapshots were identical. Fingerprints and personal metric values were
+  not retained in the repository.
+- The new SELECT-only SQL integration tests ran against the configured runtime
+  connection: compact projections preserved valid/invalid/duplicate/Unicode/
+  comma-number semantics, and no history was exposed without account context or
+  under an unrelated account. No test accounts or rows were created.
+- Warm full-history HTTP responses measured about 0.93–1.26 seconds after the
+  narrower projection, versus initial live responses around 27–29 seconds. Other
+  runs during startup/profiling took longer; these are observed local timings,
+  not a production latency guarantee.
+
+The temporary API timing probes were removed. The normal local API and web
+servers were left running for review. Live browser interaction was not completed
+because the user was actively changing the browser; API-level live verification
+above is independent of the earlier synthetic browser check. The initial
+"live database verification unavailable" limitation is superseded by this
+follow-up. Production deployment and physical iPhone installation remain separate.
