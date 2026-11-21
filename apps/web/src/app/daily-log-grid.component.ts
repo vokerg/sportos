@@ -147,7 +147,7 @@ export class DailyLogGridComponent {
     rgb: string,
   ): CellStyle | undefined {
     const backgroundColor = relativePastelBackground(value, this.metricRanges()[field], rgb);
-    return backgroundColor ? { backgroundColor } : undefined;
+    return { backgroundColor: backgroundColor ?? 'transparent' };
   }
 
   onGridReady(event: GridReadyEvent<DailySummaryRow>): void {

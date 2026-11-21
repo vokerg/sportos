@@ -15,15 +15,16 @@ export class DynamicsService {
   constructor(@Inject(DbProvider) private readonly dbProvider: DbProvider) {}
 
   async history(to: string, accountId = LEGACY_ACCOUNT_ID) {
-    return this.dbProvider.withAccount(accountId, async (db) => {
+    const rows = await this.dbProvider.withAccount(accountId, async (db) => {
       // One repeatable snapshot: totals, ledger mix and records cannot straddle a recalculation.
       return db.transaction().setIsolationLevel('repeatable read').execute(async (trx) => {
         const repository = new DynamicsRepository(trx);
         const daily = await repository.listDailyRows('1900-01-01', to);
         const contributions = daily.length ? await repository.listScoreContributions(daily[0]!.metricDate, to, { importedFallback: 'unattributed' }) : [];
-        return buildDynamicsHistory(daily, to, contributions);
+        return { daily, contributions };
       });
     });
+    return buildDynamicsHistory(rows.daily, to, rows.contributions);
   }
 
   async read(query: DynamicsQuery, accountId = LEGACY_ACCOUNT_ID) {

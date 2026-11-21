@@ -50,3 +50,49 @@ export function chartSegments(values,width=300,height=150){
  if(current.length)segments.push(current);
  return segments;
 }
+
+
+export function historyPath(to){
+ if(!isCalendarDate(to)||to<'1900-01-01'||to>'2100-12-31')return fail();
+ return '/dynamics/history?'+new URLSearchParams({to});
+}
+/** Validate the columnar server output; rolling values/records are server calculations. */
+export function projectHistory(raw,metric,window){
+ if(raw?.version!==1||!METRICS.includes(metric)||!WINDOWS.includes(window)||!Array.isArray(raw.dates)||raw.dates.length>73414||!Array.isArray(raw.records)||raw.records.length>20000)return fail();
+ const dates=raw.dates.map(date);
+ if(dates.some((d,i)=>i>0&&d<=dates[i-1]))return fail();
+ const length=dates.length;
+ const col=v=>{if(!Array.isArray(v)||v.length!==length)return fail();return v.map(number);};
+ const daily=col(raw.daily?.[metric]);
+ const values=raw.windows?.[window];
+ if(length&&!values)return fail();
+ const totals=col(values?.totals?.[metric]??[]),active=col(values?.activeDays?.[metric]??[]);
+ const recorded=col(values?.recordedDays??[]);
+ const records=raw.records.map(r=>{
+  if(!METRICS.includes(r.metric)||![1,...WINDOWS].includes(r.windowDays)||!(r.period==='all'||/^\d{4}$/.test(r.period))||typeof r.value!=='number'||!Number.isFinite(r.value)||count(r.recordedDays)>r.windowDays)return fail();
+  return {metric:r.metric,windowDays:r.windowDays,period:r.period,date:date(r.date),value:r.value,recordedDays:r.recordedDays};
+ });
+ const points=dates.map((d,i)=>{
+  if(count(recorded[i])>window||active[i]!==null&&(count(active[i])>recorded[i]))return fail();
+  return {date:d,dailyValue:daily[i],total:totals[i],average:totals[i]===null?null:totals[i]/window,activeDays:active[i],recordedDays:recorded[i],windowDays:window,complete:recorded[i]===window};
+ });
+ // Reuse existing contribution validation rather than trusting provider-shaped objects.
+ const rolling=projectRolling({metric,unit:['run','bike','swim'].includes(metric)?'metres':metric==='steps'?'steps':'points',windows:[window],points:[],scoreContributions:{}},metric,window);
+ const contribution=raw.scoreContributions?.[window]?.points??[];
+ if(!Array.isArray(contribution)||contribution.length>73414)return fail();
+ rolling.contributions=contribution.map(p=>{const values={};for(const c of CATEGORIES)if(p.contributions?.[c]!==undefined)values[c]=number(p.contributions[c]);return {date:date(p.date),total:number(p.total),values};});
+ return {...rolling,points,records};
+}
+
+/** Local viewport indices only; exact numeric series remains the server's output. */
+export function changeViewport(dates,range,current,action){
+ let start=current?.start??Math.max(0,dates.findIndex(d=>d>=range.from));
+ let end=current?.end??dates.length;
+ if(!current)while(end>0&&dates[end-1]>range.to)end--;
+ if(action==='all')return {start:0,end:dates.length};
+ const size=Math.max(1,end-start);
+ if(action==='in'){const trim=Math.floor(size/4);return {start:start+trim,end:Math.max(start+1,end-trim)};}
+ if(action==='out'){const extra=Math.max(15,Math.floor(size/2));return {start:Math.max(0,start-extra),end:Math.min(dates.length,end+extra)};}
+ const next=Math.max(0,Math.min(dates.length-size,start+(action==='earlier'?-1:1)*Math.max(1,Math.floor(size/2))));
+ return {start:next,end:Math.min(dates.length,next+size)};
+}

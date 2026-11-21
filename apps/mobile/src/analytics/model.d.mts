@@ -6,3 +6,8 @@ export function analyticsPath(query:{mode:string;from:string;to:string;metric?:s
 export function projectMonthly(raw:unknown):Month[];
 export function projectRolling(raw:unknown,metric:string,window:number):Rolling;
 export function chartSegments(values:(number|null)[],width?:number,height?:number):{x:number;y:number;index:number}[][];
+
+export interface DynamicsRecord {metric:string;windowDays:number;period:string;date:string;value:number;recordedDays:number}
+export function historyPath(to:string):string;
+export function projectHistory(raw:unknown,metric:string,window:number):Rolling & {records:DynamicsRecord[]};
+export function changeViewport(dates:string[],range:{from:string;to:string},current:{start:number;end:number}|null,action:'in'|'out'|'all'|'earlier'|'later'):{start:number;end:number};

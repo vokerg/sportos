@@ -487,3 +487,16 @@ by Activities; do not duplicate them in Home or move feature logic into `shared/
 The native client follows the same pattern with `activities/ActivityCard.tsx`
 and its public index. Both Home and Activities use the same safe canonical
 activity projection on native. Cards never fetch provider detail themselves.
+
+
+## Dynamics history and local exploration (#271)
+
+`features/dynamics/pages/rolling-dynamics-page.component.ts` is the lazy route.
+Its route-scoped `state/dynamics.store.ts` owns one cancellable in-memory history
+read, refresh and error state. Column presentation, records, chart options and
+paged table/heat transformations live under `model/`. Date controls continue to
+use `shared/util/analytics-query-state.ts`; actual All time is the returned
+history range. Shared `metric-heat.ts` also serves Daily/Monthly. Full history
+stays available for linked ECharts local zoom; table paging never rebuilds all
+DOM rows. No account-independent global history cache is retained. See
+[record/recalculation semantics and validation](implementation/issue-271.md).

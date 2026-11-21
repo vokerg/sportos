@@ -117,16 +117,16 @@ describe('daily log view model', () => {
   it('maps positive values to a restrained relative pastel scale', () => {
     const range = positiveMetricRange([0, 5_000, 21_000, null, Number.NaN]);
 
-    expect(range).toEqual({ min: 5_000, max: 21_000 });
+    expect(range).toEqual({ min: 5_000, max: 21_000, mean: 13_000 });
     expect(relativePastelBackground(0, range, '116, 168, 132')).toBeUndefined();
-    expect(relativePastelBackground(5_000, range, '116, 168, 132')).toBe('rgba(116, 168, 132, 0.10)');
-    expect(relativePastelBackground(21_000, range, '116, 168, 132')).toBe('rgba(116, 168, 132, 0.26)');
+    expect(relativePastelBackground(5_000, range, '116, 168, 132')).toBe('rgba(116, 168, 132, 0.15)');
+    expect(relativePastelBackground(21_000, range, '116, 168, 132')).toBe('rgba(116, 168, 132, 0.54)');
   });
 
   it('uses a middle pastel tone when the selection has one positive value', () => {
     const range = positiveMetricRange([0, 5_000]);
 
-    expect(relativePastelBackground(5_000, range, '116, 168, 132')).toBe('rgba(116, 168, 132, 0.18)');
+    expect(relativePastelBackground(5_000, range, '116, 168, 132')).toBe('rgba(116, 168, 132, 0.30)');
     expect(positiveMetricRange([0, null, Number.NaN])).toBeNull();
   });
 });

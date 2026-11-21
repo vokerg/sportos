@@ -84,8 +84,8 @@ describe('MonthlyStatsPageComponent', () => {
     const component = createComponent(api as unknown as DynamicsApiService, { queryParamMap: params } as unknown as ActivatedRoute, { navigate: vi.fn() } as unknown as Router);
 
     component.ngOnInit();
-    expect(component.cellBackground(january, 'run', 'total')).toBe('rgba(116, 168, 132, 0.10)');
-    expect(component.cellBackground(february, 'run', 'total')).toBe('rgba(116, 168, 132, 0.26)');
+    expect(component.cellBackground(january, 'run', 'total')).toBe('rgba(116, 168, 132, 0.22)');
+    expect(component.cellBackground(february, 'run', 'total')).toBe('rgba(116, 168, 132, 0.54)');
   });
 
   it('builds an Excel-style year hierarchy from monthly buckets', () => {

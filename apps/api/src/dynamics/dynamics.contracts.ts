@@ -159,7 +159,8 @@ function buildScoreContributions(
   const start = addDays(from, -(windowDays - 1));
   for (let date = start; date <= to; date = addDays(date, 1)) {
     const daily = valuesByDate.get(date);
-    const expired = valuesByDate.get(addDays(date, -windowDays));
+    const expiredDate = addDays(date, -windowDays);
+    const expired = expiredDate >= start ? valuesByDate.get(expiredDate) : undefined;
     for (const category of categories) totals[category] = (totals[category] ?? 0) + (daily?.[category] ?? 0) - (expired?.[category] ?? 0);
     if (date < from) continue;
     const contributions = Object.fromEntries(categories.map((category) => [category, (totals[category] ?? 0) / windowDays])) as Partial<Record<ScoreContributionCategory, number>>;
@@ -311,7 +312,7 @@ export interface DynamicsRecord {
 }
 
 function metricColumns(): Record<DynamicsMetric, Array<number | null>> {
-  return Object.fromEntries(DYNAMICS_METRICS.map((metric) => [metric, []])) as Record<DynamicsMetric, Array<number | null>>;
+  return Object.fromEntries(DYNAMICS_METRICS.map((metric) => [metric, [] as Array<number | null>])) as Record<DynamicsMetric, Array<number | null>>;
 }
 
 function rollingColumns(rows: DynamicsDailyRow[], from: string, to: string, metrics: readonly DynamicsMetric[], windows: readonly RollingWindow[]) {
@@ -327,17 +328,20 @@ function rollingColumns(rows: DynamicsDailyRow[], from: string, to: string, metr
   for (let date = start; date <= to; date = addDays(date, 1)) {
     const row = byDate.get(date);
     for (const state of states) {
-      const expired = byDate.get(addDays(date, -state.window));
+      const expiredDate = addDays(date, -state.window);
+      const expired = expiredDate >= start ? byDate.get(expiredDate) : undefined;
       state.recorded += Number(Boolean(row)) - Number(Boolean(expired));
       for (const metric of metrics) {
-        state.totals[metric] += (row?.[metric] ?? 0) - (expired?.[metric] ?? 0);
+        // daily_metrics distances are numeric(12,2); sum hundredths to keep
+        // equal windows tied instead of accumulating floating-point drift.
+        state.totals[metric] += Math.round((row?.[metric] ?? 0) * 100) - Math.round((expired?.[metric] ?? 0) * 100);
         state.active[metric] += Number((row?.[metric] ?? 0) > 0) - Number((expired?.[metric] ?? 0) > 0);
       }
       if (date < from) continue;
       const values = output[state.window]!;
       values.recordedDays.push(state.recorded);
       for (const metric of metrics) {
-        values.totals[metric].push(state.recorded ? state.totals[metric] : null);
+        values.totals[metric].push(state.recorded ? state.totals[metric] / 100 : null);
         values.activeDays[metric].push(state.recorded ? state.active[metric] : null);
       }
     }

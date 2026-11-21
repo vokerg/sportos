@@ -71,7 +71,7 @@ for tagging, recovery and how to match deployed SHAs to releases.
 - Export bounded, versioned `sportos.canonical-export.v3` JSON from one repeatable-read snapshot, including each daily score's authority status.
 - Exclude raw cells, formulas, provider payloads, credentials, account identifiers, storage internals, prompts, and generated analysis from canonical exports.
 - Open the web Stats hub for Monthly Stats and the Average Pace / Speed report. The latter combines time/distance-weighted running and swimming pace or cycling speed from canonical Strava activities with total vs eligible training volume, shared date ranges, configurable thresholds, and activity drill-downs.
-- Review canonical score, steps, run, bike, swim, workout, and bonus totals in Monthly Stats, and graph their true day-by-day trailing 10/20/30/60/365-day totals, averages, or positive activity-day frequency in Dynamics with explicit data coverage and an authoritative stacked 30-day score-contribution view.
+- Review canonical score, steps, run, bike, swim, workout, and bonus totals in Monthly Stats, and graph their true day-by-day trailing 7/20/30/60/365-day totals, averages, or positive activity-day frequency in Dynamics with explicit data coverage and an authoritative stacked 30-day score-contribution view.
 
 ### Ask cited, read-only questions
 
@@ -317,6 +317,11 @@ The combined/API/worker launchers rebuild and watch the relevant backend project
 and restart exited runtime processes with bounded backoff. Database connections
 and worker queue scans recover from transient disconnects after wake; interrupted
 requests may still need a refresh. See [local recovery](docs/LOCAL_RECOVERY.md).
+
+Dynamics loads all available daily history once, supports local linked chart zoom,
+paginated heat-colored tables, and current-year/all-time rolling records, including
+workout and power/bonus points. Historical recalculation is reflected on Refresh
+data or reopening the screen. See [Dynamics behavior and validation](docs/implementation/issue-271.md).
 
 Daily and Dynamics charts include today and mark it Incomplete while Garmin and
 Strava data may still arrive. Future dates are excluded. Use the date pickers to

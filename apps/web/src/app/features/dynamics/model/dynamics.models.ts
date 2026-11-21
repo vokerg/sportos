@@ -92,3 +92,7 @@ export interface DynamicsRecord {
   recordedDays: number;
 }
 
+
+export const DYNAMICS_LABELS: Record<DynamicsMetric, string> = {
+  score: 'Official score', steps: 'Steps', run: 'Run', bike: 'Bike', swim: 'Swim', workout: 'Workout points', bonus: 'Power / bonus points',
+};
