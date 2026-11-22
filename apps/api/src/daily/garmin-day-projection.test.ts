@@ -21,6 +21,17 @@ describe('Garmin day projection', () => {
     expect(projectGarminDay('hrv',{hrvSummary:{calendarDate:date,lastNightAvg:55}},date)).toMatchObject({lastNightAvgMs:55});
     expect(projectGarminDay('body_battery',[{date,charged:70,drained:30}],date)).toEqual({charged:70,drained:30});
   });
+  it('treats the unavailable Garmin average stress as missing', () => {
+    const payload = { calendarDate: date, avgStressLevel: -1 };
+    const projection = projectGarminDay('stress', payload, date);
+    expect(projection).toEqual({ averageLevel: null, maxLevel: null });
+    expect(hasGarminDayEvidence('stress', projection)).toBe(false);
+    expect(payload.avgStressLevel).toBe(-1);
+    expect(projectGarminDay('stress', { ...payload, maxStressLevel: 0 }, date))
+      .toEqual({ averageLevel: null, maxLevel: 0 });
+    expect(() => projectGarminDay('stress', { ...payload, avgStressLevel: -2 }, date))
+      .toThrow('Invalid Garmin day metric');
+  });
   it('retains compact activity identities with local calendar semantics', () => {
     expect(projectGarminDay('activities',{items:[{activityId:123,startTimeLocal:`${date} 00:05:00`,startTimeGMT:'2026-03-28 23:05:00'}],complete:true},date)).toEqual({identities:['native:123'],complete:true,workoutComplete:true});
     expect(() => projectGarminDay('activities',{items:[{activityId:123,startTimeLocal:'2026-03-28 23:05:00'}],complete:true},date)).toThrow();
