@@ -45,7 +45,13 @@ export function projectGarminDay(category: GarminDayCategory, raw: Json, date: s
     const summary = value.hrvSummary === undefined || value.hrvSummary === null ? {} : object(value.hrvSummary); exactDate(summary, date);
     return metrics(summary, { lastNightAvgMs: 'lastNightAvg', lastNightHighMs: 'lastNight5MinHigh', weeklyAvgMs: 'weeklyAvg' });
   }
-  if (category === 'stress') return metrics(value, { averageLevel: 'avgStressLevel', maxLevel: 'maxStressLevel' });
+  if (category === 'stress') {
+    // Garmin reports -1 when there is insufficient data for an average.
+    return {
+      averageLevel: value.avgStressLevel === -1 ? null : number(value.avgStressLevel),
+      maxLevel: number(value.maxStressLevel),
+    };
+  }
   if (!Array.isArray(value.items) || value.items.length > 20 || typeof value.complete !== 'boolean') throw new BadRequestException('Invalid Garmin activity day.');
   const identities = value.items.map(item => {
     const row = object(item);
