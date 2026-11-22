@@ -269,3 +269,42 @@ Live Google callback, hosted Neon connectivity, Cloudflare Free CPU timings
 for these authenticated routes, and automated remote deployment remain
 separate gates. Local fixture sessions exercise authorization and queries
 without a production account or production OAuth client.
+
+### Bounded check against the existing Neon databases
+
+On 2026-11-22 the maintainer chose to test the second API instance against
+the existing primary and activity-detail databases. The isolated PostgreSQL
+tests above still cover writes and cross-owner fixtures. The live check
+used the existing `sportos_app` role on each direct Neon connection and
+verified TLS. It ran neither Flyway nor a data import, sync, or recalculation.
+
+To repeat this check, use the same staging Worker and a private runtime
+settings file. Set `SPORTOS_SHARED_DATABASE_TRIAL=true`,
+`SPORTOS_TRIAL_PROBE_TOKEN` to a random 32-byte hex value, and
+`SPORTOS_TRIAL_EXPIRES_AT` to a timestamp less than 15 minutes away. Bind the
+existing direct runtime URLs in the two `SPORTOS_STAGING_*` database settings.
+Keep the staging web origin and inert OAuth client values for this check.
+Send the token in `X-SportOS-Trial-Token`. The Worker strips it before
+forwarding to Nest. Gate entry mode switches back to the isolated trial
+when the shared flag is false.
+
+The database health route opens a read-only transaction in each database
+and rejects roles with RLS bypass. The only additional database-backed
+routes in this mode are session inspection and two authenticated read
+routes. The operator used a new short-lived SportOS session and revoked
+it immediately. The operator restored inert staging database bindings
+after the check. Vercel continued to send production traffic to Render.
+
+| Cloudflare request | Observed result |
+| --- | --- |
+| Database health without the probe token | HTTP 404 |
+| Database health with the token | HTTP 200, both Neon databases reachable |
+| Activities without a session | HTTP 401 |
+| Existing owner's test session | HTTP 200 |
+| Activities, one result max | HTTP 200 |
+
+The single-request wall times were 4.46 s for both database connections,
+0.37 s for session inspection and 1.26 s for the activity request. These
+are end-to-end samples. Worker CPU, a Google callback served by Cloudflare,
+and parity for write or streaming routes remain unverified. The shared
+check establishes that both API deployments can reach the same databases.
