@@ -9,6 +9,10 @@ import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-
   standalone: true,
   imports: [NgxEchartsDirective],
   template: `
+    <div class="mobile-chart-intro">
+      <strong>Daily score trend</strong>
+      <span>Latest days · move the slider to browse older scores</span>
+    </div>
     <div
       class="daily-chart"
       echarts [theme]="colorScheme.chartTheme()"
@@ -19,8 +23,16 @@ import { dailyLogChartOptions, dailyLogRowAtChartIndex } from './daily-log.view-
     </div>
   `,
   styles: [`
+    :host { display: block; min-width: 0; max-width: 100%; }
+    .mobile-chart-intro { display: none; }
     .daily-chart { width: 100%; height: min(64vh, 760px); min-height: 480px; }
-    @media (max-width: 760px) { .daily-chart { height: 300px; min-height: 0; } }
+    @media (max-width: 760px) {
+      :host { box-sizing: border-box; padding: 12px 8px 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-muted); }
+      .mobile-chart-intro { display: grid; gap: 4px; padding: 0 6px; }
+      .mobile-chart-intro strong { font-size: 15px; }
+      .mobile-chart-intro span { color: var(--text-muted); font-size: 11px; }
+      .daily-chart { height: 350px; min-height: 0; }
+    }
   `],
 })
 export class DailyLogTrendComponent {
