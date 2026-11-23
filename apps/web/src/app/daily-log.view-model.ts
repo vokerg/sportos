@@ -14,7 +14,7 @@ export const DAILY_LOG_PAGE_SIZES = [100, 200, 365] as const;
 export { positiveMetricRange, relativePastelBackground } from './shared/util/metric-heat';
 export type { DailyMetricRange } from './shared/util/metric-heat';
 
-export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsCoreOption {
+export function dailyLogChartOptions(rows: readonly DailySummaryRow[], sheetOpen = false): EChartsCoreOption {
   const today = localCalendarDate();
   const chronological = chartRows(rows, today).reverse();
   const compositions = chronological.map(dailyScoreComposition);
@@ -25,10 +25,21 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
     DAILY_SCORE_COMPONENTS.some((component) => composition[component.key] < 0),
   );
   const grid = { left: 66, right: 24, top: 38, bottom: 72, containLabel: true };
+  // A 3-month range can contain 90+ bars. Keep the whole series available,
+  // but start narrow mobile charts on the most recent 21 days.
+  const mobileStart = chronological.length > 21
+    ? Math.round(100 * (chronological.length - 21) / (chronological.length - 1))
+    : 0;
+  const fullRangeZoom = [
+    { type: 'inside', xAxisIndex: 0, start: 0, end: 100, filterMode: 'none', zoomOnMouseWheel: false, moveOnMouseMove: false, moveOnMouseWheel: false },
+    { type: 'slider', xAxisIndex: 0, start: 0, end: 100, filterMode: 'none', show: false, bottom: 32, height: 18, showDataShadow: false },
+  ];
   return {
     animation: false,
+    dataZoom: fullRangeZoom,
     color: [...visibleComponents.map((component) => component.color), '#dc5b62'],
     tooltip: {
+      show: !sheetOpen,
       trigger: 'axis',
       confine: true,
       axisPointer: { type: 'none' },
@@ -80,10 +91,18 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
     media: [{
       query: { maxWidth: 500 },
       option: {
-        grid: { left: 4, right: 8, top: 28, bottom: 52 },
-        yAxis: { nameLocation: 'end', nameGap: 10 },
+        grid: { left: 2, right: 8, top: 28, bottom: 112 },
+        legend: { bottom: 4, itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 10 } },
+        dataZoom: [
+          { type: 'inside', xAxisIndex: 0, start: mobileStart, end: 100, filterMode: 'none', zoomOnMouseWheel: false, moveOnMouseMove: true },
+          { type: 'slider', xAxisIndex: 0, start: mobileStart, end: 100, filterMode: 'none', show: true, bottom: 34, height: 18, showDataShadow: false },
+        ],
+        yAxis: { name: '', nameLocation: 'end', nameGap: 10 },
       },
-    }, { option: { grid, yAxis: { nameLocation: 'middle', nameGap: 48 } } }],
+    }, { option: {
+      grid, dataZoom: fullRangeZoom, legend: { bottom: 0, itemWidth: 25, itemHeight: 14, textStyle: { fontSize: 12 } },
+      yAxis: { name: 'Points', nameLocation: 'middle', nameGap: 48 },
+    } }],
   };
 }
 

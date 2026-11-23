@@ -79,7 +79,7 @@ import { formatSwimMeters } from './swim-distance';
   styles: [`
     .sheet-layer { position: fixed; z-index: 200; inset: 0; }
     .sheet-scrim { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; background: rgba(13, 23, 43, .25); backdrop-filter: blur(1px); }
-    .sheet { position: absolute; top: 0; right: 0; width: min(430px, 94vw); height: 100%; padding: 24px; overflow-y: auto; background: var(--accent-surface); box-shadow: -20px 0 55px rgba(20, 33, 61, .22); }
+    .sheet { position: absolute; top: 0; right: 0; box-sizing: border-box; width: min(430px, 94vw); max-width: 100%; height: 100%; padding: 24px; overflow-x: hidden; overflow-y: auto; background: var(--accent-surface); box-shadow: -20px 0 55px rgba(20, 33, 61, .22); }
     header, .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     h3, h4 { margin: 0; } h3 { margin-top: 4px; font-size: 21px; }
     .eyebrow { color: var(--link); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
@@ -90,18 +90,24 @@ import { formatSwimMeters } from './swim-distance';
     .total small { width: max-content; padding: 4px 8px; border-radius: 999px; background: var(--warning-surface); color: var(--warning); font-size: 10px; font-weight: 800; text-transform: uppercase; }
     .total small[data-status='calculated'] { background: var(--accent-surface); color: var(--link); }
     .total small[data-status='imported'] { background: var(--success-surface); color: var(--success); }
-    .facts { display: grid; grid-template-columns: repeat(2, 1fr); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+    .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
     .facts div { display: grid; gap: 4px; padding: 12px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
     .facts div:nth-child(2n) { border-right: 0; } .facts div:nth-last-child(-n+2) { border-bottom: 0; }
     .facts strong { font-size: 14px; }
     .highlights, .provenance { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
     .section-heading span { padding: 4px 7px; border-radius: 999px; background: var(--accent-surface); color: var(--link); font-size: 10px; font-weight: 800; }
     article { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+    article > div { min-width: 0; overflow-wrap: anywhere; }
+    article > span { flex-shrink: 0; }
     article strong, article small { display: block; } article small, .highlights p, .provenance small { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
     .provenance { display: grid; gap: 4px; }.provenance strong { font-size: 22px; }
-    .sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 22px; }
+    .sheet-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 22px; }
     .sheet-actions .full { grid-column: 1 / -1; padding: 10px 14px; border-radius: 9px; background: var(--primary); color: var(--on-primary); font-weight: 700; text-align: center; text-decoration: none; }
     .inline-error { color: var(--danger); font-size: 12px; }
+    @media (max-width: 600px) {
+      .sheet { width: 100%; padding: 20px max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+      .sheet-actions > button { min-width: 0; padding-inline: 8px; }
+    }
   `],
 })
 export class DailyQuickSheetComponent {
