@@ -3,6 +3,7 @@ import type { DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
 import {
   dailyLogChartOptions,
+  dailyLogLegendItems,
   dailyLogRowAtChartIndex,
   dailyScoreStatusLabel,
   compareDailyNumbers,
@@ -62,6 +63,50 @@ describe('daily log view model', () => {
     expect(dailyLogRowAtChartIndex(rows, 0)?.metric_date).toBe(rows[120]!.metric_date);
     expect(dailyLogRowAtChartIndex(rows, 120)?.metric_date).toBe(rows[0]!.metric_date);
     expect(dailyLogRowAtChartIndex(rows, -1)).toBeUndefined();
+  });
+
+  it('uses a readable recent window on narrow screens without changing the selected range', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 23, 12));
+    try {
+      const rows = Array.from({ length: 30 }, (_, index) => ({
+        ...row,
+        metric_date: new Date(Date.UTC(2026, 9, 25 + index)).toISOString().slice(0, 10),
+        total_points: index + 100,
+      })).reverse();
+
+      const compact = dailyLogChartOptions(rows, { windowDays: 14, compact: true }) as Record<string, any>;
+      expect(compact.xAxis.data).toHaveLength(14);
+      expect(compact.xAxis.axisLabel.interval).toBe(3);
+      expect(compact.legend.show).toBe(false);
+      expect(compact.yAxis.name).toBeUndefined();
+      expect(compact.yAxis.axisLabel.formatter(80_000)).toBe('80k');
+      expect(compact.xAxis.axisLabel.formatter(compact.xAxis.data.at(-1))).toContain('Today*');
+      expect(compact.series[0].data).toHaveLength(14);
+      expect(dailyLogRowAtChartIndex(rows, 0, 14)?.metric_date).toBe('2026-11-10');
+      expect(dailyLogRowAtChartIndex(rows, 13, 14)?.metric_date).toBe('2026-11-23');
+      expect(dailyLogRowAtChartIndex(rows, 14, 14)).toBeUndefined();
+      expect(dailyLogLegendItems(rows, 14).map(item => item.label)).toEqual(['Unattributed', '30d avg']);
+
+      const month = dailyLogChartOptions(rows, { windowDays: 30, compact: true }) as Record<string, any>;
+      expect(month.xAxis.data).toHaveLength(30);
+      const full = dailyLogChartOptions(rows) as Record<string, any>;
+      expect(full.xAxis.data).toHaveLength(30);
+      expect(full.legend.type).toBe('scroll');
+      expect(full.yAxis.name).toBe('Points');
+      expect(rows).toHaveLength(30);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('anchors the mobile window to the selected range when viewing historical dates', () => {
+    const rows = Array.from({ length: 30 }, (_, index) => ({
+      ...row,
+      metric_date: new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10),
+    })).reverse();
+    const options = dailyLogChartOptions(rows, { windowDays: 14, compact: true }) as Record<string, any>;
+    expect(options.xAxis.data).toHaveLength(14);
+    expect(dailyLogRowAtChartIndex(rows, 0, 14)?.metric_date).toBe('2026-01-17');
+    expect(dailyLogRowAtChartIndex(rows, 13, 14)?.metric_date).toBe('2026-01-30');
   });
 
   it('includes and labels today in every series and bar navigation, excluding future days', () => {
