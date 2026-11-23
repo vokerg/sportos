@@ -62,6 +62,6 @@ describe('mobile navigation shell', () => {
     expect(css).toContain('safe-area-inset-left');
     expect(css).toContain('safe-area-inset-right');
     expect(css).toContain('safe-area-inset-bottom');
-    expect(css).toMatch(/\.page-shell\s*\{[\s\S]*?112px/);
+    expect(css).toMatch(/\.page-shell(?:\[[^\]]+\])?\s*\{[^}]*112px/);
   });
 });
