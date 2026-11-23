@@ -64,8 +64,8 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
         } @else if (summaryState() === 'empty') {
           <p class="state-message" role="status">No canonical daily summaries match this range.</p>
         } @else {
-          <sportos-daily-phone-list [rows]="rows()" />
           <sportos-daily-log-trend [rows]="rows()" (openDay)="openBreakdownForDate($event)" />
+          <sportos-daily-phone-list [rows]="rows()" />
           <sportos-daily-log-grid [rows]="rows()" (openBreakdown)="openBreakdown($event)" />
         }
       } @else {
@@ -119,7 +119,7 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
       .current-average { min-width: 0; }
       .view-switch button { min-height: 44px; }
       sportos-daily-phone-list, sportos-daily-phone-quick-entry { display: block; }
-      sportos-daily-log-trend { display: block; margin-top: 20px; }
+      sportos-daily-log-trend { display: block; margin: 4px 0 20px; }
       sportos-daily-log-grid, sportos-daily-quick-entry-grid { display: none; }
     }
   `],
