@@ -119,6 +119,14 @@ describe('daily log view model', () => {
     } finally { vi.useRealTimers(); }
   });
 
+  it('hides chart tooltip while the day sheet is open without losing the zoom range', () => {
+    const visible = dailyLogChartOptions([row]) as Record<string, any>;
+    const hidden = dailyLogChartOptions([row], true) as Record<string, any>;
+    expect(visible.tooltip.show).toBe(true);
+    expect(hidden.tooltip.show).toBe(false);
+    expect(hidden.dataZoom).toEqual(visible.dataZoom);
+  });
+
   it('keeps table formatting and authority labels explicit', () => {
     expect(formatDailyCellNumber(null)).toBe('—');
     expect(formatDailyCellNumber(1234.56)).toBe('1,234.56');
