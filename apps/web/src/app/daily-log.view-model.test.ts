@@ -81,7 +81,7 @@ describe('daily log view model', () => {
       expect(compact.legend.show).toBe(false);
       expect(compact.yAxis.name).toBeUndefined();
       expect(compact.yAxis.axisLabel.formatter(80_000)).toBe('80k');
-      expect(compact.xAxis.axisLabel.formatter(compact.xAxis.data.at(-1))).toContain('Today*');
+      expect(compact.xAxis.axisLabel.formatter(compact.xAxis.data.at(-1), 13)).toContain('Today*');
       expect(compact.series[0].data).toHaveLength(14);
       expect(dailyLogRowAtChartIndex(rows, 0, 14)?.metric_date).toBe('2026-11-10');
       expect(dailyLogRowAtChartIndex(rows, 13, 14)?.metric_date).toBe('2026-11-23');
