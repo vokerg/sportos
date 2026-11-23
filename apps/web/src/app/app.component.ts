@@ -294,7 +294,8 @@ export class AppComponent implements OnInit {
   }
 
   moreActive(): boolean {
-    return ['/heatmap', '/dynamics', '/stats', '/monthly-stats', '/chat', '/services']
+    return ['/heatmap', '/dynamics', '/stats', '/monthly-stats', '/chat', '/services',
+      '/providers', '/rules', '/imports', '/export', '/analysis', '/mcp-connect', '/mobile-connect']
       .some(path => this.router.isActive(path, false));
   }
 
