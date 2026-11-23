@@ -65,7 +65,7 @@ import { DailyQuickSheetComponent } from './daily-quick-sheet.component';
           <p class="state-message" role="status">No canonical daily summaries match this range.</p>
         } @else {
           <sportos-daily-phone-list [rows]="rows()" />
-          <sportos-daily-log-trend [rows]="rows()" (openDay)="openBreakdownForDate($event)" />
+          <sportos-daily-log-trend [rows]="rows()" [sheetOpen]="selectedDate() !== null" (openDay)="openBreakdownForDate($event)" />
           <sportos-daily-log-grid [rows]="rows()" (openBreakdown)="openBreakdown($event)" />
         }
       } @else {
