@@ -110,6 +110,11 @@ describe('daily log presentation components', () => {
     }));
 
     expect(trend.rows()).toEqual([]);
+    expect(trend.windowDays()).toBe(14);
+    trend.setWindowDays(30);
+    expect(trend.windowDays()).toBe(30);
+    trend.setWindowDays('all');
+    expect(trend.windowDays()).toBe('all');
     expect(grid.rows()).toEqual([]);
     expect(grid.paginationPageSizeSelector).toEqual([100, 200, 365]);
     injector.destroy();
