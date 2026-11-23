@@ -235,8 +235,10 @@ export class AppComponent implements OnInit {
   readonly fullPage = signal(false);
   readonly menuOpen = signal(false);
   private readonly document = inject(DOCUMENT);
+  readonly auth = inject(WebAuthService);
+  private readonly router = inject(Router);
 
-  constructor(readonly auth: WebAuthService, private readonly router: Router) {
+  constructor() {
     this.router.events.pipe(takeUntilDestroyed()).subscribe(event => {
       if ((event instanceof NavigationEnd || event instanceof NavigationSkipped) && this.menuOpen()) {
         this.menuOpen.set(false);
