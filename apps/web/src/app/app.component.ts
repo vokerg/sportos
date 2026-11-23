@@ -82,6 +82,41 @@ import { WebAuthService } from './web-auth.service';
         @if (auth.googleEnrollment() && auth.errorMessage()) { <p role="alert">{{ auth.errorMessage() }}</p> }
         <router-outlet #outlet="outlet" (activate)="fullPage.set(outlet.activatedRouteData['fullPage'] === true)" (deactivate)="fullPage.set(false)" />
       </main>
+
+      @if (!fullPage()) {
+        <nav class="mobile-tabs" aria-label="Primary navigation">
+          <a routerLink="/overview" [class.active]="overviewActive()" [attr.aria-current]="overviewActive() ? 'page' : null">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" />
+            </svg>
+            <span>Home</span>
+          </a>
+          <a routerLink="/daily" [class.active]="dailyActive()" [attr.aria-current]="dailyActive() ? 'page' : null">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 10h18" />
+            </svg>
+            <span>Daily</span>
+          </a>
+          <a routerLink="/activities" [class.active]="activitiesActive()" [attr.aria-current]="activitiesActive() ? 'page' : null">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12h4l3-7 5 14 3-7h5" />
+            </svg>
+            <span>Activities</span>
+          </a>
+          <a routerLink="/run-lab" [class.active]="runLabActive()" [attr.aria-current]="runLabActive() ? 'page' : null">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 3v18h18M6 16l5-6 4 3 6-8" />
+            </svg>
+            <span>Run Lab</span>
+          </a>
+          <a routerLink="/more" [class.active]="moreActive()" [attr.aria-current]="moreActive() ? 'page' : null">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" />
+            </svg>
+            <span>More</span>
+          </a>
+        </nav>
+      }
     }
   `,
   styles: [`
@@ -107,6 +142,8 @@ import { WebAuthService } from './web-auth.service';
     .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); font-size: 20px; text-decoration: none; }
     .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: var(--primary); color: var(--on-primary); font-weight: 850; }
     .menu-toggle { display: none; }
+    /* Native-inspired bottom tabs are phone-only; desktop and tablet retain their header menu. */
+    .mobile-tabs { display: none; }
     .section-menu { display: contents; }
     nav { display: flex; justify-content: center; gap: 4px; min-width: 0; }
     nav a { padding: 9px 10px; border-radius: 10px; color: var(--text-muted); font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; }
@@ -140,8 +177,52 @@ import { WebAuthService } from './web-auth.service';
       .account-actions { justify-content: space-between; border-top: 1px solid var(--border); padding-top: 12px; }
       .account-actions button { min-height: 44px; }
     }
+
     @media (max-width: 760px) {
-      .page-shell { padding: 14px 12px 32px; }
+      .app-header { min-height: 52px; padding: 8px 16px; }
+      .brand { min-height: 38px; font-size: 18px; }
+      .brand-mark { width: 32px; height: 32px; }
+      .menu-toggle, .section-menu.open { display: none; }
+      .page-shell { padding: 14px 12px calc(92px + env(safe-area-inset-bottom)); }
+      .mobile-tabs {
+        position: fixed;
+        z-index: 110;
+        inset: auto 0 0;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 0;
+        padding: 5px 4px calc(5px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--border);
+        background: var(--surface-glass);
+        box-shadow: 0 -4px 18px rgba(20, 33, 61, .06);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+      }
+      .mobile-tabs a {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 3px;
+        min-height: 52px;
+        padding: 4px 0;
+        border-radius: 12px;
+        background: transparent;
+        box-shadow: none;
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.25;
+        text-align: center;
+        white-space: nowrap;
+        text-decoration: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .mobile-tabs a svg { display: block; width: 23px; height: 23px; flex-shrink: 0; }
+      .mobile-tabs a.active { background: transparent; box-shadow: none; color: var(--link); }
+      .mobile-tabs a:hover { background: var(--surface-muted); }
+      .mobile-tabs a:focus-visible { outline-offset: -3px; }
     }
   `],
 })
@@ -169,6 +250,25 @@ export class AppComponent implements OnInit {
     if (!this.menuOpen()) return;
     this.menuOpen.set(false);
     button.focus();
+  }
+
+
+  overviewActive(): boolean {
+    return this.router.isActive('/overview', false);
+  }
+
+  dailyActive(): boolean {
+    return this.router.isActive('/daily', false);
+  }
+
+  runLabActive(): boolean {
+    return this.router.isActive('/run-lab', false);
+  }
+
+  moreActive(): boolean {
+    return ['/more', '/heatmap', '/dynamics', '/stats', '/monthly-stats', '/chat',
+      '/services', '/providers', '/rules', '/imports', '/export', '/analysis', '/mcp-connect']
+      .some(path => this.router.isActive(path, false));
   }
 
   activitiesActive(): boolean {
