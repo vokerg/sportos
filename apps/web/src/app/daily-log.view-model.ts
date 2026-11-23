@@ -57,10 +57,10 @@ export function dailyLogChartOptions(
         hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
         interval: Math.max(0, Math.ceil(chronological.length / 4) - 1),
         fontSize: 11,
-        formatter: (value: string) => value.replace(' (Incomplete)', '\\nToday*'),
+        formatter: (value: string) => value.replace(' (Incomplete)', '\nToday*'),
       } : {
         hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
-        formatter: (value: string) => value.replace(' (Incomplete)', '\\nIncomplete'),
+        formatter: (value: string) => value.replace(' (Incomplete)', '\nIncomplete'),
       },
     },
     yAxis: {
