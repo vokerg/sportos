@@ -64,6 +64,23 @@ describe('daily log view model', () => {
     expect(dailyLogRowAtChartIndex(rows, -1)).toBeUndefined();
   });
 
+  it('keeps all daily scores but initially focuses the mobile chart on the latest three weeks', () => {
+    const rows = Array.from({ length: 90 }, (_, index) => ({
+      ...row, metric_date: new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10),
+    })).reverse();
+    const options = dailyLogChartOptions(rows) as Record<string, any>;
+    const mobile = options.media[0].option;
+    const desktop = options.media[1].option;
+
+    expect(options.xAxis.data).toHaveLength(90);
+    expect(options.dataZoom[1].show).toBe(false);
+    expect(mobile.dataZoom[0].start).toBeGreaterThan(70);
+    expect(mobile.dataZoom[1]).toMatchObject({ show: true, end: 100 });
+    expect(mobile.grid.bottom).toBeGreaterThan(desktop.grid.bottom);
+    expect(desktop.dataZoom[0]).toMatchObject({ start: 0, end: 100 });
+    expect((dailyLogChartOptions([row]) as Record<string, any>).media[0].option.dataZoom[0].start).toBe(0);
+  });
+
   it('includes and labels today in every series and bar navigation, excluding future days', () => {
     vi.useFakeTimers();
     // Local midnight is deliberate: the cutoff must follow the browser day.
