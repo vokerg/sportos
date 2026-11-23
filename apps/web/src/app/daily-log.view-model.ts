@@ -14,7 +14,7 @@ export const DAILY_LOG_PAGE_SIZES = [100, 200, 365] as const;
 export { positiveMetricRange, relativePastelBackground } from './shared/util/metric-heat';
 export type { DailyMetricRange } from './shared/util/metric-heat';
 
-export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsCoreOption {
+export function dailyLogChartOptions(rows: readonly DailySummaryRow[], sheetOpen = false): EChartsCoreOption {
   const today = localCalendarDate();
   const chronological = chartRows(rows, today).reverse();
   const compositions = chronological.map(dailyScoreComposition);
@@ -29,6 +29,7 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
     animation: false,
     color: [...visibleComponents.map((component) => component.color), '#dc5b62'],
     tooltip: {
+      show: !sheetOpen,
       trigger: 'axis',
       confine: true,
       axisPointer: { type: 'none' },
