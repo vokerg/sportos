@@ -102,6 +102,14 @@ describe('daily log view model', () => {
     } finally { vi.useRealTimers(); }
   });
 
+  it('suppresses the chart tooltip while a selected-day sheet is open', () => {
+    const visible = dailyLogChartOptions([row]).tooltip as { show?: boolean };
+    const hidden = dailyLogChartOptions([row], true).tooltip as { show?: boolean };
+
+    expect(visible.show).toBe(true);
+    expect(hidden.show).toBe(false);
+  });
+
   it('keeps table formatting and authority labels explicit', () => {
     expect(formatDailyCellNumber(null)).toBe('—');
     expect(formatDailyCellNumber(1234.56)).toBe('1,234.56');
