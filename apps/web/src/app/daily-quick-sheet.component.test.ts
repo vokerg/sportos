@@ -9,9 +9,9 @@ describe('DailyQuickSheetComponent mobile layout', () => {
     const styles = (DailyQuickSheetComponent as unknown as { ɵcmp: { styles: string[] } })
       .ɵcmp.styles.join('\n');
 
-    expect(styles).toMatch(/\.sheet\s*\{[^}]*box-sizing:\s*border-box/);
-    expect(styles).toMatch(/\.sheet\s*\{[^}]*max-width:\s*100%/);
-    expect(styles).toMatch(/@media\s*\(max-width:\s*600px\)[\s\S]*?\.sheet\s*\{[^}]*width:\s*100%/);
+    expect(styles).toMatch(/\.sheet(?:\[[^\]]+\])?\s*\{[^}]*box-sizing:\s*border-box/);
+    expect(styles).toMatch(/\.sheet(?:\[[^\]]+\])?\s*\{[^}]*max-width:\s*100%/);
+    expect(styles).toMatch(/@media\s*\(max-width:\s*600px\)[\s\S]*?\.sheet(?:\[[^\]]+\])?\s*\{[^}]*width:\s*100%/);
     expect(styles).toContain('safe-area-inset-left');
     expect(styles).toContain('safe-area-inset-right');
   });
