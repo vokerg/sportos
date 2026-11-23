@@ -265,7 +265,7 @@ export class AppComponent implements OnInit {
       return;
     }
     this.menuOpen.set(true);
-    this.document.defaultView?.requestAnimationFrame(() => {
+    this.document.defaultView?.requestAnimationFrame?.(() => {
       this.document.querySelector<HTMLElement>('#mobile-more-panel .more-links a')?.focus();
     });
   }
