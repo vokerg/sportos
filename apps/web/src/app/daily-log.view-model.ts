@@ -14,9 +14,15 @@ export const DAILY_LOG_PAGE_SIZES = [100, 200, 365] as const;
 export { positiveMetricRange, relativePastelBackground } from './shared/util/metric-heat';
 export type { DailyMetricRange } from './shared/util/metric-heat';
 
-export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsCoreOption {
+export type DailyTrendWindow = 14 | 30 | 'all';
+
+export function dailyLogChartOptions(
+  rows: readonly DailySummaryRow[],
+  options: { windowDays?: DailyTrendWindow; compact?: boolean } = {},
+): EChartsCoreOption {
   const today = localCalendarDate();
-  const chronological = chartRows(rows, today).reverse();
+  const compact = options.compact ?? false;
+  const chronological = chartRows(rows, today, options.windowDays);
   const compositions = chronological.map(dailyScoreComposition);
   const visibleComponents = DAILY_SCORE_COMPONENTS.filter((component) =>
     compositions.some((composition) => composition[component.key] !== 0),
@@ -24,7 +30,9 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
   const hasNegativeContribution = compositions.some((composition) =>
     DAILY_SCORE_COMPONENTS.some((component) => composition[component.key] < 0),
   );
-  const grid = { left: 66, right: 24, top: 38, bottom: 72, containLabel: true };
+  const grid = compact
+    ? { left: 6, right: 8, top: 12, bottom: 32, containLabel: true }
+    : { left: 66, right: 24, top: 38, bottom: 72, containLabel: true };
   return {
     animation: false,
     color: [...visibleComponents.map((component) => component.color), '#dc5b62'],
@@ -37,23 +45,32 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
         return Number.isFinite(points) ? `${points.toLocaleString(undefined, { maximumFractionDigits: 1 })} pts` : '—';
       },
     },
-    legend: { type: 'scroll', bottom: 0 },
+    legend: compact ? { show: false } : { type: 'scroll', bottom: 0 },
     grid,
     xAxis: {
       type: 'category',
-      data: chronological.map((row) => row.metric_date === today
-        ? `${formatDate(row.metric_date)} (Incomplete)` : formatDate(row.metric_date)),
-      axisLabel: {
+      data: chronological.map((row) => {
+        const date = compact ? formatCompactChartDate(row.metric_date) : formatDate(row.metric_date);
+        return row.metric_date === today ? `${date} (Incomplete)` : date;
+      }),
+      axisLabel: compact ? {
         hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
-        formatter: (value: string) => value.replace(' (Incomplete)', '\nIncomplete'),
+        interval: Math.max(0, Math.ceil(chronological.length / 4) - 1),
+        fontSize: 11,
+        formatter: (value: string) => value.replace(' (Incomplete)', '\\nToday*'),
+      } : {
+        hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
+        formatter: (value: string) => value.replace(' (Incomplete)', '\\nIncomplete'),
       },
     },
     yAxis: {
       type: 'value',
-      name: 'Points',
+      name: compact ? undefined : 'Points',
       min: hasNegativeContribution ? undefined : 0,
       nameLocation: 'middle',
       nameGap: 48,
+      splitNumber: compact ? 3 : undefined,
+      axisLabel: compact ? { formatter: (value: number) => formatCompactPoints(value) } : undefined,
     },
     series: [
       ...visibleComponents.map((component) => ({
@@ -62,7 +79,7 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
         stack: 'daily-total',
         cursor: 'pointer',
         yAxisIndex: 0,
-        barMaxWidth: 24,
+        barMaxWidth: compact ? 28 : 24,
         itemStyle: { color: component.color },
         emphasis: { focus: 'none' },
         data: compositions.map((composition) => composition[component.key]),
@@ -77,13 +94,6 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[]): EChartsC
         data: chronological.map((row) => Math.round(row.avg_30d ?? 0)),
       },
     ],
-    media: [{
-      query: { maxWidth: 500 },
-      option: {
-        grid: { left: 4, right: 8, top: 28, bottom: 52 },
-        yAxis: { nameLocation: 'end', nameGap: 10 },
-      },
-    }, { option: { grid, yAxis: { nameLocation: 'middle', nameGap: 48 } } }],
   };
 }
 
@@ -103,6 +113,30 @@ const DAILY_SCORE_COMPONENTS: ReadonlyArray<{
   { key: 'bonus', label: 'Bonus', color: '#a9bfdf' },
   { key: 'unattributed', label: 'Unattributed', color: '#94a3b8' },
 ];
+
+const COMPACT_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'short', day: 'numeric', timeZone: 'UTC',
+});
+
+function formatCompactChartDate(date: string): string {
+  return COMPACT_DATE_FORMATTER.format(new Date(`${date}T00:00:00.000Z`));
+}
+
+function formatCompactPoints(value: number): string {
+  if (Math.abs(value) < 1_000) return String(value);
+  return `${Number((value / 1_000).toFixed(1))}k`;
+}
+
+export function dailyLogLegendItems(rows: readonly DailySummaryRow[], windowDays: DailyTrendWindow = 'all') {
+  const compositions = chartRows(rows, localCalendarDate(), windowDays).map(dailyScoreComposition);
+  const active = DAILY_SCORE_COMPONENTS.filter((component) =>
+    compositions.some((composition) => composition[component.key] !== 0),
+  );
+  return [
+    ...active.map(({ label, color }) => ({ label, color, type: 'bar' as const })),
+    { label: '30d avg', color: '#dc5b62', type: 'line' as const },
+  ];
+}
 
 function dailyScoreComposition(row: DailySummaryRow): Record<DailyScoreContributionCategory, number> {
   const composition = Object.fromEntries(
@@ -128,15 +162,29 @@ function isDailyScoreContributionCategory(value: string): value is DailyScoreCon
 export function dailyLogRowAtChartIndex(
   rows: readonly DailySummaryRow[],
   dataIndex: number,
+  windowDays: DailyTrendWindow = 'all',
 ): DailySummaryRow | undefined {
   return Number.isInteger(dataIndex) && dataIndex >= 0
-    ? chartRows(rows).reverse()[dataIndex]
+    ? chartRows(rows, localCalendarDate(), windowDays)[dataIndex]
     : undefined;
 }
 
 // Chart points and click targets include today and share the same date cutoff.
-function chartRows(rows: readonly DailySummaryRow[], today = localCalendarDate()): DailySummaryRow[] {
-  return rows.filter((row) => row.metric_date <= today);
+function chartRows(
+  rows: readonly DailySummaryRow[],
+  today = localCalendarDate(),
+  windowDays: DailyTrendWindow = 'all',
+): DailySummaryRow[] {
+  const chronological = rows.filter((row) => row.metric_date <= today)
+    .sort((a, b) => a.metric_date.localeCompare(b.metric_date));
+  if (windowDays === 'all' || !chronological.length) return chronological;
+
+  // Window relative to the selected range's last recorded day, not necessarily today.
+  const lastDate = chronological[chronological.length - 1]!.metric_date;
+  const [year, month, day] = lastDate.split('-').map(Number);
+  const start = new Date(Date.UTC(year!, month! - 1, day! - windowDays + 1))
+    .toISOString().slice(0, 10);
+  return chronological.filter((row) => row.metric_date >= start);
 }
 
 export function formatDailyCellNumber(value: unknown): string {
