@@ -22,6 +22,11 @@ export const APP_ROUTES: Routes = [
     title: 'Connect iPhone · SportOS',
   },
   {
+    path: 'more',
+    loadComponent: () => import('./mobile-more-page.component').then(module => module.MobileMorePageComponent),
+    title: 'More · SportOS',
+  },
+  {
     path: 'overview',
     loadComponent: () => import('./overview-page.component').then((module) => module.OverviewPageComponent),
     title: 'Overview · SportOS',
