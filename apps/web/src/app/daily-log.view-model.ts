@@ -49,15 +49,19 @@ export function dailyLogChartOptions(
     grid,
     xAxis: {
       type: 'category',
-      data: chronological.map((row) => {
-        const date = compact ? formatCompactChartDate(row.metric_date) : formatDate(row.metric_date);
-        return row.metric_date === today ? `${date} (Incomplete)` : date;
-      }),
+      // Keep the full date on the axis for unambiguous tooltips across multi-year ranges.
+      data: chronological.map((row) => row.metric_date === today
+        ? `${formatDate(row.metric_date)} (Incomplete)` : formatDate(row.metric_date)),
       axisLabel: compact ? {
         hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
         interval: Math.max(0, Math.ceil(chronological.length / 4) - 1),
         fontSize: 11,
-        formatter: (value: string) => value.replace(' (Incomplete)', '\nToday*'),
+        formatter: (_value: string, index: number) => {
+          const row = chronological[index];
+          if (!row) return '';
+          return formatCompactChartDate(row.metric_date) +
+            (row.metric_date === today ? '\nToday*' : '');
+        },
       } : {
         hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
         formatter: (value: string) => value.replace(' (Incomplete)', '\nIncomplete'),
