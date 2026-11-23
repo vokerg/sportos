@@ -4,7 +4,7 @@ import 'zone.js';
 import 'zone.js/testing';
 import { TestBed } from '@angular/core/testing';
 import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from '@angular/platform-browser-dynamic/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AppComponent } from './app.component';
 import { WebAuthService } from './web-auth.service';
@@ -52,6 +52,34 @@ describe('mobile navigation shell', () => {
     expect(more.getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(more);
     expect(auth.loadSession).toHaveBeenCalledOnce();
+  });
+
+  it('tracks secondary destinations and hides phone navigation on full-screen maps', async () => {
+    const { fixture, el } = await setup();
+    const router = TestBed.inject(Router);
+    const isActive = vi.spyOn(router, 'isActive').mockImplementation(path => path === '/providers');
+    fixture.detectChanges();
+
+    const more = el.querySelector<HTMLButtonElement>('.mobile-tab-bar button')!;
+    expect(more.classList.contains('active')).toBe(true);
+    expect(isActive).toHaveBeenCalled();
+
+    fixture.componentInstance.fullPage.set(true);
+    fixture.detectChanges();
+    expect(el.querySelector('.mobile-navigation')).toBeNull();
+    expect(el.querySelector('.app-header')).toBeNull();
+  });
+
+  it('closes More on Escape and restores the trigger focus', async () => {
+    const { fixture, el } = await setup();
+    const more = el.querySelector<HTMLButtonElement>('.mobile-tab-bar button')!;
+    more.click();
+    fixture.detectChanges();
+    const panel = el.querySelector<HTMLElement>('.mobile-more-panel')!;
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(el.querySelector('.mobile-more-panel')).toBeNull();
+    expect(document.activeElement).toBe(more);
   });
 
   it('uses safe area side gutters and reserves room for the fixed phone tabs', () => {
