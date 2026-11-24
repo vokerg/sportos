@@ -1,6 +1,6 @@
 import { activitySubtypeLabel } from '../../shared/util/activity-subtype';
 import type { Activity, ActivityType } from './activities-api.service';
-import { formatDurationClock } from '../../shared/util/duration';
+import { formatDurationClock, formatSwimPace } from '../../shared/util/duration';
 
 export const TYPE_OPTIONS: Array<{ value: ActivityType | ''; label: string }> = [
   { value: '', label: 'All types' }, { value: 'walk', label: 'Walk' }, { value: 'run', label: 'Run' }, { value: 'bike', label: 'Bike' },
@@ -107,7 +107,7 @@ export function metrics(activity: Activity, detailed = false): Metric[] {
     }
   }
   if (['walk', 'run'].includes(activity.activity_type)) add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, pace, 'Pace and terrain');
-  if (activity.activity_type === 'swim') add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, (v) => `${formatDurationClock(v / 10)} /100 m`, 'Pace and terrain');
+  if (activity.activity_type === 'swim') add(activity.source === 'strava' ? 'Moving pace' : 'Average pace', activity.avg_pace_s_per_km, formatSwimPace, 'Pace and terrain');
   if (['bike', 'rowing', 'sup'].includes(activity.activity_type)) add('Average speed', activity.avg_speed_mps, (v) => `${(v * 3.6).toFixed(1)} km/h`, 'Pace and terrain');
   if (activity.activity_type !== 'bonus' && activity.activity_type !== 'steps') {
     add('Average HR', activity.avg_hr, (v) => `${v} bpm`, 'Heart rate and energy');

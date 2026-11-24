@@ -9,3 +9,7 @@ export function formatDurationClock(seconds: number): string {
     ? `${hours}:${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`
     : `${minutes}:${String(remainder).padStart(2, '0')}`;
 }
+
+export function formatSwimPace(secondsPerKm: number): string {
+  return `${formatDurationClock(secondsPerKm / 10)} /100 m`;
+}

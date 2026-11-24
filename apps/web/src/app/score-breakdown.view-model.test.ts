@@ -138,6 +138,12 @@ describe('score breakdown view model', () => {
     expect(formatActivityRate({ activityType: 'bike', avgPaceSPerKm: 160.85, avgSpeedMps: null })).toBe('2:41/km');
   });
 
+  it('presents swimming in minutes per 100 metres, including speed-only activities', () => {
+    expect(formatActivityRate({ activityType: 'swim', avgPaceSPerKm: 1225, avgSpeedMps: 0.5 })).toBe('2:03 /100 m');
+    expect(formatActivityRate({ activityType: 'swim', avgPaceSPerKm: null, avgSpeedMps: 0.8 })).toBe('2:05 /100 m');
+    expect(formatActivityRate({ activityType: 'swim', avgPaceSPerKm: null, avgSpeedMps: 0 })).toBe('—');
+  });
+
   it('keeps missing provenance explicit rather than guessing a source', () => {
     expect(sourceSummary(null)).toBe('Source link unavailable');
     expect(sourceSummary(source)).toBe('my_sport.xlsx · Sheet1 row 2');

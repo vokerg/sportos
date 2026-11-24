@@ -12,17 +12,23 @@ import type { DailyScoreBreakdown, ScoreBreakdownActivity } from './score-breakd
 
 beforeAll(() => TestBed.initTestEnvironment(BrowserDynamicTestingModule, platformBrowserDynamicTesting()));
 afterEach(() => TestBed.resetTestingModule());
-it('links day activities by canonical ID and supports normal router navigation', () => {
+it('links day activities in start-time order with untimed records last', () => {
   TestBed.configureTestingModule({providers:[provideRouter([])]});
   const fixture = TestBed.createComponent(ScoreBreakdownActivitiesComponent);
   const activity = {id:'canonical-run',source:'strava',sourceActivityId:'provider-native-id',activityDate:'2026-10-11',startTime:null,activityType:'run',subtype:null,distanceM:5000,durationS:1500,movingTimeS:1500,steps:null,calories:null,avgHr:null,maxHr:null,elevationGainM:null,avgSpeedMps:null,avgPaceSPerKm:300,effortPoints:null,notes:null,sourceRecord:null} satisfies ScoreBreakdownActivity;
-  const breakdown = {date:'2026-10-11',activities:[activity,{...activity,id:'canonical-manual',source:'manual'}],ledger:[]} as unknown as DailyScoreBreakdown;
+  const breakdown = {date:'2026-10-11',activities:[
+    { ...activity, id: 'canonical-untimed' },
+    { ...activity, id: 'canonical-swim', activityType: 'swim', startTime: '2026-10-11T17:30:00.000Z', avgPaceSPerKm: 1225 },
+    { ...activity, startTime: '2026-10-11T06:00:00.000Z' },
+    { ...activity, id: 'canonical-manual', source: 'manual' },
+  ],ledger:[]} as unknown as DailyScoreBreakdown;
   // Supply input signals directly for Vitest's JIT compilation.
   Object.defineProperty(fixture.componentInstance,'breakdown',{value:signal(breakdown)});
   Object.defineProperty(fixture.componentInstance,'garminActivityIds',{value:signal(['canonical-run'])});
   fixture.detectChanges();
   const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll('a')];
-  expect(links.map(a => a.getAttribute('href'))).toEqual(['/activity/canonical-run']);
+  expect(links.map(a => a.getAttribute('href'))).toEqual(['/activity/canonical-run', '/activity/canonical-swim', '/activity/canonical-untimed']);
+  expect((fixture.nativeElement as HTMLElement).textContent).toContain('2:03 /100 m');
   expect((fixture.nativeElement as HTMLElement).textContent).toContain('Garmin');
   expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Manual');
   expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Provenance');
