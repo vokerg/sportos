@@ -45,7 +45,7 @@ import type { SwimLengthResponse } from '../activities-api.service';
           }
           @if (chart(); as options) {
             <div echarts [theme]="colorScheme.chartTheme()" class="chart" [style.height.px]="chartHeight()" [options]="options" [notMerge]="true"
-              role="img" aria-label="Swimming pace per 100 metres, SWOLF and stroke count by active pool length"></div>
+              role="img" aria-label="Bar charts of pace per 100 metres, SWOLF and stroke count by active pool length"></div>
           }
           <div class="table-scroll">
             <table>
