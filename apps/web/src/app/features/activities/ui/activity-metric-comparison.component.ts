@@ -28,8 +28,8 @@ import { comparisonGroups, detailMetricGroups, highlightMetrics } from '../model
       </section>
     }
     @if (presentation() !== 'summary' && groups().length) {
-      <section class="card" aria-label="Activity metrics"><h2>{{ activity() ? 'More activity metrics' : 'Activity metrics' }}</h2>
-        <p>Matching Strava and Garmin values appear once without provider labels (within display tolerance). When values differ, the primary value is bold. Garmin fallbacks are read-only.</p>
+      <section class="card metric-details" aria-label="Activity metrics"><h2>{{ activity() ? 'More activity metrics' : 'Activity metrics' }}</h2>
+        <p>Matching provider values are combined. When values differ, the primary value is bold.</p>
         @for (group of groups(); track group.title) {
           <section class="group" [attr.aria-label]="group.title"><h3>{{ group.title }}</h3>
             <dl class="comparison">@for (metric of group.items; track metric.key) {
@@ -41,10 +41,12 @@ import { comparisonGroups, detailMetricGroups, highlightMetrics } from '../model
     }
   `,
   styles: [`
-    :host{display:block;margin-top:16px}h2{font-size:17px;margin-top:0}h3{font-size:14px;color:var(--text-secondary);margin:0 0 12px}
-    p,.unavailable{color:var(--text-muted);font-size:13px}.group{border-top:1px solid var(--border);padding-top:16px;margin-top:16px}
-    .comparison{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:20px;margin:0}
-    .metric{min-width:0;overflow-wrap:anywhere}dt{color:var(--text-muted);font-size:12px;margin-bottom:6px}dd{margin:0;display:grid;gap:8px}
+    :host{display:block;margin-top:16px}h2{font-size:17px;margin-top:0}h3{font-size:14px;color:var(--text-secondary);margin:0}
+    p,.unavailable{color:var(--text-muted);font-size:13px}.group{border-top:1px solid var(--border);padding:14px 0;display:grid;grid-template-columns:10rem minmax(0, 34rem);gap:20px;align-items:baseline}
+    .group:last-child{padding-bottom:0}.metric-details p{margin:0 0 14px}.comparison{margin:0;min-width:0}
+    .metric{display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);gap:8px 16px;align-items:baseline;min-width:0;padding:7px 0;overflow-wrap:anywhere}
+    .metric + .metric{border-top:1px solid var(--border)}.metric:first-child{padding-top:0}.metric:last-child{padding-bottom:0}
+    dt{color:var(--text-muted);font-size:12px;margin-bottom:6px}dd{margin:0;display:grid;gap:5px;min-width:0}.metric dt{margin:0}
     .value{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 8px;font-size:14px}.value strong{font-weight:500}.authoritative strong{font-weight:750}
     .sources{color:var(--text-secondary);font-size:12px}.fallback{font-size:11px;padding:2px 6px;border-radius:4px;background:var(--accent-surface);color:var(--text-secondary)}
     .highlights{--accent:var(--sport-run);--tint:var(--accent-surface);border:1px solid var(--border-accent);border-radius:20px;padding:24px;margin-bottom:20px;background:linear-gradient(120deg,var(--tint),var(--surface) 85%);box-shadow:0 8px 24px #14213d06}
@@ -59,7 +61,7 @@ import { comparisonGroups, detailMetricGroups, highlightMetrics } from '../model
     .highlight strong{font-size:clamp(24px,2.5vw,38px);letter-spacing:-1px;font-weight:750;line-height:1.15;color:var(--text)}
     .highlight .alternative strong{font-size:20px;font-weight:500;letter-spacing:-.4px;color:var(--text-secondary)}
     .highlight .sources{font-size:12px}.highlight .fallback{justify-self:start}
-    @media(max-width:700px){.highlights{padding:18px}.highlight-grid{grid-template-columns:1fr;gap:20px}.highlight{padding-left:14px}.highlight strong{font-size:30px}.summary-heading{margin-bottom:18px}}
+    @media(max-width:700px){.group{grid-template-columns:minmax(0,1fr);gap:10px}.metric{gap:6px 12px}.highlights{padding:18px}.highlight-grid{grid-template-columns:1fr;gap:20px}.highlight{padding-left:14px}.highlight strong{font-size:30px}.summary-heading{margin-bottom:18px}}
   `],
 })
 export class ActivityMetricComparisonComponent {
