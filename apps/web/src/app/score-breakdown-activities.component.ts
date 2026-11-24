@@ -82,7 +82,13 @@ import {
 export class ScoreBreakdownActivitiesComponent {
   readonly breakdown = input.required<DailyScoreBreakdown>();
   readonly garminActivityIds = input<string[]>([]);
-  readonly activities = computed(() => this.breakdown().activities.filter(activity => activity.source !== 'manual' && activity.activityType !== 'steps' && activity.activityType !== 'bonus'));
+  readonly activities = computed(() => this.breakdown().activities
+    .filter(activity => activity.source !== 'manual' && activity.activityType !== 'steps' && activity.activityType !== 'bonus')
+    .sort((left, right) => {
+      if (!left.startTime) return right.startTime ? 1 : 0;
+      if (!right.startTime) return -1;
+      return left.startTime.localeCompare(right.startTime);
+    }));
 
   readonly activityName = activityName;
   readonly formatDistance = formatDistance;

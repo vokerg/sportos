@@ -11,9 +11,12 @@ describe('swim split charts',()=>{
    const chart=swimLengthChartOptions(base) as any;
    expect(chart.xAxis[0].data).toEqual(['1','3']);
    expect(chart.series.map((s:any)=>s.id)).toEqual(['pace','swolf','strokes']);
+   expect(chart.series.every((s:any)=>s.type==='bar')).toBe(true);
    expect(chart.series[0].data).toEqual([100,95]);
    expect(chart.series[1].data).toEqual([42,40]);
    expect(chart.yAxis.map((y:any)=>y.inverse)).toEqual([true,false,false]);
+   expect(chart.yAxis[0]).toMatchObject({ max:110, startValue:110 });
+   expect(chart.yAxis.slice(1).every((y:any)=>y.min===0)).toBe(true);
    expect(chart.yAxis.map((y:any)=>y.nameLocation)).toEqual(['start','end','end']);
    expect(chart.yAxis.every((y:any)=>y.nameTextStyle.align==='left')).toBe(true);
    expect(chart.dataZoom.every((z:any)=>z.xAxisIndex.length===3)).toBe(true);
@@ -35,7 +38,6 @@ describe('swim split charts',()=>{
    expect(chart.series[0].data[0]).toBe(94.5);
    expect(chart.series[0].tooltip.valueFormatter(94.5)).toBe('1:35');
    expect(chart.series[1].data[20]).toBeNull();
-   expect(chart.series.every((s:any)=>s.connectNulls===false)).toBe(true);
  });
  it('omits charts entirely when there is no recorded split evidence',()=>{
    expect(swimLengthChartOptions({...base,lengths:[row(1,'rest',null,null,null)]})).toBeNull();

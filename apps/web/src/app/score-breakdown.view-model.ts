@@ -1,4 +1,5 @@
 import { activitySubtypeLabel } from './shared/util/activity-subtype';
+import { formatSwimPace } from './shared/util/duration';
 import type {
   DailyScoreBreakdown,
   JsonValue,
@@ -96,6 +97,11 @@ export function formatSpeed(metersPerSecond: number): string {
 }
 
 export function formatActivityRate(activity: Pick<ScoreBreakdownActivity, 'activityType' | 'avgPaceSPerKm' | 'avgSpeedMps'>): string {
+  if (activity.activityType === 'swim') {
+    if (activity.avgPaceSPerKm !== null && activity.avgPaceSPerKm > 0) return formatSwimPace(activity.avgPaceSPerKm);
+    if (activity.avgSpeedMps !== null && activity.avgSpeedMps > 0) return formatSwimPace(1000 / activity.avgSpeedMps);
+    return '—';
+  }
   if (activity.activityType === 'bike' && activity.avgSpeedMps !== null) return formatSpeed(activity.avgSpeedMps);
   if (activity.avgPaceSPerKm !== null) return formatPace(activity.avgPaceSPerKm);
   if (activity.avgSpeedMps !== null) return formatSpeed(activity.avgSpeedMps);

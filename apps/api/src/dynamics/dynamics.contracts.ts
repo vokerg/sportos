@@ -352,11 +352,15 @@ function rollingColumns(rows: DynamicsDailyRow[], from: string, to: string, metr
   return { dates, daily, windows: output };
 }
 
-export function buildDynamicsHistory(rows: DynamicsDailyRow[], to: string, contributions: ScoreContributionRow[] = []): DynamicsHistoryResponse {
+function historyColumns(rows: DynamicsDailyRow[], to: string) {
   // Repository rows are ordered, but pure callers need not be.
   const from = rows.reduce((earliest, row) => row.metricDate < earliest ? row.metricDate : earliest, to);
   const columns = rows.length ? rollingColumns(rows, from, to, DYNAMICS_METRICS, ROLLING_WINDOWS)
     : { dates: [], daily: metricColumns(), windows: {} };
+  return { range: { from, to }, ...columns };
+}
+
+function recordsFromHistory(columns: Pick<DynamicsHistoryResponse, 'dates' | 'daily' | 'windows'>): DynamicsRecord[] {
   const records = new Map<string, DynamicsRecord>();
   const consider = (metric: DynamicsMetric, windowDays: 1 | RollingWindow, date: string, value: number | null, recordedDays: number) => {
     if (value === null) return;
@@ -378,6 +382,16 @@ export function buildDynamicsHistory(rows: DynamicsDailyRow[], to: string, contr
       }
     }
   });
-  return { version: 1, range: { from, to }, ...columns, records: [...records.values()],
+  return [...records.values()];
+}
+
+export function buildDynamicsRecords(rows: DynamicsDailyRow[], to: string): DynamicsRecord[] {
+  return recordsFromHistory(historyColumns(rows, to));
+}
+
+export function buildDynamicsHistory(rows: DynamicsDailyRow[], to: string, contributions: ScoreContributionRow[] = []): DynamicsHistoryResponse {
+  const columns = historyColumns(rows, to);
+  const { from } = columns.range;
+  return { version: 1, ...columns, records: recordsFromHistory(columns),
     scoreContributions: rows.length ? Object.fromEntries(ROLLING_WINDOWS.map((window) => [window, buildScoreContributions(contributions, from, to, window)])) : {} };
 }

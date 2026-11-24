@@ -22,6 +22,10 @@ export function swimLengthChartOptions(data: SwimLengthResponse): EChartsCoreOpt
     {key: 'strokes', title:'Strokes · per length', values:active.map(row => row.strokes), formatter:(v:number)=>String(v)},
   ].filter(metric => metric.values.some(value => value !== null));
   if (!metrics.length) return null;
+  // Put the pace bar baseline below the slowest recorded length so faster
+  // lengths have taller bars on the inverted axis.
+  const slowestPace = Math.max(...active.map(row => row.paceSPer100M ?? 0));
+  const paceBaseline = Math.floor(slowestPace / 10) * 10 + 10;
   const grid = metrics.map((_,i) => ({left:75,right:25,top:36 + 155*i,height:100}));
   return {
     animation: false,
@@ -35,16 +39,17 @@ export function swimLengthChartOptions(data: SwimLengthResponse): EChartsCoreOpt
     xAxis: metrics.map((_,i) => ({type:'category',gridIndex:i,data:labels,
       axisLabel:{show:i===metrics.length-1, hideOverlap:true, alignMinLabel:'left', alignMaxLabel:'right'},name:i===metrics.length-1?'Active pool length #':'',
       nameLocation:'middle',nameGap:28})),
-    yAxis: metrics.map((metric,i) => ({type:'value',gridIndex:i,scale:true,
-      inverse:metric.key==='pace',name:metric.title,nameLocation:metric.key==='pace'?'start':'end',
+    yAxis: metrics.map((metric,i) => ({type:'value',gridIndex:i,
+      ...(metric.key==='pace' ? { scale:true, inverse:true, max:paceBaseline, startValue:paceBaseline } : { inverse:false, min:0 }),
+      name:metric.title,nameLocation:metric.key==='pace'?'start':'end',
       nameTextStyle:{align:'left'},splitNumber:3,
       axisLabel:{formatter:metric.key==='pace'?(v:number)=>formatDurationClock(v):(v:number)=>String(v)},
       splitLine:{show:true}})),
     dataZoom: [{type:'inside',xAxisIndex:metrics.map((_,i)=>i),filterMode:'none'},
       {type:'slider',xAxisIndex:metrics.map((_,i)=>i),bottom:0,height:16,filterMode:'none'}],
     series: metrics.map((metric,i) => ({
-      id:metric.key,name:metric.title,type:'line',xAxisIndex:i,yAxisIndex:i,
-      data:metric.values,showSymbol:active.length<80,connectNulls:false,smooth:false,
+      id:metric.key,name:metric.title,type:'bar',xAxisIndex:i,yAxisIndex:i,
+      data:metric.values,barWidth:'88%',barMaxWidth:48,
       tooltip:{valueFormatter:(value:unknown) => typeof value==='number'?metric.formatter(value):'—'},
     })),
   };
