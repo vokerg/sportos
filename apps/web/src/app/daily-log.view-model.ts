@@ -1,4 +1,5 @@
-import type { EChartsCoreOption } from 'echarts/core';
+import type { TooltipComponentOption } from 'echarts/components';
+import { format, type EChartsCoreOption } from 'echarts/core';
 import type { DailyScoreContributionCategory, DailySummaryRow } from './features/daily/model/daily.models';
 import { formatDate } from './date-time';
 import { boundedAllTimeRange, localCalendarDate, QUICK_RANGE_VALUES, quickRangeDates, type QuickRange } from './shared/util/analytics-query-state';
@@ -14,9 +15,11 @@ export const DAILY_LOG_PAGE_SIZES = [100, 200, 365] as const;
 export { positiveMetricRange, relativePastelBackground } from './shared/util/metric-heat';
 export type { DailyMetricRange } from './shared/util/metric-heat';
 
-export function dailyLogChartOptions(rows: readonly DailySummaryRow[], sheetOpen = false): EChartsCoreOption {
+export function dailyLogChartOptions(rows: readonly DailySummaryRow[], sheetOpen = false) {
   const today = localCalendarDate();
   const chronological = chartRows(rows, today).reverse();
+  const dateLabels = chronological.map((row) => row.metric_date === today
+    ? `${formatDate(row.metric_date)} (Incomplete)` : formatDate(row.metric_date));
   const compositions = chronological.map(dailyScoreComposition);
   const visibleComponents = DAILY_SCORE_COMPONENTS.filter((component) =>
     compositions.some((composition) => composition[component.key] !== 0),
@@ -43,17 +46,28 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[], sheetOpen
       trigger: 'axis',
       confine: true,
       axisPointer: { type: 'none' },
-      valueFormatter: (value: unknown) => {
-        const points = Number(value);
-        return Number.isFinite(points) ? `${points.toLocaleString(undefined, { maximumFractionDigits: 1 })} pts` : '—';
+      formatter: (params) => {
+        const entries = Array.isArray(params) ? params : [params];
+        const index = entries[0]?.dataIndex ?? -1;
+        const row = chronological[index];
+        if (!row) return '';
+
+        const contributions = entries.map((entry) => scoreTooltipRow(
+          `${entry.marker ?? ''}${format.encodeHTML(entry.seriesName ?? '')}`,
+          entry.value,
+        ));
+        return [
+          `<div>${format.encodeHTML(dateLabels[index] ?? '')}</div>`,
+          scoreTooltipRow('<strong>Total score</strong>', row.total_points),
+          ...contributions,
+        ].join('');
       },
-    },
+    } satisfies TooltipComponentOption,
     legend: { type: 'scroll', bottom: 0 },
     grid,
     xAxis: {
       type: 'category',
-      data: chronological.map((row) => row.metric_date === today
-        ? `${formatDate(row.metric_date)} (Incomplete)` : formatDate(row.metric_date)),
+      data: dateLabels,
       axisLabel: {
         hideOverlap: true, showMaxLabel: true, alignMaxLabel: 'right',
         formatter: (value: string) => value.replace(' (Incomplete)', '\nIncomplete'),
@@ -103,7 +117,14 @@ export function dailyLogChartOptions(rows: readonly DailySummaryRow[], sheetOpen
       grid, dataZoom: fullRangeZoom, legend: { bottom: 0, itemWidth: 25, itemHeight: 14, textStyle: { fontSize: 12 } },
       yAxis: { name: 'Points', nameLocation: 'middle', nameGap: 48 },
     } }],
-  };
+  } satisfies EChartsCoreOption;
+}
+
+function scoreTooltipRow(label: string, value: unknown): string {
+  const points = Number(value);
+  const formattedPoints = Number.isFinite(points)
+    ? `${points.toLocaleString(undefined, { maximumFractionDigits: 1 })} pts` : '—';
+  return `<div style="display:flex;justify-content:space-between;gap:20px;margin-top:4px"><span>${label}</span><strong>${formattedPoints}</strong></div>`;
 }
 
 const DAILY_SCORE_COMPONENTS: ReadonlyArray<{
