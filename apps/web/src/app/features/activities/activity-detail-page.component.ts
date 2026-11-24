@@ -42,6 +42,10 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
       }
       @else if (store.mapState() === 'error') { <section class="card map-status" role="alert">Could not load the GPS route. <button type="button" (click)="store.loadMap()">Try again</button></section> }
       }
+      @if (item.activity_type !== 'swim' || item.subtype === 'outdoor') {
+        <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
+      }
+      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
       @if (item.activity_type === 'swim' && item.subtype !== 'outdoor') {
         <sportos-swim-lengths
           [state]="store.swimLengthState()"
@@ -52,10 +56,7 @@ import { startTime, title, displayedSubtype } from './activity.view-model';
           (load)="store.loadSwimLengths()"
           (timelineLoad)="store.loadTimeline($event)"
         />
-      } @else {
-        <sportos-activity-timeline [sport]="item.activity_type" [source]="store.timelineSource()" [state]="store.timelineState()" [data]="store.timelineData()" (load)="store.loadTimeline($event)" />
       }
-      <sportos-activity-metric-comparison [metrics]="item.metricComparisons ?? []" [sport]="item.activity_type" [activity]="item" presentation="details" />
       @if (item.activity_type === 'swim' && item.subtype === 'indoor') {
         <section class="card distance-correction" aria-label="Swim distance correction">
           <div class="correction-heading"><h2>Distance correction</h2>@if (item.distanceCorrection) { <span class="badge">Manual correction</span> }</div>

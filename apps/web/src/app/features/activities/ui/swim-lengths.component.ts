@@ -2,6 +2,7 @@ import { Component, computed, inject, input, output } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { ColorSchemeService } from '../../../core/theme/color-scheme.service';
 import { swimLengthChartOptions, swimLengthChartHeight, swimSplitTime } from '../model/swim-length-chart.models';
+import { swimLengthHeat } from '../model/swim-length-table.view-model';
 import type { ActivityTimeline, TimelineSource } from '../model/activity-timeline.models';
 import { ActivityTimelineComponent } from './activity-timeline.component';
 import { formatDurationClock } from '../../../shared/util/duration';
@@ -18,9 +19,10 @@ import type { SwimLengthResponse } from '../activities-api.service';
           {{ state() === 'idle' ? 'Load stats' : state() === 'loading' ? 'Loading…' : 'Reload stats' }}
         </button>
       </div>
+      @let lengthsResult = data();
       @if (state() === 'error') { <p role="alert">Could not read retained swim stats. Try again.</p> }
       @else if (state() === 'loading') { <p role="status">Reading retained Garmin lengths…</p> }
-      @else if (state() === 'loaded') { @if (data(); as data) {
+      @else if (state() === 'loaded') { @if (lengthsResult; as data) {
         @if (data.status === 'unavailable') {
           <p class="muted">{{ reason(data.reason) }}</p>
         } @else {
@@ -47,26 +49,6 @@ import type { SwimLengthResponse } from '../activities-api.service';
             <div echarts [theme]="colorScheme.chartTheme()" class="chart" [style.height.px]="chartHeight()" [options]="options" [notMerge]="true"
               role="img" aria-label="Bar charts of pace per 100 metres, SWOLF and stroke count by active pool length"></div>
           }
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th scope="col">#</th><th scope="col">Type</th><th scope="col">Distance</th><th scope="col">Split</th><th scope="col">Pace /100 m</th><th scope="col">Strokes</th><th scope="col">SWOLF</th><th scope="col">Stroke</th></tr></thead>
-              <tbody>
-                @for (length of data.lengths; track length.row) {
-                  <tr [class.rest]="length.kind === 'rest'">
-                    <td>{{ length.lengthNumber ?? '—' }}</td>
-                    <td>{{ length.kind === 'active' ? 'Length' : length.kind === 'rest' ? 'Rest' : 'Unclassified' }}</td>
-                    <td>{{ length.kind === 'active' ? data.poolLengthDisplay ?? '—' : '—' }}</td>
-                    <td>{{ splitTime(length.durationS) }} @if (length.durationBasis === 'elapsed') { <small title="Timer time missing; elapsed time is shown">elapsed</small> }</td>
-                    <td>{{ duration(length.paceSPer100M) }}</td>
-                    <td>{{ length.strokes ?? '—' }}</td>
-                    <td>{{ length.swolf === null ? '—' : round(length.swolf) }}</td>
-                    <td>{{ length.stroke ?? '—' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <p class="muted note">Pace uses the recorded split time and pool size. SWOLF is calculated as active timer seconds + recorded strokes; it is not a separate device observation. An unknown or resting length is not counted as distance. These values do not override activity totals or scoring.</p>
         }
       } } @else { <p class="muted">Load the length-by-length breakdown when Garmin rich data is retained.</p> }
       <p class="muted note">If missing, use Fetch Garmin detail under Provider data below, then reload lengths.</p>
@@ -78,10 +60,41 @@ import type { SwimLengthResponse } from '../activities-api.service';
         [embedded]="true"
         (load)="timelineLoad.emit($event)"
       />
+      @if (state() === 'loaded' && lengthsResult?.status === 'available') {
+        @let data = lengthsResult;
+        <h3 id="pool-lengths-title">Pool lengths</h3>
+        @if (heat().hasVariation) {
+          <p class="muted note" id="pool-lengths-heat">Warmer cells show faster splits and pace within this swim.</p>
+        }
+        <div class="table-scroll" role="region" aria-labelledby="pool-lengths-title"
+          [attr.aria-describedby]="heat().hasVariation ? 'pool-lengths-heat' : null" tabindex="0">
+          <table>
+            <thead><tr><th scope="col">#</th><th scope="col">Type</th><th scope="col">Distance</th><th scope="col">Split</th><th scope="col">Pace /100 m</th><th scope="col">Strokes</th><th scope="col">SWOLF</th><th scope="col">Stroke</th></tr></thead>
+            <tbody>
+              @for (length of data.lengths; track length.row; let index = $index) {
+                <tr [class.rest]="length.kind === 'rest'">
+                  <td>{{ length.lengthNumber ?? '—' }}</td>
+                  <td>{{ length.kind === 'active' ? 'Length' : length.kind === 'rest' ? 'Rest' : 'Unclassified' }}</td>
+                  <td>{{ length.kind === 'active' ? data.poolLengthDisplay ?? '—' : '—' }}</td>
+                  <td [style.background-color]="heat().split[index]">{{ splitTime(length.durationS) }} @if (length.durationBasis === 'elapsed') { <small title="Timer time missing; elapsed time is shown">elapsed</small> }</td>
+                  <td [style.background-color]="heat().pace[index]">{{ duration(length.paceSPer100M) }}</td>
+                  <td>{{ length.strokes ?? '—' }}</td>
+                  <td>{{ length.swolf === null ? '—' : round(length.swolf) }}</td>
+                  <td>{{ length.stroke ?? '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="muted note">Pace uses the recorded split time and pool size. SWOLF is calculated as active timer seconds + recorded strokes; it is not a separate device observation. An unknown or resting length is not counted as distance. These values do not override activity totals or scoring.</p>
+      }
     </section>
   `,
   styles: [`
-    :host{display:block;margin:16px 0}.swim-stats{overflow:hidden}.heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}.heading h2{margin:0;font-size:19px}.heading p{margin:6px 0;color:var(--text-muted);font-size:13px}.muted{color:var(--text-muted)}.note{font-size:12px;line-height:1.6}.chart{width:100%;min-width:0;margin:16px 0}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;font-variant-numeric:tabular-nums}th,td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}th{font-size:12px;color:var(--text-muted)}.rest{color:var(--text-muted)}small{font-size:10px;color:var(--text-muted)}
+    :host{display:block;margin:16px 0}.swim-stats{overflow:hidden}.heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}.heading h2{margin:0;font-size:19px}.heading p{margin:6px 0;color:var(--text-muted);font-size:13px}.muted{color:var(--text-muted)}.note{font-size:12px;line-height:1.6}.chart{width:100%;min-width:0;margin:16px 0}.table-scroll{max-height:min(55vh,34rem);overflow:auto;border:1px solid var(--border);border-radius:10px}table{width:100%;border-collapse:collapse;text-align:left;font-variant-numeric:tabular-nums}th,td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}th{font-size:12px;color:var(--text-muted)}.rest{color:var(--text-muted)}small{font-size:10px;color:var(--text-muted)}
+    h3 { margin: 18px 0 6px; font-size: 15px; }
+    thead { position: sticky; top: 0; z-index: 1; background: var(--surface-muted); }
+    .table-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   `]
 })
 export class SwimLengthsComponent {
@@ -96,6 +109,7 @@ export class SwimLengthsComponent {
   readonly load = output<void>();
   readonly timelineLoad = output<TimelineSource>();
   readonly hasRest = computed(() => this.data()?.lengths.some(row => row.kind === 'rest') ?? false);
+  readonly heat = computed(() => swimLengthHeat(this.data()?.lengths ?? []));
   readonly splitTime = swimSplitTime;
   readonly duration = (value: number | null) => value === null ? '—' : formatDurationClock(value);
   readonly round = (value: number) => Number(value.toFixed(1));
