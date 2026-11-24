@@ -64,6 +64,26 @@ describe('daily log view model', () => {
     expect(dailyLogRowAtChartIndex(rows, -1)).toBeUndefined();
   });
 
+  it('shows the official day total even when the tooltip receives only visible series', () => {
+    const options = dailyLogChartOptions([
+      { ...row, metric_date: '2026-05-19', total_points: 40 },
+      { ...row, score_contributions: { steps: 20, bonus: 5 } },
+    ]);
+    const tooltip = options.tooltip.formatter([
+      { dataIndex: 0, seriesName: 'Steps', value: 20 },
+      { dataIndex: 0, seriesName: '30d average', value: 18 },
+    ].map((entry) => ({
+      ...entry, componentType: 'series', componentSubType: 'bar', componentIndex: 0,
+      name: formatDate(row.metric_date), data: entry.value, $vars: [],
+    })));
+
+    expect(tooltip).toContain(formatDate(row.metric_date));
+    expect(tooltip).toContain('Total score</strong></span><strong>25 pts');
+    expect(tooltip).toContain('Steps</span><strong>20 pts');
+    expect(tooltip).toContain('30d average</span><strong>18 pts');
+    expect(tooltip).not.toContain('40 pts');
+  });
+
   it('keeps all daily scores but initially focuses the mobile chart on the latest three weeks', () => {
     const rows = Array.from({ length: 90 }, (_, index) => ({
       ...row, metric_date: new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10),
