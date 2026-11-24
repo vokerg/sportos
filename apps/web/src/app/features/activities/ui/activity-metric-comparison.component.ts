@@ -28,25 +28,56 @@ import { comparisonGroups, detailMetricGroups, highlightMetrics } from '../model
       </section>
     }
     @if (presentation() !== 'summary' && groups().length) {
-      <section class="card metric-details" aria-label="Activity metrics"><h2>{{ activity() ? 'More activity metrics' : 'Activity metrics' }}</h2>
-        <p>Matching provider values are combined. When values differ, the primary value is bold.</p>
-        @for (group of groups(); track group.title) {
-          <section class="group" [attr.aria-label]="group.title"><h3>{{ group.title }}</h3>
-            <dl class="comparison">@for (metric of group.items; track metric.key) {
-              <div class="metric"><dt>{{ metric.label }}</dt><dd><ng-container [ngTemplateOutlet]="values" [ngTemplateOutletContext]="{ $implicit: metric }" /></dd></div>
-            }</dl>
-          </section>
-        }
+      <section class="card metric-details" aria-label="Activity metrics">
+        <header class="details-heading">
+          <h2>{{ activity() ? 'More activity metrics' : 'Activity metrics' }}</h2>
+          @if (hasComparisons()) { <p>Primary values are bold when sources differ.</p> }
+        </header>
+        <div class="metric-columns">
+          @for (group of groups(); track group.title) {
+            <section class="group" [attr.aria-label]="group.title">
+              <h3>{{ group.title }}</h3>
+              <dl class="comparison">
+                @for (metric of group.items; track metric.key) {
+                  <div class="metric">
+                    <dt>{{ metric.label }}</dt>
+                    <dd><ng-container [ngTemplateOutlet]="values" [ngTemplateOutletContext]="{ $implicit: metric }" /></dd>
+                  </div>
+                }
+              </dl>
+            </section>
+          }
+        </div>
       </section>
     }
   `,
   styles: [`
-    :host{display:block;margin-top:16px}h2{font-size:17px;margin-top:0}h3{font-size:14px;color:var(--text-secondary);margin:0}
-    p,.unavailable{color:var(--text-muted);font-size:13px}.group{border-top:1px solid var(--border);padding:14px 0;display:grid;grid-template-columns:10rem minmax(0, 34rem);gap:20px;align-items:baseline}
-    .group:last-child{padding-bottom:0}.metric-details p{margin:0 0 14px}.comparison{margin:0;min-width:0}
-    .metric{display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);gap:8px 16px;align-items:baseline;min-width:0;padding:7px 0;overflow-wrap:anywhere}
-    .metric + .metric{border-top:1px solid var(--border)}.metric:first-child{padding-top:0}.metric:last-child{padding-bottom:0}
-    dt{color:var(--text-muted);font-size:12px;margin-bottom:6px}dd{margin:0;display:grid;gap:5px;min-width:0}.metric dt{margin:0}
+    :host { display: block; margin-top: 16px; }
+    h2 { font-size: 17px; margin-top: 0; }
+    .details-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 14px; }
+    .details-heading h2, .details-heading p { margin: 0; }
+    .details-heading p, .unavailable { color: var(--text-muted); font-size: 12px; }
+    .metric-columns { columns: 2; column-gap: 14px; }
+    .group {
+      break-inside: avoid; margin: 0 0 14px; padding: 12px 16px;
+      border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted);
+    }
+    .group h3 { color: var(--text); font-size: 14px; margin: 0 0 5px; }
+    .comparison { margin: 0; }
+    .metric {
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px; align-items: baseline; padding: 6px 0; overflow-wrap: anywhere;
+    }
+    .metric + .metric { border-top: 1px solid var(--border); }
+    .metric:last-child { padding-bottom: 0; }
+    dt { color: var(--text-muted); font-size: 12px; margin-bottom: 6px; }
+    dd { margin: 0; display: grid; gap: 5px; min-width: 0; }
+    .metric dt { margin: 0; }
+    .metric dd { text-align: right; font-variant-numeric: tabular-nums; }
+    .metric .value { display: grid; grid-template-columns: minmax(0, 1fr) auto; justify-items: end; }
+    .metric .value strong { grid-column: 2; grid-row: 1; }
+    .metric .sources { grid-column: 1; grid-row: 1; }
+    .metric .fallback { grid-column: 1 / -1; }
     .value{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 8px;font-size:14px}.value strong{font-weight:500}.authoritative strong{font-weight:750}
     .sources{color:var(--text-secondary);font-size:12px}.fallback{font-size:11px;padding:2px 6px;border-radius:4px;background:var(--accent-surface);color:var(--text-secondary)}
     .highlights{--accent:var(--sport-run);--tint:var(--accent-surface);border:1px solid var(--border-accent);border-radius:20px;padding:24px;margin-bottom:20px;background:linear-gradient(120deg,var(--tint),var(--surface) 85%);box-shadow:0 8px 24px #14213d06}
@@ -61,7 +92,11 @@ import { comparisonGroups, detailMetricGroups, highlightMetrics } from '../model
     .highlight strong{font-size:clamp(24px,2.5vw,38px);letter-spacing:-1px;font-weight:750;line-height:1.15;color:var(--text)}
     .highlight .alternative strong{font-size:20px;font-weight:500;letter-spacing:-.4px;color:var(--text-secondary)}
     .highlight .sources{font-size:12px}.highlight .fallback{justify-self:start}
-    @media(max-width:700px){.group{grid-template-columns:minmax(0,1fr);gap:10px}.metric{gap:6px 12px}.highlights{padding:18px}.highlight-grid{grid-template-columns:1fr;gap:20px}.highlight{padding-left:14px}.highlight strong{font-size:30px}.summary-heading{margin-bottom:18px}}
+    @media (max-width: 800px) {
+      .metric-columns { columns: 1; }
+      .group:last-child { margin-bottom: 0; }
+    }
+    @media(max-width:700px){.highlights{padding:18px}.highlight-grid{grid-template-columns:1fr;gap:20px}.highlight{padding-left:14px}.highlight strong{font-size:30px}.summary-heading{margin-bottom:18px}}
   `],
 })
 export class ActivityMetricComparisonComponent {
@@ -78,5 +113,6 @@ export class ActivityMetricComparisonComponent {
     const keys = new Set(this.highlights().map(m => m.key));
     return this.allGroups().map(g => ({ ...g, items: g.items.filter(m => !keys.has(m.key)) })).filter(g => g.items.length);
   });
+  readonly hasComparisons = computed(() => this.groups().some(group => group.items.some(metric => metric.values.length > 1)));
   readonly summaryTitle = computed(() => ({ run: 'Run summary', swim: 'Swim summary', bike: 'Ride summary', walk: 'Walk summary' } as Record<string, string>)[this.sport()] ?? 'Activity summary');
 }

@@ -30,6 +30,7 @@ describe('activity metrics rendered UI', () => {
     expect(el.querySelectorAll('.value')).toHaveLength(1);
     expect(el.textContent).toContain('10 km'); expect(el.querySelector('.sources')).toBeNull();
     expect(el.textContent).toContain('Time & Distance'); expect(el.textContent).not.toContain('Authoritative'); expect(el.querySelector('.authoritative')).toBeNull();
+    expect(el.querySelector('.details-heading p')).toBeNull();
     expect(el.textContent).not.toContain('Selected'); expect(el.querySelector('details')).toBeNull();
     expect(el.textContent).not.toContain('test-version');
   });
@@ -41,11 +42,14 @@ describe('activity metrics rendered UI', () => {
     expect(rows[1].textContent).not.toContain('Authoritative');
     expect(rows[0].classList.contains('authoritative')).toBe(false);
     expect(rows[1].classList.contains('authoritative')).toBe(true);
+    expect(el.querySelector('.details-heading p')?.textContent).toContain('Primary values are bold');
   });
   it('shows Garmin fallback without claiming authority and renders missing observations', () => {
     const el = render([{...distance,selected:null,candidates:[distance.candidates[0]]}, {key:'average_heart_rate',label:'Average heart rate',unit:'bpm',selected:null,candidates:[]}]);
     expect(el.textContent).toContain('Read-only fallback'); expect(el.textContent).not.toContain('Authoritative');
     expect(el.textContent).toContain('Heart Rate'); expect(el.textContent).toContain('Unavailable');
+    expect([...el.querySelectorAll('.metric-columns .group h3')].map(heading => heading.textContent))
+      .toEqual(['Time & Distance', 'Heart Rate']);
   });
   it('renders normalized running cadence with both sources and reacts to inputs', () => {
     const fixture = TestBed.createComponent(ActivityMetricComparisonComponent);
