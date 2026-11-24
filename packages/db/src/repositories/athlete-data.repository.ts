@@ -37,6 +37,18 @@ export interface AthleteSearchQuery {
   minSpeedKmh?: number;
   qualifiedWholeActivity?: boolean;
 }
+
+export interface WholeActivityRecordTarget {
+  sport: 'bike' | 'swim';
+  targetDistanceM: number;
+}
+
+export interface WholeActivityRecord extends WholeActivityRecordTarget {
+  activityId: string;
+  date: string;
+  distanceM: number;
+  durationS: number;
+}
 function serializeActivity(r: Record<string, unknown>): AthleteActivity {
   const number = (v: unknown) => (v === null ? null : Number(v));
   return {
@@ -129,6 +141,32 @@ export class AthleteDataRepository {
     if (rows.length > 50000) throw Error('ARCHIVE_LIMIT');
     return rows.map(serializeActivity);
   }
+
+  async wholeActivityBests(to: string, targets: readonly WholeActivityRecordTarget[]): Promise<WholeActivityRecord[]> {
+    if (!targets.length) return [];
+    const activities = this.query({ to, qualifiedWholeActivity: true })
+      .where('activity_type', 'in', ['bike', 'swim'])
+      .clearSelect()
+      .select(['id', 'activity_type', 'activity_date', 'duration_s'])
+      .select(effectiveDistanceExpression('activities').as('distance_m'));
+    const values = targets.map(({ sport, targetDistanceM }) => sql`(${sport}::text, ${targetDistanceM}::numeric)`);
+    const result = await sql<WholeActivityRecord>`
+      with eligible as (${activities}), targets(sport, distance_m) as (values ${sql.join(values)})
+      select distinct on (target.sport, target.distance_m)
+        target.sport,
+        target.distance_m::float8 as "targetDistanceM",
+        activity.id as "activityId",
+        activity.activity_date::text as date,
+        activity.distance_m::float8 as "distanceM",
+        activity.duration_s::float8 as "durationS"
+      from targets target
+      join eligible activity on activity.activity_type::text = target.sport
+        and abs(activity.distance_m - target.distance_m) <= greatest(1, target.distance_m * 0.01)
+      order by target.sport, target.distance_m, activity.duration_s, activity.activity_date, activity.id
+    `.execute(this.db);
+    return result.rows;
+  }
+
   async totals(input: AthleteSearchQuery) {
     const distance = effectiveDistanceExpression('activities');
     const row = await this.query(input)

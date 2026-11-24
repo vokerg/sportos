@@ -318,10 +318,14 @@ and restart exited runtime processes with bounded backoff. Database connections
 and worker queue scans recover from transient disconnects after wake; interrupted
 requests may still need a refresh. See [local recovery](docs/LOCAL_RECOVERY.md).
 
-Dynamics loads all available daily history once, supports local linked chart zoom,
-paginated heat-colored tables, and current-year/all-time rolling records, including
-workout and power/bonus points. Historical recalculation is reflected on Refresh
+Dynamics loads all available daily history once and supports local linked chart zoom
+and paginated heat-colored tables. Historical recalculation is reflected on Refresh
 data or reopening the screen. See [Dynamics behavior and validation](docs/implementation/issue-271.md).
+
+**Stats → Personal Records** shows all-time running, cycling and swimming times.
+The Daily & rolling view shows the best day and trailing calendar-day averages by
+metric, for all time or for a selected year. Running times use the Run Lab ranking.
+Cycling and swimming use whole-session elapsed times within 1% of the target distance.
 
 Daily and Dynamics charts include today and mark it Incomplete while Garmin and
 Strava data may still arrive. Future dates are excluded. Use the date pickers to

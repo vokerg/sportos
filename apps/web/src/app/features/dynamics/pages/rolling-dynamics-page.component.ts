@@ -5,7 +5,7 @@ import { connect, disconnect, type EChartsType } from 'echarts/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { Subject, takeUntil } from 'rxjs';
 import { DynamicsStore } from '../state/dynamics.store';
-import { historyMetric, metricUnit, historyHeatRanges, historyTableRows, historyRecordRows } from '../model/history.view-model';
+import { historyMetric, metricUnit, historyHeatRanges, historyTableRows } from '../model/history.view-model';
 import {
   DYNAMICS_METRICS,
   ROLLING_WINDOWS,
@@ -112,22 +112,6 @@ const DEFAULT_ROLLING_QUICK_RANGE: Exclude<QuickRange, 'custom' | 'all'> = '1y';
           </section>
         }
 
-        <section class="card table-card" aria-label="Personal records">
-          <div class="section-title"><h2>Personal records</h2><label>Calendar year
-            <select [value]="recordYear()" (change)="recordYear.set(inputValue($event))">
-              @for (year of recordYears(); track year) { <option [value]="year">{{ year }}</option> }
-            </select></label></div>
-          <p class="table-help">All-time and calendar-year highs use the window end date. Rolling records are averages per calendar day, after a full calendar span exists. Missing rows can understate averages; coverage is shown. Today is provisional. First date wins ties. Power points are bonuses.</p>
-          <div class="table-scroll" tabindex="0" role="region" aria-label="All-time and year records"><table>
-            <thead><tr><th>Metric / window</th><th>All-time high</th><th>Date · coverage</th><th>{{ recordYear() }} high</th><th>Date · coverage</th></tr></thead>
-            <tbody>@for (row of recordRows(); track row.key) {
-              <tr><th scope="row">{{ labels[row.metric] }} · {{ row.window === 1 ? 'daily' : row.window + 'd avg' }}</th>
-                <td>{{ formatRecord(row.all?.value, row.metric) }}</td><td>{{ row.all?.date ?? '—' }} {{ row.all ? ' · ' + row.all.recordedDays + '/' + row.window : '' }}</td>
-                <td>{{ formatRecord(row.year?.value, row.metric) }}</td><td>{{ row.year?.date ?? '—' }} {{ row.year ? ' · ' + row.year.recordedDays + '/' + row.window : '' }}</td></tr>
-            }</tbody>
-          </table></div>
-        </section>
-
         <section class="card table-card" aria-label="Aggregate averages">
           <div class="pagination" aria-label="Dynamics table pagination">
             <label><input type="checkbox" [checked]="allTableDays()" (change)="allTableDays.set(checked($event)); tablePage.set(0)"> All available history</label>
@@ -197,9 +181,6 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   readonly tablePage = signal(0);
   readonly pageSize = signal(50);
   readonly allTableDays = signal(false);
-  readonly recordYear = signal(localCalendarDate().slice(0, 4));
-  readonly recordYears = computed(() => [...new Set([localCalendarDate().slice(0, 4), ...(this.store.history()?.records.filter((r) => r.period !== 'all').map((r) => r.period) ?? [])])].sort().reverse());
-  readonly recordRows = computed(() => historyRecordRows(this.store.history(), this.recordYear()));
   readonly tableDates = computed(() => (this.store.history()?.dates ?? [])
     .map((date, index) => ({ date, index }))
     .filter(({ date }) => this.allTableDays() || (date >= this.from() && date <= this.to())).reverse());
@@ -291,7 +272,6 @@ export class RollingDynamicsPageComponent implements OnInit, OnDestroy {
   format(value: number | null | undefined): string { return formatRollingValue(value, this.data()!.unit); }
   formatMeasure(value: number | null | undefined): string { return formatRollingMeasureValue(value, this.measure(), this.data()!.unit); }
   setPageSize(value: string): void { const size = Number(value); if ([50, 100, 200].includes(size)) { this.pageSize.set(size); this.tablePage.set(0); } }
-  formatRecord(value: number | undefined, metric: DynamicsMetric): string { return formatRollingValue(value, metricUnit(metric)); }
   hasContribution(window: RollingWindow): boolean { return Boolean(this.data()?.scoreContributions[window]?.categories.length); }
   contributionChartOptions(window: RollingWindow) { return this.contributionOptions()[window] ?? {}; }
   formatAggregate(value: number | null | undefined, metric: RollingAggregateMetric): string {

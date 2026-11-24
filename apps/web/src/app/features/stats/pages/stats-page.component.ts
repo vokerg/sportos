@@ -26,6 +26,11 @@ import { RouterLink } from '@angular/router';
           <p>Distance-weighted running and swimming pace or cycling speed, alongside training volume.</p>
           <span class="report-link">Open pace and speed <span aria-hidden="true">→</span></span>
         </a>
+        <a class="card report-card" routerLink="/stats/personal-records">
+          <h2>Personal Records</h2>
+          <p>Best running, cycling and swimming times, plus daily and rolling highs.</p>
+          <span class="report-link">Open personal records <span aria-hidden="true">→</span></span>
+        </a>
       </div>
     </section>
   `,

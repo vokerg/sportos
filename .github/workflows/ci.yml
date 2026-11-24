@@ -177,13 +177,14 @@ jobs:
           SPORTOS_OWNER_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_APP_DATABASE_URL }}
         run: pnpm --filter @sportos/mcp test
 
-      - name: API analysis ownership integration
+      - name: API analysis and records ownership integration
         if: steps.database_config.outputs.ready == 'true'
         env:
           SPORTOS_OWNER_TEST_DATABASE_URL: ${{ secrets.SPORTOS_CI_APP_DATABASE_URL }}
         run: >-
           pnpm --filter @sportos/api exec vitest run
           src/analysis/analysis.integration.test.ts
+          src/stats/personal-records.integration.test.ts
           --no-file-parallelism
 
       - name: Worker import integration

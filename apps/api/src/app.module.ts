@@ -45,6 +45,7 @@ import { DynamicsController } from './dynamics/dynamics.controller.js';
 import { DynamicsService } from './dynamics/dynamics.service.js';
 import { ActivitiesController } from './activities/activities.controller.js';
 import { PaceSpeedTrendsController } from './stats/pace-speed-trends.controller.js';
+import { PersonalRecordsController } from './stats/personal-records.controller.js';
 import { HeatmapController } from './heatmap/heatmap.controller.js';
 import { ActivityProviderDetailService } from './activities/activity-provider-detail.service.js';
 import { ActivityRouteProjectionService } from './activities/activity-route-projection.service.js';
@@ -69,6 +70,7 @@ import { ActivityDistanceCorrectionService } from './activities/activity-distanc
     DynamicsController,
     ActivitiesController,
     PaceSpeedTrendsController,
+    PersonalRecordsController,
     HeatmapController,
     ActivityEnrichmentController,
     ActivityTimelineController,

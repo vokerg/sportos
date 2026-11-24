@@ -493,10 +493,16 @@ activity projection on native. Cards never fetch provider detail themselves.
 
 `features/dynamics/pages/rolling-dynamics-page.component.ts` is the lazy route.
 Its route-scoped `state/dynamics.store.ts` owns one cancellable in-memory history
-read, refresh and error state. Column presentation, records, chart options and
+read, refresh and error state. Column presentation, chart options and
 paged table/heat transformations live under `model/`. Date controls continue to
 use `shared/util/analytics-query-state.ts`; actual All time is the returned
 history range. Shared `metric-heat.ts` also serves Daily/Monthly. Full history
 stays available for linked ECharts local zoom; table paging never rebuilds all
 DOM rows. No account-independent global history cache is retained. See
 [record/recalculation semantics and validation](implementation/issue-271.md).
+
+Personal Records lives under `features/stats/` and loads a compact account-scoped
+report from `GET /stats/personal-records?to=YYYY-MM-DD`. Its rolling highs share
+the existing Dynamics calculation. The period and metric filters work locally.
+Sport cards link to canonical activities when available. Running uses Run Lab
+ranking; cycling and swimming use elapsed time for qualifying full sessions.

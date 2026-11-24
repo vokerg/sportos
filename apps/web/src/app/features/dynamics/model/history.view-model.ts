@@ -1,6 +1,5 @@
 import { positiveMetricRange, relativePastelBackground } from '../../../shared/util/metric-heat';
 import { ROLLING_AGGREGATE_METRICS } from './rolling-dynamics.view-model';
-import { ROLLING_WINDOWS } from './dynamics.models';
 import type { DynamicsHistoryResponse, DynamicsMetric, RollingDynamicsResponse, RollingWindow } from './dynamics.models';
 
 export function historyMetric(history: DynamicsHistoryResponse | null, metric: DynamicsMetric, windows: RollingWindow[]): RollingDynamicsResponse | null {
@@ -41,12 +40,4 @@ export function historyTableRows(history: DynamicsHistoryResponse | null, window
         relativePastelBackground(columns?.totals[metric][index], ranges[window]?.[metric] ?? null, '65, 150, 180') ?? 'transparent'])),
     }))];
   }));
-}
-
-export function historyRecordRows(history: DynamicsHistoryResponse | null, year: string) {
-  const index = new Map((history?.records ?? []).map((record) => [`${record.metric}:${record.windowDays}:${record.period}`, record]));
-  return ROLLING_AGGREGATE_METRICS.flatMap((metric) => [1, ...ROLLING_WINDOWS].map((window) => ({
-    key: `${metric}:${window}`, metric, window,
-    all: index.get(`${metric}:${window}:all`), year: index.get(`${metric}:${window}:${year}`),
-  })));
 }
